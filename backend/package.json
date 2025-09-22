@@ -1,0 +1,24 @@
+{
+  "name": "esportnews-backend",
+  "version": "1.0.0",
+  "description": "Esport News Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "fastify": "^4.24.3",
+    "@fastify/cors": "^8.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "eslint": "^8.53.0",
+    "@eslint/js": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

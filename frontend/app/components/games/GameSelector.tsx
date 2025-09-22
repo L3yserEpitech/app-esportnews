@@ -1,0 +1,171 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Game } from '../../types';
+
+interface GameSelectorProps {
+  games: Game[];
+  selectedGame?: string;
+  onSelectionChange: (gameId: string | null) => void;
+  className?: string;
+}
+
+const GameSelector: React.FC<GameSelectorProps> = ({
+  games,
+  selectedGame,
+  onSelectionChange,
+  className = ''
+}) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  // Suppression de l'auto-sélection - l'utilisateur choisit manuellement
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Toujours visible en haut de page (premiers 100px)
+      if (currentScrollY < 100) {
+        setIsVisible(true);
+      } else {
+        // Différence de scroll pour détecter la direction
+        const scrollDifference = Math.abs(currentScrollY - lastScrollY);
+
+        // Cacher en scrollant vers le bas (avec seuil minimum de mouvement)
+        if (currentScrollY > lastScrollY && currentScrollY > 200 && scrollDifference > 5) {
+          setIsVisible(false);
+        }
+        // Montrer dès le moindre scroll vers le haut
+        else if (currentScrollY < lastScrollY && scrollDifference > 1) {
+          setIsVisible(true);
+        }
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    // Throttle pour optimiser les performances
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+    };
+  }, [lastScrollY]);
+
+  const selectGame = (gameId: string) => {
+    // Si le jeu cliqué est déjà sélectionné, le désélectionner
+    if (selectedGame === gameId) {
+      onSelectionChange(null);
+    } else {
+      onSelectionChange(gameId);
+    }
+  };
+
+  const isSelected = (gameId: string) => selectedGame === gameId;
+
+  return (
+    <div className={`
+      relative bg-gray-900/90 backdrop-blur-sm border-b border-gray-700/40
+      transition-transform duration-300 ease-in-out
+      ${isVisible ? 'transform translate-y-0' : 'transform -translate-y-full'}
+      ${className}
+    `}>
+      {/* Effet de lueur subtile */}
+      <div className="absolute inset-0 bg-gradient-to-r from-pink-500/4 via-transparent to-pink-500/4" />
+
+      <div className="container mx-auto  py-3">
+        <div className="flex items-center justify-center gap-1 overflow-x-auto scrollbar-hide py-4 px-4">
+          {games.map((game) => {
+            const selected = isSelected(game.id.toString());
+
+            return (
+              <button
+                key={game.id}
+                onClick={() => selectGame(game.id.toString())}
+                className={`
+                  relative overflow-hidden rounded-lg transition-all duration-500 ease-out
+                  whitespace-nowrap min-w-0 focus:outline-none group hover:z-10
+                  transform-gpu will-change-transform
+                  ${selected
+                    ? 'ring-3 ring-pink-400/60 shadow-2xl shadow-pink-500/30 scale-110 rotate-1 z-20'
+                    : 'hover:ring-2 hover:ring-gray-400/40 hover:scale-110 hover:rotate-1 hover:shadow-2xl hover:shadow-gray-500/20'
+                  }
+                  w-32 h-40 backdrop-blur-sm
+                `}
+                style={{
+                  filter: selected ? 'brightness(1.1) saturate(1.2)' : 'brightness(0.9) saturate(0.8)',
+                }}
+                aria-pressed={selected}
+                aria-label={`${selected ? 'Désélectionner' : 'Sélectionner'} ${game.name}`}
+              >
+                {/* Bordure animée pour le jeu sélectionné */}
+                {selected && (
+                  <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400 rounded-lg animate-pulse" />
+                )}
+
+                {/* Container de l'image */}
+                <div className={`relative w-full h-full rounded-lg overflow-hidden ${selected ? 'z-10' : ''}`}>
+                  <img
+                    src={selected ? game.selected_image.url : game.unselected_image.url}
+                    alt={`Logo ${game.name}`}
+                    className="w-full h-full object-cover transition-all duration-500 group-hover:scale-125"
+                    loading="lazy"
+                  />
+
+                  {/* Overlay gradient amélioré */}
+                  <div className={`
+                    absolute inset-0 transition-all duration-500
+                    ${selected
+                      ? 'bg-gradient-to-t from-pink-900/40 via-transparent to-transparent'
+                      : 'bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 group-hover:opacity-100'
+                    }
+                  `} />
+
+                  {/* Badge de sélection */}
+                  {selected && (
+                    <div className="absolute top-2 right-2 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Texte amélioré */}
+                  <div className="absolute bottom-0 left-0 right-0 p-2">
+                    <span className={`
+                      block text-xs font-bold text-center transition-all duration-300
+                      ${selected
+                        ? 'text-white drop-shadow-lg scale-105'
+                        : 'text-white/90 group-hover:text-white group-hover:scale-105'
+                      }
+                      backdrop-blur-md bg-black/40 rounded-lg px-2 py-1 border border-white/20
+                    `}>
+                      {game.name}
+                    </span>
+                  </div>
+
+                  {/* Effet de brillance au hover */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%]" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GameSelector;
