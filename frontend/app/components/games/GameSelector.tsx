@@ -85,7 +85,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       {/* Effet de lueur subtile */}
       <div className="absolute inset-0 bg-gradient-to-r from-pink-500/4 via-transparent to-pink-500/4" />
 
-      <div className="container mx-auto  py-3">
+      <div className="container mx-auto ">
         <div className="flex items-center justify-center gap-1 overflow-x-auto scrollbar-hide py-4 px-4">
           {games.map((game) => {
             const selected = isSelected(game.id.toString());
@@ -95,48 +95,50 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 key={game.id}
                 onClick={() => selectGame(game.id.toString())}
                 className={`
-                  relative overflow-hidden rounded-lg transition-all duration-500 ease-out
+                  relative overflow-hidden rounded-xl transition-all duration-700 ease-out
                   whitespace-nowrap min-w-0 focus:outline-none group hover:z-10
-                  transform-gpu will-change-transform
+                  transform-gpu will-change-transform cursor-pointer
                   ${selected
-                    ? 'ring-3 ring-pink-400/60 shadow-2xl shadow-pink-500/30 scale-110 rotate-1 z-20'
-                    : 'hover:ring-2 hover:ring-gray-400/40 hover:scale-110 hover:rotate-1 hover:shadow-2xl hover:shadow-gray-500/20'
+                    ? 'ring-4 ring-pink-400/80 shadow-2xl shadow-pink-500/40 scale-105 z-20'
+                    : 'hover:ring-3 hover:ring-pink-300/60 hover:scale-105 hover:shadow-2xl hover:shadow-pink-400/30'
                   }
-                  w-32 h-40 backdrop-blur-sm
+                  w-32 h-40 backdrop-blur-sm active:scale-95
+                  hover:brightness-110 hover:saturate-125
                 `}
                 style={{
-                  filter: selected ? 'brightness(1.1) saturate(1.2)' : 'brightness(0.9) saturate(0.8)',
+                  filter: selected ? 'brightness(1.15) saturate(1.3) drop-shadow(0 0 20px rgba(244, 63, 94, 0.6))' : 'brightness(0.85) saturate(0.75)',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease-out',
                 }}
                 aria-pressed={selected}
                 aria-label={`${selected ? 'Désélectionner' : 'Sélectionner'} ${game.name}`}
               >
                 {/* Bordure animée pour le jeu sélectionné */}
                 {selected && (
-                  <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400 rounded-lg animate-pulse" />
+                  <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400 rounded-xl" />
                 )}
 
                 {/* Container de l'image */}
-                <div className={`relative w-full h-full rounded-lg overflow-hidden ${selected ? 'z-10' : ''}`}>
+                <div className={`relative w-full h-full rounded-xl overflow-hidden ${selected ? 'z-10' : ''}`}>
                   <img
                     src={selected ? game.selected_image.url : game.unselected_image.url}
                     alt={`Logo ${game.name}`}
-                    className="w-full h-full object-cover transition-all duration-500 group-hover:scale-125"
+                    className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 group-active:scale-90"
                     loading="lazy"
                   />
 
                   {/* Overlay gradient amélioré */}
                   <div className={`
-                    absolute inset-0 transition-all duration-500
+                    absolute inset-0 transition-all duration-700 ease-out
                     ${selected
-                      ? 'bg-gradient-to-t from-pink-900/40 via-transparent to-transparent'
-                      : 'bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 group-hover:opacity-100'
+                      ? 'bg-gradient-to-t from-pink-900/50 via-purple-900/20 to-transparent'
+                      : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100'
                     }
                   `} />
 
                   {/* Badge de sélection */}
                   {selected && (
-                    <div className="absolute top-2 right-2 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="absolute top-2 right-2 w-5 h-5 bg-gradient-to-br from-pink-400 to-pink-600 rounded-full flex items-center justify-center shadow-xl border-2 border-white/30">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -145,19 +147,21 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   {/* Texte amélioré */}
                   <div className="absolute bottom-0 left-0 right-0 p-2">
                     <span className={`
-                      block text-xs font-bold text-center transition-all duration-300
+                      block text-xs font-bold text-center transition-all duration-500 ease-out
                       ${selected
-                        ? 'text-white drop-shadow-lg scale-105'
-                        : 'text-white/90 group-hover:text-white group-hover:scale-105'
+                        ? 'text-white drop-shadow-lg scale-110 font-extrabold'
+                        : 'text-white/90 group-hover:text-white group-hover:scale-105 group-hover:font-extrabold'
                       }
-                      backdrop-blur-md bg-black/40 rounded-lg px-2 py-1 border border-white/20
+                      backdrop-blur-md bg-black/50 rounded-lg px-3 py-1.5 border border-white/30
+                      shadow-lg transform group-hover:shadow-xl
                     `}>
                       {game.name}
                     </span>
                   </div>
 
                   {/* Effet de brillance au hover */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%]" />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700 ease-out -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%]" />
+
                 </div>
               </button>
             );
