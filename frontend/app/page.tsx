@@ -131,25 +131,18 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {/* Header avec sélecteur de jeux */}
-      <header className="sticky top-0 z-50 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800">
-        <div className="container mx-auto px-4">
-        </div>
-
-      </header>
-
       {/* Banderole de sélection des jeux - Position fixe avec scroll detection */}
       {!isLoadingGames && (
         <GameSelector
           games={games}
           selectedGame={selectedGame}
           onSelectionChange={handleGameSelectionChange}
-          className="fixed top-0 left-0 right-0 z-40"
+          className="fixed top-20 left-0 right-0 z-40"
         />
       )}
 
-      {/* Contenu principal */}
-      <main className="container mx-auto px-4 py-8">
+      {/* Contenu principal - Ajusté pour la navbar fixe et le GameSelector */}
+      <main className="container mx-auto px-4 py-8 pt-27">
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
