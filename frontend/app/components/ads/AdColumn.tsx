@@ -27,6 +27,15 @@ const AdColumn: React.FC<AdColumnProps> = ({
     [ads]
   );
 
+  // Calculer l'espacement dynamique selon le nombre de pubs
+  const getSpacingClass = useMemo(() => {
+    const adCount = activeAds.length;
+    if (adCount === 1) return 'justify-center';
+    if (adCount === 2) return 'justify-between';
+    return 'justify-between'; // Pour 3 pubs, espacement égal
+  }, [activeAds.length]);
+
+
   const handlePremiumClick = useCallback(() => {
     // Navigation vers la page d'abonnement
     window.location.href = '/abonnement';
@@ -47,11 +56,11 @@ const AdColumn: React.FC<AdColumnProps> = ({
       className={`hidden lg:block w-[300px] flex-shrink-0 ${className}`}
       aria-label="Publicités"
     >
-      <div className="sticky top-4 space-y-4">
+      <div className="sticky top-26 space-y-4">
         {isLoading ? (
           // Afficher les skeletons pendant le chargement
           Array.from({ length: 3 }).map((_, index) => (
-            <AdSkeleton key={`ad-skeleton-${index}`} className="w-full" />
+            <AdSkeleton key={`ad-skeleton-${index}`} className="w-full flex-shrink-0" />
           ))
         ) : (
           activeAds.map((ad, index) => (
@@ -60,13 +69,13 @@ const AdColumn: React.FC<AdColumnProps> = ({
               ad={ad}
               position={index + 1}
               isSubscribed={isSubscribed}
-              className="w-full"
+              className="w-full flex-shrink-0"
             />
           ))
         )}
         
-        {/* Message d'abonnement si moins de 3 pubs */}
-        {activeAds.length < 3 && (
+        {/* Message d'abonnement si moins de 3 pubs et pas en loading */}
+        {!isLoading && activeAds.length < 3 && activeAds.length > 0 && (
           <div className="bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg p-4 text-center">
             <h3 className="text-pink-400 font-medium mb-2">
               🎆 Experience sans pub

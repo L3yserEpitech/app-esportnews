@@ -118,6 +118,10 @@ export default function HomePage() {
               featuredNews={featuredNews}
               newsList={newsList}
             />
+            <div className='h-300'>
+              <p>a</p>
+            </div>
+
           </div>
 
           {/* Colonne publicitaire (desktop uniquement) */}
