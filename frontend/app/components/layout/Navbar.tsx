@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
+import UserProfile from '../auth/UserProfile';
+import LoginButton from '../auth/LoginButton';
 
 const Navbar: React.FC = () => {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
 
   const navLinks = useMemo(() => [
     { href: '/', label: 'Accueil' },
@@ -57,6 +61,17 @@ const Navbar: React.FC = () => {
             ))}
           </div>
 
+          {/* Authentication Section */}
+          <div className="hidden md:flex items-center">
+            {status === 'loading' ? (
+              <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse"></div>
+            ) : session ? (
+              <UserProfile />
+            ) : (
+              <LoginButton />
+            )}
+          </div>
+
           {/* Mobile menu button */}
           <div className="md:hidden">
             <button
@@ -90,6 +105,23 @@ const Navbar: React.FC = () => {
               {link.label}
             </Link>
           ))}
+
+          {/* Mobile Authentication */}
+          <div className="pt-3 border-t border-gray-700/40">
+            {status === 'loading' ? (
+              <div className="px-3 py-2">
+                <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse"></div>
+              </div>
+            ) : session ? (
+              <div className="px-3 py-2">
+                <UserProfile />
+              </div>
+            ) : (
+              <div className="px-3 py-2">
+                <LoginButton className="w-full" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

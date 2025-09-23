@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/layout/Navbar";
+import AuthProvider from "../components/providers/AuthProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -45,8 +46,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} font-sans antialiased bg-gray-950 text-white min-h-screen`}
       >
-        <Navbar />
-        {children}
+        <AuthProvider>
+          <Navbar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
