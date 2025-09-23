@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Game } from '../../types';
 
 interface GameSelectorProps {
   games: Game[];
-  selectedGame?: string;
+  selectedGame?: string | null;
   onSelectionChange: (gameId: string | null) => void;
   className?: string;
 }
@@ -64,16 +64,16 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     };
   }, [lastScrollY]);
 
-  const selectGame = (gameId: string) => {
+  const selectGame = useCallback((gameId: string) => {
     // Si le jeu cliqué est déjà sélectionné, le désélectionner
     if (selectedGame === gameId) {
       onSelectionChange(null);
     } else {
       onSelectionChange(gameId);
     }
-  };
+  }, [selectedGame, onSelectionChange]);
 
-  const isSelected = (gameId: string) => selectedGame === gameId;
+  const isSelected = useCallback((gameId: string) => selectedGame === gameId, [selectedGame]);
 
   return (
     <div className={`

@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useMemo } from 'react';
 import { NewsItem } from '../../types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -15,23 +16,29 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   newsList,
   className = ''
 }) => {
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
-  };
+  }, []);
 
-  const truncateText = (text: string, maxLength: number) => {
+  const truncateText = useCallback((text: string, maxLength: number) => {
     return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
-  };
+  }, []);
 
-  const handleNewsClick = (slug: string) => {
+  const handleNewsClick = useCallback((slug: string) => {
     // Navigation vers l'article (sera implémenté avec Next.js router)
     window.location.href = `/news/${slug}`;
-  };
+  }, []);
+
+  const handleViewAllClick = useCallback(() => {
+    window.location.href = '/news';
+  }, []);
+
+  const hasNews = useMemo(() => newsList.length > 0 || !!featuredNews, [newsList.length, featuredNews]);
 
   return (
     <section className={`space-y-6 ${className}`} aria-labelledby="news-section">
@@ -42,7 +49,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => window.location.href = '/news'}
+          onClick={handleViewAllClick}
           className="text-pink-400 hover:text-pink-300"
         >
           Voir tout →
@@ -187,7 +194,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
         ))}
       </div>
 
-      {newsList.length === 0 && !featuredNews && (
+      {!hasNews && (
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg mb-2">
             📰 Aucune actualité disponible

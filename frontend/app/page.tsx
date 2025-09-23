@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import GameSelector from './components/games/GameSelector';
 import LiveMatchItem from './components/matches/LiveMatchItem';
 import LiveMatchCard from './components/matches/LiveMatchCard';
@@ -58,6 +58,16 @@ export default function HomePage() {
   const [isLoadingGames, setIsLoadingGames] = useState(true);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
 
+  // Charger la sélection de jeu depuis localStorage au démarrage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedGame = localStorage.getItem('selectedGame');
+      if (savedGame) {
+        setSelectedGame(savedGame);
+      }
+    }
+  }, []);
+
   // Charger les jeux depuis l'API
   useEffect(() => {
     const loadGames = async () => {
@@ -100,57 +110,30 @@ export default function HomePage() {
     }
   }, [selectedGame]);
 
-  const handleGameSelectionChange = (gameId: string | null) => {
+  const handleGameSelectionChange = useCallback((gameId: string | null) => {
     setSelectedGame(gameId);
+
+    // Sauvegarder la sélection dans localStorage
+    if (typeof window !== 'undefined') {
+      if (gameId) {
+        localStorage.setItem('selectedGame', gameId);
+      } else {
+        localStorage.removeItem('selectedGame');
+      }
+    }
+
     // Filtrer les matchs selon le jeu sélectionné
     // setLiveMatches(filteredMatches);
-  };
+  }, []);
 
-  const featuredNews = news.length > 0 ? news[0] : undefined;
-  const newsList = news.slice(1);
+  const featuredNews = useMemo(() => news.length > 0 ? news[0] : undefined, [news]);
+  const newsList = useMemo(() => news.slice(1), [news]);
 
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header avec sélecteur de jeux */}
       <header className="sticky top-0 z-50 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-white">
-                <span className="text-pink-500">Esport</span>News
-              </h1>
-              <nav className="hidden md:flex space-x-6">
-                <a href="/" className="text-pink-400 hover:text-pink-300 transition-colors">
-                  Accueil
-                </a>
-                <a href="/direct" className="text-gray-300 hover:text-white transition-colors">
-                  Direct
-                </a>
-                <a href="/tournois" className="text-gray-300 hover:text-white transition-colors">
-                  Tournois
-                </a>
-                <a href="/news" className="text-gray-300 hover:text-white transition-colors">
-                  News
-                </a>
-                <a href="/calendrier" className="text-gray-300 hover:text-white transition-colors">
-                  Calendrier
-                </a>
-              </nav>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setIsSubscribed(!isSubscribed)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSubscribed
-                    ? 'bg-pink-500 text-white'
-                    : 'border border-pink-500 text-pink-500 hover:bg-pink-500 hover:text-white'
-                }`}
-              >
-                {isSubscribed ? '✓ Premium' : 'S\'abonner'}
-              </button>
-            </div>
-          </div>
         </div>
 
       </header>

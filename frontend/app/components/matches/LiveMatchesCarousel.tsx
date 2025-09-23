@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Carousel,
   CarouselContent,
@@ -14,6 +15,13 @@ interface LiveMatchesCarouselProps {
 }
 
 export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesCarouselProps) {
+  const carouselOptions = useMemo(() => ({
+    align: "start" as const,
+    loop: false,
+  }), []);
+
+  const showNavigation = useMemo(() => matches.length > 1, [matches.length]);
+
   if (isLoading) {
     return (
       <div className="text-center py-12 bg-gray-900 rounded-lg">
@@ -40,10 +48,7 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
   return (
     <div className="relative overflow-hidden">
       <Carousel
-        opts={{
-          align: "start",
-          loop: false,
-        }}
+        opts={carouselOptions}
         className="w-full max-w-full"
       >
         <CarouselContent className="-ml-2 md:-ml-4 overflow-visible">
@@ -55,7 +60,7 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
             </CarouselItem>
           ))}
         </CarouselContent>
-        {matches.length > 1 && (
+        {showNavigation && (
           <>
             <CarouselPrevious className="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-800 border-gray-700 hover:bg-gray-700 text-white z-10" />
             <CarouselNext className="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-800 border-gray-700 hover:bg-gray-700 text-white z-10" />

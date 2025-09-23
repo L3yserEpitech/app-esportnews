@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useCallback } from 'react';
 import { Advertisement } from '../../types';
 import AdBanner from './AdBanner';
 
@@ -15,13 +16,26 @@ const AdColumn: React.FC<AdColumnProps> = ({
   className = ''
 }) => {
   // Filtrer les pubs actives et les trier par position
-  const activeAds = ads
-    .filter(ad => ad.is_active)
-    .sort((a, b) => a.position - b.position)
-    .slice(0, 3); // Maximum 3 emplacements comme spécifié dans CLAUDE.md
+  const activeAds = useMemo(() =>
+    ads
+      .filter(ad => ad.is_active)
+      .sort((a, b) => a.position - b.position)
+      .slice(0, 3), // Maximum 3 emplacements comme spécifié dans CLAUDE.md
+    [ads]
+  );
+
+  const handlePremiumClick = useCallback(() => {
+    // Navigation vers la page d'abonnement
+    window.location.href = '/abonnement';
+  }, []);
+
+  const shouldShowColumn = useMemo(() =>
+    !isSubscribed && activeAds.length > 0,
+    [isSubscribed, activeAds.length]
+  );
 
   // Ne pas afficher la colonne pour les abonnés
-  if (isSubscribed || activeAds.length === 0) {
+  if (!shouldShowColumn) {
     return null;
   }
 
@@ -54,7 +68,10 @@ const AdColumn: React.FC<AdColumnProps> = ({
             <p className="text-gray-300 text-sm mb-3">
               Profitez du contenu sans interruption avec notre abonnement premium.
             </p>
-            <button className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            <button
+              onClick={handlePremiumClick}
+              className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
               Découvrir Premium
             </button>
           </div>
