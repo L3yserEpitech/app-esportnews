@@ -10,38 +10,23 @@ import AdColumn from './components/ads/AdColumn';
 import { Game, Match, NewsItem, Advertisement, LiveMatch } from './types';
 import { liveMatchService } from './services/liveMatchService';
 import { advertisementService } from './services/advertisementService';
+import { articleService } from './services/articleService';
 import { useGame } from './contexts/GameContext';
 
 
 const mockMatches: Match[] = [];
 
-const mockNews: NewsItem[] = [
-  {
-    id: 1,
-    slug: 'valorant-champions-2024-grand-final',
-    title: 'Valorant Champions 2024 : Une finale épique nous attend',
-    subtitle: 'Les deux meilleures équipes mondiales s\'affrontent pour le titre suprême',
-    description: 'Après des semaines de compétition acharnée, la finale du Valorant Champions 2024 promet d\'être un spectacle inoubliable.',
-    author: 'Admin',
-    created_at: new Date().toISOString(),
-    readTime: 5,
-    featuredImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800',
-    category: 'Tournois',
-    tags: ['Valorant', 'Champions', 'Esport'],
-    views: 1250,
-    status: 'publié'
-  }
-];
 
 
 export default function HomePage() {
   const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
-  const [news, setNews] = useState<NewsItem[]>(mockNews);
+  const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
+  const [isLoadingNews, setIsLoadingNews] = useState(true);
 
   // Charger les matchs en direct depuis l'API backend
   useEffect(() => {
@@ -77,6 +62,23 @@ export default function HomePage() {
     loadAds();
   }, []);
 
+  // Charger l'article le plus récent depuis l'API
+  useEffect(() => {
+    const loadLatestNews = async () => {
+      try {
+        setIsLoadingNews(true);
+        const latestArticle = await articleService.getLatestArticle();
+        setFeaturedNews(latestArticle);
+      } catch (error) {
+        console.error('Erreur lors du chargement de l\'article récent:', error);
+      } finally {
+        setIsLoadingNews(false);
+      }
+    };
+
+    loadLatestNews();
+  }, []);
+
   // Charger les données selon le jeu sélectionné
   useEffect(() => {
     if (selectedGame) {
@@ -86,8 +88,8 @@ export default function HomePage() {
   }, [selectedGame]);
 
 
-  const featuredNews = useMemo(() => news.length > 0 ? news[0] : undefined, [news]);
-  const newsList = useMemo(() => news.slice(1), [news]);
+  // Pour l'instant, on n'affiche que l'article principal (pas de liste d'articles supplémentaires)
+  const newsList = useMemo(() => [], []);
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -117,11 +119,8 @@ export default function HomePage() {
             <NewsSection
               featuredNews={featuredNews}
               newsList={newsList}
+              isLoading={isLoadingNews}
             />
-            <div className='h-300'>
-              <p>a</p>
-            </div>
-
           </div>
 
           {/* Colonne publicitaire (desktop uniquement) */}

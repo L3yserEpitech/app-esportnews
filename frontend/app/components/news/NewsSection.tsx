@@ -4,16 +4,19 @@ import { useCallback, useMemo } from 'react';
 import { NewsItem } from '../../types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import NewsSkeleton from '../ui/NewsSkeleton';
 
 interface NewsSectionProps {
-  featuredNews?: NewsItem;
+  featuredNews?: NewsItem | null;
   newsList: NewsItem[];
+  isLoading?: boolean;
   className?: string;
 }
 
 const NewsSection: React.FC<NewsSectionProps> = ({
   featuredNews,
   newsList,
+  isLoading = false,
   className = ''
 }) => {
   const formatDate = useCallback((dateString: string) => {
@@ -57,11 +60,13 @@ const NewsSection: React.FC<NewsSectionProps> = ({
       </div>
 
       {/* Article en vedette */}
-      {featuredNews && (
-        <Card 
-          variant="elevated" 
+      {isLoading ? (
+        <NewsSkeleton variant="featured" className="w-full" />
+      ) : featuredNews ? (
+        <Card
+          variant="elevated"
           padding="none"
-          className="overflow-hidden cursor-pointer hover:border-pink-500/50 transition-all"
+          className="overflow-hidden cursor-pointer hover:border-pink-500/50 transition-all group"
           onClick={() => handleNewsClick(featuredNews.slug)}
           role="button"
           tabIndex={0}
@@ -77,46 +82,54 @@ const NewsSection: React.FC<NewsSectionProps> = ({
             <img
               src={featuredNews.featuredImage}
               alt={featuredNews.title}
-              className="w-full h-48 md:h-64 object-cover"
+              className="w-full h-48 md:h-64 object-cover transition-all duration-300 group-hover:brightness-75"
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            
+
+            {/* Overlay d'assombrissement au hover */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+
             <div className="absolute bottom-0 left-0 right-0 p-6">
-              <div className="flex items-center space-x-2 mb-2">
-                <span className="bg-pink-500 text-white px-2 py-1 rounded text-xs font-medium">
-                  {featuredNews.category}
-                </span>
-                <span className="text-gray-300 text-xs">
-                  {formatDate(featuredNews.created_at)}
-                </span>
-                <span className="text-gray-400 text-xs">
-                  🕰️ {featuredNews.readTime} min
-                </span>
+              {/* Catégorie et titre - remontent au hover */}
+              <div className="transition-transform duration-300 group-hover:-translate-y-8">
+                {/* Catégorie */}
+                <div className="mb-2">
+                  <span className="bg-pink-500 text-white px-2 py-1 rounded text-xs font-medium">
+                    {featuredNews.category}
+                  </span>
+                </div>
+
+                {/* Titre */}
+                <h3 className="text-xl md:text-2xl font-bold text-white line-clamp-2">
+                  {featuredNews.title}
+                </h3>
               </div>
-              
-              <h3 className="text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">
-                {featuredNews.title}
-              </h3>
-              
-              {featuredNews.subtitle && (
-                <p className="text-gray-300 text-sm line-clamp-2">
-                  {featuredNews.subtitle}
-                </p>
-              )}
-              
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-gray-400 text-sm">
-                  Par {featuredNews.author}
-                </span>
-                <span className="text-gray-500 text-xs">
-                  {featuredNews.views} vues
-                </span>
+
+              {/* Informations supplémentaires - visibles au hover, apparaissent en dessous du titre */}
+              <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-gray-300 text-xs">
+                    {formatDate(featuredNews.created_at)}
+                  </span>
+                  <span className="text-gray-400 text-xs">
+                    🕰️ {featuredNews.readTime} min
+                  </span>
+                  <span className="text-gray-400 text-xs">
+                    Par {featuredNews.author}
+                  </span>
+                </div>
+
+                {featuredNews.subtitle && (
+                  <p className="text-gray-300 text-sm line-clamp-2">
+                    {featuredNews.subtitle}
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </Card>
-      )}
+      ) : null}
 
       {/* Liste des actualités */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
