@@ -1,17 +1,32 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { Gamepad2 } from 'lucide-react';
 import UserProfile from '../auth/UserProfile';
 import LoginButton from '../auth/LoginButton';
+import MobileGameSelector from '../games/MobileGameSelector';
+import { Game } from '../../types';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  games?: Game[];
+  selectedGame?: string | null;
+  onGameSelectionChange?: (gameId: string | null) => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({
+  games = [],
+  selectedGame,
+  onGameSelectionChange
+}) => {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileGameSelectorOpen, setIsMobileGameSelectorOpen] = useState(false);
 
   const navLinks = useMemo(() => [
     { href: '/', label: 'Accueil' },
@@ -54,6 +69,14 @@ const Navbar: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const toggleMobileGameSelector = () => {
+    setIsMobileGameSelectorOpen(!isMobileGameSelectorOpen);
+  };
+
+  const closeMobileGameSelector = () => {
+    setIsMobileGameSelectorOpen(false);
+  };
+
   return (
     <nav className={`
       fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out backdrop-blur-sm
@@ -69,9 +92,14 @@ const Navbar: React.FC = () => {
             href="/"
             className="flex items-center space-x-2 group"
           >
-            <div className="text-2xl font-bold text-white group-hover:text-gray-200 transition-all duration-300">
-              EsportNews
-            </div>
+            <Image
+              src="/logo_blanc.png"
+              alt="EsportNews"
+              width={200}
+              height={130}
+              className="h-12 w-auto group-hover:opacity-80 transition-opacity duration-300"
+              priority
+            />
           </Link>
 
           {/* Navigation Links */}
@@ -105,12 +133,25 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
+          {/* Mobile buttons */}
+          <div className="md:hidden flex items-center space-x-3">
+            {/* Mobile game selector button */}
+            {games.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleMobileGameSelector}
+                className="text-white hover:text-gray-200 focus:outline-none focus:text-gray-200 transition-colors duration-300 p-2 rounded-lg hover:bg-gray-800/50"
+                aria-label="Sélectionner un jeu"
+              >
+                <Gamepad2 className="h-6 w-6" />
+              </button>
+            )}
+
+            {/* Mobile menu button */}
             <button
               type="button"
               onClick={toggleMobileMenu}
-              className="text-gray-300 hover:text-white focus:outline-none focus:text-white transition-colors duration-300"
+              className="text-gray-300 hover:text-white focus:outline-none focus:text-white transition-colors duration-300 p-2 rounded-lg hover:bg-gray-800/50"
               aria-label="Menu"
               aria-expanded={isMobileMenuOpen}
             >
@@ -173,6 +214,17 @@ const Navbar: React.FC = () => {
             </div>
           </div>
       </div>
+
+      {/* Mobile Game Selector */}
+      {games.length > 0 && onGameSelectionChange && (
+        <MobileGameSelector
+          games={games}
+          selectedGame={selectedGame}
+          onSelectionChange={onGameSelectionChange}
+          isOpen={isMobileGameSelectorOpen}
+          onClose={closeMobileGameSelector}
+        />
+      )}
     </nav>
   );
 };

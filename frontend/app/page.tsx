@@ -8,8 +8,8 @@ import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import { Game, Match, NewsItem, Advertisement, LiveMatch } from './types';
-import { gameService } from './services/gameService';
 import { liveMatchService } from './services/liveMatchService';
+import { useGame } from './contexts/GameContext';
 
 
 const mockMatches: Match[] = [];
@@ -49,41 +49,12 @@ const mockAds: Advertisement[] = [
 ];
 
 export default function HomePage() {
-  const [selectedGame, setSelectedGame] = useState<string | null>(null);
-  const [games, setGames] = useState<Game[]>([]);
+  const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [news, setNews] = useState<NewsItem[]>(mockNews);
   const [ads, setAds] = useState<Advertisement[]>(mockAds);
-  const [isLoadingGames, setIsLoadingGames] = useState(true);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
-
-  // Charger la sélection de jeu depuis localStorage au démarrage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedGame = localStorage.getItem('selectedGame');
-      if (savedGame) {
-        setSelectedGame(savedGame);
-      }
-    }
-  }, []);
-
-  // Charger les jeux depuis l'API
-  useEffect(() => {
-    const loadGames = async () => {
-      try {
-        setIsLoadingGames(true);
-        const fetchedGames = await gameService.getGames();
-        setGames(fetchedGames);
-      } catch (error) {
-        console.error('Erreur lors du chargement des jeux:', error);
-      } finally {
-        setIsLoadingGames(false);
-      }
-    };
-
-    loadGames();
-  }, []);
 
   // Charger les matchs en direct depuis l'API backend
   useEffect(() => {
@@ -110,39 +81,24 @@ export default function HomePage() {
     }
   }, [selectedGame]);
 
-  const handleGameSelectionChange = useCallback((gameId: string | null) => {
-    setSelectedGame(gameId);
-
-    // Sauvegarder la sélection dans localStorage
-    if (typeof window !== 'undefined') {
-      if (gameId) {
-        localStorage.setItem('selectedGame', gameId);
-      } else {
-        localStorage.removeItem('selectedGame');
-      }
-    }
-
-    // Filtrer les matchs selon le jeu sélectionné
-    // setLiveMatches(filteredMatches);
-  }, []);
 
   const featuredNews = useMemo(() => news.length > 0 ? news[0] : undefined, [news]);
   const newsList = useMemo(() => news.slice(1), [news]);
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {/* Banderole de sélection des jeux - Position fixe avec scroll detection */}
+      {/* Banderole de sélection des jeux - Desktop uniquement */}
       {!isLoadingGames && (
         <GameSelector
           games={games}
           selectedGame={selectedGame}
-          onSelectionChange={handleGameSelectionChange}
-          className="fixed top-20 left-0 right-0 z-40"
+          onSelectionChange={setSelectedGame}
+          className="hidden md:block fixed top-20 left-0 right-0 z-40"
         />
       )}
 
       {/* Contenu principal - Ajusté pour la navbar fixe et le GameSelector */}
-      <main className="container mx-auto px-4 py-8 pt-27">
+      <main className="container mx-auto px-4 py-8 pt-24 md:pt-27">
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
