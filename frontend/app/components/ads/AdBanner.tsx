@@ -46,10 +46,10 @@ const AdBanner: React.FC<AdBannerProps> = ({
   }
 
   return (
-    <Card 
-      variant="outlined" 
+    <Card
+      variant="outlined"
       padding="none"
-      className={`cursor-pointer hover:border-pink-400 transition-colors ${className}`}
+      className={`cursor-pointer transition-all duration-300 group ${className}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -64,7 +64,7 @@ const AdBanner: React.FC<AdBannerProps> = ({
       <div className="relative overflow-hidden rounded-lg">
         {ad.type === 'video' ? (
           <video
-            className="w-full h-auto max-h-96 object-cover"
+            className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
             autoPlay
             muted
             loop
@@ -81,25 +81,24 @@ const AdBanner: React.FC<AdBannerProps> = ({
           <img
             src={ad.url}
             alt={ad.title}
-            className="w-full h-auto max-h-96 object-cover"
+            className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
             onError={handleImageError}
             loading="lazy"
           />
         )}
-        
-        {/* Overlay avec titre */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-          <h3 className="text-white text-sm font-medium truncate">
-            {ad.title}
-          </h3>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xs text-gray-300">Publicité</span>
-            <span className="text-xs text-pink-400">Position {position}</span>
+
+        {/* Overlay avec effet de slide depuis le bas */}
+        <div className="absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+          <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
+            <h3 className="text-white text-sm font-semibold mb-1">
+              {ad.title}
+            </h3>
+            <span className="text-xs text-pink-400 font-medium">Publicité</span>
           </div>
         </div>
-        
-        {/* Indicateur hover */}
-        <div className="absolute inset-0 bg-pink-500/0 hover:bg-pink-500/10 transition-colors" />
+
+        {/* Overlay d'assombrissement général au hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
       </div>
     </Card>
   );

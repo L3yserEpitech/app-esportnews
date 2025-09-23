@@ -107,6 +107,20 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Animation shimmer pour les skeletons */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+}
+
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
   line-height: 1.6;

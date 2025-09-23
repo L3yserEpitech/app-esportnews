@@ -9,6 +9,7 @@ import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import { Game, Match, NewsItem, Advertisement, LiveMatch } from './types';
 import { liveMatchService } from './services/liveMatchService';
+import { advertisementService } from './services/advertisementService';
 import { useGame } from './contexts/GameContext';
 
 
@@ -32,29 +33,15 @@ const mockNews: NewsItem[] = [
   }
 ];
 
-const mockAds: Advertisement[] = [
-  {
-    id: 1,
-    title: 'Gaming Gear Pro',
-    position: 1,
-    type: 'banner',
-    url: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=300&h=400',
-    redirect_link: 'https://example.com',
-    is_active: true,
-    file_size: 150000,
-    file_type: 'image/jpeg',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
 
 export default function HomePage() {
   const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [news, setNews] = useState<NewsItem[]>(mockNews);
-  const [ads, setAds] = useState<Advertisement[]>(mockAds);
+  const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [isLoadingAds, setIsLoadingAds] = useState(true);
 
   // Charger les matchs en direct depuis l'API backend
   useEffect(() => {
@@ -73,6 +60,23 @@ export default function HomePage() {
     loadLiveMatches();
   }, []);
 
+  // Charger les publicités depuis l'API
+  useEffect(() => {
+    const loadAds = async () => {
+      try {
+        setIsLoadingAds(true);
+        const fetchedAds = await advertisementService.getActiveAdvertisements();
+        setAds(fetchedAds);
+      } catch (error) {
+        console.error('Erreur lors du chargement des publicités:', error);
+      } finally {
+        setIsLoadingAds(false);
+      }
+    };
+
+    loadAds();
+  }, []);
+
   // Charger les données selon le jeu sélectionné
   useEffect(() => {
     if (selectedGame) {
@@ -88,14 +92,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Banderole de sélection des jeux - Desktop uniquement */}
-      {!isLoadingGames && (
-        <GameSelector
-          games={games}
-          selectedGame={selectedGame}
-          onSelectionChange={setSelectedGame}
-          className="hidden md:block fixed top-20 left-0 right-0 z-40"
-        />
-      )}
+      <GameSelector
+        games={games}
+        selectedGame={selectedGame}
+        onSelectionChange={setSelectedGame}
+        isLoading={isLoadingGames}
+        className="hidden md:block fixed top-20 left-0 right-0 z-40"
+      />
 
       {/* Contenu principal - Ajusté pour la navbar fixe et le GameSelector */}
       <main className="container mx-auto px-4 py-8 pt-24 md:pt-27">
@@ -121,6 +124,7 @@ export default function HomePage() {
           <AdColumn
             ads={ads}
             isSubscribed={isSubscribed}
+            isLoading={isLoadingAds}
           />
         </div>
       </main>

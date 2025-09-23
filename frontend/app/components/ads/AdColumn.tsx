@@ -3,16 +3,19 @@
 import { useMemo, useCallback } from 'react';
 import { Advertisement } from '../../types';
 import AdBanner from './AdBanner';
+import AdSkeleton from '../ui/AdSkeleton';
 
 interface AdColumnProps {
   ads: Advertisement[];
   isSubscribed?: boolean;
+  isLoading?: boolean;
   className?: string;
 }
 
 const AdColumn: React.FC<AdColumnProps> = ({
   ads,
   isSubscribed = false,
+  isLoading = false,
   className = ''
 }) => {
   // Filtrer les pubs actives et les trier par position
@@ -30,8 +33,8 @@ const AdColumn: React.FC<AdColumnProps> = ({
   }, []);
 
   const shouldShowColumn = useMemo(() =>
-    !isSubscribed && activeAds.length > 0,
-    [isSubscribed, activeAds.length]
+    !isSubscribed && (activeAds.length > 0 || isLoading),
+    [isSubscribed, activeAds.length, isLoading]
   );
 
   // Ne pas afficher la colonne pour les abonnés
@@ -45,19 +48,22 @@ const AdColumn: React.FC<AdColumnProps> = ({
       aria-label="Publicités"
     >
       <div className="sticky top-4 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-300 mb-4">
-          Nos partenaires
-        </h2>
-        
-        {activeAds.map((ad, index) => (
-          <AdBanner
-            key={ad.id}
-            ad={ad}
-            position={index + 1}
-            isSubscribed={isSubscribed}
-            className="w-full"
-          />
-        ))}
+        {isLoading ? (
+          // Afficher les skeletons pendant le chargement
+          Array.from({ length: 3 }).map((_, index) => (
+            <AdSkeleton key={`ad-skeleton-${index}`} className="w-full" />
+          ))
+        ) : (
+          activeAds.map((ad, index) => (
+            <AdBanner
+              key={ad.id}
+              ad={ad}
+              position={index + 1}
+              isSubscribed={isSubscribed}
+              className="w-full"
+            />
+          ))
+        )}
         
         {/* Message d'abonnement si moins de 3 pubs */}
         {activeAds.length < 3 && (

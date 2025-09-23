@@ -86,7 +86,27 @@ const MobileGameSelector: React.FC<MobileGameSelectorProps> = ({
         {/* Games grid */}
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
-            {games.map((game) => {
+            {games.length === 0 ? (
+              // Skeletons pendant le chargement
+              Array.from({ length: 8 }).map((_, index) => (
+                <div
+                  key={`mobile-skeleton-${index}`}
+                  className="aspect-[3/4] bg-gray-800/50 rounded-xl animate-pulse"
+                >
+                  <div className="w-full h-full bg-gray-700/50 rounded-xl relative">
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-800/80 via-gray-800/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                      <div className="bg-gray-600/50 rounded-md px-2 py-1">
+                        <div className="h-3 bg-gray-500/50 rounded w-16 mx-auto"></div>
+                      </div>
+                    </div>
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              games.map((game) => {
               const selected = selectedGame === game.id.toString();
 
               return (
@@ -155,7 +175,8 @@ const MobileGameSelector: React.FC<MobileGameSelectorProps> = ({
                   </div>
                 </button>
               );
-            })}
+            })
+            )}
           </div>
 
           {/* Option pour désélectionner */}

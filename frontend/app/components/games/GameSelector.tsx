@@ -2,19 +2,22 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Game } from '../../types';
+import GameCardSkeleton from '../ui/GameCardSkeleton';
 
 interface GameSelectorProps {
   games: Game[];
   selectedGame?: string | null;
   onSelectionChange: (gameId: string | null) => void;
   className?: string;
+  isLoading?: boolean;
 }
 
 const GameSelector: React.FC<GameSelectorProps> = ({
   games,
   selectedGame,
   onSelectionChange,
-  className = ''
+  className = '',
+  isLoading = false
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -87,7 +90,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
       <div className="container mx-auto ">
         <div className="flex items-center justify-center gap-1 overflow-x-auto scrollbar-hide py-4 px-4">
-          {games.map((game) => {
+          {isLoading ? (
+            // Afficher les skeletons pendant le chargement
+            Array.from({ length: 10 }).map((_, index) => (
+              <GameCardSkeleton key={`skeleton-${index}`} />
+            ))
+          ) : (
+            games.map((game) => {
             const selected = isSelected(game.id.toString());
 
             return (
@@ -165,7 +174,8 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 </div>
               </button>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     </div>
