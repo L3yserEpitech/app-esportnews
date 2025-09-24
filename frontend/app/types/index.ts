@@ -160,3 +160,136 @@ export interface UserPreferences {
   isSubscribed: boolean;
   theme: 'light' | 'dark';
 }
+
+// Tournament types (PandaScore)
+export interface PandaTournament {
+  id: number;
+  name: string;
+  type: string;
+  matches: PandaMatch[];
+  country: string;
+  begin_at: string;
+  detailed_stats: boolean;
+  end_at: string | null;
+  winner_id: number | null;
+  winner_type: string;
+  teams: PandaTeam[];
+  slug: string;
+  serie_id: number;
+  serie: PandaSerie;
+  modified_at: string;
+  videogame: PandaVideogame;
+  league_id: number;
+  league: PandaLeague;
+  has_bracket: boolean;
+  prizepool: string | null;
+  region: string;
+  tier: 's' | 'a' | 'b' | 'c' | 'd';
+  videogame_title: PandaVideogameTitle;
+  live_supported: boolean;
+  expected_roster: PandaExpectedRoster[];
+  gameSlug?: string; // Ajouté par le backend pour identifier le jeu
+}
+
+export interface PandaMatch {
+  id: number;
+  name: string;
+  status: string;
+  live: {
+    supported: boolean;
+    url: string | null;
+    opens_at: string | null;
+  };
+  begin_at: string;
+  detailed_stats: boolean;
+  end_at: string | null;
+  forfeit: boolean;
+  winner_id: number | null;
+  winner_type: string;
+  draw: boolean;
+  slug: string;
+  modified_at: string;
+  tournament_id: number;
+  match_type: string;
+  number_of_games: number;
+  scheduled_at: string;
+  original_scheduled_at: string;
+  game_advantage: any | null;
+  streams_list: PandaStream[];
+  rescheduled: boolean;
+}
+
+export interface PandaStream {
+  main: boolean;
+  language: string;
+  embed_url: string;
+  official: boolean;
+  raw_url: string;
+}
+
+export interface PandaTeam {
+  id: number;
+  name: string;
+  location: string;
+  slug: string;
+  modified_at: string;
+  acronym: string | null;
+  image_url: string;
+}
+
+export interface PandaSerie {
+  id: number;
+  name: string;
+  year: number;
+  begin_at: string;
+  end_at: string;
+  winner_id: number | null;
+  winner_type: string;
+  slug: string;
+  modified_at: string;
+  league_id: number;
+  season: string;
+  full_name: string;
+}
+
+export interface PandaVideogame {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface PandaLeague {
+  id: number;
+  name: string;
+  url: string | null;
+  slug: string;
+  modified_at: string;
+  image_url: string;
+}
+
+export interface PandaVideogameTitle {
+  id: number;
+  name: string;
+  slug: string;
+  videogame_id: number;
+}
+
+export interface PandaExpectedRoster {
+  team: PandaTeam;
+  players: PandaPlayer[];
+}
+
+export interface PandaPlayer {
+  active: boolean;
+  id: number;
+  name: string;
+  role: string | null;
+  slug: string;
+  modified_at: string;
+  age: number | null;
+  birthday: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  nationality: string;
+  image_url: string | null;
+}

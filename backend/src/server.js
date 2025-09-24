@@ -61,6 +61,258 @@ fastify.get('/api/live-matches', async (request, reply) => {
   }
 });
 
+// Tournaments route
+fastify.get('/api/tournaments', async (request, reply) => {
+  try {
+    const { game } = request.query;
+
+    if (!game) {
+      reply.code(400);
+      return { error: 'Game acronym is required' };
+    }
+
+    console.log(`🎯 Fetching tournaments for game: ${game}`);
+
+    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
+
+    console.log(`✅ Using game acronym directly: ${game}`);
+
+    // Fonction pour récupérer les tournois par tier
+    const fetchTournamentsByTier = async (tier) => {
+      const url = `${PANDASCORE_BASE_URL}/${game}/tournaments/running?filter[tier]=${tier}&page[size]=50&token=${PANDASCORE_API_TOKEN}`;
+
+      console.log(`🔄 Fetching tournaments for ${game} tier ${tier}`);
+      console.log(`📡 FULL URL BEING CALLED:`, url);
+      console.log(`🔍 URL BREAKDOWN:`, {
+        baseUrl: PANDASCORE_BASE_URL,
+        game: game,
+        endpoint: 'tournaments/running',
+        filters: {
+          tier: tier,
+          pageSize: 50
+        },
+        token: PANDASCORE_API_TOKEN ? 'PROVIDED' : 'MISSING'
+      });
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'EsportNews/1.0',
+        },
+      });
+
+      console.log(`📊 Response received for ${game} tier ${tier}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Failed to fetch tier ${tier} for ${game}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          error: errorText
+        });
+        // Return empty array instead of throwing to continue with other tiers
+        return [];
+      }
+
+      const tournaments = await response.json();
+
+      console.log(`📊 Tier ${tier.toUpperCase()} for ${game}:`, tournaments.length, 'tournaments');
+      if (tournaments.length > 0) {
+        console.log(`🏆 Sample tournament (tier ${tier}):`, {
+          id: tournaments[0].id,
+          name: tournaments[0].name,
+          league: tournaments[0].league?.name,
+          prizepool: tournaments[0].prizepool,
+          teams: tournaments[0].teams?.length || 0,
+          matches: tournaments[0].matches?.length || 0
+        });
+      }
+
+      // Add tier information to each tournament (in case it's not in the response)
+      return tournaments.map(tournament => ({
+        ...tournament,
+        tier: tier
+      }));
+    };
+
+    // Fetch tournaments for all tiers in parallel
+    const tiers = ['s', 'a', 'b', 'c', 'd'];
+    const tournamentPromises = tiers.map(tier => fetchTournamentsByTier(tier));
+
+    const results = await Promise.allSettled(tournamentPromises);
+
+    // Combine all successful results
+    const allTournaments = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        allTournaments.push(...result.value);
+      } else {
+        console.error(`Failed to fetch tier ${tiers[index]}:`, result.reason);
+      }
+    });
+
+    // Sort tournaments by tier priority (s > a > b > c > d) and then by begin_at
+    const tierPriority = { 's': 5, 'a': 4, 'b': 3, 'c': 2, 'd': 1 };
+    allTournaments.sort((a, b) => {
+      const tierDiff = tierPriority[b.tier] - tierPriority[a.tier];
+      if (tierDiff !== 0) return tierDiff;
+
+      return new Date(a.begin_at).getTime() - new Date(b.begin_at).getTime();
+    });
+
+    console.log(`🎯 Final result for ${game}:`, {
+      totalTournaments: allTournaments.length,
+      byTier: {
+        s: allTournaments.filter(t => t.tier === 's').length,
+        a: allTournaments.filter(t => t.tier === 'a').length,
+        b: allTournaments.filter(t => t.tier === 'b').length,
+        c: allTournaments.filter(t => t.tier === 'c').length,
+        d: allTournaments.filter(t => t.tier === 'd').length,
+      }
+    });
+
+    if (allTournaments.length > 0) {
+      console.log('🔥 First tournament:', {
+        name: allTournaments[0].name,
+        tier: allTournaments[0].tier,
+        league: allTournaments[0].league?.name,
+        teams: allTournaments[0].teams?.length,
+        matches: allTournaments[0].matches?.length
+      });
+    }
+
+    return allTournaments;
+  } catch (error) {
+    console.error('Error fetching tournaments:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer tous les tournois de tous les jeux
+fastify.get('/api/tournaments/all', async (request, reply) => {
+  try {
+    console.log('🌐 Fetching tournaments for ALL games');
+
+    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
+
+    // Liste des jeux à inclure (basée sur CLAUDE.md)
+    const ALL_GAMES = [
+      'valorant',
+      'fifa',
+      'lol-wild-rift',
+      'dota2',
+      'overwatch',
+      'cod-mw',
+      'lol',
+      'rainbow-six-siege',
+      'rocket-league',
+      'csgo'
+    ];
+
+    console.log('🎮 Games to fetch:', ALL_GAMES);
+
+    // Fonction pour récupérer les tournois d'un jeu pour un tier donné
+    const fetchTournamentsForGameAndTier = async (game, tier) => {
+      const url = `${PANDASCORE_BASE_URL}/${game}/tournaments/running?filter[tier]=${tier}&page[size]=50&token=${PANDASCORE_API_TOKEN}`;
+
+      console.log(`🔄 Fetching ${game} tier ${tier}`);
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'EsportNews/1.0',
+          },
+        });
+
+        if (!response.ok) {
+          console.log(`⚠️  ${game} tier ${tier}: HTTP ${response.status}`);
+          return [];
+        }
+
+        const tournaments = await response.json();
+        console.log(`✅ ${game} tier ${tier}: ${tournaments.length} tournaments`);
+
+        // Ajouter les infos de jeu et tier à chaque tournoi
+        return tournaments.map(tournament => ({
+          ...tournament,
+          tier: tier,
+          gameSlug: game
+        }));
+      } catch (error) {
+        console.error(`❌ Error fetching ${game} tier ${tier}:`, error.message);
+        return [];
+      }
+    };
+
+    // Fonction pour récupérer tous les tournois d'un tier donné (tous jeux confondus)
+    const fetchAllTournamentsForTier = async (tier) => {
+      console.log(`🏆 Starting tier ${tier.toUpperCase()} for all games...`);
+
+      const gamePromises = ALL_GAMES.map(game =>
+        fetchTournamentsForGameAndTier(game, tier)
+      );
+
+      const results = await Promise.allSettled(gamePromises);
+
+      const tierTournaments = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          tierTournaments.push(...result.value);
+        } else {
+          console.error(`Failed ${ALL_GAMES[index]} tier ${tier}:`, result.reason);
+        }
+      });
+
+      console.log(`🎯 Tier ${tier.toUpperCase()} total: ${tierTournaments.length} tournaments`);
+      return tierTournaments;
+    };
+
+    // Récupérer tous les tiers dans l'ordre de priorité
+    const tiers = ['s', 'a', 'b', 'c', 'd'];
+    const allTournaments = [];
+
+    for (const tier of tiers) {
+      const tierTournaments = await fetchAllTournamentsForTier(tier);
+      allTournaments.push(...tierTournaments);
+    }
+
+    console.log(`🎊 FINAL RESULT: ${allTournaments.length} total tournaments across all games`);
+
+    // Statistiques par jeu
+    const statsByGame = {};
+    ALL_GAMES.forEach(game => {
+      statsByGame[game] = allTournaments.filter(t => t.gameSlug === game).length;
+    });
+    console.log('📊 Tournaments per game:', statsByGame);
+
+    // Statistiques par tier
+    const statsByTier = {};
+    tiers.forEach(tier => {
+      statsByTier[tier] = allTournaments.filter(t => t.tier === tier).length;
+    });
+    console.log('🏅 Tournaments per tier:', statsByTier);
+
+    return allTournaments;
+  } catch (error) {
+    console.error('Error fetching all tournaments:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
 const start = async () => {
   try {
     await fastify.listen({ port: 4343, host: '0.0.0.0' });

@@ -7,6 +7,7 @@ import LiveMatchCard from './components/matches/LiveMatchCard';
 import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
+import RunningTournaments from './components/tournaments/RunningTournaments';
 import { Game, Match, NewsItem, Advertisement, LiveMatch } from './types';
 import { liveMatchService } from './services/liveMatchService';
 import { advertisementService } from './services/advertisementService';
@@ -114,6 +115,9 @@ export default function HomePage() {
                 isLoading={isLoadingMatches}
               />
             </section>
+
+            {/* Section Tournois en cours */}
+            <RunningTournaments />
 
             {/* Section News */}
             <NewsSection
