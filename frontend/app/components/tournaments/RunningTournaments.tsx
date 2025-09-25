@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useGame } from '../../contexts/GameContext';
 import { tournamentService } from '../../services/tournamentService';
 import { PandaTournament } from '../../types';
@@ -14,8 +14,13 @@ const RunningTournaments: React.FC = () => {
 
   const selectedGameData = getSelectedGameData();
 
+  // Mémorisation pour éviter les recalculs - 3 tournois par colonne x 2 colonnes = 6 max
+  const displayedTournaments = useMemo(() => tournaments.slice(0, 6), [tournaments]);
+  const hasMoreTournaments = useMemo(() => tournaments.length > 6, [tournaments.length]);
+  const memoizedTournaments = useMemo(() => tournaments, [tournaments]);
+
   // Fonction pour charger les tournois (d'un jeu spécifique)
-  const loadTournaments = async (gameAcronym: string) => {
+  const loadTournaments = useCallback(async (gameAcronym: string) => {
     if (!gameAcronym) return;
 
     setLoading(true);
@@ -30,10 +35,10 @@ const RunningTournaments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fonction pour charger tous les tournois (tous jeux confondus)
-  const loadAllTournaments = async () => {
+  const loadAllTournaments = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -46,7 +51,7 @@ const RunningTournaments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Charger les tournois quand le jeu sélectionné change
   useEffect(() => {
@@ -58,55 +63,103 @@ const RunningTournaments: React.FC = () => {
       });
       loadTournaments(selectedGameData.acronym);
     } else {
-      console.log('🌐 No game selected, loading all tournaments');
       loadAllTournaments();
     }
-  }, [selectedGameData?.acronym]);
+  }, [selectedGameData?.acronym, loadTournaments, loadAllTournaments]);
 
 
   return (
-    <section className="py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <h2 className="text-2xl font-bold text-white mr-4">
-            Tournois en cours
-          </h2>
-          {selectedGameData ? (
-            <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
-              <img
-                src={selectedGameData.selected_image?.url}
-                alt={selectedGameData.name}
-                className="w-6 h-6 mr-2"
-              />
-              <span className="text-pink-400 font-semibold">
-                {selectedGameData.name}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
-              <span className="text-blue-400 font-semibold">
-                Tous les jeux
-              </span>
-            </div>
-          )}
+    <section>
+      {/* Header responsive */}
+      <div className="mb-6">
+        {/* Desktop layout */}
+        <div className="hidden md:flex items-center justify-between">
+          <div className="flex items-center">
+            <h2 className="text-2xl font-bold text-white mr-4">
+              Tournois en cours
+            </h2>
+            {selectedGameData ? (
+              <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+                <img
+                  src={selectedGameData.selected_image?.url}
+                  alt={selectedGameData.name}
+                  className="w-6 h-6 mr-2"
+                />
+                <span className="text-pink-400 font-medium text-sm">
+                  {selectedGameData.name}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+                <span className="text-blue-400 font-medium text-sm">
+                  Tous les jeux
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
+            disabled={loading}
+            className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg font-medium text-sm transition-colors flex items-center"
+          >
+            <svg
+              className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {loading ? 'Chargement...' : 'Actualiser'}
+          </button>
         </div>
 
-        {/* Bouton refresh */}
-        <button
-          onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
-          disabled={loading}
-          className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center"
-        >
-          <svg
-            className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {loading ? 'Chargement...' : 'Actualiser'}
-        </button>
+        {/* Mobile layout */}
+        <div className="md:hidden flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
+            Tournois en cours
+          </h2>
+
+          <div className="flex items-center space-x-2">
+            {/* Game info */}
+            {selectedGameData ? (
+              <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
+                <img
+                  src={selectedGameData.selected_image?.url}
+                  alt={selectedGameData.name}
+                  className="w-4 h-4 mr-1"
+                />
+                <span className="text-pink-400 font-medium">
+                  ({selectedGameData.name})
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
+                <span className="text-blue-400 font-medium">
+                  (Tous les jeux)
+                </span>
+              </div>
+            )}
+
+            {/* Refresh button - Icon only */}
+            <button
+              onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
+              disabled={loading}
+              className="p-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center"
+              aria-label={loading ? 'Chargement...' : 'Actualiser'}
+            >
+              <svg
+                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -122,7 +175,7 @@ const RunningTournaments: React.FC = () => {
 
       {loading ? (
         // Skeleton loading
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, index) => (
             <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden animate-pulse">
               <div className="h-48 bg-gray-700" />
@@ -138,16 +191,11 @@ const RunningTournaments: React.FC = () => {
             </div>
           ))}
         </div>
-      ) : tournaments.length > 0 ? (
+      ) : memoizedTournaments.length > 0 ? (
         <div>
-          {/* Compteur de tournois */}
-          <div className="mb-4 text-gray-400">
-            {tournaments.length} tournoi{tournaments.length > 1 ? 's' : ''} trouvé{tournaments.length > 1 ? 's' : ''}
-          </div>
-
           {/* Grille des tournois */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {tournaments.map((tournament) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedTournaments.map((tournament) => (
               <TournamentCard
                 key={tournament.id}
                 tournament={tournament}
@@ -156,44 +204,21 @@ const RunningTournaments: React.FC = () => {
             ))}
           </div>
 
-          {/* Statistiques */}
-          {tournaments.length > 0 && (
-            <div className="mt-8 space-y-4">
-              {/* Groupement par tier */}
-              <div className="flex flex-wrap gap-2">
-                <span className="text-gray-400 text-sm mr-2">Tiers disponibles:</span>
-                {Array.from(new Set(tournaments.map(t => t.tier))).sort().map(tier => (
-                  <span
-                    key={tier}
-                    className={`px-2 py-1 rounded text-xs font-bold text-white uppercase ${
-                      tier === 's' ? 'bg-yellow-500' :
-                      tier === 'a' ? 'bg-blue-500' :
-                      tier === 'b' ? 'bg-green-500' :
-                      tier === 'c' ? 'bg-purple-500' :
-                      'bg-gray-500'
-                    }`}
-                  >
-                    {tier} ({tournaments.filter(t => t.tier === tier).length})
-                  </span>
-                ))}
-              </div>
-
-              {/* Statistiques par jeu si tous les jeux sont affichés */}
-              {!selectedGameData && (
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-gray-400 text-sm mr-2">Par jeu:</span>
-                  {Array.from(new Set(tournaments.map(t => t.gameSlug).filter(Boolean))).sort().map(gameSlug => (
-                    <span
-                      key={gameSlug}
-                      className="px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded uppercase"
-                    >
-                      {gameSlug} ({tournaments.filter(t => t.gameSlug === gameSlug).length})
-                    </span>
-                  ))}
-                </div>
-              )}
+          {/* Bouton "Voir tout" - Redirige vers /tournament */}
+          {memoizedTournaments.length > 0 && (
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={() => window.location.href = '/tournament'}
+                className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                <span>Afficher tous</span>
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
           )}
+
         </div>
       ) : (
         // État vide

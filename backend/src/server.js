@@ -136,8 +136,18 @@ fastify.get('/api/tournaments', async (request, reply) => {
         });
       }
 
-      // Add tier information to each tournament (in case it's not in the response)
-      return tournaments.map(tournament => ({
+      // Filtrer les tournois en cours et ajouter les infos tier
+      const now = new Date();
+      const activeTournaments = tournaments.filter(tournament => {
+        // Garder seulement les tournois qui ne sont pas encore terminés
+        if (!tournament.end_at) return true; // Si pas de date de fin, on garde
+        const endDate = new Date(tournament.end_at);
+        return endDate > now; // Garder si la date de fin est dans le futur
+      });
+
+      console.log(`🔍 Filtered ${game} tier ${tier}: ${tournaments.length} → ${activeTournaments.length} active tournaments`);
+
+      return activeTournaments.map(tournament => ({
         ...tournament,
         tier: tier
       }));
@@ -160,13 +170,21 @@ fastify.get('/api/tournaments', async (request, reply) => {
       }
     });
 
-    // Sort tournaments by tier priority (s > a > b > c > d) and then by begin_at
+    // Sort tournaments by tier priority (s > a > b > c > d) then by end date (closest ending first)
     const tierPriority = { 's': 5, 'a': 4, 'b': 3, 'c': 2, 'd': 1 };
     allTournaments.sort((a, b) => {
+      // D'abord par tier
       const tierDiff = tierPriority[b.tier] - tierPriority[a.tier];
       if (tierDiff !== 0) return tierDiff;
 
-      return new Date(a.begin_at).getTime() - new Date(b.begin_at).getTime();
+      // Puis par date de fin (les plus proches en premier)
+      if (!a.end_at && !b.end_at) return 0; // Si aucune date de fin, égaux
+      if (!a.end_at) return 1; // a sans date de fin va à la fin
+      if (!b.end_at) return -1; // b sans date de fin va à la fin
+
+      const endDateA = new Date(a.end_at);
+      const endDateB = new Date(b.end_at);
+      return endDateA - endDateB; // Date la plus proche en premier
     });
 
     console.log(`🎯 Final result for ${game}:`, {
@@ -186,7 +204,14 @@ fastify.get('/api/tournaments', async (request, reply) => {
         tier: allTournaments[0].tier,
         league: allTournaments[0].league?.name,
         teams: allTournaments[0].teams?.length,
-        matches: allTournaments[0].matches?.length
+        matches: allTournaments[0].matches?.length,
+        endDate: allTournaments[0].end_at
+      });
+
+      // Log des prochains tournois à se terminer pour ce jeu
+      console.log(`⏰ Next ${game} tournaments ending:`);
+      allTournaments.slice(0, 3).forEach((t, index) => {
+        console.log(`   ${index + 1}. ${t.name} - Ends: ${t.end_at || 'No end date'}`);
       });
     }
 
@@ -245,8 +270,18 @@ fastify.get('/api/tournaments/all', async (request, reply) => {
         const tournaments = await response.json();
         console.log(`✅ ${game} tier ${tier}: ${tournaments.length} tournaments`);
 
-        // Ajouter les infos de jeu et tier à chaque tournoi
-        return tournaments.map(tournament => ({
+        // Filtrer les tournois en cours et ajouter les infos de jeu et tier
+        const now = new Date();
+        const activeTournaments = tournaments.filter(tournament => {
+          // Garder seulement les tournois qui ne sont pas encore terminés
+          if (!tournament.end_at) return true; // Si pas de date de fin, on garde
+          const endDate = new Date(tournament.end_at);
+          return endDate > now; // Garder si la date de fin est dans le futur
+        });
+
+        console.log(`🔍 Filtered ${game} tier ${tier}: ${tournaments.length} → ${activeTournaments.length} active tournaments`);
+
+        return activeTournaments.map(tournament => ({
           ...tournament,
           tier: tier,
           gameSlug: game
@@ -289,21 +324,46 @@ fastify.get('/api/tournaments/all', async (request, reply) => {
       allTournaments.push(...tierTournaments);
     }
 
-    console.log(`🎊 FINAL RESULT: ${allTournaments.length} total tournaments across all games`);
+    // Tri final : par tier (déjà fait), puis par proximité de fin (les plus proches de se terminer d'abord)
+    allTournaments.sort((a, b) => {
+      // D'abord par tier (s > a > b > c > d)
+      const tierPriority = { 's': 5, 'a': 4, 'b': 3, 'c': 2, 'd': 1 };
+      const tierDiff = tierPriority[b.tier] - tierPriority[a.tier];
+      if (tierDiff !== 0) return tierDiff;
+
+      // Puis par date de fin (les plus proches en premier)
+      if (!a.end_at && !b.end_at) return 0; // Si aucune date de fin, égaux
+      if (!a.end_at) return 1; // a sans date de fin va à la fin
+      if (!b.end_at) return -1; // b sans date de fin va à la fin
+
+      const endDateA = new Date(a.end_at);
+      const endDateB = new Date(b.end_at);
+      return endDateA - endDateB; // Date la plus proche en premier
+    });
+
+    console.log(`🎊 FINAL RESULT: ${allTournaments.length} total active tournaments across all games`);
 
     // Statistiques par jeu
     const statsByGame = {};
     ALL_GAMES.forEach(game => {
       statsByGame[game] = allTournaments.filter(t => t.gameSlug === game).length;
     });
-    console.log('📊 Tournaments per game:', statsByGame);
+    console.log('📊 Active tournaments per game:', statsByGame);
 
     // Statistiques par tier
     const statsByTier = {};
     tiers.forEach(tier => {
       statsByTier[tier] = allTournaments.filter(t => t.tier === tier).length;
     });
-    console.log('🏅 Tournaments per tier:', statsByTier);
+    console.log('🏅 Active tournaments per tier:', statsByTier);
+
+    // Log des prochains tournois à se terminer
+    if (allTournaments.length > 0) {
+      console.log('⏰ Next tournaments ending:');
+      allTournaments.slice(0, 5).forEach((t, index) => {
+        console.log(`   ${index + 1}. ${t.name} (${t.gameSlug}) - Ends: ${t.end_at || 'No end date'}`);
+      });
+    }
 
     return allTournaments;
   } catch (error) {

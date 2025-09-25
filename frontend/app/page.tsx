@@ -8,7 +8,7 @@ import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import RunningTournaments from './components/tournaments/RunningTournaments';
-import { Game, Match, NewsItem, Advertisement, LiveMatch } from './types';
+import { Match, NewsItem, Advertisement, LiveMatch } from './types';
 import { liveMatchService } from './services/liveMatchService';
 import { advertisementService } from './services/advertisementService';
 import { articleService } from './services/articleService';
@@ -24,73 +24,87 @@ export default function HomePage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(null);
+  const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
 
   // Charger les matchs en direct depuis l'API backend
-  useEffect(() => {
-    const loadLiveMatches = async () => {
-      try {
-        setIsLoadingMatches(true);
-        const fetchedMatches = await liveMatchService.getLiveMatches();
-        setLiveMatches(fetchedMatches);
-      } catch (error) {
-        console.error('Erreur lors du chargement des matchs en direct:', error);
-      } finally {
-        setIsLoadingMatches(false);
-      }
-    };
-
-    loadLiveMatches();
+  const loadLiveMatches = useCallback(async () => {
+    try {
+      setIsLoadingMatches(true);
+      const fetchedMatches = await liveMatchService.getLiveMatches();
+      setLiveMatches(fetchedMatches);
+    } catch (error) {
+      console.error('Erreur lors du chargement des matchs en direct:', error);
+    } finally {
+      setIsLoadingMatches(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadLiveMatches();
+  }, [loadLiveMatches]);
 
   // Charger les publicités depuis l'API
-  useEffect(() => {
-    const loadAds = async () => {
-      try {
-        setIsLoadingAds(true);
-        const fetchedAds = await advertisementService.getActiveAdvertisements();
-        setAds(fetchedAds);
-      } catch (error) {
-        console.error('Erreur lors du chargement des publicités:', error);
-      } finally {
-        setIsLoadingAds(false);
-      }
-    };
+  const loadAds = useCallback(async () => {
+    try {
+      setIsLoadingAds(true);
+      const fetchedAds = await advertisementService.getActiveAdvertisements();
+      setAds(fetchedAds);
+    } catch (error) {
+      console.error('Erreur lors du chargement des publicités:', error);
+    } finally {
+      setIsLoadingAds(false);
+    }
+  }, []);
 
+  useEffect(() => {
     loadAds();
-  }, []);
+  }, [loadAds]);
 
-  // Charger l'article le plus récent depuis l'API
-  useEffect(() => {
-    const loadLatestNews = async () => {
-      try {
-        setIsLoadingNews(true);
-        const latestArticle = await articleService.getLatestArticle();
-        setFeaturedNews(latestArticle);
-      } catch (error) {
-        console.error('Erreur lors du chargement de l\'article récent:', error);
-      } finally {
-        setIsLoadingNews(false);
+  // Charger tous les articles depuis l'API
+  const loadAllNews = useCallback(async () => {
+    try {
+      setIsLoadingNews(true);
+      const allArticles = await articleService.getAllArticles();
+
+      // Le premier article est l'article en vedette
+      if (allArticles.length > 0) {
+        setFeaturedNews(allArticles[0]);
+        // Maximum 3 articles pour la deuxième colonne
+        setNewsList(allArticles.slice(1, 4));
       }
-    };
-
-    loadLatestNews();
+    } catch (error) {
+      console.error('Erreur lors du chargement des articles:', error);
+    } finally {
+      setIsLoadingNews(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAllNews();
+  }, [loadAllNews]);
 
   // Charger les données selon le jeu sélectionné
+  const loadGameData = useCallback((gameId: string) => {
+    console.log('Chargement des données pour le jeu:', gameId);
+    // Ici on appellerait les vraies APIs SportDevs et PandaScore
+  }, []);
+
   useEffect(() => {
     if (selectedGame) {
-      console.log('Chargement des données pour le jeu:', selectedGame);
-      // Ici on appellerait les vraies APIs SportDevs et PandaScore
+      loadGameData(selectedGame);
     }
-  }, [selectedGame]);
+  }, [selectedGame, loadGameData]);
 
+  // Mémorisation des données pour éviter les re-rendus inutiles
+  const memoizedLiveMatches = useMemo(() => liveMatches, [liveMatches]);
+  const memoizedAds = useMemo(() => ads, [ads]);
+  const memoizedFeaturedNews = useMemo(() => featuredNews, [featuredNews]);
+  const memoizedNewsList = useMemo(() => newsList, [newsList]);
 
-  // Pour l'instant, on n'affiche que l'article principal (pas de liste d'articles supplémentaires)
-  const newsList = useMemo(() => [], []);
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -111,25 +125,25 @@ export default function HomePage() {
             {/* Section Matchs en Direct */}
             <section aria-labelledby="live-matches">
               <LiveMatchesCarousel
-                matches={liveMatches}
+                matches={memoizedLiveMatches}
                 isLoading={isLoadingMatches}
               />
             </section>
 
-            {/* Section Tournois en cours */}
-            <RunningTournaments />
-
             {/* Section News */}
             <NewsSection
-              featuredNews={featuredNews}
-              newsList={newsList}
+              featuredNews={memoizedFeaturedNews}
+              newsList={memoizedNewsList}
               isLoading={isLoadingNews}
             />
+
+            {/* Section Tournois en cours */}
+            <RunningTournaments />
           </div>
 
           {/* Colonne publicitaire (desktop uniquement) */}
           <AdColumn
-            ads={ads}
+            ads={memoizedAds}
             isSubscribed={isSubscribed}
             isLoading={isLoadingAds}
           />
