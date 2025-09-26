@@ -1,6 +1,7 @@
 'use client';
 
 import Navbar from './Navbar';
+import Footer from './Footer';
 import { useGame } from '../../contexts/GameContext';
 
 interface ClientLayoutProps {
@@ -18,6 +19,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
         onGameSelectionChange={setSelectedGame}
       />
       {children}
+      <Footer />
     </>
   );
 };
