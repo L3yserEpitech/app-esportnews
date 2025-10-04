@@ -176,7 +176,7 @@ const Navbar: React.FC<NavbarProps> = ({
           ? 'border-t border-[#182859]/40'
           : 'border-t border-gray-700/40'
         }
-        ${isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+        ${isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
       `}>
           <div className="px-4 py-3 space-y-2">
             {navLinks.map((link) => (
@@ -185,7 +185,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 href={link.href}
                 onClick={closeMobileMenu}
                 className={`
-                  block px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300
+                  block px-3 py-3 text-base font-medium rounded-lg transition-all duration-300
                   ${isActive(link.href)
                     ? 'text-pink-400 bg-pink-500/10 font-semibold'
                     : 'text-gray-300 hover:text-white hover:bg-gray-800/50'

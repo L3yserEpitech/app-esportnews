@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Game } from '../../types';
 
 interface MobileGameSelectorProps {
@@ -83,23 +83,18 @@ const MobileGameSelector: React.FC<MobileGameSelectorProps> = ({
           </button>
         </div>
 
-        {/* Games grid */}
+        {/* Games list */}
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
             {games.length === 0 ? (
               // Skeletons pendant le chargement
               Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={`mobile-skeleton-${index}`}
-                  className="aspect-[3/4] bg-gray-800/50 rounded-xl animate-pulse"
+                  className="h-12 bg-gray-800/50 rounded-lg animate-pulse"
                 >
-                  <div className="w-full h-full bg-gray-700/50 rounded-xl relative">
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-800/80 via-gray-800/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <div className="bg-gray-600/50 rounded-md px-2 py-1">
-                        <div className="h-3 bg-gray-500/50 rounded w-16 mx-auto"></div>
-                      </div>
-                    </div>
+                  <div className="flex items-center h-full px-4">
+                    <div className="h-4 bg-gray-600/50 rounded w-20"></div>
                     {/* Shimmer effect */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
                   </div>
@@ -114,65 +109,35 @@ const MobileGameSelector: React.FC<MobileGameSelectorProps> = ({
                   key={game.id}
                   onClick={() => selectGame(game.id.toString())}
                   className={`
-                    relative overflow-hidden rounded-xl transition-all duration-300 ease-out
-                    focus:outline-none group cursor-pointer aspect-[3/4]
+                    w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ease-out
+                    focus:outline-none relative overflow-hidden
                     ${selected
-                      ? 'ring-3 ring-pink-400/80 shadow-xl shadow-pink-500/30 scale-105'
-                      : 'hover:ring-2 hover:ring-pink-300/60 hover:scale-105 hover:shadow-lg'
+                      ? 'bg-gradient-to-r from-[#F22E62]/20 to-[#182859]/40 border border-[#F22E62]/30 text-white'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
                     }
                   `}
-                  style={{
-                    filter: selected ? 'brightness(1.15) saturate(1.3)' : 'brightness(0.85) saturate(0.75)',
-                  }}
                   aria-pressed={selected}
-                  aria-label={`${selected ? 'Désélectionner' : 'Sélectionner'} ${game.name}`}
+                  aria-label={`${selected ? 'Désélectionner' : 'Sélectionner'} ${game.full_name}`}
                 >
-                  {/* Bordure animée pour le jeu sélectionné */}
+                  {/* Container moderne pour le jeu sélectionné */}
                   {selected && (
-                    <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400 rounded-xl" />
+                    <>
+                      {/* Bordure animée */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#F22E62]/10 via-[#182859]/20 to-[#F22E62]/10 rounded-lg" />
+                      {/* Accent lumineux */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#F22E62] to-[#182859] rounded-l-lg" />
+                      {/* Badge de sélection */}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#F22E62] rounded-full animate-pulse" />
+                    </>
                   )}
 
-                  {/* Container de l'image */}
-                  <div className={`relative w-full h-full rounded-xl overflow-hidden ${selected ? 'z-10' : ''}`}>
-                    <img
-                      src={selected ? game.selected_image.url : game.unselected_image.url}
-                      alt={`Logo ${game.name}`}
-                      className="w-full h-full object-cover transition-all duration-300 group-hover:scale-110"
-                      loading="lazy"
-                    />
-
-                    {/* Overlay gradient */}
-                    <div className={`
-                      absolute inset-0 transition-all duration-300
-                      ${selected
-                        ? 'bg-gradient-to-t from-pink-900/50 via-purple-900/20 to-transparent'
-                        : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100'
-                      }
-                    `} />
-
-                    {/* Badge de sélection */}
-                    {selected && (
-                      <div className="absolute top-2 right-2 w-4 h-4 bg-gradient-to-br from-pink-400 to-pink-600 rounded-full flex items-center justify-center shadow-lg border border-white/30">
-                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    )}
-
-                    {/* Texte */}
-                    <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <span className={`
-                        block text-xs font-bold text-center transition-all duration-300
-                        ${selected
-                          ? 'text-white drop-shadow-lg scale-105'
-                          : 'text-white/90 group-hover:text-white group-hover:scale-105'
-                        }
-                        backdrop-blur-md bg-black/50 rounded-md px-2 py-1 border border-white/20
-                      `}>
-                        {game.name}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Texte du jeu */}
+                  <span className={`
+                    relative z-10 font-medium transition-all duration-200
+                    ${selected ? 'text-white font-semibold' : ''}
+                  `}>
+                    {game.full_name}
+                  </span>
                 </button>
               );
             })
@@ -181,15 +146,17 @@ const MobileGameSelector: React.FC<MobileGameSelectorProps> = ({
 
           {/* Option pour désélectionner */}
           {selectedGame && (
-            <button
-              onClick={() => {
-                onSelectionChange(null);
-                onClose();
-              }}
-              className="w-full mt-4 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors duration-200 text-sm font-medium"
-            >
-              Voir tous les jeux
-            </button>
+            <div className="mt-6 pt-4 border-t border-gray-700/40">
+              <button
+                onClick={() => {
+                  onSelectionChange(null);
+                  onClose();
+                }}
+                className="w-full px-4 py-3 bg-gray-800/60 hover:bg-gray-700/80 text-gray-300 hover:text-white rounded-lg transition-all duration-200 text-sm font-medium border border-gray-700/40 hover:border-gray-600/60"
+              >
+                Voir tous les jeux
+              </button>
+            </div>
           )}
         </div>
       </div>

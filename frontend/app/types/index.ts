@@ -20,6 +20,7 @@ export interface Game {
   acronym: string;
   selected_image: GameImage;
   unselected_image: GameImage;
+  full_name: string;
 }
 
 // Match types
@@ -112,7 +113,7 @@ export interface NewsItem {
   category: string;
   tags: string[];
   views: number;
-  status: 'publié' | 'brouillon';
+  status: 'publié' | 'brouillon' | 'archivé';
 }
 
 export interface Article extends NewsItem {
@@ -217,6 +218,20 @@ export interface PandaMatch {
   game_advantage: any | null;
   streams_list: PandaStream[];
   rescheduled: boolean;
+  // Nouvelles propriétés étendues de l'API
+  tournament?: PandaTournament;
+  league?: PandaLeague;
+  serie?: PandaSerie;
+  videogame?: PandaVideogame;
+  opponents?: PandaOpponent[];
+  results?: PandaResult[];
+  games?: PandaGame[];
+  map_picks?: PandaMapPick[];
+  winner?: PandaTeam | null;
+  videogame_version?: {
+    name: string;
+    current: boolean;
+  };
 }
 
 export interface PandaStream {
@@ -292,4 +307,43 @@ export interface PandaPlayer {
   last_name: string | null;
   nationality: string;
   image_url: string | null;
+}
+
+// Nouveaux types pour les matchs étendus
+export interface PandaOpponent {
+  type: string;
+  opponent: PandaTeam;
+}
+
+export interface PandaResult {
+  team_id: number;
+  score: number;
+}
+
+export interface PandaGame {
+  complete: boolean;
+  id: number;
+  position: number;
+  status: string;
+  length: number | null;
+  finished: boolean;
+  begin_at: string | null;
+  detailed_stats: boolean;
+  end_at: string | null;
+  forfeit: boolean;
+  match_id: number;
+  winner_type: string;
+  winner: {
+    id: number | null;
+    type: string;
+  };
+}
+
+export interface PandaMapPick {
+  id: number;
+  name: string;
+  slug: string;
+  videogame_versions: string[];
+  image_url: string;
+  picking_team_id: number | null;
 }
