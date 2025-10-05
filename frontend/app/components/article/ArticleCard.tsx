@@ -44,7 +44,7 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
         <img
           src={article.featuredImage}
           alt={article.title}
-          className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-102"
+          className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
           loading="lazy"
         />
       </div>

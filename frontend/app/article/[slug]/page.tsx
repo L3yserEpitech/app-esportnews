@@ -134,27 +134,9 @@ export default function ArticlePage() {
 
       <div className="min-h-screen bg-gray-950">
         <main className="container mx-auto md:px-4 md:py-8 pt-20 md:pt-24">
-          <div className="flex gap-8">
+          <div className="flex gap-8 mt-3">
             {/* Article content */}
             <div className="flex-1 min-w-0">
-              {/* Breadcrumb */}
-              <nav className="hidden md:block mb-6 text-sm" aria-label="Breadcrumb">
-                <ol className="flex items-center space-x-2 text-gray-400">
-                  <li>
-                    <Link href="/" className="hover:text-pink-500 transition-colors">
-                      Accueil
-                    </Link>
-                  </li>
-                  <li>/</li>
-                  <li>
-                    <Link href="/articles" className="hover:text-pink-500 transition-colors">
-                      Articles
-                    </Link>
-                  </li>
-                  <li>/</li>
-                  <li className="text-gray-500 truncate">{article.title}</li>
-                </ol>
-              </nav>
 
               {/* Article header */}
               <article className="bg-gray-900 md:rounded-xl overflow-hidden">

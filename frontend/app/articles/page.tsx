@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdColumn from '../components/ads/AdColumn';
 import ArticleCard from '../components/article/ArticleCard';
+import FeaturedArticleCard from '../components/article/FeaturedArticleCard';
 import { NewsItem, Advertisement } from '../types';
 import { articleService } from '../services/articleService';
 import { advertisementService } from '../services/advertisementService';
@@ -50,10 +51,23 @@ export default function ArticlesPage() {
     window.location.href = `/article/${slug}`;
   }, []);
 
+  // Article le plus récent (featured)
+  const featuredArticle = useMemo(() => {
+    if (articles.length === 0) return null;
+    return [...articles].sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0];
+  }, [articles]);
+
   // Grouper les articles par catégorie et trier par date (plus récent au plus vieux)
+  // Exclure l'article featured
   const articlesByCategory = useMemo(() => {
+    const articlesWithoutFeatured = articles.filter(
+      article => article.id !== featuredArticle?.id
+    );
+
     // Grouper par catégorie
-    const grouped = articles.reduce((acc, article) => {
+    const grouped = articlesWithoutFeatured.reduce((acc, article) => {
       const category = article.category || 'Non catégorisé';
       if (!acc[category]) {
         acc[category] = [];
@@ -71,7 +85,7 @@ export default function ArticlesPage() {
 
     // Trier les catégories par le nombre d'articles (décroissant)
     return Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
-  }, [articles]);
+  }, [articles, featuredArticle]);
 
   if (isLoadingArticles) {
     return (
@@ -99,6 +113,14 @@ export default function ArticlesPage() {
               </div>
             ) : (
               <div className="space-y-12">
+                {/* Article Featured (le plus récent) */}
+                {featuredArticle && (
+                  <FeaturedArticleCard
+                    article={featuredArticle}
+                    onClick={handleArticleClick}
+                  />
+                )}
+
                 {/* Articles groupés par catégorie */}
                 {articlesByCategory.map(([category, categoryArticles]) => (
                   <section key={category} className="space-y-6">
