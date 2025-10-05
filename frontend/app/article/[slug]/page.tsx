@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Head from 'next/head';
 import { Article, NewsItem, Advertisement } from '@/app/types';
 import { articleService } from '@/app/services/articleService';
 import { advertisementService } from '@/app/services/advertisementService';
@@ -97,8 +98,7 @@ export default function ArticlePage() {
 
   return (
     <>
-      {/* SEO Meta tags */}
-      <head>
+      <Head>
         <title>{article.title} | EsportNews</title>
         <meta name="description" content={article.description} />
         <meta name="keywords" content={article.tags.join(', ')} />
@@ -121,7 +121,7 @@ export default function ArticlePage() {
         <meta name="twitter:title" content={article.title} />
         <meta name="twitter:description" content={article.description} />
         <meta name="twitter:image" content={article.featuredImage} />
-      </head>
+      </Head>
 
       <div className="min-h-screen bg-gray-950">
         <main className="container mx-auto md:px-4 md:py-8 pt-20 md:pt-24">
