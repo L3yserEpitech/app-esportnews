@@ -17,6 +17,7 @@ export default function ArticlePage() {
 
   const [article, setArticle] = useState<Article | null>(null);
   const [similarArticles, setSimilarArticles] = useState<NewsItem[]>([]);
+  const [recentArticles, setRecentArticles] = useState<NewsItem[]>([]);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingArticle, setIsLoadingArticle] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
@@ -36,6 +37,13 @@ export default function ArticlePage() {
             3
           );
           setSimilarArticles(similar);
+
+          // Charger les articles récents
+          const allArticles = await articleService.getAllArticles();
+          const recent = allArticles
+            .filter(a => a.slug !== fetchedArticle.slug)
+            .slice(0, 3);
+          setRecentArticles(recent);
         }
       } catch (error) {
         console.error('Erreur lors du chargement de l\'article:', error);
@@ -213,14 +221,92 @@ export default function ArticlePage() {
                     <ArticleContent content={article.content_black || article.content} />
                   </div>
 
-                  {/* Share section */}
-                  <div className="mt-12 pt-8 border-t border-gray-800">
-                    <p className="text-gray-400 text-sm">
-                      Cet article vous a plu ? Partagez-le avec vos amis !
-                    </p>
-                  </div>
                 </div>
               </article>
+
+              {/* Recent articles section */}
+              {recentArticles.length > 0 && (
+                <div className="mt-12 px-4 md:px-0">
+                  <h2 className="text-2xl font-bold text-white mb-6">Articles récents</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {recentArticles.map((recentArticle) => (
+                      <article
+                        key={recentArticle.id}
+                        className="relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 hover:shadow-xl group"
+                        onClick={() => window.location.href = `/article/${recentArticle.slug}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Lire l'article: ${recentArticle.title}`}
+                      >
+                        <div className="relative h-full">
+                          <img
+                            src={recentArticle.featuredImage}
+                            alt={recentArticle.title}
+                            className="w-full h-80 object-cover transition-all duration-[500ms] group-hover:scale-102 group-hover:brightness-75"
+                            loading="lazy"
+                          />
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+
+                          {/* Title content - positioned at top */}
+                          <div className="absolute top-4 left-4 right-4">
+                            <div className="mb-2">
+                              <span className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                                {recentArticle.category}
+                              </span>
+                            </div>
+
+                            <h2 className="text-lg font-bold text-white line-clamp-2 drop-shadow-lg">
+                              {recentArticle.title}
+                            </h2>
+                          </div>
+
+                          {/* Additional info - appears at bottom on hover */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+                            <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
+                              <div className="flex items-center space-x-2 mb-2 text-xs text-gray-300">
+                                <span>{formatDate(recentArticle.created_at)}</span>
+                                <span>•</span>
+                                <span>🕰️ {recentArticle.readTime} min</span>
+                                <span>•</span>
+                                <span>Par {recentArticle.author}</span>
+                              </div>
+
+                              {/* Description */}
+                              <p className="text-gray-300 text-sm line-clamp-2 mb-2">
+                                {recentArticle.subtitle || recentArticle.description}
+                              </p>
+
+                              {/* Tags */}
+                              {recentArticle.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {recentArticle.tags.slice(0, 2).map((tag, index) => (
+                                    <span
+                                      key={index}
+                                      className="bg-gray-700/80 text-gray-300 px-2 py-1 rounded text-xs"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                  {recentArticle.tags.length > 2 && (
+                                    <span className="text-gray-400 text-xs">
+                                      +{recentArticle.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Similar articles section */}
               {similarArticles.length > 0 && (
@@ -228,38 +314,79 @@ export default function ArticlePage() {
                   <h2 className="text-2xl font-bold text-white mb-6">Voir aussi</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {similarArticles.map((similarArticle) => (
-                      <Link
+                      <article
                         key={similarArticle.id}
-                        href={`/article/${similarArticle.slug}`}
-                        className="group bg-gray-900 rounded-lg overflow-hidden hover:scale-[1.02] transition-all duration-300"
+                        className="relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 hover:shadow-xl group"
+                        onClick={() => window.location.href = `/article/${similarArticle.slug}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Lire l'article: ${similarArticle.title}`}
                       >
-                        <div className="relative h-48 w-full">
+                        <div className="relative h-full">
                           <img
                             src={similarArticle.featuredImage}
                             alt={similarArticle.title}
-                            className="w-full h-full object-cover group-hover:brightness-75 transition-all duration-300"
+                            className="w-full h-80 object-cover transition-all duration-[500ms] group-hover:scale-102 group-hover:brightness-75"
+                            loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                          <div className="absolute bottom-0 left-0 right-0 p-4">
-                            <span className="bg-pink-500 text-white px-2 py-1 rounded text-xs font-medium">
-                              {similarArticle.category}
-                            </span>
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+
+                          {/* Title content - positioned at top */}
+                          <div className="absolute top-4 left-4 right-4">
+                            <div className="mb-2">
+                              <span className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                                {similarArticle.category}
+                              </span>
+                            </div>
+
+                            <h2 className="text-lg font-bold text-white line-clamp-2 drop-shadow-lg">
+                              {similarArticle.title}
+                            </h2>
+                          </div>
+
+                          {/* Additional info - appears at bottom on hover */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+                            <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
+                              <div className="flex items-center space-x-2 mb-2 text-xs text-gray-300">
+                                <span>{formatDate(similarArticle.created_at)}</span>
+                                <span>•</span>
+                                <span>🕰️ {similarArticle.readTime} min</span>
+                                <span>•</span>
+                                <span>Par {similarArticle.author}</span>
+                              </div>
+
+                              {/* Description */}
+                              <p className="text-gray-300 text-sm line-clamp-2 mb-2">
+                                {similarArticle.subtitle || similarArticle.description}
+                              </p>
+
+                              {/* Tags */}
+                              {similarArticle.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {similarArticle.tags.slice(0, 2).map((tag, index) => (
+                                    <span
+                                      key={index}
+                                      className="bg-gray-700/80 text-gray-300 px-2 py-1 rounded text-xs"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                  {similarArticle.tags.length > 2 && (
+                                    <span className="text-gray-400 text-xs">
+                                      +{similarArticle.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="p-4">
-                          <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 group-hover:text-pink-500 transition-colors">
-                            {similarArticle.title}
-                          </h3>
-                          <p className="text-gray-400 text-sm line-clamp-2 mb-3">
-                            {similarArticle.description}
-                          </p>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500">
-                            <span>{formatDate(similarArticle.created_at)}</span>
-                            <span>•</span>
-                            <span>{similarArticle.readTime} min</span>
-                          </div>
-                        </div>
-                      </Link>
+                      </article>
                     ))}
                   </div>
                 </div>

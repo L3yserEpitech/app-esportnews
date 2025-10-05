@@ -24,7 +24,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, size, onClick }) => 
   }, []);
 
   const getCardClasses = useMemo(() => {
-    const baseClasses = "relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group";
+    const baseClasses = "relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 hover:shadow-xl group";
 
     switch (size) {
       case 1:
@@ -82,7 +82,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, size, onClick }) => 
         <img
           src={article.featuredImage}
           alt={article.title}
-          className={`w-full ${getImageHeight} object-cover transition-all duration-300 group-hover:brightness-75`}
+          className={`w-full ${getImageHeight} object-cover transition-all duration-[500ms] group-hover:scale-102 group-hover:brightness-75`}
           loading="lazy"
         />
 
@@ -324,7 +324,7 @@ export default function ArticlesPage() {
                       </span>
                     </h2>
                     <div
-                      className="relative overflow-hidden rounded-xl cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl group"
+                      className="relative overflow-hidden rounded-xl cursor-pointer transition-all duration-300 hover:shadow-2xl group"
                       onClick={() => handleArticleClick(articles[0].slug)}
                       role="button"
                       tabIndex={0}
@@ -340,7 +340,7 @@ export default function ArticlesPage() {
                         <img
                           src={articles[0].featuredImage}
                           alt={articles[0].title}
-                          className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-75"
+                          className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-102 group-hover:brightness-75"
                           loading="lazy"
                         />
 
