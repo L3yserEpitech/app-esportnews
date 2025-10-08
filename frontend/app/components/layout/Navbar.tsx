@@ -2,12 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { Gamepad2 } from 'lucide-react';
-import UserProfile from '../auth/UserProfile';
-import LoginButton from '../auth/LoginButton';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { Gamepad2, User, LogOut } from 'lucide-react';
 import MobileGameSelector from '../games/MobileGameSelector';
 import { Game } from '../../types';
 
@@ -23,10 +21,12 @@ const Navbar: React.FC<NavbarProps> = ({
   onGameSelectionChange
 }) => {
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileGameSelectorOpen, setIsMobileGameSelectorOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const navLinks = useMemo(() => [
     { href: '/', label: 'Accueil' },
@@ -77,6 +77,12 @@ const Navbar: React.FC<NavbarProps> = ({
     setIsMobileGameSelectorOpen(false);
   };
 
+  const handleLogout = () => {
+    logout();
+    setIsUserMenuOpen(false);
+    router.push('/');
+  };
+
   return (
     <nav className={`
       fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out backdrop-blur-sm
@@ -124,12 +130,84 @@ const Navbar: React.FC<NavbarProps> = ({
 
           {/* Authentication Section */}
           <div className="hidden md:flex items-center">
-            {status === 'loading' ? (
+            {isLoading ? (
               <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse"></div>
-            ) : session ? (
-              <UserProfile />
+            ) : isAuthenticated && user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-all duration-300"
+                >
+                  {user.photo?.url ? (
+                    <img
+                      src={user.photo.url}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full object-cover border-2 border-pink-500"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center border-2 border-pink-500">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  <span className="text-white font-medium text-sm">{user.name}</span>
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown menu */}
+                {isUserMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800 rounded-lg shadow-2xl overflow-hidden z-20">
+                      <div className="px-4 py-3 border-b border-gray-800">
+                        <p className="text-sm text-gray-400">Connecté en tant que</p>
+                        <p className="text-sm font-medium text-white truncate">{user.email}</p>
+                      </div>
+                      <div className="py-2">
+                        <Link
+                          href="/profile"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          <User className="w-4 h-4" />
+                          <span>Mon profil</span>
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Se déconnecter</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
-              <LoginButton />
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/auth/login"
+                  className="px-4 py-2 text-sm font-medium text-white hover:text-pink-400 transition-colors"
+                >
+                  Se connecter
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
+                >
+                  S'inscrire
+                </Link>
+              </div>
             )}
           </div>
 
@@ -198,17 +276,64 @@ const Navbar: React.FC<NavbarProps> = ({
 
             {/* Mobile Authentication */}
             <div className="pt-3 border-t border-gray-700/40">
-              {status === 'loading' ? (
+              {isLoading ? (
                 <div className="px-3 py-2">
                   <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse"></div>
                 </div>
-              ) : session ? (
-                <div className="px-3 py-2">
-                  <UserProfile />
+              ) : isAuthenticated && user ? (
+                <div className="space-y-2">
+                  <div className="px-3 py-2 flex items-center space-x-3">
+                    {user.photo?.url ? (
+                      <img
+                        src={user.photo.url}
+                        alt={user.name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-pink-500"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center border-2 border-pink-500">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-white">{user.name}</p>
+                      <p className="text-xs text-gray-400">{user.email}</p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/profile"
+                    onClick={closeMobileMenu}
+                    className="flex items-center space-x-2 px-3 py-3 text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
+                  >
+                    <User className="w-5 h-5" />
+                    <span>Mon profil</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      closeMobileMenu();
+                      handleLogout();
+                    }}
+                    className="flex items-center space-x-2 w-full px-3 py-3 text-base font-medium text-red-400 hover:text-red-300 hover:bg-gray-800/50 rounded-lg transition-all"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span>Se déconnecter</span>
+                  </button>
                 </div>
               ) : (
-                <div className="px-3 py-2">
-                  <LoginButton className="w-full" />
+                <div className="space-y-2">
+                  <Link
+                    href="/auth/login"
+                    onClick={closeMobileMenu}
+                    className="block px-3 py-3 text-base font-medium text-white hover:bg-gray-800/50 rounded-lg transition-all text-center"
+                  >
+                    Se connecter
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    onClick={closeMobileMenu}
+                    className="block px-3 py-3 text-base font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all text-center"
+                  >
+                    S'inscrire
+                  </Link>
                 </div>
               )}
             </div>
