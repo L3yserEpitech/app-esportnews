@@ -13,7 +13,6 @@ interface AdBannerProps {
 
 const AdBanner: React.FC<AdBannerProps> = ({
   ad,
-  position,
   isSubscribed = false,
   className = ''
 }) => {
@@ -72,14 +71,14 @@ const AdBanner: React.FC<AdBannerProps> = ({
             onError={handleImageError}
             aria-label={ad.title || 'Publicité vidéo'}
           >
-            <source src={ad.url} type="video/mp4" />
+            <source src={ad.url || undefined} type="video/mp4" />
             <div className="flex items-center justify-center h-32 bg-gray-800 text-gray-400">
               Vidéo non supportée
             </div>
           </video>
         ) : (
           <img
-            src={ad.url}
+            src={ad.url || undefined}
             alt={ad.title || 'Publicité'}
             className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
             onError={handleImageError}
