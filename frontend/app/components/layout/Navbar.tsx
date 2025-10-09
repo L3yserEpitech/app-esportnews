@@ -32,7 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({
     { href: '/', label: 'Accueil' },
     { href: '/live', label: 'Direct' },
     { href: '/tournois', label: 'Tournois' },
-    { href: '/news', label: 'News' },
+    // { href: '/news', label: 'News' }, // Temporairement désactivé
     { href: '/articles', label: 'Articles' },
     { href: '/calendrier', label: 'Calendrier' },
   ], []);
