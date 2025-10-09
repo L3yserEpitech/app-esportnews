@@ -113,7 +113,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="bg-[#060B13] relative overflow-hidden flex items-center justify-center px-4 py-24">
+    <div className="bg-[#060B13] relative overflow-hidden min-h-screen flex items-center justify-center px-4 pt-20">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#F22E62]/20 rounded-full blur-3xl"></div>
@@ -217,9 +217,8 @@ export default function RegisterPage() {
                     type="text"
                     value={formData.name}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${
-                      errors.name ? 'border-red-500/50' : 'border-[#182859]/50'
-                    } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.name ? 'border-red-500/50' : 'border-[#182859]/50'
+                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
                     placeholder="John Doe"
                     disabled={isLoading}
                   />
@@ -247,9 +246,8 @@ export default function RegisterPage() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${
-                      errors.email ? 'border-red-500/50' : 'border-[#182859]/50'
-                    } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.email ? 'border-red-500/50' : 'border-[#182859]/50'
+                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
                     placeholder="john@exemple.com"
                     disabled={isLoading}
                   />
@@ -277,9 +275,8 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${
-                      errors.password ? 'border-red-500/50' : 'border-[#182859]/50'
-                    } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.password ? 'border-red-500/50' : 'border-[#182859]/50'
+                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
                     placeholder="••••••••"
                     disabled={isLoading}
                   />
@@ -307,9 +304,8 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${
-                      errors.confirmPassword ? 'border-red-500/50' : 'border-[#182859]/50'
-                    } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.confirmPassword ? 'border-red-500/50' : 'border-[#182859]/50'
+                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
                     placeholder="••••••••"
                     disabled={isLoading}
                   />

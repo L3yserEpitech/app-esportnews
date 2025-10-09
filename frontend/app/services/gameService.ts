@@ -1,6 +1,6 @@
 import { Game } from '../types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4343';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app';
 
 class GameService {
   async getGames(): Promise<Game[]> {

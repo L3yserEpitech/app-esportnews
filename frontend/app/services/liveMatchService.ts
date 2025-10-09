@@ -44,8 +44,8 @@ export interface LiveMatch {
 }
 
 const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://your-backend-url.com'
-  : 'http://localhost:4343';
+  ? 'https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app'
+  : 'https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app';
 
 export const liveMatchService = {
   async getLiveMatches(): Promise<LiveMatch[]> {

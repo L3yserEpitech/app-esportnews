@@ -1,7 +1,7 @@
 import { Advertisement } from '../types';
 
 class AdvertisementService {
-  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4343';
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app';
 
   async getActiveAdvertisements(): Promise<Advertisement[]> {
     try {
