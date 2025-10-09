@@ -1220,6 +1220,34 @@ fastify.get('/api/articles/:slug/similar', async (request, reply) => {
   }
 });
 
+// Route pour récupérer les publicités
+fastify.get('/api/ads', async (_request, reply) => {
+  try {
+    console.log('📢 Fetching advertisements from Supabase');
+
+    const { data, error } = await supabase
+      .from('ads')
+      .select('*')
+      .order('position', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching ads:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch advertisements' };
+    }
+
+    // Filtrer les publicités valides (avec URL et redirect_link)
+    const validAds = data?.filter(ad => ad.url && ad.redirect_link) || [];
+
+    console.log(`✅ Successfully fetched ${validAds.length} valid advertisements`);
+    return validAds;
+  } catch (error) {
+    console.error('❌ Error in /api/ads:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
 const start = async () => {
   try {
     await fastify.listen({ port: 4343, host: '0.0.0.0' });

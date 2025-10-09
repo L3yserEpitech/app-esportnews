@@ -18,11 +18,11 @@ const AdColumn: React.FC<AdColumnProps> = ({
   isLoading = false,
   className = ''
 }) => {
-  // Filtrer les pubs actives et les trier par position
+  // Filtrer les pubs valides et les trier par position
   const activeAds = useMemo(() =>
     ads
-      .filter(ad => ad.is_active)
-      .sort((a, b) => a.position - b.position)
+      .filter(ad => ad.url && ad.redirect_link)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
       .slice(0, 3), // Maximum 3 emplacements comme spécifié dans CLAUDE.md
     [ads]
   );
@@ -73,7 +73,7 @@ const AdColumn: React.FC<AdColumnProps> = ({
             />
           ))
         )}
-        
+
         {/* Message d'abonnement si moins de 3 pubs et pas en loading */}
         {!isLoading && activeAds.length < 3 && activeAds.length > 0 && (
           <div className="bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg p-4 text-center">

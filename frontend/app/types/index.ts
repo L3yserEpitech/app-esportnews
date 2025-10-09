@@ -140,17 +140,12 @@ export interface User {
 // Advertisement types
 export interface Advertisement {
   id: number;
-  title: string;
-  position: number;
-  type: 'banner' | 'video' | 'native';
-  url: string;
-  redirect_link: string;
-  is_active: boolean;
-  file_size: number;
-  file_type: string;
-  duration?: number;
   created_at: string;
-  updated_at: string;
+  title: string | null;
+  position: number | null;
+  type: string | null;
+  url: string | null;
+  redirect_link: string | null;
 }
 
 // UI State types

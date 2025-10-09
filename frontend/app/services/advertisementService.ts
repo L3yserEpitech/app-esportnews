@@ -1,11 +1,11 @@
 import { Advertisement } from '../types';
 
 class AdvertisementService {
-  private baseUrl = 'https://x8ki-letl-twmt.n7.xano.io/api:kPvIg7bD';
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4343';
 
   async getActiveAdvertisements(): Promise<Advertisement[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/advertisements_active`, {
+      const response = await fetch(`${this.baseUrl}/api/ads`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -19,10 +19,11 @@ class AdvertisementService {
 
       const data = await response.json();
 
-      // L'API retourne déjà les ads actives, on les trie par position
+      // Trier par position et limiter à 3 emplacements maximum
       return data
-        .sort((a: Advertisement, b: Advertisement) => a.position - b.position)
-        .slice(0, 3); // Maximum 3 emplacements comme spécifié dans CLAUDE.md
+        .filter((ad: Advertisement) => ad.url && ad.redirect_link) // Filtrer les ads valides
+        .sort((a: Advertisement, b: Advertisement) => (a.position || 0) - (b.position || 0))
+        .slice(0, 3);
 
     } catch (error) {
       console.error('Error fetching advertisements:', error);

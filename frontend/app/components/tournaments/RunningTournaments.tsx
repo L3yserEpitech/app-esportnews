@@ -76,7 +76,7 @@ const RunningTournaments: React.FC = () => {
             {selectedGameData ? (
               <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
                 <img
-                  src={selectedGameData.selected_image?.url}
+                  src={selectedGameData.selected_image}
                   alt={selectedGameData.name}
                   className="w-6 h-6 mr-2"
                 />
@@ -121,7 +121,7 @@ const RunningTournaments: React.FC = () => {
             {selectedGameData ? (
               <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
                 <img
-                  src={selectedGameData.selected_image?.url}
+                  src={selectedGameData.selected_image}
                   alt={selectedGameData.name}
                   className="w-4 h-4 mr-1"
                 />
@@ -161,7 +161,7 @@ const RunningTournaments: React.FC = () => {
         <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6">
           <div className="flex items-center">
             <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
             </svg>
             <p className="text-red-300">{error}</p>
           </div>

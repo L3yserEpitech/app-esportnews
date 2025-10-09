@@ -22,13 +22,13 @@ const AdBanner: React.FC<AdBannerProps> = ({
 
   useEffect(() => {
     // Ne pas afficher les pubs pour les abonnés
-    if (isSubscribed || !ad.is_active) {
+    if (isSubscribed || !ad.url || !ad.redirect_link) {
       setIsVisible(false);
       return;
     }
 
     setIsVisible(true);
-  }, [isSubscribed, ad.is_active]);
+  }, [isSubscribed, ad.url, ad.redirect_link]);
 
   const handleClick = () => {
     if (ad.redirect_link) {
@@ -70,9 +70,9 @@ const AdBanner: React.FC<AdBannerProps> = ({
             loop
             playsInline
             onError={handleImageError}
-            aria-label={ad.title}
+            aria-label={ad.title || 'Publicité vidéo'}
           >
-            <source src={ad.url} type={ad.file_type} />
+            <source src={ad.url} type="video/mp4" />
             <div className="flex items-center justify-center h-32 bg-gray-800 text-gray-400">
               Vidéo non supportée
             </div>
@@ -80,7 +80,7 @@ const AdBanner: React.FC<AdBannerProps> = ({
         ) : (
           <img
             src={ad.url}
-            alt={ad.title}
+            alt={ad.title || 'Publicité'}
             className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
             onError={handleImageError}
             loading="lazy"
@@ -91,7 +91,7 @@ const AdBanner: React.FC<AdBannerProps> = ({
         <div className="absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
           <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
             <h3 className="text-white text-sm font-semibold mb-1">
-              {ad.title}
+              {ad.title || 'Publicité'}
             </h3>
             <span className="text-xs text-pink-400 font-medium">Publicité</span>
           </div>
