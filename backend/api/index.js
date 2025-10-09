@@ -122,7 +122,7 @@ fastify.get('/api/live-matches', async (request, reply) => {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': 'Bearer FzRDq_TJHUupPNZcV0eJDw',
+        'Authorization': 'Bearer 7KwP-8CB1 0mnytro5OinZA',
       },
     });
 
