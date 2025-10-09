@@ -96,8 +96,10 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
           )}
         </div>
 
-        {/* Badge live si le tournoi est actuel */}
-        {tournament.end_at && new Date(tournament.end_at) > new Date() && (
+        {/* Badge live si le tournoi est en cours */}
+        {tournament.begin_at && tournament.end_at &&
+         new Date(tournament.begin_at) <= new Date() &&
+         new Date(tournament.end_at) > new Date() && (
           <div className="absolute top-4 right-4">
             <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full uppercase animate-pulse">
               En cours
