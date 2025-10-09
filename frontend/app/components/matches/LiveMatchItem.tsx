@@ -65,7 +65,7 @@ const LiveMatchItem: React.FC<LiveMatchItemProps> = ({ match, className = '' }) 
           
           <div className="flex items-center space-x-2">
             <img
-              src={match.game.selected_image.url}
+              src={match.game.selected_image}
               alt={match.game.name}
               className="w-6 h-6 object-contain"
               loading="lazy"

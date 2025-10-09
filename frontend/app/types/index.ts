@@ -1,25 +1,11 @@
 // Game types
-export interface GameImage {
-  access: string;
-  path: string;
-  name: string;
-  type: string;
-  size: number;
-  mime: string;
-  meta: {
-    width: number;
-    height: number;
-  };
-  url: string;
-}
-
 export interface Game {
   id: number;
-  created_at: number;
+  created_at: string;
   name: string;
   acronym: string;
-  selected_image: GameImage;
-  unselected_image: GameImage;
+  selected_image: string; // URL de l'image sélectionnée
+  unselected_image: string; // URL de l'image non sélectionnée
   full_name: string;
 }
 
@@ -99,7 +85,7 @@ export interface Stream {
   language: string;
 }
 
-// News & Articles types
+// News & Articles types (Supabase structure)
 export interface NewsItem {
   id: number;
   slug: string;
@@ -108,18 +94,35 @@ export interface NewsItem {
   description: string;
   author: string;
   created_at: string;
-  readTime: number;
+  readTime?: number; // Calculé côté client si nécessaire
   featuredImage: string;
   category: string;
   tags: string[];
   views: number;
-  status: 'publié' | 'brouillon' | 'archivé';
 }
 
 export interface Article extends NewsItem {
   content: string;
   content_black?: string;
   content_white?: string;
+}
+
+// Type pour la réponse directe de Supabase
+export interface SupabaseArticle {
+  id: number;
+  created_at: string;
+  slug: string;
+  tags: string[];
+  title: string;
+  views: number;
+  author: string;
+  content: string;
+  category: string;
+  subtitle: string;
+  description: string;
+  content_black: string;
+  content_white: string;
+  featuredImage: string;
 }
 
 // User types

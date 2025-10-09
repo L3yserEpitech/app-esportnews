@@ -1,4 +1,5 @@
 const fastify = require('fastify')({ logger: true });
+const { supabase } = require('./config/supabase');
 
 fastify.register(require('@fastify/cors'), {
   origin: true
@@ -15,6 +16,85 @@ fastify.get('/health', async (request, reply) => {
 fastify.get('/api/test', async (request, reply) => {
   console.log('🚀 Test endpoint called from frontend!');
   return { message: 'Test successful!', timestamp: new Date().toISOString() };
+});
+
+// Route pour récupérer tous les jeux
+fastify.get('/api/games', async (_request, reply) => {
+  try {
+    console.log('🎮 Fetching games from Supabase');
+
+    const { data, error } = await supabase
+      .from('games')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching games:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch games' };
+    }
+
+    console.log(`✅ Successfully fetched ${data.length} games`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/games:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer un jeu par ID
+fastify.get('/api/games/:id', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    console.log(`🎮 Fetching game with id: ${id}`);
+
+    const { data, error } = await supabase
+      .from('games')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error(`❌ Error fetching game ${id}:`, error);
+      reply.code(error.code === 'PGRST116' ? 404 : 500);
+      return { error: error.code === 'PGRST116' ? 'Game not found' : 'Failed to fetch game' };
+    }
+
+    console.log(`✅ Successfully fetched game: ${data.name}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/games/:id:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer un jeu par acronyme
+fastify.get('/api/games/acronym/:acronym', async (request, reply) => {
+  try {
+    const { acronym } = request.params;
+    console.log(`🎮 Fetching game with acronym: ${acronym}`);
+
+    const { data, error } = await supabase
+      .from('games')
+      .select('*')
+      .eq('acronym', acronym)
+      .single();
+
+    if (error) {
+      console.error(`❌ Error fetching game with acronym ${acronym}:`, error);
+      reply.code(error.code === 'PGRST116' ? 404 : 500);
+      return { error: error.code === 'PGRST116' ? 'Game not found' : 'Failed to fetch game' };
+    }
+
+    console.log(`✅ Successfully fetched game: ${data.name}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/games/acronym/:acronym:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
 });
 
 fastify.get('/api/news', async (request, reply) => {
@@ -999,10 +1079,151 @@ fastify.get('/api/tournaments/finished/all', async (request, reply) => {
   }
 });
 
+// ==================== ROUTES ARTICLES ====================
+
+// Route pour récupérer tous les articles
+fastify.get('/api/articles', async (_request, reply) => {
+  try {
+    console.log('📰 Fetching articles from Supabase');
+
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching articles:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch articles' };
+    }
+
+    console.log(`✅ Successfully fetched ${data.length} articles`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/articles:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer un article par slug
+fastify.get('/api/articles/:slug', async (request, reply) => {
+  try {
+    const { slug } = request.params;
+    console.log(`📰 Fetching article with slug: ${slug}`);
+
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        console.log(`❌ Article not found with slug: ${slug}`);
+        reply.code(404);
+        return { error: 'Article not found' };
+      }
+      console.error('❌ Error fetching article:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch article' };
+    }
+
+    console.log(`✅ Successfully fetched article: ${data.title}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/articles/:slug:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour incrémenter les vues d'un article
+fastify.post('/api/articles/:slug/views', async (request, reply) => {
+  try {
+    const { slug } = request.params;
+    console.log(`👁️ Incrementing views for article: ${slug}`);
+
+    const { error } = await supabase.rpc('increment_article_views', {
+      article_slug: slug
+    });
+
+    if (error) {
+      console.error('❌ Error incrementing views:', error);
+      reply.code(500);
+      return { error: 'Failed to increment views' };
+    }
+
+    console.log(`✅ Successfully incremented views for article: ${slug}`);
+    return { success: true, message: 'Views incremented successfully' };
+  } catch (error) {
+    console.error('❌ Error in /api/articles/:slug/views:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer les articles similaires
+fastify.get('/api/articles/:slug/similar', async (request, reply) => {
+  try {
+    const { slug } = request.params;
+    const { limit = 3 } = request.query;
+    console.log(`🔗 Fetching similar articles for: ${slug}`);
+
+    // D'abord récupérer l'article courant pour obtenir ses tags
+    const { data: currentArticle, error: currentError } = await supabase
+      .from('articles')
+      .select('tags')
+      .eq('slug', slug)
+      .single();
+
+    if (currentError || !currentArticle) {
+      console.log(`❌ Article not found with slug: ${slug}`);
+      reply.code(404);
+      return { error: 'Article not found' };
+    }
+
+    // Récupérer tous les autres articles
+    const { data: allArticles, error: articlesError } = await supabase
+      .from('articles')
+      .select('*')
+      .neq('slug', slug)
+      .order('created_at', { ascending: false });
+
+    if (articlesError) {
+      console.error('❌ Error fetching articles:', articlesError);
+      reply.code(500);
+      return { error: 'Failed to fetch articles' };
+    }
+
+    // Calculer la similarité basée sur les tags
+    const currentTags = currentArticle.tags || [];
+    const articlesWithScore = allArticles
+      .map(article => {
+        const articleTags = article.tags || [];
+        const commonTags = articleTags.filter(tag => currentTags.includes(tag));
+        return {
+          ...article,
+          similarityScore: commonTags.length
+        };
+      })
+      .filter(article => article.similarityScore > 0)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, parseInt(limit));
+
+    console.log(`✅ Found ${articlesWithScore.length} similar articles`);
+    return articlesWithScore;
+  } catch (error) {
+    console.error('❌ Error in /api/articles/:slug/similar:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
 const start = async () => {
   try {
     await fastify.listen({ port: 4343, host: '0.0.0.0' });
-    console.log('Server is running on http://localhost:4343');
+    console.log('✅ Server is running on http://localhost:4343');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

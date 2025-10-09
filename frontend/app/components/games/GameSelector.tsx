@@ -129,7 +129,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 {/* Container de l'image */}
                 <div className={`relative w-full h-full rounded-xl overflow-hidden ${selected ? 'z-10' : ''}`}>
                   <img
-                    src={selected ? game.selected_image.url : game.unselected_image.url}
+                    src={selected ? game.selected_image : game.unselected_image}
                     alt={`Logo ${game.name}`}
                     className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 group-active:scale-90"
                     loading="lazy"

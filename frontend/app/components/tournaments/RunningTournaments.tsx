@@ -56,11 +56,6 @@ const RunningTournaments: React.FC = () => {
   // Charger les tournois quand le jeu sélectionné change
   useEffect(() => {
     if (selectedGameData?.acronym) {
-      console.log('🎮 Loading tournaments for game:', {
-        id: selectedGameData.id,
-        name: selectedGameData.name,
-        acronym: selectedGameData.acronym
-      });
       loadTournaments(selectedGameData.acronym);
     } else {
       loadAllTournaments();

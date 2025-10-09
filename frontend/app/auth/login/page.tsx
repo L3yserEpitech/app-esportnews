@@ -154,7 +154,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">Communauté active</h3>
-                  <p className="text-gray-400 text-sm">Échangez avec d'autres passionnés</p>
+                  <p className="text-gray-400 text-sm">Échangez avec d'autres passionnés</p>‡
                 </div>
               </div>
             </div>

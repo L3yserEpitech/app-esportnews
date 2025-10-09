@@ -89,7 +89,6 @@ export default function HomePage() {
 
   // Charger les données selon le jeu sélectionné
   const loadGameData = useCallback((gameId: string) => {
-    console.log('Chargement des données pour le jeu:', gameId);
     // Ici on appellerait les vraies APIs SportDevs et PandaScore
   }, []);
 

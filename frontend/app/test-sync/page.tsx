@@ -16,7 +16,7 @@ export default function TestSyncPage() {
           {selectedGameData ? (
             <div className="flex items-center space-x-4">
               <img
-                src={selectedGameData.selected_image.url}
+                src={selectedGameData.selected_image}
                 alt={selectedGameData.name}
                 className="w-16 h-16 rounded-lg object-cover"
               />
@@ -46,7 +46,7 @@ export default function TestSyncPage() {
                 `}
               >
                 <img
-                  src={game.unselected_image.url}
+                  src={game.unselected_image}
                   alt={game.name}
                   className="w-full h-20 object-cover rounded mb-2"
                 />

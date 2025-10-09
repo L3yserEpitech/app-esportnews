@@ -96,7 +96,6 @@ export default function CalendrierPage() {
 
   // Gérer le clic sur un match
   const handleMatchClick = useCallback((match: PandaMatch) => {
-    console.log('Match sélectionné:', match);
     // TODO: Navigation vers la page détail du match
   }, []);
 
