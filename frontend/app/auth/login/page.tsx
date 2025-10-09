@@ -229,7 +229,7 @@ export default function LoginPage() {
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
-‡                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.password ? 'border-red-500/50' : 'border-[#182859]/50'
+                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.password ? 'border-red-500/50' : 'border-[#182859]/50'
                       } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
                     placeholder="••••••••"
                     disabled={isLoading}
