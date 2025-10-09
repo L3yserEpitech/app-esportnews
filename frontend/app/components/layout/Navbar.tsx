@@ -195,7 +195,8 @@ const Navbar: React.FC<NavbarProps> = ({
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link
+                {/* Temporairement désactivé */}
+                {/* <Link
                   href="/auth/login"
                   className="px-4 py-2 text-sm font-medium text-white hover:text-pink-400 transition-colors"
                 >
@@ -206,7 +207,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
                 >
                   S'inscrire
-                </Link>
+                </Link> */}
               </div>
             )}
           </div>
@@ -320,7 +321,8 @@ const Navbar: React.FC<NavbarProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Link
+                  {/* Temporairement désactivé */}
+                  {/* <Link
                     href="/auth/login"
                     onClick={closeMobileMenu}
                     className="block px-3 py-3 text-base font-medium text-white hover:bg-gray-800/50 rounded-lg transition-all text-center"
@@ -333,7 +335,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="block px-3 py-3 text-base font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all text-center"
                   >
                     S'inscrire
-                  </Link>
+                  </Link> */}
                 </div>
               )}
             </div>
