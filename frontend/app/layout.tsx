@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { GameProvider } from "./contexts/GameContext";
 import ClientLayout from "./components/layout/ClientLayout";
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -51,6 +52,7 @@ export default function RootLayout({
           <GameProvider>
             <ClientLayout>
               {children}
+              <Analytics />
             </ClientLayout>
           </GameProvider>
         </AuthProvider>
