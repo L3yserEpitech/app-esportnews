@@ -179,29 +179,6 @@
 * **Modèles** : issue template, PR template, bug report, test plan, plan de marquage.
 
 ### Shema database
-* **User**: {"id":"integer","created_at":"timestamp","name":"text","email":"email","password":"password","photo":"image","photoUploaded":"bool","admin":"bool","favorite_team":"json"}
-* **Article**: {"id":"integer","created_at":"timestamp","article":"json","slug":"text"}
-* **Ex du json de 'Article'**: {
-  "slug": "les-jeux-dechecs-sinstallent-dans-lesport",
-  "tags": [
-    "Esport",
-    "échec"
-  ],
-  "title": "Les jeux d’échecs s’installent dans l’esport",
-  "views": 0,
-  "author": "Admin",
-  "status": "publié",
-  "content": "<div></div>",
-  "category": "Analyse",
-  "readTime": 2,
-  "subtitle": "",
-  "description": "desc",
-  "content_black": "<div></div>",
-  "content_white": "<div></div>",
-  "featuredImage": "https://i.postimg.cc/D0VkTgF9/IMG-7860.jpg"
-}
-* **Game**: {"id":"integer","created_at":"timestamp","name":"text","selected_image":"image","unselected_image":"image","acronym":"text"}
-* **Publicité**: {"id":"integer","created_at":"timestamp","title":"text","position":"integer","type":"enum","url":"text","redirect_link":"text","is_active":"bool","file_size":"integer","file_type":"text","duration":"integer","updated_at":"timestamp"}
 
 - Demander dans le chat les endpoints des api quand il y'a besoin.
 - Ne jamais mettre de données fictive SAUF si je te le dis.

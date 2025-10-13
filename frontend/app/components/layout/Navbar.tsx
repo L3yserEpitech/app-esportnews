@@ -167,8 +167,8 @@ const Navbar: React.FC<NavbarProps> = ({
                       className="fixed inset-0 z-10"
                       onClick={() => setIsUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800 rounded-lg shadow-2xl overflow-hidden z-20">
-                      <div className="px-4 py-3 border-b border-gray-800">
+                    <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800/30 rounded-lg shadow-2xl overflow-hidden z-20">
+                      <div className="px-4 py-3 border-b border-gray-800/30">
                         <p className="text-sm text-gray-400">Connecté en tant que</p>
                         <p className="text-sm font-medium text-white truncate">{user.email}</p>
                       </div>
@@ -183,7 +183,7 @@ const Navbar: React.FC<NavbarProps> = ({
                         </Link>
                         <button
                           onClick={handleLogout}
-                          className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors"
+                          className="cursor-pointer flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />
                           <span>Se déconnecter</span>
@@ -195,8 +195,7 @@ const Navbar: React.FC<NavbarProps> = ({
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                {/* Temporairement désactivé */}
-                {/* <Link
+                <Link
                   href="/auth/login"
                   className="px-4 py-2 text-sm font-medium text-white hover:text-pink-400 transition-colors"
                 >
@@ -207,7 +206,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
                 >
                   S'inscrire
-                </Link> */}
+                </Link>
               </div>
             )}
           </div>
@@ -321,8 +320,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* Temporairement désactivé */}
-                  {/* <Link
+                  <Link
                     href="/auth/login"
                     onClick={closeMobileMenu}
                     className="block px-3 py-3 text-base font-medium text-white hover:bg-gray-800/50 rounded-lg transition-all text-center"
@@ -335,7 +333,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="block px-3 py-3 text-base font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all text-center"
                   >
                     S'inscrire
-                  </Link> */}
+                  </Link>
                 </div>
               )}
             </div>

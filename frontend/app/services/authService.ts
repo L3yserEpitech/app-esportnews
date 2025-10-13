@@ -13,6 +13,7 @@ export interface LoginData {
 
 export interface AuthResponse {
   authToken: string;
+  user: UserData;
 }
 
 export interface FavoriteTeam {
@@ -28,16 +29,14 @@ export interface FavoriteTeam {
 }
 
 export interface UserData {
-  id: number;
-  created_at: number;
+  id: string;
+  created_at: string;
   name: string;
   email: string;
   photoUploaded: boolean;
   admin: boolean;
   favorite_team: FavoriteTeam | null;
-  photo: {
-    url: string;
-  } | null;
+  photo: string | null;
 }
 
 class AuthService {
@@ -55,17 +54,14 @@ class AuthService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Erreur lors de l\'inscription');
+      throw new Error(error.error || 'Erreur lors de l\'inscription');
     }
 
-    const authResponse: AuthResponse = await response.json();
-
-    // Récupérer les informations utilisateur
-    const user = await this.getMe(authResponse.authToken);
+    const result: AuthResponse = await response.json();
 
     return {
-      authToken: authResponse.authToken,
-      user,
+      authToken: result.authToken,
+      user: result.user,
     };
   }
 
@@ -83,17 +79,14 @@ class AuthService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Email ou mot de passe incorrect');
+      throw new Error(error.error || 'Email ou mot de passe incorrect');
     }
 
-    const authResponse: AuthResponse = await response.json();
-
-    // Récupérer les informations utilisateur
-    const user = await this.getMe(authResponse.authToken);
+    const result: AuthResponse = await response.json();
 
     return {
-      authToken: authResponse.authToken,
-      user,
+      authToken: result.authToken,
+      user: result.user,
     };
   }
 

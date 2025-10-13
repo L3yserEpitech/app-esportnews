@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import GameSelector from './components/games/GameSelector';
-import LiveMatchItem from './components/matches/LiveMatchItem';
-import LiveMatchCard from './components/matches/LiveMatchCard';
 import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';

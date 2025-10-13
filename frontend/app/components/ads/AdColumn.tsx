@@ -78,14 +78,14 @@ const AdColumn: React.FC<AdColumnProps> = ({
         {!isLoading && activeAds.length < 3 && activeAds.length > 0 && (
           <div className="bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg p-4 text-center">
             <h3 className="text-pink-400 font-medium mb-2">
-              🎆 Experience sans pub
+              🎆 Premium
             </h3>
             <p className="text-gray-300 text-sm mb-3">
-              Profitez du contenu sans interruption avec notre abonnement premium.
+              Découvrir le premium pour de nombreux avantages
             </p>
             <button
               onClick={handlePremiumClick}
-              className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="cursor-pointer bg-pink-600 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Découvrir Premium
             </button>
