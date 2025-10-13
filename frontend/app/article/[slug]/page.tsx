@@ -207,18 +207,6 @@ export default function ArticlePage() {
                 </div>
               </article>
 
-              {/* Recent articles section */}
-              {recentArticles.length > 0 && (
-                <div className="mt-12 px-4 md:px-0">
-                  <h2 className="text-2xl font-bold text-white mb-6">Articles récents</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {recentArticles.map((recentArticle) => (
-                      <ArticleCard key={recentArticle.id} article={recentArticle} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Similar articles section */}
               {similarArticles.length > 0 && (
                 <div className="mt-12 px-4 md:px-0">

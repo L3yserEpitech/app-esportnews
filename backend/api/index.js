@@ -1,8 +1,15 @@
 const fastify = require('fastify')({ logger: true });
 const { supabase } = require('../src/config/supabase');
+const multipart = require('@fastify/multipart');
 
 fastify.register(require('@fastify/cors'), {
   origin: true
+});
+
+fastify.register(multipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
 });
 
 fastify.get('/', async (request, reply) => {
@@ -122,7 +129,7 @@ fastify.get('/api/live-matches', async (request, reply) => {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': 'Bearer kjrHgVwMNECod12aCt20XA',
+        'Authorization': `Bearer ${process.env.API_SPORTDEVS}`,
       },
     });
 
@@ -1245,6 +1252,383 @@ fastify.get('/api/ads', async (_request, reply) => {
     console.error('❌ Error in /api/ads:', error);
     reply.code(500);
     return { error: 'Internal server error' };
+  }
+});
+
+// ==================== ROUTES AUTHENTIFICATION ====================
+
+// Middleware pour vérifier le token JWT
+const verifyToken = async (request, reply) => {
+  try {
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      reply.code(401);
+      return reply.send({ error: 'Token manquant ou invalide' });
+    }
+
+    const token = authHeader.substring(7);
+
+    // Vérifier le token avec Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      reply.code(401);
+      return reply.send({ error: 'Token invalide ou expiré' });
+    }
+
+    // Ajouter l'utilisateur à la requête
+    request.user = user;
+  } catch (error) {
+    console.error('❌ Error verifying token:', error);
+    reply.code(500);
+    return reply.send({ error: 'Erreur lors de la vérification du token' });
+  }
+};
+
+// Route d'inscription
+fastify.post('/api/auth/signup', async (request, reply) => {
+  try {
+    const { email, password, name } = request.body;
+
+    if (!email || !password || !name) {
+      reply.code(400);
+      return { error: 'Email, mot de passe et nom sont requis' };
+    }
+
+    console.log(`📝 Creating new user: ${email}`);
+
+    // Créer l'utilisateur avec Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      console.error('❌ Error creating auth user:', authError);
+      reply.code(400);
+      return { error: authError.message };
+    }
+
+    // Créer l'enregistrement dans la table users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert([{
+        id: authData.user.id,
+        email,
+        name,
+        photo: null,
+        photoUploaded: false,
+        admin: false,
+        favorite_team: null
+      }])
+      .select()
+      .single();
+
+    if (userError) {
+      console.error('❌ Error creating user record:', userError);
+      reply.code(500);
+      return { error: 'Erreur lors de la création du profil utilisateur' };
+    }
+
+    console.log(`✅ User created successfully: ${email}`);
+
+    return {
+      authToken: authData.session?.access_token,
+      user: userData
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/auth/signup:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route de connexion
+fastify.post('/api/auth/login', async (request, reply) => {
+  try {
+    const { email, password } = request.body;
+
+    if (!email || !password) {
+      reply.code(400);
+      return { error: 'Email et mot de passe sont requis' };
+    }
+
+    console.log(`🔐 User login attempt: ${email}`);
+
+    // Authentifier avec Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      console.error('❌ Error authenticating user:', authError);
+      reply.code(401);
+      return { error: 'Email ou mot de passe incorrect' };
+    }
+
+    // Récupérer les données utilisateur depuis la table users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (userError) {
+      console.error('❌ Error fetching user data:', userError);
+      reply.code(500);
+      return { error: 'Erreur lors de la récupération des données utilisateur' };
+    }
+
+    console.log(`✅ User logged in successfully: ${email}`);
+
+    return {
+      authToken: authData.session?.access_token,
+      user: userData
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/auth/login:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour récupérer les informations de l'utilisateur connecté
+fastify.get('/api/auth/me', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    console.log(`👤 Fetching user data for: ${request.user.id}`);
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', request.user.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching user:', error);
+      reply.code(500);
+      return { error: 'Erreur lors de la récupération des données utilisateur' };
+    }
+
+    console.log('✅ User data fetched successfully');
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/auth/me:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour mettre à jour le profil utilisateur
+fastify.post('/api/auth/me', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const { name, email, password } = request.body;
+    const userId = request.user.id;
+
+    console.log(`📝 Updating user profile for: ${userId}`);
+
+    const updates = {};
+
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+
+    // Mettre à jour l'email dans Supabase Auth si nécessaire
+    if (email && email !== request.user.email) {
+      const { error: authError } = await supabase.auth.updateUser({ email });
+      if (authError) {
+        console.error('❌ Error updating auth email:', authError);
+        reply.code(400);
+        return { error: authError.message };
+      }
+    }
+
+    // Mettre à jour le mot de passe si fourni
+    if (password) {
+      const { error: passwordError } = await supabase.auth.updateUser({ password });
+      if (passwordError) {
+        console.error('❌ Error updating password:', passwordError);
+        reply.code(400);
+        return { error: passwordError.message };
+      }
+    }
+
+    // Mettre à jour la table users
+    if (Object.keys(updates).length > 0) {
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error updating user:', error);
+        reply.code(500);
+        return { error: 'Erreur lors de la mise à jour du profil' };
+      }
+
+      console.log('✅ User profile updated successfully');
+      return data;
+    }
+
+    // Si aucune mise à jour de la table users, retourner les données actuelles
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      reply.code(500);
+      return { error: 'Erreur lors de la récupération des données' };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Error in /api/auth/me (update):', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour uploader un avatar
+fastify.post('/api/auth/avatar', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    console.log(`📸 Uploading avatar for user: ${userId}`);
+
+    // Récupérer le fichier
+    const data = await request.file();
+
+    if (!data) {
+      reply.code(400);
+      return { error: 'Aucun fichier fourni' };
+    }
+
+    // Vérifier le type de fichier
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(data.mimetype)) {
+      reply.code(400);
+      return { error: 'Format de fichier non supporté. Utilisez JPG, PNG, GIF ou WebP.' };
+    }
+
+    // Convertir le stream en buffer
+    const buffer = await data.toBuffer();
+
+    // Générer un nom de fichier unique
+    const fileExt = data.mimetype.split('/')[1];
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    // Upload vers Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('users')
+      .upload(filePath, buffer, {
+        contentType: data.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('❌ Error uploading to storage:', uploadError);
+      reply.code(500);
+      return { error: 'Erreur lors de l\'upload de l\'image' };
+    }
+
+    // Obtenir l'URL publique
+    const { data: publicUrlData } = supabase.storage
+      .from('users')
+      .getPublicUrl(filePath);
+
+    const photoUrl = publicUrlData.publicUrl;
+
+    // Mettre à jour la table users avec la nouvelle photo
+    const { data: userData, error: updateError } = await supabase
+      .from('users')
+      .update({
+        photo: photoUrl,
+        photoUploaded: true
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Error updating user photo:', updateError);
+      reply.code(500);
+      return { error: 'Erreur lors de la mise à jour du profil' };
+    }
+
+    console.log('✅ Avatar uploaded successfully');
+    return {
+      photo: {
+        url: photoUrl
+      },
+      user: userData
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/auth/avatar:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour supprimer un avatar
+fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    console.log(`🗑️ Deleting avatar for user: ${userId}`);
+
+    // Récupérer l'URL actuelle de la photo
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('users')
+      .select('photo')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      reply.code(500);
+      return { error: 'Erreur lors de la récupération des données utilisateur' };
+    }
+
+    // Si l'utilisateur a une photo, la supprimer du storage
+    if (currentUser.photo) {
+      // Extraire le chemin du fichier depuis l'URL
+      const photoPath = currentUser.photo.split('/').slice(-2).join('/');
+
+      const { error: deleteError } = await supabase.storage
+        .from('users')
+        .remove([photoPath]);
+
+      if (deleteError) {
+        console.error('⚠️ Error deleting from storage:', deleteError);
+        // Continue même si la suppression du fichier échoue
+      }
+    }
+
+    // Mettre à jour la table users
+    const { data: userData, error: updateError } = await supabase
+      .from('users')
+      .update({
+        photo: null,
+        photoUploaded: false
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Error updating user:', updateError);
+      reply.code(500);
+      return { error: 'Erreur lors de la mise à jour du profil' };
+    }
+
+    console.log('✅ Avatar deleted successfully');
+    return userData;
+  } catch (error) {
+    console.error('❌ Error in /api/auth/avatar (delete):', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
   }
 });
 
