@@ -47,7 +47,7 @@ export interface LiveMatch {
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch('https://esports.sportdevs.com/matches-live', {
+    const response = await fetch(`${process.env.BACKEND_URL}/matches-live`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

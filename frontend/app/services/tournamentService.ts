@@ -14,7 +14,7 @@ class TournamentService {
         params.set('game', game);
       }
 
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/by-date?${params.toString()}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/by-date?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ class TournamentService {
         params.set('game', game);
       }
 
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/matches/by-date?${params.toString()}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/matches/by-date?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ class TournamentService {
         }
       }
 
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/filtered?${params.toString()}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/filtered?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -113,7 +113,7 @@ class TournamentService {
   // Tournois en cours - tous jeux
   async getAllRunningTournaments(): Promise<PandaTournament[]> {
     try {
-      const response = await fetch('https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/all', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/all`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ class TournamentService {
   // Tournois en cours - jeu spécifique
   async getRunningTournaments(gameAcronym: string): Promise<PandaTournament[]> {
     try {
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments?game=${encodeURIComponent(gameAcronym)}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments?game=${encodeURIComponent(gameAcronym)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ class TournamentService {
   // Tournois à venir - tous jeux
   async getAllUpcomingTournaments(): Promise<PandaTournament[]> {
     try {
-      const response = await fetch('https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/upcoming/all', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/upcoming/all`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ class TournamentService {
   // Tournois à venir - jeu spécifique
   async getUpcomingTournaments(gameAcronym: string): Promise<PandaTournament[]> {
     try {
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/upcoming?game=${encodeURIComponent(gameAcronym)}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/upcoming?game=${encodeURIComponent(gameAcronym)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +209,7 @@ class TournamentService {
   // Tournois passés - tous jeux
   async getAllFinishedTournaments(): Promise<PandaTournament[]> {
     try {
-      const response = await fetch('https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/finished/all', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/finished/all`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +233,7 @@ class TournamentService {
   // Tournois passés - jeu spécifique
   async getFinishedTournaments(gameAcronym: string): Promise<PandaTournament[]> {
     try {
-      const response = await fetch(`https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app/api/tournaments/finished?game=${encodeURIComponent(gameAcronym)}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/finished?game=${encodeURIComponent(gameAcronym)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

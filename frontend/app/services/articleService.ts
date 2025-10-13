@@ -1,7 +1,7 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
 
 class ArticleService {
-  private baseUrl = 'https://esportnews-backend-92a3q1l44-l3yserepitechs-projects.vercel.app';
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
   async getAllArticles(): Promise<NewsItem[]> {
     try {
