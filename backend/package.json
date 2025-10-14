@@ -14,8 +14,10 @@
     "@fastify/cors": "^8.4.0",
     "@fastify/multipart": "^8.3.1",
     "@supabase/supabase-js": "^2.74.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "fastify": "^4.24.3",
+    "jsonwebtoken": "^9.0.2",
     "vercel": "^48.2.9"
   },
   "devDependencies": {

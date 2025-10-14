@@ -29,14 +29,12 @@ export interface FavoriteTeam {
 }
 
 export interface UserData {
-  id: string;
+  id: number;
   created_at: string;
   name: string;
   email: string;
-  photoUploaded: boolean;
   admin: boolean;
-  favorite_team: FavoriteTeam | null;
-  photo: string | null;
+  avatar: string | null;
 }
 
 class AuthService {
@@ -44,7 +42,7 @@ class AuthService {
    * Inscription d'un nouvel utilisateur
    */
   async signup(data: SignupData): Promise<{ authToken: string; user: UserData }> {
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,7 +67,7 @@ class AuthService {
    * Connexion d'un utilisateur
    */
   async login(data: LoginData): Promise<{ authToken: string; user: UserData }> {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,8 @@
 const fastify = require('fastify')({ logger: true });
 const { supabase } = require('../src/config/supabase');
 const multipart = require('@fastify/multipart');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 fastify.register(require('@fastify/cors'), {
   origin: true
@@ -1257,6 +1259,9 @@ fastify.get('/api/ads', async (_request, reply) => {
 
 // ==================== ROUTES AUTHENTIFICATION ====================
 
+// Secret JWT (à déplacer dans .env en production)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+
 // Middleware pour vérifier le token JWT
 const verifyToken = async (request, reply) => {
   try {
@@ -1269,8 +1274,15 @@ const verifyToken = async (request, reply) => {
 
     const token = authHeader.substring(7);
 
-    // Vérifier le token avec Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Vérifier le token JWT
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Récupérer l'utilisateur depuis la base de données
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', decoded.userId)
+      .single();
 
     if (error || !user) {
       reply.code(401);
@@ -1281,8 +1293,8 @@ const verifyToken = async (request, reply) => {
     request.user = user;
   } catch (error) {
     console.error('❌ Error verifying token:', error);
-    reply.code(500);
-    return reply.send({ error: 'Erreur lors de la vérification du token' });
+    reply.code(401);
+    return reply.send({ error: 'Token invalide ou expiré' });
   }
 };
 
@@ -1298,29 +1310,32 @@ fastify.post('/api/auth/signup', async (request, reply) => {
 
     console.log(`📝 Creating new user: ${email}`);
 
-    // Créer l'utilisateur avec Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    // Vérifier si l'email existe déjà
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
 
-    if (authError) {
-      console.error('❌ Error creating auth user:', authError);
+    if (existingUser) {
+      console.log(`⚠️ User already exists: ${email}`);
       reply.code(400);
-      return { error: authError.message };
+      return { error: 'Cet email est déjà utilisé' };
     }
 
-    // Créer l'enregistrement dans la table users
+    // Hasher le mot de passe
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Créer l'utilisateur dans la table users
     const { data: userData, error: userError } = await supabase
       .from('users')
       .insert([{
-        id: authData.user.id,
         email,
         name,
-        photo: null,
-        photoUploaded: false,
-        admin: false,
-        favorite_team: null
+        password: hashedPassword,
+        avatar: null,
+        admin: false
       }])
       .select()
       .single();
@@ -1331,11 +1346,22 @@ fastify.post('/api/auth/signup', async (request, reply) => {
       return { error: 'Erreur lors de la création du profil utilisateur' };
     }
 
+    // Générer un token JWT
+    const token = jwt.sign(
+      { userId: userData.id, email: userData.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
     console.log(`✅ User created successfully: ${email}`);
 
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = userData;
+
     return {
-      authToken: authData.session?.access_token,
-      user: userData
+      authToken: token,
+      user: userWithoutPassword
     };
   } catch (error) {
     console.error('❌ Error in /api/auth/signup:', error);
@@ -1356,36 +1382,44 @@ fastify.post('/api/auth/login', async (request, reply) => {
 
     console.log(`🔐 User login attempt: ${email}`);
 
-    // Authentifier avec Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Récupérer l'utilisateur depuis la base de données
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-    if (authError) {
-      console.error('❌ Error authenticating user:', authError);
+    if (userError || !userData) {
+      console.error('❌ User not found:', email);
       reply.code(401);
       return { error: 'Email ou mot de passe incorrect' };
     }
 
-    // Récupérer les données utilisateur depuis la table users
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
+    // Vérifier le mot de passe
+    const passwordMatch = await bcrypt.compare(password, userData.password);
 
-    if (userError) {
-      console.error('❌ Error fetching user data:', userError);
-      reply.code(500);
-      return { error: 'Erreur lors de la récupération des données utilisateur' };
+    if (!passwordMatch) {
+      console.error('❌ Invalid password for user:', email);
+      reply.code(401);
+      return { error: 'Email ou mot de passe incorrect' };
     }
+
+    // Générer un token JWT
+    const token = jwt.sign(
+      { userId: userData.id, email: userData.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     console.log(`✅ User logged in successfully: ${email}`);
 
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = userData;
+
     return {
-      authToken: authData.session?.access_token,
-      user: userData
+      authToken: token,
+      user: userWithoutPassword
     };
   } catch (error) {
     console.error('❌ Error in /api/auth/login:', error);
@@ -1412,7 +1446,11 @@ fastify.get('/api/auth/me', { preHandler: verifyToken }, async (request, reply) 
     }
 
     console.log('✅ User data fetched successfully');
-    return data;
+
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = data;
+    return userWithoutPassword;
   } catch (error) {
     console.error('❌ Error in /api/auth/me:', error);
     reply.code(500);
@@ -1433,24 +1471,11 @@ fastify.post('/api/auth/me', { preHandler: verifyToken }, async (request, reply)
     if (name) updates.name = name;
     if (email) updates.email = email;
 
-    // Mettre à jour l'email dans Supabase Auth si nécessaire
-    if (email && email !== request.user.email) {
-      const { error: authError } = await supabase.auth.updateUser({ email });
-      if (authError) {
-        console.error('❌ Error updating auth email:', authError);
-        reply.code(400);
-        return { error: authError.message };
-      }
-    }
-
     // Mettre à jour le mot de passe si fourni
     if (password) {
-      const { error: passwordError } = await supabase.auth.updateUser({ password });
-      if (passwordError) {
-        console.error('❌ Error updating password:', passwordError);
-        reply.code(400);
-        return { error: passwordError.message };
-      }
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      updates.password = hashedPassword;
     }
 
     // Mettre à jour la table users
@@ -1469,7 +1494,11 @@ fastify.post('/api/auth/me', { preHandler: verifyToken }, async (request, reply)
       }
 
       console.log('✅ User profile updated successfully');
-      return data;
+
+      // Retourner l'utilisateur sans le mot de passe
+      // eslint-disable-next-line no-unused-vars
+      const { password: _pwd, ...userWithoutPassword } = data;
+      return userWithoutPassword;
     }
 
     // Si aucune mise à jour de la table users, retourner les données actuelles
@@ -1484,7 +1513,10 @@ fastify.post('/api/auth/me', { preHandler: verifyToken }, async (request, reply)
       return { error: 'Erreur lors de la récupération des données' };
     }
 
-    return data;
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd2, ...userWithoutPassword } = data;
+    return userWithoutPassword;
   } catch (error) {
     console.error('❌ Error in /api/auth/me (update):', error);
     reply.code(500);
@@ -1540,31 +1572,35 @@ fastify.post('/api/auth/avatar', { preHandler: verifyToken }, async (request, re
       .from('users')
       .getPublicUrl(filePath);
 
-    const photoUrl = publicUrlData.publicUrl;
+    const avatarUrl = publicUrlData.publicUrl;
 
-    // Mettre à jour la table users avec la nouvelle photo
+    // Mettre à jour la table users avec le nouvel avatar
     const { data: userData, error: updateError } = await supabase
       .from('users')
       .update({
-        photo: photoUrl,
-        photoUploaded: true
+        avatar: avatarUrl
       })
       .eq('id', userId)
       .select()
       .single();
 
     if (updateError) {
-      console.error('❌ Error updating user photo:', updateError);
+      console.error('❌ Error updating user avatar:', updateError);
       reply.code(500);
       return { error: 'Erreur lors de la mise à jour du profil' };
     }
 
     console.log('✅ Avatar uploaded successfully');
+
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = userData;
+
     return {
-      photo: {
-        url: photoUrl
+      avatar: {
+        url: avatarUrl
       },
-      user: userData
+      user: userWithoutPassword
     };
   } catch (error) {
     console.error('❌ Error in /api/auth/avatar:', error);
@@ -1579,10 +1615,10 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
     const userId = request.user.id;
     console.log(`🗑️ Deleting avatar for user: ${userId}`);
 
-    // Récupérer l'URL actuelle de la photo
+    // Récupérer l'URL actuelle de l'avatar
     const { data: currentUser, error: fetchError } = await supabase
       .from('users')
-      .select('photo')
+      .select('avatar')
       .eq('id', userId)
       .single();
 
@@ -1591,14 +1627,14 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
       return { error: 'Erreur lors de la récupération des données utilisateur' };
     }
 
-    // Si l'utilisateur a une photo, la supprimer du storage
-    if (currentUser.photo) {
+    // Si l'utilisateur a un avatar, le supprimer du storage
+    if (currentUser.avatar) {
       // Extraire le chemin du fichier depuis l'URL
-      const photoPath = currentUser.photo.split('/').slice(-2).join('/');
+      const avatarPath = currentUser.avatar.split('/').slice(-2).join('/');
 
       const { error: deleteError } = await supabase.storage
         .from('users')
-        .remove([photoPath]);
+        .remove([avatarPath]);
 
       if (deleteError) {
         console.error('⚠️ Error deleting from storage:', deleteError);
@@ -1610,8 +1646,7 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
     const { data: userData, error: updateError } = await supabase
       .from('users')
       .update({
-        photo: null,
-        photoUploaded: false
+        avatar: null
       })
       .eq('id', userId)
       .select()
@@ -1624,7 +1659,11 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
     }
 
     console.log('✅ Avatar deleted successfully');
-    return userData;
+
+    // Retourner l'utilisateur sans le mot de passe
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = userData;
+    return userWithoutPassword;
   } catch (error) {
     console.error('❌ Error in /api/auth/avatar (delete):', error);
     reply.code(500);
