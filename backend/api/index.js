@@ -8,6 +8,14 @@ fastify.register(require('@fastify/cors'), {
   origin: true
 });
 
+// Rate limiting pour les routes d'authentification
+fastify.register(require('@fastify/rate-limit'), {
+  max: 100, // Maximum 100 requêtes (plus permissif en dev)
+  timeWindow: '1 minute', // Par minute
+  ban: 10, // Après 10 dépassements, bannir pour...
+  banTimeWindow: '5 minutes' // 5 minutes
+});
+
 fastify.register(multipart, {
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB max file size
@@ -1308,6 +1316,31 @@ fastify.post('/api/auth/signup', async (request, reply) => {
       return { error: 'Email, mot de passe et nom sont requis' };
     }
 
+    // Validation de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      reply.code(400);
+      return { error: 'Format d\'email invalide' };
+    }
+
+    // Validation du mot de passe (minimum 8 caractères, au moins 1 lettre et 1 chiffre)
+    if (password.length < 8) {
+      reply.code(400);
+      return { error: 'Le mot de passe doit contenir au moins 8 caractères' };
+    }
+
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      reply.code(400);
+      return { error: 'Le mot de passe doit contenir au moins une lettre et un chiffre' };
+    }
+
+    // Validation du nom (entre 2 et 50 caractères)
+    if (name.length < 2 || name.length > 50) {
+      reply.code(400);
+      return { error: 'Le nom doit contenir entre 2 et 50 caractères' };
+    }
+
     console.log(`📝 Creating new user: ${email}`);
 
     // Vérifier si l'email existe déjà
@@ -1327,17 +1360,13 @@ fastify.post('/api/auth/signup', async (request, reply) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Créer l'utilisateur dans la table users
+    // Créer l'utilisateur via la fonction RPC (bypass RLS)
     const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert([{
-        email,
-        name,
-        password: hashedPassword,
-        avatar: null,
-        admin: false
-      }])
-      .select()
+      .rpc('create_user', {
+        p_email: email,
+        p_name: name,
+        p_password: hashedPassword
+      })
       .single();
 
     if (userError) {
