@@ -54,16 +54,26 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#060B13] via-[#091626] to-[#182859] pt-28 pb-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="min-h-screen bg-gradient-to-b from-[#060B13] via-[#091626] to-[#182859] pt-28 pb-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">Paramètres</h1>
+          <p className="text-sm text-gray-400 mt-1">Gérez votre profil et vos préférences</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-3">
             <ProfileSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
           </div>
 
           {/* Content */}
-          <div className="lg:col-span-9">{renderSection()}</div>
+          <div className="lg:col-span-9">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+              {renderSection()}
+            </div>
+          </div>
         </div>
       </div>
     </div>

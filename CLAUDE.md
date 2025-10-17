@@ -11,6 +11,8 @@
 * **Valeur clé / différenciation** : Focus **live-only** agrégé (SportDevs), tournois/équipes/matchs structurés (PandaScore), UX rapide par **jeu** et calendrier simple.
 * **Mesure du succès (KPI)** : CTR jeux en home, temps sur « Direct », clics pubs, conversions abonnement (no-ads), pages vues News/Articles, retour visiteurs.
 * **Contraintes business** : Pas de back-office à développer (déjà existant). Pas de conservation de données côté app. Pas de limite API contractuelle.
+* **Backend** : Backend node présent dans /backend/api
+**
 
 ### Décisions actées (20/09/2025)
 
@@ -27,38 +29,6 @@
 * **Navigation** : Liens de diffusion **ouvrent dans un nouvel onglet**.
 * **Monétisation** : 3 emplacements pub **desktop** dans une colonne droite pleine hauteur en home ; **aucune pub pour les abonnés**.
 * **SEO** : H1/H2 optimisés ; articles avec **mots-clés** injectés automatiquement depuis la base de données.
-
-## 2) Cibles & Parcours
-
-* **Personas prioritaires** (3 max) : objectifs, freins, critères de décision.
-* **Parcours clés** (jobs-to-be-done) : étapes, points de friction, métriques.
-* **Cas d’usage non-objectifs** (ce qu’on ne fera pas).
-
-## 3) Arborescence & Structure
-
-* **Sitemap (N1)** : Home / Direct / Tournois / News / Articles / Calendrier / Profil / Abonnement.
-* **Home** :
-
-  * **Banderole** de choix des jeux (sélection persistée).
-  * **Colonne droite desktop** : panneau publicitaire pleine hauteur avec **3 emplacements**.
-  * **Blocs** : Matchs **en direct**, **News** (1 une + liste).
-* **Direct** : liste des matchs **triable par jeu** (fenêtre centrée sur le maintenant).
-* **Calendrier** : clic sur **jour** → affiche **uniquement** les matchs du **jeu sélectionné** ce jour-là (le jeu est déjà enregistré via la banderole/home).
-* **News / Articles** : grilles vignettes, pages détail article ; « Voir aussi » basé sur jeu/tags.
-* **Tournois** : listing + fiche (structure PandaScore). Gestion avancée des doublons **post-V1**.
-* **Navigation** : header jeux, footer, breadcrumb sur contenus éditoriaux.
-
-## 4) Périmètre MVP & Roadmap
-
-* **Pas de MVP** : développement **V1 complète**.
-* **Post-V1 (déjà notés)** :
-
-  * Règles de **désambiguïsation** tournois/doublons.
-  * **Détail de match** enrichi (stats avancées, picks/bans, line-ups…).
-  * Politique de **correction** des matchs incohérents (ETL/normalisation).
-* **MVP** : fonctionnalités indispensables, critères de réussite.
-* **V1/V2+** : étapes ultérieures, hypothèses à valider.
-* **DOR/DOD** : Definition of Ready / Definition of Done pour chaque type de livrable.
 
 ## 5) Design & Direction Artistique (DA)
 
@@ -88,33 +58,6 @@
 * **Infra** : CDN + edge cache ; SSR/ISR possible pour pages éditoriales (SEO), live en CSR.
 * **Interop** : liens de diffusion ouverts en **new tab**.
 
-## 8) Qualité de Code — Règles OBLIGATOIRES
-
-* (inchangé) + **Interdiction de persister des données** (hors cache volatil).
-* **Langage & Typage** : TypeScript "strict" partout ; pas de any implicite.
-* **Conventions** :
-
-  * Nommage en anglais, descriptif, sans abbr. obscures.
-  * Dossiers par domaine (feature-first), pas par type de fichier.
-  * Imports absolus + alias; pas d’imports circulaires.
-* **Style & Outils** : Prettier + ESLint (noUnusedLocals, noImplicitReturns).
-* **Tests** :
-
-  * Unit >70% lignes sur modules critiques ; e2e sur parcours clés.
-  * Données de test déterministes; pas d’horloge système (use fake timers).
-* **Accessibilité** : aucun composant mergé sans audit axe-core passant.
-* **Perf** :
-
-  * LCP < 2.5s, CLS < 0.1, TTI < 3s (mobile 4G simulée).
-  * Images responsives (srcset), lazy-loading, code-splitting.
-* **Sécurité** :
-
-  * OWASP Top 10 : validation stricte des entrées, sorties échappées.
-  * Headers : CSP, HSTS, X-Content-Type-Options, Referrer-Policy.
-  * Secrets hors repo; rotation; principe du moindre privilège.
-* **Git** : Conventional Commits, branches `feat/`, `fix/`, `chore/`; PRs < 300 lignes ; rebase > merge quand possible.
-* **CI/CD** : build reproductible, lint + tests obligatoires, preview env, migrations DB idempotentes.
-
 ## 9) Données & Contrats
 
 * **Modèle logique (volatile)** : Game → Competition/Tournament → Match (live) → Streams ; News (source SportDevs) ; Article (via BO).
@@ -136,47 +79,6 @@
 
 * **Plan de marquage (exemples)** : select\_game, view\_live\_list, open\_stream, click\_ad, view\_news, read\_article, subscribe\_noads.
 * **Consentement** : déclenchement selon CMP.
-
-## 12) Internationalisation (i18n)
-
-* **Locales** : à confirmer (FR au minimum). Formats date/heure selon fuseau de l’utilisateur.
-* **Locales** supportées, fallback, formats (dates, nombres, pluriels).
-* **Stratégie de traduction** : clés stables, pas de textes en dur.
-
-## 13) Risques & Hypothèses
-
-* **R1** : Données incohérentes/doublons (compétitions, horaires) → traité **post-V1**.
-* **R2** : Couverture live incomplète selon jeu → fallback UI (états vides).
-* **R3** : Dépendance aux APIs tierces (SLA) → circuit-breakers + messages clairs.
-* **R4** : SEO vs contenu externe (News) → pages indexables limitées, Articles optimisés.
-
-## 14) Planning & Livrables
-
-* **Livrables** : App V1 complète (pages listées), intégration SportDevs/PandaScore, SEO, colonne pubs desktop, abonnement no-ads (feature flag côté front si BO déjà gère les droits).
-* \*\* jalons \*\* : kick-off, design freeze, code freeze, go-live.
-* **Livrables** : maquettes, DS tokens, code, docs, scripts migration.
-* **Plan de run** : sauvegardes, mises à jour, SLA, support N2/N3.
-
-## 15) Context Engineering (IA) — si applicable
-
-* (Non prioritaire V1.)
-
-## 16) Checklists (rapides)
-
-* **Avant merge** : lint, tests, a11y, perf budgets, pas de persistance data.
-* **Avant release** : SEO vérifié (H1/H2/meta), CMP pubs/analytics, flags no-ads OK.
-* **Après release** : surveillance flux live, latence API, taux clics pubs vs no-ads.
-* **Avant merge** : lint, tests, a11y, perf budget, revu par pair.
-* **Avant release** : migrations, backups, rollback plan, notes de version.
-* **Après release** : monitoring, alertes, analytics actifs, plan d’observation 72h.
-
----
-
-### Annexes
-
-* **Glossaire** (termes métier / techniques)
-* **Référentiels** (liens DS, guidelines, maquettes, OpenAPI)
-* **Modèles** : issue template, PR template, bug report, test plan, plan de marquage.
 
 ### Shema database
 

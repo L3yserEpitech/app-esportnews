@@ -1,6 +1,5 @@
 const fastify = require('fastify')({ logger: true });
 const { supabase } = require('../src/config/supabase');
-const multipart = require('@fastify/multipart');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -14,12 +13,6 @@ fastify.register(require('@fastify/rate-limit'), {
   timeWindow: '1 minute', // Par minute
   ban: 10, // Après 10 dépassements, bannir pour...
   banTimeWindow: '5 minutes' // 5 minutes
-});
-
-fastify.register(multipart, {
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB max file size
-  }
 });
 
 fastify.get('/', async (request, reply) => {
@@ -1553,57 +1546,20 @@ fastify.post('/api/auth/me', { preHandler: verifyToken }, async (request, reply)
   }
 });
 
-// Route pour uploader un avatar
+// Route pour mettre à jour l'URL de l'avatar (l'upload se fait côté frontend)
 fastify.post('/api/auth/avatar', { preHandler: verifyToken }, async (request, reply) => {
   try {
+    const { avatarUrl } = request.body;
     const userId = request.user.id;
-    console.log(`📸 Uploading avatar for user: ${userId}`);
 
-    // Récupérer le fichier
-    const data = await request.file();
-
-    if (!data) {
+    if (!avatarUrl) {
       reply.code(400);
-      return { error: 'Aucun fichier fourni' };
+      return { error: 'URL de l\'avatar requise' };
     }
 
-    // Vérifier le type de fichier
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(data.mimetype)) {
-      reply.code(400);
-      return { error: 'Format de fichier non supporté. Utilisez JPG, PNG, GIF ou WebP.' };
-    }
+    console.log(`📸 Updating avatar URL for user ${userId}: ${avatarUrl}`);
 
-    // Convertir le stream en buffer
-    const buffer = await data.toBuffer();
-
-    // Générer un nom de fichier unique
-    const fileExt = data.mimetype.split('/')[1];
-    const fileName = `${userId}-${Date.now()}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
-
-    // Upload vers Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('users')
-      .upload(filePath, buffer, {
-        contentType: data.mimetype,
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error('❌ Error uploading to storage:', uploadError);
-      reply.code(500);
-      return { error: 'Erreur lors de l\'upload de l\'image' };
-    }
-
-    // Obtenir l'URL publique
-    const { data: publicUrlData } = supabase.storage
-      .from('users')
-      .getPublicUrl(filePath);
-
-    const avatarUrl = publicUrlData.publicUrl;
-
-    // Mettre à jour la table users avec le nouvel avatar
+    // Mettre à jour la table users avec la nouvelle URL d'avatar
     const { data: userData, error: updateError } = await supabase
       .from('users')
       .update({
@@ -1619,18 +1575,13 @@ fastify.post('/api/auth/avatar', { preHandler: verifyToken }, async (request, re
       return { error: 'Erreur lors de la mise à jour du profil' };
     }
 
-    console.log('✅ Avatar uploaded successfully');
+    console.log('✅ Avatar URL updated successfully');
 
     // Retourner l'utilisateur sans le mot de passe
     // eslint-disable-next-line no-unused-vars
     const { password: _pwd, ...userWithoutPassword } = userData;
 
-    return {
-      avatar: {
-        url: avatarUrl
-      },
-      user: userWithoutPassword
-    };
+    return userWithoutPassword;
   } catch (error) {
     console.error('❌ Error in /api/auth/avatar:', error);
     reply.code(500);
@@ -1662,7 +1613,7 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
       const avatarPath = currentUser.avatar.split('/').slice(-2).join('/');
 
       const { error: deleteError } = await supabase.storage
-        .from('users')
+        .from('profilePictureUsers')
         .remove([avatarPath]);
 
       if (deleteError) {

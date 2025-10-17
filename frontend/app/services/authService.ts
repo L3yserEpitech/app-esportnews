@@ -92,7 +92,7 @@ class AuthService {
    * Récupération des informations de l'utilisateur connecté
    */
   async getMe(token: string): Promise<UserData> {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
