@@ -7,21 +7,10 @@ export default function PreferencesSection() {
   const [preferences, setPreferences] = useState({
     language: 'fr',
     theme: 'dark',
-    timezone: 'Europe/Paris',
-    matchNotifications: true,
-    newsNotifications: true,
-    emailUpdates: false,
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const handleToggle = (key: keyof typeof preferences) => {
-    setPreferences((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
 
   const handleSelect = (key: keyof typeof preferences, value: string) => {
     setPreferences((prev) => ({
@@ -141,94 +130,6 @@ export default function PreferencesSection() {
               <Monitor className="w-5 h-5" />
               <span className="font-medium">Auto</span>
             </button>
-          </div>
-        </div>
-
-        {/* Fuseau horaire */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Fuseau horaire</h3>
-          <select
-            value={preferences.timezone}
-            onChange={(e) => handleSelect('timezone', e.target.value)}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all"
-          >
-            <option value="Europe/Paris">Paris (GMT+1)</option>
-            <option value="Europe/London">Londres (GMT+0)</option>
-            <option value="America/New_York">New York (GMT-5)</option>
-            <option value="America/Los_Angeles">Los Angeles (GMT-8)</option>
-            <option value="Asia/Tokyo">Tokyo (GMT+9)</option>
-          </select>
-        </div>
-
-        {/* Notifications rapides */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Notifications rapides</h3>
-          <div className="space-y-4">
-            <label className="flex items-center justify-between cursor-pointer group">
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
-                  Notifications de matchs
-                </p>
-                <p className="text-sm text-gray-400">Recevoir des alertes pour les matchs de vos équipes</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleToggle('matchNotifications')}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  preferences.matchNotifications ? 'bg-[#F22E62]' : 'bg-white/10'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    preferences.matchNotifications ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </label>
-
-            <label className="flex items-center justify-between cursor-pointer group">
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
-                  Notifications d'actualités
-                </p>
-                <p className="text-sm text-gray-400">Recevoir des alertes pour les nouvelles actualités</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleToggle('newsNotifications')}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  preferences.newsNotifications ? 'bg-[#F22E62]' : 'bg-white/10'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    preferences.newsNotifications ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </label>
-
-            <label className="flex items-center justify-between cursor-pointer group">
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
-                  Mises à jour par email
-                </p>
-                <p className="text-sm text-gray-400">Recevoir un résumé hebdomadaire par email</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleToggle('emailUpdates')}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  preferences.emailUpdates ? 'bg-[#F22E62]' : 'bg-white/10'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    preferences.emailUpdates ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </label>
           </div>
         </div>
 
