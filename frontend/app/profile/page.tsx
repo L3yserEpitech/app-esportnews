@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileSidebar from '../components/profile/ProfileSidebar';
+import ProfileNavDropdown from '../components/profile/ProfileNavDropdown';
 import ProfileInfoSection from '../components/profile/sections/ProfileInfoSection';
 import FavoriteTeamsSection from '../components/profile/sections/FavoriteTeamsSection';
 import SecuritySection from '../components/profile/sections/SecuritySection';
@@ -62,9 +63,14 @@ export default function ProfilePage() {
           <p className="text-xs sm:text-sm text-gray-400 mt-1">Gérez votre profil et vos préférences</p>
         </div>
 
+        {/* Dropdown mobile uniquement */}
+        <div className="lg:hidden mb-4">
+          <ProfileNavDropdown activeSection={activeSection} onSectionChange={setActiveSection} />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
-          {/* Sidebar */}
-          <div className="lg:col-span-3">
+          {/* Sidebar desktop uniquement */}
+          <div className="hidden lg:block lg:col-span-3">
             <ProfileSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
           </div>
 

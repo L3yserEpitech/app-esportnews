@@ -167,7 +167,7 @@ fastify.get('/api/tournaments/filtered', async (request, reply) => {
 
     const ALL_GAMES = [
       'valorant', 'fifa', 'lol-wild-rift', 'dota2', 'overwatch',
-      'cod-mw', 'lol', 'rainbow-six-siege', 'rocket-league', 'csgo'
+      'cod-mw', 'league-of-legends', 'r6-siege', 'rl', 'cs-go'
     ];
 
     // Déterminer l'endpoint selon le statut
@@ -1314,22 +1314,27 @@ fastify.get('/api/teams/search', async (request, reply) => {
     console.log(`🔍 Searching teams with query: ${query}`);
 
     // Liste des jeux autorisés (basée sur CLAUDE.md)
+    // Inclut toutes les variantes de slugs possibles de PandaScore
     const ALLOWED_GAME_SLUGS = [
-      'csgo',
-      'cs2',
-      'valorant',
-      'lol',
-      'dota2',
-      'rl',
-      'rocket-league',
-      'cod-mw',
-      'codmw',
-      'r6siege',
-      'rainbow-six-siege',
-      'ow',
-      'overwatch',
-      'fifa',
-      'lol-wild-rift'
+      'cs-go',          // Counter-Strike (slug avec tiret)
+      'csgo',           // Counter-Strike (variante sans tiret)
+      'cs2',            // Counter-Strike 2
+      'valorant',       // Valorant
+      'league-of-legends', // League of Legends (slug complet)
+      'lol',            // League of Legends (acronyme)
+      'dota2',          // Dota 2
+      'dota-2',         // Dota 2 (variante avec tiret)
+      'rl',             // Rocket League (acronyme)
+      'rocket-league',  // Rocket League (slug complet)
+      'cod-mw',         // Call of Duty
+      'codmw',          // Call of Duty (variante)
+      'r6-siege',       // Rainbow Six Siege (slug avec tiret)
+      'r6siege',        // Rainbow Six Siege (variante sans tiret)
+      'rainbow-six-siege', // Rainbow Six Siege (slug complet)
+      'ow',             // Overwatch (acronyme)
+      'overwatch',      // Overwatch
+      'fifa',           // FIFA
+      'lol-wild-rift'   // LoL Wild Rift
     ];
 
     const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
