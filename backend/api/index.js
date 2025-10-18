@@ -1258,6 +1258,48 @@ fastify.get('/api/ads', async (_request, reply) => {
   }
 });
 
+// ==================== ROUTES ÉQUIPES ====================
+
+// Route pour rechercher des équipes sur PandaScore
+fastify.get('/api/teams/search', async (request, reply) => {
+  try {
+    const { query, page_size = 10 } = request.query;
+
+    if (!query) {
+      reply.code(400);
+      return { error: 'Query parameter is required' };
+    }
+
+    console.log(`🔍 Searching teams with query: ${query}`);
+
+    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const url = `https://api.pandascore.co/teams?search[name]=${encodeURIComponent(query)}&page[size]=${page_size}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${PANDASCORE_API_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to search teams:', response.status);
+      reply.code(response.status);
+      return { error: 'Failed to search teams' };
+    }
+
+    const teams = await response.json();
+    console.log(`✅ Found ${teams.length} teams matching "${query}"`);
+
+    return teams;
+  } catch (error) {
+    console.error('❌ Error in /api/teams/search:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
 // ==================== ROUTES AUTHENTIFICATION ====================
 
 // Secret JWT (à déplacer dans .env en production)
