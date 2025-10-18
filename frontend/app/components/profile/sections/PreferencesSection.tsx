@@ -17,17 +17,17 @@ export default function PreferencesSection() {
         <p className="text-gray-400">Personnalisez votre expérience sur la plateforme</p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Langue */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Globe className="w-5 h-5 text-[#F22E62]" />
-            <h3 className="text-lg font-semibold text-white">Langue</h3>
+            <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62]" />
+            <h3 className="text-base sm:text-lg font-semibold text-white">Langue</h3>
           </div>
           <select
             value={preferences.language}
             onChange={(e) => handleSelect('language', e.target.value)}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all"
+            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all"
           >
             <option value="fr">Français</option>
             <option value="en">English</option>
@@ -37,47 +37,47 @@ export default function PreferencesSection() {
         </div>
 
         {/* Thème */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Monitor className="w-5 h-5 text-[#F22E62]" />
-            <h3 className="text-lg font-semibold text-white">Thème</h3>
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-4">
+            <Monitor className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62]" />
+            <h3 className="text-base sm:text-lg font-semibold text-white">Thème</h3>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => handleSelect('theme', 'light')}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-all ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-3 rounded-lg border transition-all ${
                 preferences.theme === 'light'
                   ? 'bg-[#F22E62] border-[#F22E62] text-white'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
               }`}
             >
-              <Sun className="w-5 h-5" />
-              <span className="font-medium">Clair</span>
+              <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="font-medium text-xs sm:text-sm">Clair</span>
             </button>
             <button
               type="button"
               onClick={() => handleSelect('theme', 'dark')}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-all ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-3 rounded-lg border transition-all ${
                 preferences.theme === 'dark'
                   ? 'bg-[#F22E62] border-[#F22E62] text-white'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
               }`}
             >
-              <Moon className="w-5 h-5" />
-              <span className="font-medium">Sombre</span>
+              <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="font-medium text-xs sm:text-sm">Sombre</span>
             </button>
             <button
               type="button"
               onClick={() => handleSelect('theme', 'auto')}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-all ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-3 rounded-lg border transition-all ${
                 preferences.theme === 'auto'
                   ? 'bg-[#F22E62] border-[#F22E62] text-white'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
               }`}
             >
-              <Monitor className="w-5 h-5" />
-              <span className="font-medium">Auto</span>
+              <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="font-medium text-xs sm:text-sm">Auto</span>
             </button>
           </div>
         </div>

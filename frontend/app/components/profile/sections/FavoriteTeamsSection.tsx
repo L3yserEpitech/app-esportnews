@@ -138,8 +138,8 @@ export default function FavoriteTeamsSection() {
       )}
 
       {/* Barre de recherche */}
-      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-        <div className="mb-6">
+      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -147,7 +147,7 @@ export default function FavoriteTeamsSection() {
               placeholder="Rechercher une équipe..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all"
+              className="w-full pl-11 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all text-sm sm:text-base"
             />
             {isSearching && (
               <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
@@ -206,12 +206,12 @@ export default function FavoriteTeamsSection() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/5 mb-4">
-                <Heart className="w-10 h-10 text-gray-400" />
+            <div className="text-center py-8 sm:py-12 px-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 mb-4">
+                <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Aucune équipe favorite</h3>
-              <p className="text-gray-400 mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">Aucune équipe favorite</h3>
+              <p className="text-sm sm:text-base text-gray-400 mb-6">
                 Utilisez la barre de recherche ci-dessus pour trouver et ajouter vos équipes préférées
               </p>
             </div>

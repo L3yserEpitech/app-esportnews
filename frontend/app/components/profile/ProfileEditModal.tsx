@@ -157,14 +157,14 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
         {/* Message de feedback */}
         {message && (
           <div
-            className={`p-3 rounded-lg flex items-center gap-3 text-sm ${
+            className={`p-3 rounded-lg flex items-center gap-2 text-xs sm:text-sm ${
               message.type === 'success'
                 ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
             }`}
           >
-            <span className="flex-1">{message.text}</span>
-            <button onClick={() => setMessage(null)} className="text-gray-400 hover:text-white transition-colors">
+            <span className="flex-1 break-words">{message.text}</span>
+            <button onClick={() => setMessage(null)} className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -255,7 +255,7 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
             {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4">
             <button
               type="button"
               onClick={handleClose}
@@ -272,7 +272,8 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Enregistrement...</span>
+                  <span className="hidden sm:inline">Enregistrement...</span>
+                  <span className="sm:hidden">Enregistre...</span>
                 </>
               ) : (
                 <>

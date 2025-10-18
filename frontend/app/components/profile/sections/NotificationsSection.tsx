@@ -134,108 +134,108 @@ export default function NotificationsSection() {
       </div>
 
       {/* Paramètres de notifications */}
-      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Paramètres de notifications</h3>
+      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Paramètres de notifications</h3>
         <div className="space-y-4">
-          <label className="flex items-center justify-between cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-5 h-5 text-[#F22E62]" />
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
+          <label className="flex items-center justify-between gap-3 cursor-pointer group">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
                   Notifications push
                 </p>
-                <p className="text-sm text-gray-400">Recevoir des notifications sur votre appareil</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Recevoir des notifications sur votre appareil</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleToggle('notifi_push')}
               disabled={updating}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
+              className={`relative w-11 h-6 sm:w-12 rounded-full transition-colors flex-shrink-0 ${
                 settings.notifi_push ? 'bg-[#F22E62]' : 'bg-white/10'
               } ${updating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
                 className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  settings.notifi_push ? 'translate-x-6' : 'translate-x-0'
+                  settings.notifi_push ? 'translate-x-5 sm:translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <Newspaper className="w-5 h-5 text-[#F22E62]" />
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
+          <label className="flex items-center justify-between gap-3 cursor-pointer group">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Newspaper className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
                   Notifications d'articles
                 </p>
-                <p className="text-sm text-gray-400">Être notifié des nouveaux articles</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié des nouveaux articles</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleToggle('notif_articles')}
               disabled={updating}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
+              className={`relative w-11 h-6 sm:w-12 rounded-full transition-colors flex-shrink-0 ${
                 settings.notif_articles ? 'bg-[#F22E62]' : 'bg-white/10'
               } ${updating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
                 className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  settings.notif_articles ? 'translate-x-6' : 'translate-x-0'
+                  settings.notif_articles ? 'translate-x-5 sm:translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-[#F22E62]" />
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
+          <label className="flex items-center justify-between gap-3 cursor-pointer group">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
                   Alertes d'actualités
                 </p>
-                <p className="text-sm text-gray-400">Être notifié des nouvelles actualités</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié des nouvelles actualités</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleToggle('notif_news')}
               disabled={updating}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
+              className={`relative w-11 h-6 sm:w-12 rounded-full transition-colors flex-shrink-0 ${
                 settings.notif_news ? 'bg-[#F22E62]' : 'bg-white/10'
               } ${updating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
                 className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  settings.notif_news ? 'translate-x-6' : 'translate-x-0'
+                  settings.notif_news ? 'translate-x-5 sm:translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-[#F22E62]" />
-              <div>
-                <p className="text-white font-medium group-hover:text-[#F22E62] transition-colors">
+          <label className="flex items-center justify-between gap-3 cursor-pointer group">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
                   Rappels de matchs
                 </p>
-                <p className="text-sm text-gray-400">Être notifié avant le début des matchs</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié avant le début des matchs</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleToggle('notif_matchs')}
               disabled={updating}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
+              className={`relative w-11 h-6 sm:w-12 rounded-full transition-colors flex-shrink-0 ${
                 settings.notif_matchs ? 'bg-[#F22E62]' : 'bg-white/10'
               } ${updating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
                 className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  settings.notif_matchs ? 'translate-x-6' : 'translate-x-0'
+                  settings.notif_matchs ? 'translate-x-5 sm:translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>

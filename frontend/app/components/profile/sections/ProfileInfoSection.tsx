@@ -15,9 +15,9 @@ export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectio
   return (
     <div className="space-y-6">
       {/* Section Avatar et Informations */}
-      <div className="flex items-center gap-6 pb-6 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6 pb-6 border-b border-white/10">
         <div className="relative">
-          <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-white/10">
+          <div className="relative w-20 h-20 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-white/10">
             {user?.avatar ? (
               <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
@@ -28,9 +28,9 @@ export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectio
           </div>
         </div>
 
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white">{user?.name}</h3>
-          <p className="text-sm text-gray-400">{user?.email}</p>
+        <div className="flex-1 text-center sm:text-left">
+          <h3 className="text-lg font-semibold text-white truncate">{user?.name}</h3>
+          <p className="text-sm text-gray-400 truncate">{user?.email}</p>
         </div>
       </div>
 

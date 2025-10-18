@@ -54,15 +54,15 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#060B13] via-[#091626] to-[#182859] pt-28 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-[#060B13] via-[#091626] to-[#182859] pt-24 sm:pt-28 pb-12 sm:pb-16 px-3 sm:px-4 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Paramètres</h1>
-          <p className="text-sm text-gray-400 mt-1">Gérez votre profil et vos préférences</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Paramètres</h1>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">Gérez votre profil et vos préférences</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-3">
             <ProfileSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
@@ -70,7 +70,7 @@ export default function ProfilePage() {
 
           {/* Content */}
           <div className="lg:col-span-9">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
               {renderSection()}
             </div>
           </div>
