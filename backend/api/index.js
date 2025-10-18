@@ -1258,49 +1258,7 @@ fastify.get('/api/ads', async (_request, reply) => {
   }
 });
 
-// ==================== ROUTES ÉQUIPES ====================
-
-// Route pour rechercher des équipes sur PandaScore
-fastify.get('/api/teams/search', async (request, reply) => {
-  try {
-    const { query, page_size = 10 } = request.query;
-
-    if (!query) {
-      reply.code(400);
-      return { error: 'Query parameter is required' };
-    }
-
-    console.log(`🔍 Searching teams with query: ${query}`);
-
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
-    const url = `https://api.pandascore.co/teams?search[name]=${encodeURIComponent(query)}&page[size]=${page_size}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${PANDASCORE_API_TOKEN}`,
-      },
-    });
-
-    if (!response.ok) {
-      console.error('❌ Failed to search teams:', response.status);
-      reply.code(response.status);
-      return { error: 'Failed to search teams' };
-    }
-
-    const teams = await response.json();
-    console.log(`✅ Found ${teams.length} teams matching "${query}"`);
-
-    return teams;
-  } catch (error) {
-    console.error('❌ Error in /api/teams/search:', error);
-    reply.code(500);
-    return { error: 'Internal server error' };
-  }
-});
-
-// ==================== ROUTES AUTHENTIFICATION ====================
+// ==================== AUTHENTIFICATION - Middleware ====================
 
 // Secret JWT (à déplacer dans .env en production)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
@@ -1340,6 +1298,286 @@ const verifyToken = async (request, reply) => {
     return reply.send({ error: 'Token invalide ou expiré' });
   }
 };
+
+// ==================== ROUTES ÉQUIPES ====================
+
+// Route pour rechercher des équipes sur PandaScore
+fastify.get('/api/teams/search', async (request, reply) => {
+  try {
+    const { query, page_size = 50 } = request.query;
+
+    if (!query) {
+      reply.code(400);
+      return { error: 'Query parameter is required' };
+    }
+
+    console.log(`🔍 Searching teams with query: ${query}`);
+
+    // Liste des jeux autorisés (basée sur CLAUDE.md)
+    const ALLOWED_GAME_SLUGS = [
+      'csgo',
+      'cs2',
+      'valorant',
+      'lol',
+      'dota2',
+      'rl',
+      'rocket-league',
+      'cod-mw',
+      'codmw',
+      'r6siege',
+      'rainbow-six-siege',
+      'ow',
+      'overwatch',
+      'fifa',
+      'lol-wild-rift'
+    ];
+
+    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const url = `https://api.pandascore.co/teams?search[name]=${encodeURIComponent(query)}&page[size]=50`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${PANDASCORE_API_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to search teams:', response.status);
+      reply.code(response.status);
+      return { error: 'Failed to search teams' };
+    }
+
+    const teams = await response.json();
+    console.log(`✅ Found ${teams.length} teams matching "${query}"`);
+
+    // Filtrer uniquement les équipes des jeux autorisés
+    const filteredTeams = teams.filter(team => {
+      const gameSlug = team.current_videogame?.slug;
+      return gameSlug && ALLOWED_GAME_SLUGS.includes(gameSlug);
+    });
+
+    console.log(`🎮 Filtered to ${filteredTeams.length} teams from allowed games`);
+
+    // Inverser l'ordre des résultats
+    return filteredTeams.reverse();
+  } catch (error) {
+    console.error('❌ Error in /api/teams/search:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer les IDs des équipes favorites
+fastify.get('/api/users/favorite-teams/ids', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    console.log(`⭐ Fetching favorite team IDs for user: ${userId}`);
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('favorite_teams')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching favorite teams:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch favorite teams' };
+    }
+
+    const favoriteTeamIds = data?.favorite_teams || [];
+    console.log(`✅ User has ${favoriteTeamIds.length} favorite teams`);
+
+    return favoriteTeamIds;
+  } catch (error) {
+    console.error('❌ Error in /api/users/favorite-teams/ids:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour récupérer les détails des équipes favorites
+fastify.get('/api/users/favorite-teams', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    console.log(`⭐ Fetching favorite teams details for user: ${userId}`);
+
+    // Récupérer les IDs des équipes favorites
+    const { data, error } = await supabase
+      .from('users')
+      .select('favorite_teams')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching favorite teams:', error);
+      reply.code(500);
+      return { error: 'Failed to fetch favorite teams' };
+    }
+
+    const favoriteTeamIds = data?.favorite_teams || [];
+
+    if (favoriteTeamIds.length === 0) {
+      console.log('✅ No favorite teams found');
+      return [];
+    }
+
+    // Récupérer les détails de chaque équipe depuis PandaScore
+    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+
+    const teamPromises = favoriteTeamIds.map(async (teamId) => {
+      try {
+        const response = await fetch(
+          `https://api.pandascore.co/teams/${teamId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${PANDASCORE_API_TOKEN}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.error(`❌ Failed to fetch team ${teamId}:`, response.status);
+          return null;
+        }
+
+        const team = await response.json();
+        return team;
+      } catch (err) {
+        console.error(`❌ Error fetching team ${teamId}:`, err);
+        return null;
+      }
+    });
+
+    const teams = await Promise.all(teamPromises);
+    const validTeams = teams.filter(team => team !== null);
+
+    console.log(`✅ Successfully fetched ${validTeams.length} favorite teams`);
+    return validTeams;
+  } catch (error) {
+    console.error('❌ Error in /api/users/favorite-teams:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour ajouter une équipe aux favorites
+fastify.post('/api/users/favorite-teams/:teamId', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    const { teamId } = request.params;
+    const teamIdInt = parseInt(teamId);
+
+    if (isNaN(teamIdInt)) {
+      reply.code(400);
+      return { error: 'Invalid team ID' };
+    }
+
+    console.log(`⭐ Adding team ${teamIdInt} to favorites for user: ${userId}`);
+
+    // Récupérer les équipes favorites actuelles
+    const { data: currentData, error: fetchError } = await supabase
+      .from('users')
+      .select('favorite_teams')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('❌ Error fetching current favorite teams:', fetchError);
+      reply.code(500);
+      return { error: 'Failed to fetch current favorite teams' };
+    }
+
+    const currentFavorites = currentData?.favorite_teams || [];
+
+    // Vérifier si l'équipe n'est pas déjà dans les favoris
+    if (currentFavorites.includes(teamIdInt)) {
+      reply.code(400);
+      return { error: 'Team already in favorites' };
+    }
+
+    // Ajouter la nouvelle équipe
+    const updatedFavorites = [...currentFavorites, teamIdInt];
+
+    // Mettre à jour dans la base de données
+    const { error } = await supabase
+      .from('users')
+      .update({ favorite_teams: updatedFavorites })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('❌ Error updating favorite teams:', error);
+      reply.code(500);
+      return { error: 'Failed to update favorite teams' };
+    }
+
+    console.log(`✅ Successfully added team ${teamIdInt} to favorites`);
+    return { success: true, favorite_teams: updatedFavorites };
+  } catch (error) {
+    console.error('❌ Error in /api/users/favorite-teams (add):', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// Route pour retirer une équipe des favorites
+fastify.delete('/api/users/favorite-teams/:teamId', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    const { teamId } = request.params;
+    const teamIdInt = parseInt(teamId);
+
+    if (isNaN(teamIdInt)) {
+      reply.code(400);
+      return { error: 'Invalid team ID' };
+    }
+
+    console.log(`⭐ Removing team ${teamIdInt} from favorites for user: ${userId}`);
+
+    // Récupérer les équipes favorites actuelles
+    const { data: currentData, error: fetchError } = await supabase
+      .from('users')
+      .select('favorite_teams')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('❌ Error fetching current favorite teams:', fetchError);
+      reply.code(500);
+      return { error: 'Failed to fetch current favorite teams' };
+    }
+
+    const currentFavorites = currentData?.favorite_teams || [];
+
+    // Retirer l'équipe
+    const updatedFavorites = currentFavorites.filter((id) => id !== teamIdInt);
+
+    // Mettre à jour dans la base de données
+    const { error } = await supabase
+      .from('users')
+      .update({ favorite_teams: updatedFavorites })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('❌ Error updating favorite teams:', error);
+      reply.code(500);
+      return { error: 'Failed to update favorite teams' };
+    }
+
+    console.log(`✅ Successfully removed team ${teamIdInt} from favorites`);
+    return { success: true, favorite_teams: updatedFavorites };
+  } catch (error) {
+    console.error('❌ Error in /api/users/favorite-teams (remove):', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// ==================== ROUTES AUTHENTIFICATION ====================
 
 // Route d'inscription
 fastify.post('/api/auth/signup', async (request, reply) => {

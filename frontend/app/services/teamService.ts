@@ -55,6 +55,88 @@ class TeamService {
     const teams: Team[] = await response.json();
     return teams;
   }
+
+  /**
+   * Récupérer les IDs des équipes favorites
+   */
+  async getFavoriteTeamIds(token: string): Promise<number[]> {
+    const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/ids`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Erreur lors de la récupération des IDs favoris');
+    }
+
+    const ids: number[] = await response.json();
+    return ids;
+  }
+
+  /**
+   * Récupérer les détails des équipes favorites
+   */
+  async getFavoriteTeams(token: string): Promise<Team[]> {
+    const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Erreur lors de la récupération des équipes favorites');
+    }
+
+    const teams: Team[] = await response.json();
+    return teams;
+  }
+
+  /**
+   * Ajouter une équipe aux favorites
+   */
+  async addFavoriteTeam(token: string, teamId: number): Promise<number[]> {
+    const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/${teamId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Erreur lors de l\'ajout de l\'équipe aux favorites');
+    }
+
+    const result = await response.json();
+    return result.favorite_teams;
+  }
+
+  /**
+   * Retirer une équipe des favorites
+   */
+  async removeFavoriteTeam(token: string, teamId: number): Promise<number[]> {
+    const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/${teamId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Erreur lors du retrait de l\'équipe des favorites');
+    }
+
+    const result = await response.json();
+    return result.favorite_teams;
+  }
 }
 
 export const teamService = new TeamService();

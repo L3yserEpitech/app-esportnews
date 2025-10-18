@@ -90,6 +90,7 @@ create table public.users (
   password text not null,
   avatar text null,
   admin boolean not null default false,
+  favorite_teams integer[] null,
   constraint users_pkey primary key (id),
   constraint users_email_key unique (email),
   constraint users_id_key unique (id)
