@@ -135,6 +135,10 @@ export interface User {
   admin: boolean;
   favorite_team?: any;
   created_at: string;
+  notifi_push?: boolean;
+  notif_articles?: boolean;
+  notif_news?: boolean;
+  notif_matchs?: boolean;
 }
 
 // Advertisement types

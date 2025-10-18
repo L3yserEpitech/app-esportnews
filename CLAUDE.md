@@ -91,6 +91,10 @@ create table public.users (
   avatar text null,
   admin boolean not null default false,
   favorite_teams integer[] null,
+  notifi_push boolean null default false,
+  notif_articles boolean null default false,
+  notif_news boolean null default false,
+  notif_matchs boolean null,
   constraint users_pkey primary key (id),
   constraint users_email_key unique (email),
   constraint users_id_key unique (id)

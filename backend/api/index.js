@@ -1931,6 +1931,134 @@ fastify.delete('/api/auth/avatar', { preHandler: verifyToken }, async (request, 
   }
 });
 
+// ==================== ROUTES NOTIFICATIONS ====================
+
+// Route pour récupérer les préférences de notifications
+fastify.get('/api/notifications/preferences', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    console.log(`🔔 Fetching notification preferences for user: ${userId}`);
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('notifi_push, notif_articles, notif_news, notif_matchs')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching notification preferences:', error);
+      reply.code(500);
+      return { error: 'Erreur lors de la récupération des préférences' };
+    }
+
+    console.log('✅ Notification preferences fetched successfully');
+    return {
+      notifi_push: data.notifi_push || false,
+      notif_articles: data.notif_articles || false,
+      notif_news: data.notif_news || false,
+      notif_matchs: data.notif_matchs || false
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/notifications/preferences:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour mettre à jour les préférences de notifications
+fastify.patch('/api/notifications/preferences', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    const { notifi_push, notif_articles, notif_news, notif_matchs } = request.body;
+
+    console.log(`🔔 Updating notification preferences for user: ${userId}`);
+
+    const updates = {};
+    if (typeof notifi_push === 'boolean') updates.notifi_push = notifi_push;
+    if (typeof notif_articles === 'boolean') updates.notif_articles = notif_articles;
+    if (typeof notif_news === 'boolean') updates.notif_news = notif_news;
+    if (typeof notif_matchs === 'boolean') updates.notif_matchs = notif_matchs;
+
+    if (Object.keys(updates).length === 0) {
+      reply.code(400);
+      return { error: 'Aucune préférence à mettre à jour' };
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select('notifi_push, notif_articles, notif_news, notif_matchs')
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating notification preferences:', error);
+      reply.code(500);
+      return { error: 'Erreur lors de la mise à jour des préférences' };
+    }
+
+    console.log('✅ Notification preferences updated successfully');
+    return {
+      notifi_push: data.notifi_push || false,
+      notif_articles: data.notif_articles || false,
+      notif_news: data.notif_news || false,
+      notif_matchs: data.notif_matchs || false
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/notifications/preferences (update):', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
+// Route pour activer/désactiver une préférence de notification spécifique
+fastify.post('/api/notifications/:type/toggle', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const userId = request.user.id;
+    const { type } = request.params;
+    const { enabled } = request.body;
+
+    if (typeof enabled !== 'boolean') {
+      reply.code(400);
+      return { error: 'Le champ "enabled" doit être un booléen' };
+    }
+
+    const validTypes = ['push', 'articles', 'news', 'matchs'];
+    if (!validTypes.includes(type)) {
+      reply.code(400);
+      return { error: 'Type de notification invalide. Types valides: push, articles, news, matchs' };
+    }
+
+    const columnName = type === 'push' ? 'notifi_push' : `notif_${type}`;
+    console.log(`🔔 Toggling ${type} notification for user ${userId}: ${enabled}`);
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ [columnName]: enabled })
+      .eq('id', userId)
+      .select('notifi_push, notif_articles, notif_news, notif_matchs')
+      .single();
+
+    if (error) {
+      console.error('❌ Error toggling notification:', error);
+      reply.code(500);
+      return { error: 'Erreur lors de la mise à jour de la préférence' };
+    }
+
+    console.log(`✅ ${type} notification toggled successfully`);
+    return {
+      notifi_push: data.notifi_push || false,
+      notif_articles: data.notif_articles || false,
+      notif_news: data.notif_news || false,
+      notif_matchs: data.notif_matchs || false
+    };
+  } catch (error) {
+    console.error('❌ Error in /api/notifications/:type/toggle:', error);
+    reply.code(500);
+    return { error: 'Erreur interne du serveur' };
+  }
+});
+
 // Export handler for Vercel
 module.exports = async (req, res) => {
   await fastify.ready();
