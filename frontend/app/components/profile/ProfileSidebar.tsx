@@ -24,7 +24,8 @@ export default function ProfileSidebar({ activeSection, onSectionChange }: Profi
 
   const handleLogout = () => {
     authService.logout();
-    router.push('/');
+    // Force un rechargement complet pour nettoyer l'état
+    window.location.href = '/';
   };
 
   return (
