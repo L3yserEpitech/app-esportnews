@@ -63,7 +63,7 @@ export default function Footer() {
                   Mentions légales
                 </Link>
               </li>
-              <li>
+              {/* <li>
                 <Link href="/politique-confidentialite" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Politique de confidentialité
                 </Link>
@@ -77,12 +77,12 @@ export default function Footer() {
                 <Link href="/cgv" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Conditions générales de vente
                 </Link>
-              </li>
-              <li>
+              </li> */}
+              {/* <li>
                 <Link href="/legal/cookies" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Gestion des cookies
                 </Link>
-              </li>
+              </li> */}
             </ul>
           </div>
         </div>
