@@ -8,7 +8,6 @@ node_modules/
 .env.test
 .env.production
 package-lock.json
-pnpm-lock.yaml
 yarn.lock
 bun.lockb
 bun.lock
