@@ -69,12 +69,17 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/cgu" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Conditions générales d&apos;utilisation
+                </Link>
+              </li>
+              <li>
                 <Link href="/cgv" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Conditions générales de vente
                 </Link>
               </li>
               <li>
-                <Link href="/cookies" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                <Link href="/legal/cookies" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Gestion des cookies
                 </Link>
               </li>

@@ -6,10 +6,10 @@
 
 ## 1) Vision & Contexte
 
-* **Pitch (1 phrase)** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par publicités (masquées pour abonnés) et SEO solide sur les contenus éditoriaux.
+* **Pitch (1 phrase)** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par bannières publicitaires (gérées en interne, sans tracking tiers) et SEO solide sur les contenus éditoriaux.
 * **Problème utilisateur** : Difficile de trouver rapidement les matchs live pertinents et les actus fiables par jeu.
 * **Valeur clé / différenciation** : Focus **live-only** agrégé (SportDevs), tournois/équipes/matchs structurés (PandaScore), UX rapide par **jeu** et calendrier simple.
-* **Mesure du succès (KPI)** : CTR jeux en home, temps sur « Direct », clics pubs, conversions abonnement (no-ads), pages vues News/Articles, retour visiteurs.
+* **Mesure du succès (KPI)** : CTR jeux en home, temps sur « Direct », clics pubs, impressions bannières publicitaires, conversions abonnement (no-popup-ads mobile), pages vues News/Articles, retour visiteurs.
 * **Contraintes business** : Pas de back-office à développer (déjà existant). Pas de conservation de données côté app. Pas de limite API contractuelle.
 * **Backend** : Backend node présent dans /backend/api
 **
@@ -27,7 +27,11 @@
 * **API** : Aucune limite de requêtes imposée.
 * **Qualité des données** : Gestion des incohérences/doublons **plus tard** (hors V1).
 * **Navigation** : Liens de diffusion **ouvrent dans un nouvel onglet**.
-* **Monétisation** : 3 emplacements pub **desktop** dans une colonne droite pleine hauteur en home ; **aucune pub pour les abonnés**.
+* **Monétisation** :
+  * **Bannières publicitaires gérées en interne** (sans régies externes type Google AdSense / Meta Ads)
+  * **Desktop** : 3 emplacements pub dans une colonne droite pleine hauteur (visibles pour tous utilisateurs, y compris abonnés)
+  * **Mobile** : Aucun popup publicitaire pour les **abonnés Premium**. Popups autorisés uniquement pour les utilisateurs gratuits.
+  * **Données** : Aucun cookie publicitaire tiers, aucun tracking comportemental. Affichage simple d'images/vidéos fournies par les partenaires commerciaux.
 * **SEO** : H1/H2 optimisés ; articles avec **mots-clés** injectés automatiquement depuis la base de données.
 
 ## 5) Design & Direction Artistique (DA)
@@ -62,14 +66,14 @@
 
 * **Modèle logique (volatile)** : Game → Competition/Tournament → Match (live) → Streams ; News (source SportDevs) ; Article (via BO).
 * **Politiques** : **Aucune rétention**. Pas de sauvegardes de données tierces. Seuls logs techniques non-PII.
-* **RGPD** : abonnement géré côté BO/processor ; pubs conditionnées au consentement CMP.
+* **RGPD** : abonnement géré côté BO/processor ; bannières publicitaires internes sans tracking tiers (pas de consentement requis pour l'affichage simple).
 * **Contrats d’API** : wrappers typed (OpenAPI/TypeScript), timeouts/retries, circuit-breaker.
 
 ## 10) Observabilité & Qualité Produit
 
 * **Metrics** : Web Vitals (LCP<2.5s, CLS<0.1), temps de réponse APIs tierces, taux d’erreur fetch.
 * **Alerting** : flux live down, dépassement temps réponse, anomalies volume.
-* **Feature flags** : **no-ads** pour abonnés.
+* **Feature flags** : **no-popup-ads-mobile** pour abonnés (bannières desktop restent visibles pour tous).
 * **Logs** : structure JSON, corrélation traceId, pas de PII en clair.
 * **Metrics** : RED/USE pour backend, Web Vitals pour frontend.
 * **Alerting** : seuils, canaux, astreintes.
