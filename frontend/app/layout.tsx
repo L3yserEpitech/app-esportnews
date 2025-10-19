@@ -13,20 +13,20 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EsportNews - Actualités et Matchs en Direct",
-  description: "Plateforme e-sport dédiée aux matchs en direct multi-jeux et actualités. Suivez vos tournois favoris sur Valorant, CS2, League of Legends et plus encore.",
-  keywords: "esport, gaming, tournois, matchs en direct, actualités, Valorant, CS2, League of Legends",
-  authors: [{ name: "EsportNews" }],
+  title: "Esport News — Actus e-sport & scores en direct",
+  description: "Actus e-sport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
+  keywords: "esport, gaming, tournois, matchs en direct, actualités, scores, CS2, Rocket League, LoL, Valorant, Fortnite, classements, analyses,",
+  authors: [{ name: "Esport News" }],
   openGraph: {
-    title: "EsportNews - Actualités et Matchs en Direct",
-    description: "Suivez l'actualité esport et les matchs en direct de vos jeux favoris",
+    title: "Esport News — Actus e-sport & scores en direct",
+    description: "Actus e-sport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
     type: "website",
     locale: "fr_FR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "EsportNews - Actualités et Matchs en Direct",
-    description: "Suivez l'actualité esport et les matchs en direct de vos jeux favoris",
+    title: "Esport News — Actus e-sport & scores en direct",
+    description: "Actus e-sport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
   },
   robots: {
     index: true,
