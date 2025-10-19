@@ -5,8 +5,9 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { Gamepad2, User, LogOut } from 'lucide-react';
+import { Gamepad2, User, LogOut, Settings } from 'lucide-react';
 import MobileGameSelector from '../games/MobileGameSelector';
+import SettingsModal from './SettingsModal';
 import { Game } from '../../types';
 
 interface NavbarProps {
@@ -27,6 +28,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileGameSelectorOpen, setIsMobileGameSelectorOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   const navLinks = useMemo(() => [
     { href: '/', label: 'Accueil' },
@@ -129,7 +131,24 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Authentication Section */}
-          <div className="hidden md:flex items-center">
+          <div className="hidden md:flex items-center space-x-2">
+            {/* Settings Button */}
+            <div className="relative">
+              <button
+                onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                className="p-2 rounded-lg hover:bg-gray-800/50 transition-all duration-300 text-gray-300 hover:text-white"
+                aria-label="Paramètres"
+              >
+                <Settings className={`w-5 h-5 transition-transform duration-500 ${isSettingsMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
+              </button>
+
+              {/* Settings Modal */}
+              <SettingsModal
+                isOpen={isSettingsMenuOpen}
+                onClose={() => setIsSettingsMenuOpen(false)}
+              />
+            </div>
+
             {isLoading ? (
               <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse"></div>
             ) : isAuthenticated && user ? (

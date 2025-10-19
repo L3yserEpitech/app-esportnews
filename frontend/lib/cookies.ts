@@ -20,7 +20,7 @@ export function setCookie(name: string, value: string, options: CookieOptions = 
     expires = 365, // Par défaut 1 an
     path = '/',
     domain,
-    secure = true,
+    secure = typeof window !== 'undefined' && window.location.protocol === 'https:',
     sameSite = 'lax',
   } = options;
 
