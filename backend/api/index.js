@@ -162,7 +162,7 @@ fastify.get('/api/tournaments/filtered', async (request, reply) => {
       tierFilter
     })}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     const ALL_GAMES = [
@@ -316,7 +316,7 @@ fastify.get('/api/tournaments', async (request, reply) => {
 
     console.log(`🎯 Fetching tournaments for game: ${game}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     console.log(`✅ Using game acronym directly: ${game}`);
@@ -471,7 +471,7 @@ fastify.get('/api/tournaments/all', async (request, reply) => {
   try {
     console.log('🌐 Fetching tournaments for ALL games');
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     // Liste des jeux à inclure (basée sur CLAUDE.md)
@@ -628,7 +628,7 @@ fastify.get('/api/tournaments/upcoming', async (request, reply) => {
 
     console.log(`🔮 Fetching upcoming tournaments for game: ${game}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     // Fonction pour récupérer les tournois à venir par tier
@@ -700,7 +700,7 @@ fastify.get('/api/tournaments/upcoming/all', async (request, reply) => {
   try {
     console.log('🌐 Fetching upcoming tournaments for ALL games');
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     const ALL_GAMES = [
@@ -789,7 +789,7 @@ fastify.get('/api/tournaments/finished', async (request, reply) => {
 
     console.log(`📚 Fetching finished tournaments for game: ${game}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     // Fonction pour récupérer les tournois passés par tier
@@ -868,7 +868,7 @@ fastify.get('/api/tournaments/by-date', async (request, reply) => {
 
     console.log(`📅 Fetching tournaments for date: ${date}, game: ${game || 'ALL'}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     // Construire l'endpoint selon le jeu
@@ -942,7 +942,7 @@ fastify.get('/api/matches/by-date', async (request, reply) => {
 
     console.log(`⚔️ Fetching matches for date: ${date}, game: ${game || 'ALL'}`);
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     // Construire l'endpoint selon le jeu
@@ -1012,7 +1012,7 @@ fastify.get('/api/tournaments/finished/all', async (request, reply) => {
   try {
     console.log('🌐 Fetching finished tournaments for ALL games');
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
 
     const ALL_GAMES = [
@@ -1337,7 +1337,7 @@ fastify.get('/api/teams/search', async (request, reply) => {
       'lol-wild-rift'   // LoL Wild Rift
     ];
 
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
     const url = `https://api.pandascore.co/teams?search[name]=${encodeURIComponent(query)}&page[size]=50`;
 
     const response = await fetch(url, {
@@ -1430,7 +1430,7 @@ fastify.get('/api/users/favorite-teams', { preHandler: verifyToken }, async (req
     }
 
     // Récupérer les détails de chaque équipe depuis PandaScore
-    const PANDASCORE_API_TOKEN = 'rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk';
+    const PANDASCORE_API_TOKEN = process.env.API_PANDASCORE;
 
     const teamPromises = favoriteTeamIds.map(async (teamId) => {
       try {
