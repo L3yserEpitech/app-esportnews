@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function MentionsLegalesPage() {
   return (
-    <div className="min-h-screen bg-[#060B13]">
+    <div className="min-h-screen bg-[#060B13] pt-20">
       <div className="container mx-auto px-6 py-12 max-w-4xl">
         {/* En-tête */}
         <div className="mb-12">
