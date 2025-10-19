@@ -1,51 +1,129 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 border-t border-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-4">
-              <span className="text-pink-500">Esport</span>News
-            </h3>
-            <p className="text-gray-400 text-sm">
-              Votre source d'actualités esport et de suivi des matchs en direct.
+    <footer className="bg-[#060B13] border-t border-[#182859]/30">
+      <div className="container mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          {/* Logo et description */}
+          <div className="space-y-4">
+            <Link href="/" className="inline-block">
+              <Image
+                src="/logo_blanc.png"
+                alt="EsportNews Logo"
+                width={180}
+                height={60}
+                className="h-12 w-auto"
+              />
+            </Link>
+            <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
+              Votre plateforme de référence pour suivre les matchs esport en direct et rester informé de toute l'actualité de la scène compétitive.
             </p>
           </div>
 
+          {/* Navigation */}
           <div>
-            <h4 className="font-medium text-white mb-3">Navigation</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/live" className="hover:text-white transition-colors">Matchs en Direct</Link></li>
-              <li><Link href="/tournois" className="hover:text-white transition-colors">Tournois</Link></li>
-              <li><Link href="/news" className="hover:text-white transition-colors">Actualités</Link></li>
-              <li><Link href="/calendrier" className="hover:text-white transition-colors">Calendrier</Link></li>
+            <h4 className="font-semibold text-white mb-4 text-base">Navigation</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <Link href="/" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Accueil
+                </Link>
+              </li>
+              <li>
+                <Link href="/live" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Matchs en Direct
+                </Link>
+              </li>
+              <li>
+                <Link href="/news" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Actualités
+                </Link>
+              </li>
+              <li>
+                <Link href="/articles" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Articles
+                </Link>
+              </li>
+              <li>
+                <Link href="/calendrier" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Calendrier
+                </Link>
+              </li>
             </ul>
           </div>
 
+          {/* Informations légales */}
           <div>
-            <h4 className="font-medium text-white mb-3">Jeux</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/valorant" className="hover:text-white transition-colors">Valorant</Link></li>
-              <li><Link href="/cs2" className="hover:text-white transition-colors">CS2</Link></li>
-              <li><Link href="/lol" className="hover:text-white transition-colors">League of Legends</Link></li>
-              <li><Link href="/dota" className="hover:text-white transition-colors">Dota 2</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-medium text-white mb-3">Légal</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link></li>
-              <li><Link href="/politique-confidentialite" className="hover:text-white transition-colors">Politique de confidentialité</Link></li>
-              <li><Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link></li>
+            <h4 className="font-semibold text-white mb-4 text-base">Informations légales</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <Link href="/mentions-legales" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Mentions légales
+                </Link>
+              </li>
+              <li>
+                <Link href="/politique-confidentialite" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Politique de confidentialité
+                </Link>
+              </li>
+              <li>
+                <Link href="/cgv" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Conditions générales de vente
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Gestion des cookies
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-500">
-          &copy; 2024 EsportNews. Tous droits réservés.
+        {/* Copyright */}
+        <div className="border-t border-[#182859]/30 mt-12 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-gray-500">
+              &copy; {new Date().getFullYear()} EsportNews. Tous droits réservés.
+            </p>
+            <div className="flex gap-6">
+              <a
+                href="https://twitter.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-[#F22E62] transition-colors duration-200"
+                aria-label="Twitter"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </a>
+              <a
+                href="https://discord.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-[#F22E62] transition-colors duration-200"
+                aria-label="Discord"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+                </svg>
+              </a>
+              <a
+                href="https://youtube.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-[#F22E62] transition-colors duration-200"
+                aria-label="YouTube"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
