@@ -83,6 +83,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/tournois" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                  Tournois
+                </Link>
+              </li>
+              <li>
                 <Link href="/news" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
                   Actualités
                 </Link>
@@ -109,26 +114,6 @@ export default function Footer() {
                   Mentions légales
                 </Link>
               </li>
-              {/* <li>
-                <Link href="/politique-confidentialite" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Politique de confidentialité
-                </Link>
-              </li>
-              <li>
-                <Link href="/cgu" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Conditions générales d&apos;utilisation
-                </Link>
-              </li>
-              <li>
-                <Link href="/cgv" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Conditions générales de vente
-                </Link>
-              </li> */}
-              {/* <li>
-                <Link href="/legal/cookies" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Gestion des cookies
-                </Link>
-              </li> */}
             </ul>
           </div>
         </div>
