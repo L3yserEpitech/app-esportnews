@@ -111,7 +111,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -119,6 +119,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 className={`
                   relative px-3 py-2 text-sm font-medium transition-all duration-300 ease-out
                   hover:text-pink-400 hover:scale-105 transform-gpu
+                  ${link.href === '/' ? 'hidden lg:block' : ''}
                   ${isActive(link.href)
                     ? 'text-pink-400 font-semibold'
                     : 'text-gray-300 hover:text-white'
@@ -213,20 +214,12 @@ const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-3">
-                <Link
-                  href="/auth/login"
-                  className="px-4 py-2 text-sm font-medium text-white hover:text-pink-400 transition-colors"
-                >
-                  Se connecter
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
-                >
-                  S'inscrire
-                </Link>
-              </div>
+              <Link
+                href="/auth/login"
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
+              >
+                Se connecter
+              </Link>
             )}
           </div>
 
