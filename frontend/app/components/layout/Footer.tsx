@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 export default function Footer() {
-  const [year, setYear] = useState<number | null>(null);
+  const [year, setYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     setYear(new Date().getFullYear());
