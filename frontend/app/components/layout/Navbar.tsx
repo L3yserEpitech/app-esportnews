@@ -32,9 +32,9 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const navLinks = useMemo(() => [
     { href: '/', label: 'Accueil' },
+    { href: '/news', label: 'Actualités' },
     { href: '/live', label: 'Direct' },
     { href: '/tournois', label: 'Tournois' },
-    // { href: '/news', label: 'News' }, // Temporairement désactivé
     { href: '/articles', label: 'Articles' },
     { href: '/calendrier', label: 'Calendrier' },
   ], []);

@@ -8,6 +8,6 @@ RUN npm install -g pnpm && pnpm install
 
 COPY . .
 
-EXPOSE 4343
+EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm vercel dev --listen=4343 --token=${VERCEL_TOKEN}"]
+CMD ["pnpm", "dev"]
