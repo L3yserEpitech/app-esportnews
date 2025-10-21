@@ -180,9 +180,7 @@ export default function ArticlePage() {
                     <span>•</span>
                     <span>{formatDate(article.created_at)}</span>
                     <span>•</span>
-                    <span>🕰️ {article.readTime} min de lecture</span>
-                    <span>•</span>
-                    <span>👁️ {article.views} vues</span>
+                    <span>{article.readTime} min de lecture</span>
                   </div>
 
                   {/* Tags */}

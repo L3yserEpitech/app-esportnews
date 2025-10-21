@@ -148,24 +148,6 @@ class ArticleService {
     
     return Math.max(1, readTime); // Minimum 1 minute
   }
-
-  // Méthode pour incrémenter les vues d'un article
-  async incrementViews(slug: string): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/articles/${slug}/views`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to increment views: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error incrementing views:', error);
-    }
-  }
 }
 
 export const articleService = new ArticleService();

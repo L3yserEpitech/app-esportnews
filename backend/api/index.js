@@ -1148,31 +1148,6 @@ fastify.get('/api/articles/:slug', async (request, reply) => {
   }
 });
 
-// Route pour incrémenter les vues d'un article
-fastify.post('/api/articles/:slug/views', async (request, reply) => {
-  try {
-    const { slug } = request.params;
-    console.log(`👁️ Incrementing views for article: ${slug}`);
-
-    const { error } = await supabase.rpc('increment_article_views', {
-      article_slug: slug
-    });
-
-    if (error) {
-      console.error('❌ Error incrementing views:', error);
-      reply.code(500);
-      return { error: 'Failed to increment views' };
-    }
-
-    console.log(`✅ Successfully incremented views for article: ${slug}`);
-    return { success: true, message: 'Views incremented successfully' };
-  } catch (error) {
-    console.error('❌ Error in /api/articles/:slug/views:', error);
-    reply.code(500);
-    return { error: 'Internal server error' };
-  }
-});
-
 // Route pour récupérer les articles similaires
 fastify.get('/api/articles/:slug/similar', async (request, reply) => {
   try {
