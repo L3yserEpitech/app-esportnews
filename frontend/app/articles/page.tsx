@@ -51,23 +51,32 @@ export default function ArticlesPage() {
     window.location.href = `/article/${slug}`;
   }, []);
 
-  // Article le plus récent (featured)
+  // Article le plus récent (featured) - exclure les articles "Actualité"
   const featuredArticle = useMemo(() => {
     if (articles.length === 0) return null;
-    return [...articles].sort((a, b) =>
+    const nonActualityArticles = articles.filter(
+      article => article.category !== 'Actualité'
+    );
+    if (nonActualityArticles.length === 0) return null;
+    return [...nonActualityArticles].sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )[0];
   }, [articles]);
 
   // Grouper les articles par catégorie et trier par date (plus récent au plus vieux)
-  // Exclure l'article featured
+  // Exclure l'article featured et les articles de la catégorie "Actualité"
   const articlesByCategory = useMemo(() => {
     const articlesWithoutFeatured = articles.filter(
       article => article.id !== featuredArticle?.id
     );
 
+    // Filtrer les articles (exclure la catégorie "Actualité")
+    const filteredArticles = articlesWithoutFeatured.filter(
+      article => article.category !== 'Actualité'
+    );
+
     // Grouper par catégorie
-    const grouped = articlesWithoutFeatured.reduce((acc, article) => {
+    const grouped = filteredArticles.reduce((acc, article) => {
       const category = article.category || 'Non catégorisé';
       if (!acc[category]) {
         acc[category] = [];
@@ -101,8 +110,7 @@ export default function ArticlesPage() {
         <div className="flex gap-8">
           {/* Articles content */}
           <div className="flex-1 min-w-0">
-
-{articles.length === 0 ? (
+            {articles.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 text-lg mb-2">
                   📰 Aucun article disponible

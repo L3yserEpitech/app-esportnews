@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 export default function Footer() {
+  const [year, setYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
+
   return (
     <footer className="bg-[#060B13] border-t border-[#182859]/30">
       <div className="container mx-auto px-6 py-12">
@@ -121,7 +128,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="border-t border-[#182859]/30 mt-12 pt-8">
           <p className="text-sm text-gray-500 text-center">
-            &copy; {new Date().getFullYear()} EsportNews. Tous droits réservés.
+            &copy; {year || new Date().getFullYear()} EsportNews. Tous droits réservés.
           </p>
         </div>
       </div>
