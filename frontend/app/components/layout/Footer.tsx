@@ -113,15 +113,42 @@ export default function Footer() {
           </div>
 
           {/* Informations légales */}
-          <div>
-            <h4 className="font-semibold text-white mb-4 text-base">Informations légales</h4>
-            <ul className="space-y-3 text-sm">
-              <li>
-                <Link href="/legal/mentions-legales" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Mentions légales
-                </Link>
-              </li>
-            </ul>
+          <div className="flex flex-col justify-between">
+            <div>
+              <h4 className="font-semibold text-white mb-4 text-base">Informations légales</h4>
+              <ul className="space-y-3 text-sm">
+                <li>
+                  <Link href="/legal/mentions-legales" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
+                    Mentions légales
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Kit média */}
+            <div className="mt-6">
+              <h4 className="font-semibold text-white mb-4 text-base">Kit média</h4>
+              <a
+                href="/Kit Média ESPORT NEWS.pdf"
+                download="Kit_Media_ESPORT_NEWS.pdf"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#F22E62] hover:bg-[#d92556] text-white text-sm font-medium rounded-lg transition-colors duration-200"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Télécharger le kit média
+              </a>
+            </div>
           </div>
         </div>
 
