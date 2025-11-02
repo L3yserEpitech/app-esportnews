@@ -253,6 +253,30 @@ class TournamentService {
       throw error;
     }
   }
+
+  // Tournoi par ID
+  async getTournamentById(id: string): Promise<PandaTournament> {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/tournaments/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const tournament: PandaTournament = await response.json();
+
+      return tournament;
+    } catch (error) {
+      console.error('Error fetching tournament by ID:', error);
+      throw error;
+    }
+  }
 }
 
 export const tournamentService = new TournamentService();

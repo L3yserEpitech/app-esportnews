@@ -9,6 +9,7 @@ import { advertisementService } from '@/app/services/advertisementService';
 import AdColumn from '@/app/components/ads/AdColumn';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import ArticleContent from '@/app/components/article/ArticleContent';
+import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import Link from 'next/link';
 
@@ -140,12 +141,12 @@ export default function ArticlePage() {
 
               {/* Article header */}
               <article className="bg-gray-900 md:rounded-xl overflow-hidden">
-                {/* Featured image */}
+                {/* Featured image or video */}
                 <div className="relative w-full">
-                  <img
-                    src={article.featuredImage}
-                    alt={article.title}
-                    className="w-full h-auto object-contain"
+                  <ArticleCover
+                    featuredImage={article.featuredImage}
+                    title={article.title}
+                    className="w-full"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
                 </div>

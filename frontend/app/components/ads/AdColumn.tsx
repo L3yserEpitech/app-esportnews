@@ -13,14 +13,14 @@ interface AdColumnProps {
 }
 
 const AdColumn: React.FC<AdColumnProps> = ({
-  ads,
+  ads = [],
   isSubscribed = false,
   isLoading = false,
   className = ''
 }) => {
   // Filtrer les pubs valides et les trier par position
   const activeAds = useMemo(() =>
-    ads
+    (ads || [])
       .filter(ad => ad.url && ad.redirect_link)
       .sort((a, b) => (a.position || 0) - (b.position || 0))
       .slice(0, 3), // Maximum 3 emplacements comme spécifié dans CLAUDE.md

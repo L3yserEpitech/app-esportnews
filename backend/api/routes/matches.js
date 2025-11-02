@@ -80,6 +80,46 @@ async function matchesRoutes(fastify) {
       return handleError(reply, 500, 'Internal server error');
     }
   });
+
+  // GET /api/matches/:id - Récupérer un match complet avec tous ses détails
+  fastify.get('/api/matches/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      if (!id) {
+        return handleError(reply, 400, 'Match ID is required');
+      }
+
+      console.log(`⚔️ Fetching match details for ID: ${id}`);
+
+      const PANDASCORE_TOKEN = process.env.API_PANDASCORE;
+      const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
+
+      const url = `${PANDASCORE_BASE_URL}/matches/${id}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
+          'User-Agent': 'EsportNews/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Failed to fetch match ${id}:`, response.status);
+        return handleError(reply, response.status, `Failed to fetch match: ${response.status}`);
+      }
+
+      const match = await response.json();
+      console.log(`✅ Match ${id} fetched successfully`);
+
+      return match;
+    } catch (error) {
+      console.error('Error fetching match details:', error);
+      return handleError(reply, 500, 'Internal server error');
+    }
+  });
 }
 
 module.exports = matchesRoutes;

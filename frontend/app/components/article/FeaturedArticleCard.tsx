@@ -17,6 +17,9 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
     });
   };
 
+  // Détecter si c'est une vidéo basé sur l'extension du fichier
+  const isVideo = article.featuredImage && /\.(mp4|webm|ogg|mov|avi)$/i.test(article.featuredImage);
+
   const handleClick = () => {
     if (onClick) {
       onClick(article.slug);
@@ -39,14 +42,31 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
         }
       }}
     >
-      {/* Image pleine */}
-      <div className="relative w-full h-full overflow-hidden">
-        <img
-          src={article.featuredImage}
-          alt={article.title}
-          className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
-          loading="eager"
-        />
+      {/* Image or Video pleine */}
+      <div className="relative w-full h-full overflow-hidden bg-black">
+        {isVideo ? (
+          <video
+            className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
+            src={article.featuredImage}
+            autoPlay
+            controls={false}
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error('Erreur de chargement vidéo:', e.currentTarget.error?.code);
+            }}
+          />
+        ) : (
+          <img
+            src={article.featuredImage}
+            alt={article.title}
+            className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
+            loading="eager"
+          />
+        )}
 
         {/* Gradient overlay en bas */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />

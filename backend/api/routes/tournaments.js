@@ -10,6 +10,50 @@ const {
 const { handleError } = require('../utils/errorHandler');
 
 async function tournamentRoutes(fastify) {
+  // GET /api/tournaments/:id - Details d'un tournoi specifique (DOIT ETRE EN PREMIER)
+  fastify.get('/api/tournaments/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      console.log(`Fetching tournament details: ${id}`);
+
+      const PANDASCORE_TOKEN = process.env.API_PANDASCORE;
+      const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
+
+      const url = `${PANDASCORE_BASE_URL}/tournaments/${id}?token=${PANDASCORE_TOKEN}`;
+
+      console.log(`Calling PandaScore: ${url}`);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'EsportNews/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch tournament ${id}:`, response.status);
+        return handleError(reply, response.status, `Failed to fetch tournament: ${response.status}`);
+      }
+
+      const tournament = await response.json();
+
+      console.log(`Successfully fetched tournament: ${tournament.name}`);
+      console.log('Tournament has:', {
+        id: tournament.id,
+        name: tournament.name,
+        teams: tournament.teams?.length || 0,
+        matches: tournament.matches?.length || 0,
+        tier: tournament.tier
+      });
+
+      return tournament;
+    } catch (error) {
+      console.error('Error fetching tournament details:', error);
+      return handleError(reply, 500, 'Internal server error');
+    }
+  });
+
   // GET /api/tournaments/filtered - Tournois filtrés
   fastify.get('/api/tournaments/filtered', async (request, reply) => {
     try {
@@ -30,7 +74,7 @@ async function tournamentRoutes(fastify) {
     }
   });
 
-  // GET /api/tournaments - Tournois pour un jeu spécifique
+  // GET /api/tournaments?game=xyz - Tournois pour un jeu spécifique (avec query param obligatoire)
   fastify.get('/api/tournaments', async (request, reply) => {
     try {
       const { game } = request.query;
