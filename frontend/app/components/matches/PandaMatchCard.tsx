@@ -153,12 +153,6 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
               <span className="text-gray-600">•</span>
               <span>{formatTime(match.begin_at)}</span>
             </div>
-
-            {match.rescheduled && (
-              <div className="inline-block px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
-                <p className="text-xs text-yellow-400 font-medium">⚠ Reporté</p>
-              </div>
-            )}
           </div>
         </div>
 

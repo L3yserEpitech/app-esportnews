@@ -486,14 +486,16 @@ export default function TournamentDetailPage() {
 
             {/* Tous les matchs avec filtres */}
             <section className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Gamepad2 className="w-6 h-6" />
-                  Tous les Matchs
-                </h2>
-                <div className="text-sm text-gray-400">
-                  {tournament.matches.length} match{tournament.matches.length > 1 ? 's' : ''} au total
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
+                    <Gamepad2 className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-white">Tous les Matchs</h2>
                 </div>
+                <p className="text-gray-400 text-sm ml-13">
+                  {tournament.matches.length} match{tournament.matches.length > 1 ? 's' : ''} au total
+                </p>
               </div>
 
               {tournament.matches.length > 0 ? (
