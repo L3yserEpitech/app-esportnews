@@ -99,6 +99,8 @@ export interface NewsItem {
   category: string;
   tags: string[];
   views: number;
+  videoUrl?: string; // URL de la vidéo de couverture (YouTube, Vimeo, ou MP4)
+  videoType?: 'youtube' | 'vimeo' | 'mp4'; // Type de vidéo
 }
 
 export interface Article extends NewsItem {
@@ -123,6 +125,8 @@ export interface SupabaseArticle {
   content_black: string;
   content_white: string;
   featuredImage: string;
+  videoUrl?: string;
+  videoType?: 'youtube' | 'vimeo' | 'mp4';
 }
 
 // User types

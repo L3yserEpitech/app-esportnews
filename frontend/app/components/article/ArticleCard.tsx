@@ -17,6 +17,9 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
     });
   };
 
+  // Détecter si c'est une vidéo basé sur l'extension du fichier
+  const isVideo = article.featuredImage && /\.(mp4|webm|ogg|mov|avi)$/i.test(article.featuredImage);
+
   const handleClick = () => {
     if (onClick) {
       onClick(article.slug);
@@ -39,14 +42,30 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
         }
       }}
     >
-      {/* Image */}
-      <div className="relative h-64 overflow-hidden">
-        <img
-          src={article.featuredImage}
-          alt={article.title}
-          className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
-          loading="lazy"
-        />
+      {/* Image or Video */}
+      <div className="relative h-64 overflow-hidden bg-black">
+        {isVideo ? (
+          <video
+            className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
+            src={article.featuredImage}
+            autoPlay={false}
+            controls={false}
+            muted
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error('Erreur de chargement vidéo:', e.currentTarget.error?.code);
+            }}
+          />
+        ) : (
+          <img
+            src={article.featuredImage}
+            alt={article.title}
+            className="w-full h-full object-cover transition-all duration-[500ms] group-hover:scale-103"
+            loading="lazy"
+          />
+        )}
       </div>
 
       {/* Content */}
