@@ -142,7 +142,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                                     <img
                                       src={player.image_url}
                                       alt={player.name}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-cover object-center"
                                       loading="lazy"
                                     />
                                   ) : (
