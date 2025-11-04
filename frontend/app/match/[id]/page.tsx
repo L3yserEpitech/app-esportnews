@@ -9,9 +9,11 @@ import {
   TrendingUp,
   AlertCircle,
   Play,
+  Users,
 } from 'lucide-react';
 import { PandaMatch } from '../../types';
 import { matchService } from '../../services/matchService';
+import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
 import { Advertisement } from '../../types';
 import AdColumn from '../../components/ads/AdColumn';
@@ -28,6 +30,7 @@ export default function MatchDetailPage() {
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
   const [selectedStreamIdx, setSelectedStreamIdx] = useState(0);
+  const [teamsData, setTeamsData] = useState<any[]>([]);
 
   const esportBackgrounds = [
     'https://images.unsplash.com/photo-1587095951604-b9d924a3fda0?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
@@ -62,6 +65,21 @@ export default function MatchDetailPage() {
         const data = await matchService.getMatchById(matchId);
         setMatch(data);
         console.log('Match Details:', data);
+
+        // Charger les détails des deux équipes si disponibles
+        if (data.opponents && data.opponents.length === 2) {
+          try {
+            const teamIds = data.opponents.map(o => o.opponent.id);
+            console.log('Loading teams with IDs:', teamIds);
+
+            const teams = await teamService.getTeamsByIds(teamIds);
+            console.log('Teams Data:', teams);
+            setTeamsData(teams);
+          } catch (teamError) {
+            console.error('Error loading team details:', teamError);
+            // On continue même si le chargement des équipes échoue
+          }
+        }
       } catch (err) {
         console.error('Error loading match:', err);
         setError(err instanceof Error ? err.message : 'Erreur lors du chargement du match');
@@ -148,7 +166,7 @@ export default function MatchDetailPage() {
           <div className="flex-1 min-w-0 space-y-8">
 
             {/* Bannière d'information du match */}
-            <section className="space-y-4">
+            <section className="space-y-4 mb-12">
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#F44576]/20 via-[#091626]/40 to-[#060B13]/60 border-2 border-[#F44576]/40 p-8 shadow-2xl">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#F44576]/10 to-transparent opacity-50" />
                 <div className="relative">
@@ -277,8 +295,8 @@ export default function MatchDetailPage() {
 
             {/* Détails des jeux */}
             {match.games && match.games.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex items-center gap-3">
+              <section className="space-y-8 mb-12">
+                <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Gamepad2 className="w-5 h-5 text-white" />
                   </div>
@@ -333,8 +351,8 @@ export default function MatchDetailPage() {
             )}
 
             {/* Statistiques du match */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-3">
+            <section className="space-y-8 mb-12">
+              <div className="flex items-center gap-3 mb-8">
                 <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                   <TrendingUp className="w-5 h-5 text-white" />
                 </div>
@@ -382,10 +400,152 @@ export default function MatchDetailPage() {
               </div>
             </section>
 
+            {/* Section Teams & Rosters */}
+            {match.opponents && match.opponents.length === 2 && teamsData.length === 2 && (
+              <section className="space-y-8 mb-12">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Équipes & Rosters</h2>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {teamsData.map((teamDetail) => {
+                    const players = teamDetail.players || [];
+                    const activePlayers = players.filter((p: any) => p.active).length;
+
+                    return (
+                      <div key={teamDetail.id} className="group">
+                        {/* Card background glow */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/10 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+
+                        {/* Main card */}
+                        <div className="relative bg-gradient-to-br from-[#091626]/40 to-[#060B13]/60 border border-[#182859]/40 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col h-full">
+
+                          {/* Team Header */}
+                          <div className="p-4 border-b border-[#182859]/20 bg-[#182859]/10">
+                            <div className="flex items-center gap-4">
+                              {/* Team Logo */}
+                              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center flex-shrink-0 overflow-hidden group-hover:border-[#F44576]/40 transition-colors">
+                                {teamDetail.image_url ? (
+                                  <img
+                                    src={teamDetail.image_url}
+                                    alt={teamDetail.name}
+                                    className="w-full h-full object-contain p-1"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <Trophy className="w-8 h-8 text-gray-500" />
+                                )}
+                              </div>
+
+                              {/* Team Info */}
+                              <div className="flex-1 text-left">
+                                <h3 className="text-lg font-bold text-white group-hover:text-[#F44576] transition-colors">
+                                  {teamDetail.name}
+                                </h3>
+                                {teamDetail.acronym && (
+                                  <p className="text-sm text-[#F44576] font-semibold">
+                                    {teamDetail.acronym}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                  {teamDetail.location && (
+                                    <>
+                                      <span>{teamDetail.location}</span>
+                                      <span className="text-gray-600">•</span>
+                                    </>
+                                  )}
+                                  <span>{players.length} joueur{players.length > 1 ? 's' : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Players Section */}
+                          <div className="p-4">
+                            {players.length > 0 ? (
+                              <>
+                                {/* Players Grid */}
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
+                                  {players.map((player: any) => (
+                                    <div key={player.id} className="group/player cursor-pointer">
+                                      {/* Player Avatar */}
+                                      <div className="relative mb-2">
+                                        <div className="w-full aspect-square rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/player:border-[#F44576]/50 group-hover/player:shadow-lg group-hover/player:shadow-[#F44576]/20">
+                                          {player.image_url ? (
+                                            <img
+                                              src={player.image_url}
+                                              alt={player.name}
+                                              className="w-full h-full object-cover object-center"
+                                              loading="lazy"
+                                            />
+                                          ) : (
+                                            <div className="text-xl font-bold text-gray-500">
+                                              {player.name.split(' ').map((w: string) => w.charAt(0)).join('').substring(0, 2).toUpperCase()}
+                                            </div>
+                                          )}
+
+                                          {/* Hover overlay */}
+                                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-2">
+                                            <div className="text-center">
+                                              {player.role && (
+                                                <p className="text-xs font-semibold text-cyan-400">
+                                                  {player.role}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Player Info */}
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-bold text-white truncate group-hover/player:text-[#F44576] transition-colors text-center">
+                                          {player.name}
+                                        </p>
+                                        {player.role && (
+                                          <p className="text-xs truncate text-center text-cyan-400">
+                                            {player.role}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Team Stats */}
+                                <div className="border-t border-[#182859]/20 pt-4 grid grid-cols-2 gap-3">
+                                  <div className="text-center p-2 bg-[#182859]/10 rounded-lg">
+                                    <p className="text-lg font-bold text-[#F44576]">{players.length}</p>
+                                    <p className="text-xs text-gray-400">Joueurs</p>
+                                  </div>
+                                  <div className="text-center p-2 bg-[#182859]/10 rounded-lg">
+                                    <p className="text-lg font-bold text-green-400">{activePlayers}</p>
+                                    <p className="text-xs text-gray-400">Actifs</p>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-center py-6">
+                                <Trophy className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                <p className="text-gray-400 text-sm">Aucun joueur disponible</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Section Streaming */}
             {match.streams_list && match.streams_list.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex items-center gap-3">
+              <section className="space-y-8 mb-12">
+                <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Radio className="w-5 h-5 text-white" />
                   </div>

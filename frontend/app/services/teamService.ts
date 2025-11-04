@@ -137,6 +137,46 @@ class TeamService {
     const result = await response.json();
     return result.favorite_teams;
   }
+
+  /**
+   * Récupère les détails complets d'une équipe avec ses joueurs
+   */
+  async getTeamById(teamId: number | string): Promise<Team> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch team ${teamId}: ${response.statusText}`);
+      }
+
+      const team: Team = await response.json();
+      return team;
+    } catch (error) {
+      console.error(`Error fetching team ${teamId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère les détails complets pour plusieurs équipes
+   */
+  async getTeamsByIds(teamIds: (number | string)[]): Promise<Team[]> {
+    try {
+      const teams = await Promise.all(
+        teamIds.map((id) => this.getTeamById(id))
+      );
+      return teams;
+    } catch (error) {
+      console.error('Error fetching multiple teams:', error);
+      throw error;
+    }
+  }
 }
 
 export const teamService = new TeamService();
