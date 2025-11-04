@@ -27,6 +27,7 @@ export default function MatchDetailPage() {
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
+  const [selectedStreamIdx, setSelectedStreamIdx] = useState(0);
 
   const esportBackgrounds = [
     'https://images.unsplash.com/photo-1587095951604-b9d924a3fda0?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
@@ -391,55 +392,124 @@ export default function MatchDetailPage() {
                   <h2 className="text-2xl font-bold text-white">Flux de Diffusion</h2>
                 </div>
 
-                <div className="space-y-3">
-                  {match.streams_list
+                {/* Sorted streams */}
+                {(() => {
+                  const sortedStreams = match.streams_list
                     .sort((a, b) => {
-                      // Les flux officiels en premier, puis les flux principaux
                       if (a.official && !b.official) return -1;
                       if (!a.official && b.official) return 1;
                       if (a.main && !b.main) return -1;
                       if (!a.main && b.main) return 1;
                       return 0;
-                    })
-                    .map((stream, idx) => (
-                    <a
-                      key={idx}
-                      href={stream.raw_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block"
-                    >
-                      <div className={`relative overflow-hidden rounded-xl border-2 p-5 transition-colors duration-300 flex items-center justify-between cursor-pointer ${
-                        stream.official
-                          ? 'bg-gradient-to-r from-[#F44576]/20 to-pink-500/10 border-[#F44576]/50 hover:border-[#F44576]/70'
-                          : stream.main
-                          ? 'bg-gradient-to-r from-red-500/20 to-orange-500/10 border-red-500/40 hover:border-red-500/60'
-                          : 'bg-gradient-to-r from-[#091626]/40 to-[#060B13]/60 border-[#182859]/40 hover:border-[#F44576]/30'
-                      }`}>
-                        <div className="flex items-center gap-4">
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                            stream.main ? 'bg-red-500 animate-pulse' :
-                            stream.official ? 'bg-[#F44576] animate-pulse' :
-                            'bg-gray-500'
-                          }`} />
-                          <div>
-                            <p className="text-white font-bold text-lg">
-                              {stream.official && '⭐ Flux Officiel '}
-                              {stream.main && '🔴 Flux Principal '}
-                              {stream.language.toUpperCase()}
-                            </p>
-                            <p className="text-gray-300 text-sm">
-                              {stream.raw_url.includes('twitch') ? 'Twitch' : 'Voir le flux'}
-                            </p>
+                    });
+
+                  const selectedStream = sortedStreams[selectedStreamIdx];
+                  const isTwitch = selectedStream?.raw_url?.includes('twitch');
+                  const isYoutube = selectedStream?.raw_url?.includes('youtube');
+
+                  // Extract Twitch channel name from URL
+                  const getTwitchChannel = (url: string) => {
+                    const match = url.match(/twitch\.tv\/([^/?]+)/);
+                    return match ? match[1] : '';
+                  };
+
+                  // Extract YouTube video ID from URL
+                  const getYoutubeId = (url: string) => {
+                    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&/?]+)/);
+                    return match ? match[1] : '';
+                  };
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Iframe Player */}
+                      {(isTwitch || isYoutube) && (
+                        <div className="relative w-full bg-black rounded-xl overflow-hidden border-2 border-[#182859]/40">
+                          <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                            {isTwitch ? (
+                              <iframe
+                                src={`https://player.twitch.tv/?channel=${getTwitchChannel(selectedStream.raw_url)}&parent=${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}`}
+                                height="100%"
+                                width="100%"
+                                allowFullScreen
+                                className="absolute top-0 left-0 w-full h-full"
+                                allow="autoplay"
+                              />
+                            ) : isYoutube ? (
+                              <iframe
+                                width="100%"
+                                height="100%"
+                                src={`https://www.youtube.com/embed/${getYoutubeId(selectedStream.raw_url)}`}
+                                title="YouTube video player"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                                className="absolute top-0 left-0 w-full h-full border-none"
+                              />
+                            ) : null}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Play className="w-6 h-6 text-[#F44576] group-hover:scale-125 transition-transform" />
-                        </div>
+                      )}
+
+                      {/* Stream selector buttons */}
+                      <div className="space-y-2">
+                        {sortedStreams.map((stream, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedStreamIdx(idx)}
+                            className={`w-full text-left transition-colors duration-300 rounded-xl border-2 p-4 flex items-center justify-between ${
+                              selectedStreamIdx === idx
+                                ? stream.official
+                                  ? 'bg-gradient-to-r from-[#F44576]/30 to-pink-500/20 border-[#F44576]/70'
+                                  : stream.main
+                                  ? 'bg-gradient-to-r from-red-500/30 to-orange-500/20 border-red-500/70'
+                                  : 'bg-gradient-to-r from-[#091626]/60 to-[#060B13]/80 border-[#F44576]/50'
+                                : stream.official
+                                ? 'bg-gradient-to-r from-[#F44576]/20 to-pink-500/10 border-[#F44576]/50'
+                                : stream.main
+                                ? 'bg-gradient-to-r from-red-500/20 to-orange-500/10 border-red-500/40'
+                                : 'bg-gradient-to-r from-[#091626]/40 to-[#060B13]/60 border-[#182859]/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                stream.main ? 'bg-red-500 animate-pulse' :
+                                stream.official ? 'bg-[#F44576] animate-pulse' :
+                                'bg-gray-500'
+                              }`} />
+                              <div>
+                                <p className="text-white font-bold text-lg">
+                                  {stream.official && '⭐ Flux Officiel '}
+                                  {stream.main && '🔴 Flux Principal '}
+                                  {stream.language.toUpperCase()}
+                                </p>
+                                <p className="text-gray-300 text-sm">
+                                  {stream.raw_url.includes('twitch') ? 'Twitch' : stream.raw_url.includes('youtube') ? 'YouTube' : 'Voir le flux'}
+                                </p>
+                              </div>
+                            </div>
+                            {selectedStreamIdx === idx ? (
+                              <div className="text-[#F44576] font-bold">En lecture</div>
+                            ) : (
+                              <Play className="w-6 h-6 text-[#F44576]" />
+                            )}
+                          </button>
+                        ))}
                       </div>
-                    </a>
-                  ))}
-                </div>
+
+                      {/* Fallback link if not Twitch/YouTube */}
+                      {(!isTwitch && !isYoutube) && (
+                        <a
+                          href={selectedStream.raw_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#F44576] to-pink-600 hover:from-[#F44576]/90 hover:to-pink-600/90 text-white rounded-xl font-semibold transition-colors"
+                        >
+                          <Play className="w-5 h-5" />
+                          Regarder sur {selectedStream.raw_url.split('/')[2]}
+                        </a>
+                      )}
+                    </div>
+                  );
+                })()}
               </section>
             )}
 
