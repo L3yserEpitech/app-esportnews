@@ -32,14 +32,6 @@ export default function MatchDetailPage() {
   const [selectedStreamIdx, setSelectedStreamIdx] = useState(0);
   const [teamsData, setTeamsData] = useState<any[]>([]);
 
-  const esportBackgrounds = [
-    'https://images.unsplash.com/photo-1587095951604-b9d924a3fda0?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.pexels.com/photos/7862518/pexels-photo-7862518.jpeg',
-    'https://images.pexels.com/photos/14266493/pexels-photo-14266493.jpeg',
-    'https://images.pexels.com/photos/7915216/pexels-photo-7915216.jpeg',
-    'https://images.pexels.com/photos/7849513/pexels-photo-7849513.jpeg',
-  ];
-
   // Charger les publicités
   useEffect(() => {
     const loadAds = async () => {
@@ -148,7 +140,6 @@ export default function MatchDetailPage() {
     );
   }
 
-  const backgroundImage = esportBackgrounds[match.id % esportBackgrounds.length];
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
   const homeScore = match.results?.find(r => r.team_id === homeTeam?.id)?.score;
