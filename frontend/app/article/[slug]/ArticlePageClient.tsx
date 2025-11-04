@@ -9,6 +9,7 @@ import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import ArticleContent from '@/app/components/article/ArticleContent';
 import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleCard from '@/app/components/article/ArticleCard';
+import { ArticleSchema } from '@/app/components/seo/StructuredData';
 import Link from 'next/link';
 
 interface ArticlePageClientProps {
@@ -105,8 +106,24 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
     );
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const articleUrl = `${siteUrl}/article/${article?.slug}`;
+
   return (
     <div className="min-h-screen bg-gray-950">
+      {/* Structured Data pour SEO */}
+      {article && (
+        <ArticleSchema
+          title={article.title}
+          description={article.description || article.subtitle || ''}
+          content={article.content || ''}
+          image={article.featuredImage}
+          datePublished={article.created_at}
+          author={article.author}
+          url={articleUrl}
+        />
+      )}
+
       <main className="container mx-auto md:px-4 md:py-8 pt-20 md:pt-24">
         <div className="flex gap-8 mt-3">
           {/* Article content */}
