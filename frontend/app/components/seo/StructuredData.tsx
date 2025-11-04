@@ -123,6 +123,8 @@ export function TournamentSchema({
   endDate,
   url,
   location,
+  prizeMoney,
+  teams,
 }: {
   name: string;
   description?: string;
@@ -131,6 +133,8 @@ export function TournamentSchema({
   endDate?: string;
   url: string;
   location?: string;
+  prizeMoney?: string;
+  teams?: number;
 }) {
   const schema = {
     '@context': 'https://schema.org',
@@ -146,6 +150,8 @@ export function TournamentSchema({
       '@type': 'Organization',
       name: 'EsportNews',
     },
+    ...(prizeMoney && { offers: { '@type': 'Offer', price: prizeMoney } }),
+    ...(teams && { numberOfParticipants: teams }),
   };
 
   return <StructuredData data={schema} />;

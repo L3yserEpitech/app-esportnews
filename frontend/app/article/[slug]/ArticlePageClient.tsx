@@ -9,7 +9,8 @@ import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import ArticleContent from '@/app/components/article/ArticleContent';
 import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleCard from '@/app/components/article/ArticleCard';
-import { ArticleSchema } from '@/app/components/seo/StructuredData';
+import { ArticleSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
+import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 import Link from 'next/link';
 
 interface ArticlePageClientProps {
@@ -109,19 +110,28 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
   const articleUrl = `${siteUrl}/article/${article?.slug}`;
 
+  // Breadcrumbs pour la navigation
+  const breadcrumbs = generateBreadcrumbs([
+    { name: 'Articles', url: '/articles' },
+    { name: article?.title || '', url: articleUrl },
+  ]);
+
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Structured Data pour SEO */}
       {article && (
-        <ArticleSchema
-          title={article.title}
-          description={article.description || article.subtitle || ''}
-          content={article.content || ''}
-          image={article.featuredImage}
-          datePublished={article.created_at}
-          author={article.author}
-          url={articleUrl}
-        />
+        <>
+          <ArticleSchema
+            title={article.title}
+            description={article.description || article.subtitle || ''}
+            content={article.content || ''}
+            image={article.featuredImage}
+            datePublished={article.created_at}
+            author={article.author}
+            url={articleUrl}
+          />
+          <BreadcrumbSchema items={breadcrumbs} />
+        </>
       )}
 
       <main className="container mx-auto md:px-4 md:py-8 pt-20 md:pt-24">

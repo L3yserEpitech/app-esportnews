@@ -22,6 +22,8 @@ import TeamsRosters from '@/app/components/tournaments/TeamsRosters';
 import TournamentStats from '@/app/components/tournaments/TournamentStats';
 import PandaMatchCard from '@/app/components/matches/PandaMatchCard';
 import Card from '@/app/components/ui/Card';
+import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
+import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 
 interface TournamentDetailPageClientProps {
   tournamentId: string;
@@ -178,8 +180,30 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   // Sélectionner une image aléatoire basée sur l'ID du tournoi (cohérent à chaque rendu)
   const backgroundImage = esportBackgrounds[tournament.id % esportBackgrounds.length];
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const tournamentUrl = `${siteUrl}/tournois/${tournament.id}`;
+
+  // Breadcrumbs
+  const breadcrumbs = generateBreadcrumbs([
+    { name: 'Tournois', url: '/tournois' },
+    { name: tournament.name, url: tournamentUrl },
+  ]);
+
   return (
     <div className="min-h-screen bg-gray-950">
+      {/* Structured Data pour SEO */}
+      <TournamentSchema
+        name={tournament.name}
+        description={`Tournoi ${tournament.name} - ${tournament.league?.name || 'Esport'}`}
+        startDate={tournament.begin_at}
+        endDate={tournament.end_at || undefined}
+        url={tournamentUrl}
+        location={tournament.region}
+        prizeMoney={tournament.prizepool || undefined}
+        teams={tournament.teams?.length}
+      />
+      <BreadcrumbSchema items={breadcrumbs} />
+
       {/* Hero Section */}
       <div className="relative w-full h-96 overflow-hidden mt-20">
         {/* Image de fond */}
