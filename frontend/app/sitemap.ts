@@ -73,32 +73,59 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Articles dynamiques
   let articlePages: SitemapEntry[] = [];
-  try {
-    // Récupérer les articles directement pour le sitemap avec cache
-    const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl_api}/api/articles`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 3600 }, // Cache pendant 1 heure
-    });
+  let tournamentPages: SitemapEntry[] = [];
 
-    if (response.ok) {
-      const articles = await response.json();
-      articlePages = articles.map((article: any) => ({
-        url: `${baseUrl}/article/${article.slug}`,
-        lastModified: article.created_at,
-        changeFrequency: 'weekly' as const,
-        priority: 0.7,
-      }));
+  try {
+    const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+
+    // Récupérer les articles
+    try {
+      const articlesResponse = await fetch(`${baseUrl_api}/api/articles`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        next: { revalidate: 3600 },
+      });
+
+      if (articlesResponse.ok) {
+        const articles = await articlesResponse.json();
+        articlePages = articles.map((article: any) => ({
+          url: `${baseUrl}/article/${article.slug}`,
+          lastModified: article.created_at,
+          changeFrequency: 'weekly' as const,
+          priority: 0.7,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching articles for sitemap:', error);
+    }
+
+    // Récupérer les tournois (top 100 les plus récents)
+    try {
+      const tournamentsResponse = await fetch(`${baseUrl_api}/api/tournaments?limit=100`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        next: { revalidate: 3600 },
+      });
+
+      if (tournamentsResponse.ok) {
+        const tournaments = await tournamentsResponse.json();
+        const tournamentsArray = Array.isArray(tournaments) ? tournaments : [];
+        tournamentPages = tournamentsArray.map((tournament: any) => ({
+          url: `${baseUrl}/tournois/${tournament.id}`,
+          lastModified: tournament.modified_at || tournament.begin_at,
+          changeFrequency: 'weekly' as const,
+          priority: 0.6,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching tournaments for sitemap:', error);
     }
   } catch (error) {
-    console.error('Error fetching articles for sitemap:', error);
+    console.error('Error in sitemap generation:', error);
   }
 
   // Combiner toutes les pages
-  const allPages = [...staticPages, ...legalPages, ...articlePages];
+  const allPages = [...staticPages, ...legalPages, ...articlePages, ...tournamentPages];
 
   return allPages;
 }
