@@ -1,125 +1,26 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
 interface ArticleContentProps {
   content: string;
 }
 
 export default function ArticleContent({ content }: ArticleContentProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <style>
-                body {
-                  margin: 0;
-                  padding: 0;
-                  background: transparent;
-                  font-family: Arial, sans-serif;
-                }
-                h1 {
-                  font-size: 2.25rem;
-                  font-weight: 700;
-                  margin: 1.5rem 0 1rem 0;
-                  color: white;
-                }
-                h2 {
-                  font-size: 1.875rem;
-                  font-weight: 600;
-                  margin: 1.5rem 0 1rem 0;
-                  color: white;
-                }
-                h3 {
-                  font-size: 1.5rem;
-                  font-weight: 600;
-                  margin: 1.25rem 0 0.75rem 0;
-                  color: white;
-                }
-                p {
-                  margin: 0.75rem 0;
-                  line-height: 1.75;
-                  color: #d1d5db;
-                }
-                img {
-                  max-width: 100%;
-                  height: auto;
-                  border-radius: 8px;
-                  margin: 1rem 0;
-                }
-                a {
-                  color: #3b82f6;
-                  text-decoration: underline;
-                }
-              </style>
-            </head>
-            <body>
-              ${content}
-            </body>
-          </html>
-        `);
-        doc.close();
-
-        // Ajuster la hauteur de l'iframe dynamiquement
-        const resizeIframe = () => {
-          if (iframeRef.current && doc.body) {
-            const height = Math.max(
-              doc.body.scrollHeight,
-              doc.documentElement.scrollHeight,
-              doc.body.offsetHeight,
-              doc.documentElement.offsetHeight
-            );
-            iframeRef.current.style.height = height + 'px';
-          }
-        };
-
-        // Attendre le chargement des images
-        const images = doc.getElementsByTagName('img');
-        let loadedImages = 0;
-        const totalImages = images.length;
-
-        if (totalImages === 0) {
-          resizeIframe();
-        } else {
-          Array.from(images).forEach((img) => {
-            img.onload = () => {
-              loadedImages++;
-              resizeIframe();
-              if (loadedImages === totalImages) {
-                setTimeout(resizeIframe, 50);
-              }
-            };
-            if (img.complete) {
-              loadedImages++;
-              if (loadedImages === totalImages) {
-                resizeIframe();
-              }
-            }
-          });
-        }
-
-        // Resize initial et multiple fois pour être sûr
-        setTimeout(resizeIframe, 0);
-        setTimeout(resizeIframe, 100);
-        setTimeout(resizeIframe, 300);
-        setTimeout(resizeIframe, 500);
-      }
-    }
-  }, [content]);
-
   return (
-    <iframe
-      ref={iframeRef}
-      title="Article Content"
-      className="w-full border-0 overflow-hidden"
-      scrolling="no"
+    <div
+      className="prose prose-invert max-w-none
+        [&>h1]:text-4xl [&>h1]:font-bold [&>h1]:text-white [&>h1]:my-6
+        [&>h2]:text-3xl [&>h2]:font-semibold [&>h2]:text-white [&>h2]:my-6
+        [&>h3]:text-2xl [&>h3]:font-semibold [&>h3]:text-white [&>h3]:my-4
+        [&>p]:text-gray-300 [&>p]:my-4 [&>p]:leading-relaxed
+        [&>ul]:list-disc [&>ul]:pl-6 [&>ul]:text-gray-300 [&>ul]:my-4
+        [&>ol]:list-decimal [&>ol]:pl-6 [&>ol]:text-gray-300 [&>ol]:my-4
+        [&>li]:my-2
+        [&>img]:max-w-full [&>img]:h-auto [&>img]:rounded-lg [&>img]:my-6
+        [&>a]:text-blue-400 [&>a]:underline [&>a]:hover:text-blue-300
+        [&>blockquote]:border-l-4 [&>blockquote]:border-pink-500 [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-gray-400 [&>blockquote]:my-4
+        [&>pre]:bg-gray-900 [&>pre]:p-4 [&>pre]:rounded [&>pre]:overflow-x-auto [&>pre]:my-4
+        [&>code]:bg-gray-900 [&>code]:px-2 [&>code]:py-1 [&>code]:rounded [&>code]:text-pink-400 [&>code]:font-mono"
+      dangerouslySetInnerHTML={{ __html: content }}
     />
   );
 }
