@@ -1,14 +1,13 @@
 import { Metadata, ResolvingMetadata } from 'next';
-import { Article, NewsItem, Advertisement } from '@/app/types';
 import { articleService } from '@/app/services/articleService';
 import ArticlePageClient from './ArticlePageClient';
 
 // Générer les métadonnées dynamiques pour chaque article
 export async function generateMetadata(
-  { params }: { params: { slug: string } },
-  parent: ResolvingMetadata
+  { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
-  const article = await articleService.getArticleBySlug(params.slug);
+  const { slug } = await params;
+  const article = await articleService.getArticleBySlug(slug);
 
   if (!article) {
     return {
@@ -47,6 +46,7 @@ export async function generateMetadata(
   };
 }
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
-  return <ArticlePageClient slug={params.slug} />;
+export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return <ArticlePageClient slug={slug} />;
 }

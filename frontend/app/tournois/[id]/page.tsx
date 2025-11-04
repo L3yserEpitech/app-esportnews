@@ -3,14 +3,15 @@ import TournamentDetailPageClient from './TournamentDetailPageClient';
 
 // Générer les métadonnées dynamiques pour chaque tournoi
 export async function generateMetadata(
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+  const { id } = await params;
 
   try {
     // Récupérer le tournoi
-    const response = await fetch(`${baseUrl_api}/api/tournaments/${params.id}`, {
+    const response = await fetch(`${baseUrl_api}/api/tournaments/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -57,6 +58,7 @@ export async function generateMetadata(
   }
 }
 
-export default function TournamentDetailPage({ params }: { params: { id: string } }) {
-  return <TournamentDetailPageClient tournamentId={params.id} />;
+export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <TournamentDetailPageClient tournamentId={id} />;
 }
