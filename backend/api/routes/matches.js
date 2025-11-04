@@ -120,6 +120,46 @@ async function matchesRoutes(fastify) {
       return handleError(reply, 500, 'Internal server error');
     }
   });
+
+  // GET /api/teams/:id - Récupérer les détails d'une équipe avec ses joueurs
+  fastify.get('/api/teams/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      if (!id) {
+        return handleError(reply, 400, 'Team ID is required');
+      }
+
+      console.log(`👥 Fetching team details for ID: ${id}`);
+
+      const PANDASCORE_TOKEN = process.env.API_PANDASCORE;
+      const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
+
+      const url = `${PANDASCORE_BASE_URL}/teams/${id}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
+          'User-Agent': 'EsportNews/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Failed to fetch team ${id}:`, response.status);
+        return handleError(reply, response.status, `Failed to fetch team: ${response.status}`);
+      }
+
+      const team = await response.json();
+      console.log(`✅ Team ${id} fetched successfully`);
+
+      return team;
+    } catch (error) {
+      console.error('Error fetching team details:', error);
+      return handleError(reply, 500, 'Internal server error');
+    }
+  });
 }
 
 module.exports = matchesRoutes;
