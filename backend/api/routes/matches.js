@@ -22,7 +22,7 @@ async function matchesRoutes(fastify) {
       }
 
       const data = await response.json();
-      console.log('✅ Live matches fetched successfully');
+      console.log('✅ Live matches fetched successfully : ', data);
       return data;
     } catch (error) {
       console.error('Error fetching live matches:', error);
