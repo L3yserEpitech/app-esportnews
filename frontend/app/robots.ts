@@ -15,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
           '/*.json$',
           '/test-sync',
         ],
-      },
+      }, 
       {
         userAgent: 'Googlebot',
         allow: '/',
@@ -28,7 +28,7 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       `${baseUrl}/sitemap.xml`,
-      `${baseUrl}/feed.xml`, // RSS feed pour les articles
+      `${baseUrl}/feed.xml`,
     ],
     host: baseUrl,
   };

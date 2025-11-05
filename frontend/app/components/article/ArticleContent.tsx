@@ -5,6 +5,12 @@ interface ArticleContentProps {
 }
 
 export default function ArticleContent({ content }: ArticleContentProps) {
+  // Nettoyer le contenu HTML pour éviter les styles inline conflictuels
+  const cleanedContent = content
+    .replace(/style="[^"]*"/g, '') // Supprimer tous les attributs style inline
+    .replace(/\scolor:\s*[^;]+;?/g, '') // Supprimer les couleurs inline
+    .replace(/\sbackground(?:-color)?:\s*[^;]+;?/g, ''); // Supprimer les backgrounds inline
+
   return (
     <div
       className="prose prose-invert max-w-none
@@ -19,8 +25,9 @@ export default function ArticleContent({ content }: ArticleContentProps) {
         [&>a]:text-blue-400 [&>a]:underline [&>a]:hover:text-blue-300
         [&>blockquote]:border-l-4 [&>blockquote]:border-pink-500 [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-gray-400 [&>blockquote]:my-4
         [&>pre]:bg-gray-900 [&>pre]:p-4 [&>pre]:rounded [&>pre]:overflow-x-auto [&>pre]:my-4
-        [&>code]:bg-gray-900 [&>code]:px-2 [&>code]:py-1 [&>code]:rounded [&>code]:text-pink-400 [&>code]:font-mono"
-      dangerouslySetInnerHTML={{ __html: content }}
+        [&>code]:bg-gray-900 [&>code]:px-2 [&>code]:py-1 [&>code]:rounded [&>code]:text-pink-400 [&>code]:font-mono
+        [&_*]:!text-gray-300 [&_a]:!text-blue-400 [&_strong]:!text-white [&_em]:!text-gray-200"
+      dangerouslySetInnerHTML={{ __html: cleanedContent }}
     />
   );
 }
