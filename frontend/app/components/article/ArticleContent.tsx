@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import styles from './ArticleContent.module.css';
 
 interface ArticleContentProps {
@@ -8,17 +9,24 @@ interface ArticleContentProps {
 }
 
 export default function ArticleContent({ content }: ArticleContentProps) {
-  // Nettoyer le contenu HTML
-  const cleanedContent = useMemo(() => {
-    return content
-      .replace(/style="[^"]*"/g, '') // Supprimer les attributs style inline
-      .replace(/on\w+="[^"]*"/g, ''); // Supprimer les event handlers (sécurité XSS)
+  const sanitized = useMemo(() => {
+    // Options: on interdit <style>, <link>, <script> + les attributs inline style et on*
+    return DOMPurify.sanitize(content, {
+      FORBID_TAGS: ['style', 'link', 'script'],
+      FORBID_ATTR: ['style'],
+      // Si tu veux explicitement autoriser certaines attrs communes :
+      ADD_ATTR: ['class', 'href', 'target', 'rel', 'title', 'alt'],
+      // Renforce la sécurité XSS
+      USE_PROFILES: { html: true },
+    });
   }, [content]);
 
   return (
     <article
       className={styles.articleContent}
-      dangerouslySetInnerHTML={{ __html: cleanedContent }}
+      itemScope
+      itemType="https://schema.org/Article"
+      dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );
 }
