@@ -31,6 +31,7 @@ class ArticleService {
         readTime: this.calculateReadTime(item.content), // Calculer le temps de lecture
         featuredImage: item.featuredImage,
         category: item.category,
+        credit: item.credit,
         tags: item.tags || [],
         views: item.views || 0,
       }));
@@ -83,6 +84,7 @@ class ArticleService {
         readTime: this.calculateReadTime(data.content),
         featuredImage: data.featuredImage,
         category: data.category,
+        credit: data.credit,
         tags: data.tags || [],
         views: data.views || 0,
         content: data.content,
@@ -124,6 +126,7 @@ class ArticleService {
         readTime: this.calculateReadTime(item.content),
         featuredImage: item.featuredImage,
         category: item.category,
+        credit: item.credit,
         tags: item.tags || [],
         views: item.views || 0,
       }));

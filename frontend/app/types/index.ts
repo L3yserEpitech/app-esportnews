@@ -97,6 +97,7 @@ export interface NewsItem {
   readTime?: number; // Calculé côté client si nécessaire
   featuredImage: string;
   category: string;
+  credit?: string;
   tags: string[];
   views: number;
   videoUrl?: string; // URL de la vidéo de couverture (YouTube, Vimeo, ou MP4)
@@ -120,6 +121,7 @@ export interface SupabaseArticle {
   author: string;
   content: string;
   category: string;
+  credit?: string;
   subtitle: string;
   description: string;
   content_black: string;

@@ -153,11 +153,16 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
 
               {/* Article meta and content */}
               <div className="px-4 md:px-8 py-6">
-                {/* Category badge */}
-                <div className="mb-4">
+                {/* Category badge and credit */}
+                <div className="mb-4 w-full flex items-center justify-between">
                   <span className="bg-pink-500 text-white px-4 py-2 rounded-full text-sm font-medium">
                     {article.category}
                   </span>
+                  {article.credit && (
+                    <span className="text-gray-400 text-sm italic">
+                      {article.credit}
+                    </span>
+                  )}
                 </div>
 
                 {/* Title */}
@@ -184,6 +189,11 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
                   <span>{article.readTime} min de lecture</span>
                 </div>
 
+                {/* Article content */}
+                <div className="mb-8">
+                  <ArticleContent content={article.content_black || article.content} />
+                </div>
+
                 {/* Tags */}
                 {article.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-8">
@@ -197,11 +207,6 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
                     ))}
                   </div>
                 )}
-
-                {/* Article content */}
-                <div className="mb-8">
-                  <ArticleContent content={article.content_black || article.content} />
-                </div>
 
               </div>
             </article>
