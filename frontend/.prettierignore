@@ -1,0 +1,8 @@
+node_modules
+.next
+build
+dist
+out
+coverage
+.turbo
+app/components/article/ArticleContent.tsx

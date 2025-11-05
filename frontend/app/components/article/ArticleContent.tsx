@@ -8,13 +8,12 @@ export default function ArticleContent({ content }: ArticleContentProps) {
   // Nettoyer le contenu HTML pour éviter les styles inline conflictuels
   const cleanedContent = content
     .replace(/style="[^"]*"/g, '') // Supprimer tous les attributs style inline
-    .replace(/\scolor:\s*[^;]+;?/g, '') // Supprimer les couleurs inline
-    .replace(/\sbackground(?:-color)?:\s*[^;]+;?/g, ''); // Supprimer les backgrounds inline
+    .replace(/on\w+="[^"]*"/g, ''); // Supprimer les event handlers (sécurité)
 
   return (
     <article
       className="bg-gradient-to-b from-[#091626]/40 to-[#060B13]/60 border border-[#182859]/40 rounded-2xl p-8 md:p-10 backdrop-blur-sm"
-      style={{ all: 'initial', isolation: 'isolate' } as any}
+      style={{ isolation: 'isolate' } as React.CSSProperties}
     >
       <div
         className="prose prose-invert max-w-none
@@ -30,7 +29,7 @@ export default function ArticleContent({ content }: ArticleContentProps) {
           [&>blockquote]:border-l-4 [&>blockquote]:border-pink-500 [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-gray-400 [&>blockquote]:my-4
           [&>pre]:bg-gray-900 [&>pre]:p-4 [&>pre]:rounded [&>pre]:overflow-x-auto [&>pre]:my-4
           [&>code]:bg-gray-900 [&>code]:px-2 [&>code]:py-1 [&>code]:rounded [&>code]:text-pink-400 [&>code]:font-mono
-          [&_*]:!text-gray-300 [&_a]:!text-blue-400 [&_strong]:!text-white [&_em]:!text-gray-200 [&_span]:!text-gray-300"
+          [&_*]:!text-inherit [&_a]:!text-blue-400 [&_strong]:!font-bold [&_em]:!italic"
         dangerouslySetInnerHTML={{ __html: cleanedContent }}
       />
     </article>
