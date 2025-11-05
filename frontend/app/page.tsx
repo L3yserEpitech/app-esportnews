@@ -11,6 +11,7 @@ import { liveMatchService } from './services/liveMatchService';
 import { advertisementService } from './services/advertisementService';
 import { articleService } from './services/articleService';
 import { useGame } from './contexts/GameContext';
+import { WebSiteSchema, OrganizationSchema } from './components/seo/StructuredData';
 
 
 const mockMatches: Match[] = [];
@@ -110,6 +111,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
+      {/* Structured Data pour SEO */}
+      <WebSiteSchema />
+      <OrganizationSchema />
+
       {/* Banderole de sélection des jeux - Desktop uniquement */}
       <GameSelector
         games={games}

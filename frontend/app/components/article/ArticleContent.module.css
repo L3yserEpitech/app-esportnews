@@ -1,38 +1,99 @@
+.articleContent {
+  border-radius: 1rem;
+  backdrop-filter: blur(4px);
+  isolation: isolate;
+}
+
 .articleContent h1 {
   font-size: 2.25rem;
   font-weight: 700;
-  margin: 1.5rem 0 1rem 0;
   color: white;
+  margin: 1.5rem 0 1rem 0;
 }
 
 .articleContent h2 {
   font-size: 1.875rem;
   font-weight: 600;
-  margin: 1.5rem 0 1rem 0;
   color: white;
+  margin: 1.5rem 0 1rem 0;
 }
 
 .articleContent h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 1.25rem 0 0.75rem 0;
   color: white;
+  margin: 1.25rem 0 0.75rem 0;
 }
 
 .articleContent p {
-  margin: 0.75rem 0;
+  color: #d1d5db;
+  margin: 1rem 0;
   line-height: 1.75;
+}
+
+.articleContent ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  color: #d1d5db;
+  margin: 1rem 0;
+}
+
+.articleContent ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  color: #d1d5db;
+  margin: 1rem 0;
+}
+
+.articleContent li {
+  margin: 0.5rem 0;
   color: #d1d5db;
 }
 
 .articleContent img {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
-  margin: 1rem 0;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
 }
 
 .articleContent a {
-  color: #3b82f6;
+  color: #60a5fa;
   text-decoration: underline;
+}
+
+.articleContent a:hover {
+  color: #93c5fd;
+}
+
+.articleContent blockquote {
+  border-left: 4px solid #ec4899;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #9ca3af;
+  margin: 1rem 0;
+}
+
+.articleContent pre {
+  background-color: #111827;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.articleContent code {
+  background-color: #111827;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  color: #ec4899;
+  font-family: monospace;
+}
+
+.articleContent strong {
+  font-weight: 700;
+}
+
+.articleContent em {
+  font-style: italic;
 }
