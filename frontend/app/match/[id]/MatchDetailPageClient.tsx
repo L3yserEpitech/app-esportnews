@@ -218,61 +218,61 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   <div className="h-px bg-gradient-to-r from-transparent via-[#F44576]/40 to-transparent mb-6" />
 
                   {/* Ligne 2: Matchup et Score */}
-                  <div className="flex items-center justify-between gap-8 mb-6">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 mb-6">
                     {/* Équipe 1 */}
-                    <div className="flex items-center gap-4 flex-1">
+                    <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                       {homeTeam?.image_url && (
                         <img
                           src={homeTeam.image_url}
                           alt={homeTeam.name}
-                          className="w-24 h-24 object-contain"
+                          className="w-16 h-16 md:w-24 md:h-24 object-contain flex-shrink-0"
                           loading="lazy"
                         />
                       )}
-                      <div>
-                        <p className="text-gray-400 text-sm uppercase tracking-wider">Home</p>
-                        <p className="text-white font-bold text-xl">{homeTeam?.acronym || homeTeam?.name}</p>
-                        <p className="text-gray-400 text-xs">{homeTeam?.name}</p>
+                      <div className="min-w-0">
+                        <p className="text-gray-400 text-xs md:text-sm uppercase tracking-wider">Home</p>
+                        <p className="text-white font-bold text-lg md:text-xl truncate">{homeTeam?.acronym || homeTeam?.name}</p>
+                        <p className="text-gray-400 text-xs truncate">{homeTeam?.name}</p>
                       </div>
                     </div>
 
                     {/* Score central */}
-                    <div className="text-center">
+                    <div className="text-center flex-shrink-0">
                       {match.status === 'finished' && homeScore !== undefined && awayScore !== undefined ? (
                         <>
-                          <div className="text-6xl font-black text-white mb-2">
+                          <div className="text-4xl md:text-6xl font-black text-white mb-2">
                             {homeScore} - {awayScore}
                           </div>
                           <p className="text-green-400 font-semibold text-sm">Terminé</p>
                         </>
                       ) : match.status === 'running' ? (
                         <>
-                          <div className="text-4xl font-black text-red-500 mb-2 animate-pulse">●</div>
-                          <p className="text-red-400 font-semibold text-sm">EN DIRECT</p>
+                          <div className="text-3xl md:text-4xl font-black text-red-500 mb-2 animate-pulse">●</div>
+                          <p className="text-red-400 font-semibold text-xs md:text-sm">EN DIRECT</p>
                         </>
                       ) : (
                         <>
-                          <div className="text-4xl font-black text-gray-400 mb-2">vs</div>
-                          <p className="text-orange-400 font-semibold text-sm">À venir</p>
+                          <div className="text-3xl md:text-4xl font-black text-gray-400 mb-2">vs</div>
+                          <p className="text-orange-400 font-semibold text-xs md:text-sm">À venir</p>
                         </>
                       )}
                       <p className="text-gray-400 text-xs mt-2">BO{match.number_of_games}</p>
                     </div>
 
                     {/* Équipe 2 */}
-                    <div className="flex items-center gap-4 flex-1 flex-row-reverse">
+                    <div className="flex items-center gap-2 md:gap-4 flex-1 flex-row-reverse min-w-0">
                       {awayTeam?.image_url && (
                         <img
                           src={awayTeam.image_url}
                           alt={awayTeam.name}
-                          className="w-24 h-24 object-contain"
+                          className="w-16 h-16 md:w-24 md:h-24 object-contain flex-shrink-0"
                           loading="lazy"
                         />
                       )}
-                      <div className="text-right">
-                        <p className="text-gray-400 text-sm uppercase tracking-wider">Away</p>
-                        <p className="text-white font-bold text-xl">{awayTeam?.acronym || awayTeam?.name}</p>
-                        <p className="text-gray-400 text-xs">{awayTeam?.name}</p>
+                      <div className="text-right min-w-0">
+                        <p className="text-gray-400 text-xs md:text-sm uppercase tracking-wider">Away</p>
+                        <p className="text-white font-bold text-lg md:text-xl truncate">{awayTeam?.acronym || awayTeam?.name}</p>
+                        <p className="text-gray-400 text-xs truncate">{awayTeam?.name}</p>
                       </div>
                     </div>
                   </div>
