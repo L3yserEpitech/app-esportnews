@@ -11,16 +11,19 @@ import {
   Info,
   TrendingUp,
   Trophy,
+  Newspaper,
 } from 'lucide-react';
-import { PandaTournament, PandaMatch } from '@/app/types';
+import { PandaTournament, PandaMatch, NewsItem } from '@/app/types';
 import { tournamentService } from '@/app/services/tournamentService';
 import { matchService } from '@/app/services/matchService';
 import { advertisementService } from '@/app/services/advertisementService';
+import { articleService } from '@/app/services/articleService';
 import { Advertisement } from '@/app/types';
 import AdColumn from '@/app/components/ads/AdColumn';
 import TeamsRosters from '@/app/components/tournaments/TeamsRosters';
 import TournamentStats from '@/app/components/tournaments/TournamentStats';
 import PandaMatchCard from '@/app/components/matches/PandaMatchCard';
+import ArticleCard from '@/app/components/article/ArticleCard';
 import Card from '@/app/components/ui/Card';
 import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
@@ -58,6 +61,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
+  const [relatedArticles, setRelatedArticles] = useState<NewsItem[]>([]);
 
   // Charger les publicités
   useEffect(() => {
@@ -104,6 +108,23 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             console.error('Error loading match details, using basic tournament data:', matchError);
             // On continue avec les données de base du tournoi si le chargement détaillé échoue
           }
+        }
+
+        // Charger les articles liés au tournoi
+        try {
+          const tournamentTags = [data.name, data.league?.name].filter(Boolean);
+          const articles = await articleService.getAllArticles();
+          const related = articles
+            .filter(a => {
+              const articleTags = a.tags || [];
+              return tournamentTags.some(tag =>
+                articleTags.some(aTag => aTag?.toLowerCase().includes(tag?.toLowerCase() || ''))
+              );
+            })
+            .slice(0, 3);
+          setRelatedArticles(related);
+        } catch (articleError) {
+          console.error('Error loading related articles:', articleError);
         }
       } catch (err) {
         console.error('Error loading tournament:', err);
@@ -307,6 +328,24 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             <section>
               <TeamsRosters tournament={tournament} />
             </section>
+
+            {/* Articles liés au tournoi */}
+            {relatedArticles.length > 0 && (
+              <section className="space-y-6 mt-12">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
+                    <Newspaper className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-white">Actualités sur ce tournoi</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {relatedArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </div>
+              </section>
+            )}
 
           </div>
 
