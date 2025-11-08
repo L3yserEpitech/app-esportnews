@@ -177,10 +177,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-pink-500 border-t-pink-200 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-300">{t('loading')}</p>
+          <div className="inline-block w-12 h-12 border-4 border-accent border-t-accent/30 rounded-full animate-spin mb-4"></div>
+          <p className="text-text-secondary">{t('loading')}</p>
         </div>
       </div>
     );
@@ -188,9 +188,9 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
   if (error || !tournament) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <Card variant="outlined" className="p-8 max-w-md">
-          <p className="text-red-400 text-center">
+          <p className="text-red-500 text-center">
             {error || t('not_found')}
           </p>
         </Card>
@@ -213,7 +213,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
       {/* Structured Data pour SEO */}
       <TournamentSchema
         name={tournament.name}
@@ -238,10 +238,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
         />
 
         {/* Dégradé fondu de haut en bas vers le reste du site */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/40 via-gray-950/60 to-gray-950/95" />
+        <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/40 via-bg-primary/60 to-bg-primary/95" />
 
         {/* Overlay supplémentaire pour plus de contraste */}
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-950/80 via-gray-950/40 to-gray-950/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-bg-primary/80 via-bg-primary/40 to-bg-primary/80" />
 
         {/* Effets de lumière (rose/bleu) */}
         <div className="absolute inset-0">
@@ -275,11 +275,11 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
             {/* Sous-titre et infos */}
             <div className="space-y-2">
-              <p className="text-xl text-gray-300">
+              <p className="text-xl text-white">
                 {tournament.league.name}
               </p>
-              <p className="text-gray-400 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+              <p className="text-white flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-white" />
                 {formatDate(tournament.begin_at)} - {formatDate(tournament.end_at || tournament.begin_at)}
               </p>
             </div>
@@ -297,12 +297,12 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             <section className="space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
+                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
                     <Gamepad2 className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-3xl font-bold text-white">{t('all_matches')}</h2>
+                  <h2 className="text-3xl font-bold text-text-primary">{t('all_matches')}</h2>
                 </div>
-                <p className="text-gray-400 text-sm ml-13">
+                <p className="text-text-secondary text-sm ml-13">
                   {tournament.matches.length} {tournament.matches.length > 1 ? t('matches_total_plural') : t('matches_total_singular')}
                 </p>
               </div>
@@ -316,11 +316,11 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
               ) : (
                 <Card variant="outlined" className="p-8 text-center">
                   <div className="space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-gray-500/20 to-gray-600/10 rounded-xl flex items-center justify-center">
-                      <Gamepad2 className="w-8 h-8 text-gray-400" />
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-border-muted/20 to-border-muted/10 rounded-xl flex items-center justify-center">
+                      <Gamepad2 className="w-8 h-8 text-text-muted" />
                     </div>
-                    <p className="text-gray-400 text-lg">{t('no_matches')}</p>
-                    <p className="text-gray-500 text-sm">{t('no_matches_subtitle')}</p>
+                    <p className="text-text-secondary text-lg">{t('no_matches')}</p>
+                    <p className="text-text-muted text-sm">{t('no_matches_subtitle')}</p>
                   </div>
                 </Card>
               )}
@@ -335,10 +335,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             {relatedArticles.length > 0 && (
               <section className="space-y-6 mt-12">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
+                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
                     <Newspaper className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-3xl font-bold text-white">{t('related_news')}</h2>
+                  <h2 className="text-3xl font-bold text-text-primary">{t('related_news')}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

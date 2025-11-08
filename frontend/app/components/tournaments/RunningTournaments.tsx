@@ -72,23 +72,23 @@ const RunningTournaments: React.FC = () => {
         {/* Desktop layout */}
         <div className="hidden md:flex items-center justify-between">
           <div className="flex items-center">
-            <h2 className="text-2xl font-bold text-white mr-4">
+            <h2 className="text-2xl font-bold text-text-primary mr-4">
               {t('pages.home.tournaments.title')}
             </h2>
             {selectedGameData ? (
-              <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+              <div className="flex items-center bg-bg-secondary rounded-lg px-3 py-2 border border-border-secondary">
                 <img
                   src={selectedGameData.selected_image}
                   alt={selectedGameData.name}
                   className="w-6 h-6 mr-2"
                 />
-                <span className="text-pink-400 font-medium text-sm">
+                <span className="text-accent font-medium text-sm">
                   {selectedGameData.name}
                 </span>
               </div>
             ) : (
-              <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
-                <span className="text-blue-400 font-medium text-sm">
+              <div className="flex items-center bg-bg-secondary rounded-lg px-3 py-2 border border-border-secondary">
+                <span className="text-accent font-medium text-sm">
                   {t('pages.home.tournaments.all_games')}
                 </span>
               </div>
@@ -98,7 +98,7 @@ const RunningTournaments: React.FC = () => {
           <button
             onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
             disabled={loading}
-            className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg font-medium text-sm transition-colors flex items-center"
+            className="px-4 py-2 bg-accent hover:bg-accent-hover disabled:bg-bg-tertiary text-text-inverse rounded-lg font-medium text-sm transition-colors flex items-center"
           >
             <svg
               className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`}
@@ -114,26 +114,26 @@ const RunningTournaments: React.FC = () => {
 
         {/* Mobile layout */}
         <div className="md:hidden flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-text-primary">
             {t('pages.home.tournaments.title')}
           </h2>
 
           <div className="flex items-center space-x-2">
             {/* Game info */}
             {selectedGameData ? (
-              <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
+              <div className="flex items-center bg-bg-secondary rounded-lg px-2 py-1 border border-border-secondary text-sm">
                 <img
                   src={selectedGameData.selected_image}
                   alt={selectedGameData.name}
                   className="w-4 h-4 mr-1"
                 />
-                <span className="text-pink-400 font-medium">
+                <span className="text-accent font-medium">
                   ({selectedGameData.name})
                 </span>
               </div>
             ) : (
-              <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
-                <span className="text-blue-400 font-medium">
+              <div className="flex items-center bg-bg-secondary rounded-lg px-2 py-1 border border-border-secondary text-sm">
+                <span className="text-accent font-medium">
                   {t('pages.home.tournaments.all_games_mobile')}
                 </span>
               </div>
@@ -143,7 +143,7 @@ const RunningTournaments: React.FC = () => {
             <button
               onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
               disabled={loading}
-              className="p-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 bg-accent hover:bg-accent-hover disabled:bg-bg-tertiary text-text-inverse rounded-lg transition-colors flex items-center justify-center"
               aria-label={loading ? t('pages.home.tournaments.refresh_aria_label') : t('pages.home.tournaments.refresh_aria_label_idle')}
             >
               <svg
@@ -174,15 +174,15 @@ const RunningTournaments: React.FC = () => {
         // Skeleton loading
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, index) => (
-            <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden animate-pulse">
-              <div className="h-48 bg-gray-700" />
+            <div key={index} className="bg-bg-secondary rounded-xl border border-border-secondary overflow-hidden animate-pulse">
+              <div className="h-48 bg-bg-tertiary" />
               <div className="p-4">
-                <div className="h-4 bg-gray-700 rounded mb-2" />
-                <div className="h-3 bg-gray-700 rounded mb-2 w-3/4" />
-                <div className="h-3 bg-gray-700 rounded mb-3 w-1/2" />
+                <div className="h-4 bg-bg-tertiary rounded mb-2" />
+                <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
+                <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
                 <div className="flex justify-between">
-                  <div className="h-3 bg-gray-700 rounded w-1/4" />
-                  <div className="h-3 bg-gray-700 rounded w-1/4" />
+                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
+                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
                 </div>
               </div>
             </div>
@@ -206,7 +206,7 @@ const RunningTournaments: React.FC = () => {
             <div className="mt-8 flex justify-end">
               <button
                 onClick={() => window.location.href = '/tournament'}
-                className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium"
+                className="flex items-center px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary text-text-secondary hover:text-text-primary rounded-lg transition-colors text-sm font-medium"
               >
                 <span>{t('pages.home.tournaments.view_all_button')}</span>
                 <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -219,16 +219,16 @@ const RunningTournaments: React.FC = () => {
         </div>
       ) : (
         // État vide
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-          <div className="text-gray-400 mb-4">
+        <div className="bg-bg-secondary rounded-lg border border-border-secondary p-8 text-center">
+          <div className="text-text-muted mb-4">
             <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <p className="text-gray-300 text-lg mb-2">
+          <p className="text-text-secondary text-lg mb-2">
             {t('pages.home.tournaments.no_tournaments')}
           </p>
-          <p className="text-gray-400">
+          <p className="text-text-muted">
             {selectedGameData
               ? `${t('pages.home.tournaments.no_tournaments_game')} ${selectedGameData.name}`
               : t('pages.home.tournaments.no_tournaments_all_games')

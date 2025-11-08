@@ -2,7 +2,7 @@
 
 import { Globe, Moon, Sun, Monitor } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { usePreferences } from '@/app/hooks/usePreferences';
+import { usePreferencesContext } from '@/app/contexts/PreferencesContext';
 import { Language, Theme } from '@/lib/preferences';
 
 interface SettingsModalProps {
@@ -12,7 +12,7 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const t = useTranslations();
-  const { preferences, updateLanguage, updateTheme } = usePreferences();
+  const { preferences, updateLanguage, updateTheme } = usePreferencesContext();
 
   // Gérer le changement de langue
   const handleLanguageChange = (newLanguage: string) => {
@@ -28,10 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // Gérer le changement de thème (toggle entre dark et light uniquement)
   const handleThemeToggle = () => {
     const newTheme: Theme = preferences.theme === 'dark' ? 'light' : 'dark';
-    console.log('🎨 Changement de thème:', preferences.theme, '->', newTheme);
-    console.log('📊 Préférences avant:', preferences);
     updateTheme(newTheme);
-    console.log('✅ updateTheme appelé');
   };
 
   if (!isOpen) return null;

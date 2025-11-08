@@ -160,7 +160,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
       {/* Structured Data pour SEO */}
       <SportsEventSchema
         name={`${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`}
@@ -191,33 +191,33 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   {/* Ligne 1: Infos détaillées */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     {/* Jeu */}
-                    <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_game')}</p>
+                    <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                      <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_game')}</p>
                       <p className="text-white font-semibold">{match.videogame?.name || '-'}</p>
                     </div>
 
                     {/* Ligue */}
-                    <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_league')}</p>
+                    <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                      <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_league')}</p>
                       <p className="text-white font-semibold text-sm line-clamp-1">{match.league?.name || '-'}</p>
                     </div>
 
                     {/* Région */}
-                    <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_region')}</p>
+                    <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                      <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_region')}</p>
                       <p className="text-white font-semibold">{match.tournament?.region || '-'}</p>
                     </div>
 
                     {/* Date/Heure */}
-                    <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_date')}</p>
+                    <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                      <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_date')}</p>
                       <p className="text-white font-semibold text-sm">{formatDate(match.begin_at)}</p>
-                      <p className="text-gray-400 text-xs">{formatTime(match.begin_at)}</p>
+                      <p className="text-text-muted text-xs">{formatTime(match.begin_at)}</p>
                     </div>
                   </div>
 
                   {/* Diviseur */}
-                  <div className="h-px bg-gradient-to-r from-transparent via-[#F44576]/40 to-transparent mb-6" />
+                  <div className="h-px bg-gradient-to-r from-transparent via-text-accent to-transparent mb-6" />
 
                   {/* Ligne 2: Matchup et Score */}
                   <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 mb-6">
@@ -232,9 +232,9 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                         />
                       )}
                       <div className="min-w-0">
-                        <p className="text-gray-400 text-xs md:text-sm uppercase tracking-wider">{t('team_home')}</p>
+                        <p className="text-text-primary text-xs md:text-sm uppercase tracking-wider">{t('team_home')}</p>
                         <p className="text-white font-bold text-lg md:text-xl truncate">{homeTeam?.acronym || homeTeam?.name}</p>
-                        <p className="text-gray-400 text-xs truncate">{homeTeam?.name}</p>
+                        <p className="text-text-primary text-xs truncate">{homeTeam?.name}</p>
                       </div>
                     </div>
 
@@ -254,11 +254,11 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                         </>
                       ) : (
                         <>
-                          <div className="text-3xl md:text-4xl font-black text-gray-400 mb-2">vs</div>
+                          <div className="text-3xl md:text-4xl font-black text-text-muted mb-2">vs</div>
                           <p className="text-orange-400 font-semibold text-xs md:text-sm">{t('status_upcoming')}</p>
                         </>
                       )}
-                      <p className="text-gray-400 text-xs mt-2">{t('bo_prefix')}{match.number_of_games}</p>
+                      <p className="text-text-muted text-xs mt-2">{t('bo_prefix')}{match.number_of_games}</p>
                     </div>
 
                     {/* Équipe 2 */}
@@ -272,9 +272,9 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                         />
                       )}
                       <div className="text-right min-w-0">
-                        <p className="text-gray-400 text-xs md:text-sm uppercase tracking-wider">{t('team_away')}</p>
+                        <p className="text-text-primary text-xs md:text-sm uppercase tracking-wider">{t('team_away')}</p>
                         <p className="text-white font-bold text-lg md:text-xl truncate">{awayTeam?.acronym || awayTeam?.name}</p>
-                        <p className="text-gray-400 text-xs truncate">{awayTeam?.name}</p>
+                        <p className="text-text-primary text-xs truncate">{awayTeam?.name}</p>
                       </div>
                     </div>
                   </div>
@@ -282,26 +282,26 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   {/* Ligne 3: Infos supplémentaires (si applicable) */}
                   {(match.winner || match.number_of_games || match.serie) && (
                     <>
-                      <div className="h-px bg-gradient-to-r from-transparent via-[#F44576]/40 to-transparent my-6" />
+                      <div className="h-px bg-gradient-to-r from-transparent via-text-accent to-transparent my-6" />
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {match.winner && (
-                          <div className="bg-[#F44576]/10 rounded-lg p-3 border border-[#F44576]/30">
-                            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                            <p className="text-text-muted text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
                               <Trophy className="w-3 h-3" /> {t('info_winner')}
                             </p>
-                            <p className="text-[#F44576] font-bold">{match.winner.acronym || match.winner.name}</p>
+                            <p className="text-text-accent font-bold">{match.winner.acronym || match.winner.name}</p>
                           </div>
                         )}
                         {match.number_of_games && (
-                          <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_games_played')}</p>
-                            <p className="text-white font-semibold">{match.games?.length || 0} / {match.number_of_games}</p>
+                          <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                            <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_games_played')}</p>
+                            <p className="text-text-primary font-semibold">{match.games?.length || 0} / {match.number_of_games}</p>
                           </div>
                         )}
                         {match.serie && (
-                          <div className="bg-[#060B13]/40 rounded-lg p-3 border border-[#182859]/30">
-                            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{t('info_series')}</p>
-                            <p className="text-white font-semibold text-sm line-clamp-1">{match.serie.full_name || '-'}</p>
+                          <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
+                            <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_series')}</p>
+                            <p className="text-text-primary font-semibold text-sm line-clamp-1">{match.serie.full_name || '-'}</p>
                           </div>
                         )}
                       </div>
@@ -318,28 +318,28 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Gamepad2 className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">{t('section_game_details')}</h2>
+                  <h2 className="text-2xl font-bold text-text-primary">{t('section_game_details')}</h2>
                 </div>
 
                 <div className="space-y-3">
                   {match.games.map((game) => {
                     const gameWinner = game.winner?.id ? match.opponents?.find(o => o.opponent.id === game.winner?.id)?.opponent : null;
                     return (
-                      <Card key={game.id} variant="outlined" className="p-4">
+                      <Card key={game.id} variant="outlined" className="p-4 bg-bg-secondary border border-border-primary">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex-1">
-                            <p className="text-white font-medium">
+                            <p className="text-text-primary font-medium">
                               {t('game_label')} {game.position}{' '}
                               <span className={`ml-2 text-sm ${
                                 game.status === 'finished' ? 'text-green-400' :
                                 game.status === 'running' ? 'text-red-400' :
-                                'text-gray-400'
+                                'text-text-secondary'
                               }`}>
                                 ({game.status === 'finished' ? t('game_status_finished') : game.status === 'running' ? t('game_status_running') : t('game_status_upcoming')})
                               </span>
                             </p>
                             {game.begin_at && (
-                              <p className="text-gray-400 text-sm">
+                              <p className="text-text-secondary text-sm">
                                 {formatTime(game.begin_at)} {game.length && `- ${formatDuration(game.length)}`}
                               </p>
                             )}
@@ -374,13 +374,13 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                 <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                   <TrendingUp className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">{t('section_statistics')}</h2>
+                <h2 className="text-2xl font-bold text-text-primary">{t('section_statistics')}</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Format */}
                 <Card variant="outlined" className="p-6 text-center space-y-2">
-                  <p className="text-gray-400 text-sm">{t('stat_format')}</p>
+                  <p className="text-text-secondary text-sm">{t('stat_format')}</p>
                   <p className="text-2xl font-bold text-[#F44576]">
                     BO{match.number_of_games}
                   </p>
@@ -389,7 +389,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                 {/* Matchs joués */}
                 {match.games && (
                   <Card variant="outlined" className="p-6 text-center space-y-2">
-                    <p className="text-gray-400 text-sm">{t('stat_games_played')}</p>
+                    <p className="text-text-secondary text-sm">{t('stat_games_played')}</p>
                     <p className="text-2xl font-bold text-[#F44576]">
                       {match.games.length}
                     </p>
@@ -399,7 +399,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                 {/* Gagnant */}
                 {match.winner && (
                   <Card variant="outlined" className="p-6 text-center space-y-2">
-                    <p className="text-gray-400 text-sm">{t('stat_winner')}</p>
+                    <p className="text-text-secondary text-sm">{t('stat_winner')}</p>
                     <p className="text-lg font-bold text-[#F44576]">
                       {match.winner.acronym || match.winner.name}
                     </p>
@@ -409,7 +409,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                 {/* Durée totale */}
                 {match.games && match.games.length > 0 && (
                   <Card variant="outlined" className="p-6 text-center space-y-2">
-                    <p className="text-gray-400 text-sm">{t('stat_total_duration')}</p>
+                    <p className="text-text-secondary text-sm">{t('stat_total_duration')}</p>
                     <p className="text-xl font-bold text-[#F44576]">
                       {formatDuration(match.games.reduce((acc, g) => acc + (g.length || 0), 0))}
                     </p>
@@ -425,7 +425,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Users className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">{t('section_teams_rosters')}</h2>
+                  <h2 className="text-2xl font-bold text-text-primary">{t('section_teams_rosters')}</h2>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -439,7 +439,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/10 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
 
                         {/* Main card */}
-                        <div className="relative bg-gradient-to-br from-[#091626]/40 to-[#060B13]/60 border border-[#182859]/40 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col h-full">
+                        <div className="relative bg-bg-secondary border border-border-primary rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col h-full">
 
                           {/* Team Header */}
                           <div className="p-4 border-b border-[#182859]/20 bg-[#182859]/10">
@@ -460,7 +460,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
 
                               {/* Team Info */}
                               <div className="flex-1 text-left">
-                                <h3 className="text-lg font-bold text-white group-hover:text-[#F44576] transition-colors">
+                                <h3 className="text-lg font-bold text-text-primary group-hover:text-text-accent transition-colors">
                                   {teamDetail.name}
                                 </h3>
                                 {teamDetail.acronym && (
@@ -468,11 +468,11 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                                     {teamDetail.acronym}
                                   </p>
                                 )}
-                                <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                <div className="flex items-center gap-3 mt-2 text-xs text-text-secondary">
                                   {teamDetail.location && (
                                     <>
                                       <span>{teamDetail.location}</span>
-                                      <span className="text-gray-600">•</span>
+                                      <span className="text-text-secondary">•</span>
                                     </>
                                   )}
                                   <span>{players.length} {players.length > 1 ? t('player_plural') : t('player_singular')}</span>
@@ -491,7 +491,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                                     <div key={player.id} className="group/player cursor-pointer">
                                       {/* Player Avatar */}
                                       <div className="relative mb-2">
-                                        <div className="w-full aspect-square rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/player:border-[#F44576]/50 group-hover/player:shadow-lg group-hover/player:shadow-[#F44576]/20">
+                                        <div className="w-full aspect-square rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/player:border-text-accent group-hover/player:shadow-lg group-hover/player:shadow-text-accent/20">
                                           {player.image_url ? (
                                             <img
                                               src={player.image_url}
@@ -500,16 +500,16 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                                               loading="lazy"
                                             />
                                           ) : (
-                                            <div className="text-xl font-bold text-gray-500">
+                                            <div className="text-xl font-bold text-text-secondary">
                                               {player.name.split(' ').map((w: string) => w.charAt(0)).join('').substring(0, 2).toUpperCase()}
                                             </div>
                                           )}
 
-                                          {/* Hover overlay */}
+                                          {/* Hover overlay */} 
                                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-2">
                                             <div className="text-center">
                                               {player.role && (
-                                                <p className="text-xs font-semibold text-cyan-400">
+                                                <p className="text-xs font-semibold text-text-accent">
                                                   {player.role}
                                                 </p>
                                               )}
@@ -520,11 +520,11 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
 
                                       {/* Player Info */}
                                       <div className="space-y-1">
-                                        <p className="text-xs font-bold text-white truncate group-hover/player:text-[#F44576] transition-colors text-center">
+                                        <p className="text-xs font-bold text-text-primary truncate group-hover/player:text-text-accent transition-colors text-center">
                                           {player.name}
                                         </p>
                                         {player.role && (
-                                          <p className="text-xs truncate text-center text-cyan-400">
+                                          <p className="text-xs truncate text-center text-text-accent">
                                             {player.role}
                                           </p>
                                         )}
@@ -537,17 +537,17 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                                 <div className="border-t border-[#182859]/20 pt-4 grid grid-cols-2 gap-3">
                                   <div className="text-center p-2 bg-[#182859]/10 rounded-lg">
                                     <p className="text-lg font-bold text-[#F44576]">{players.length}</p>
-                                    <p className="text-xs text-gray-400">{t('stat_players')}</p>
+                                    <p className="text-xs text-text-secondary">{t('stat_players')}</p>
                                   </div>
                                   <div className="text-center p-2 bg-[#182859]/10 rounded-lg">
                                     <p className="text-lg font-bold text-green-400">{activePlayers}</p>
-                                    <p className="text-xs text-gray-400">{t('stat_active_players')}</p>
+                                    <p className="text-xs text-text-secondary">{t('stat_active_players')}</p>
                                   </div>
                                 </div>
                               </>
                             ) : (
                               <div className="text-center py-6">
-                                <Trophy className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                <Trophy className="w-8 h-8 text-text-secondary mx-auto mb-2" />
                                 <p className="text-gray-400 text-sm">{t('empty_no_players')}</p>
                               </div>
                             )}
@@ -567,7 +567,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Radio className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">{t('section_streaming')}</h2>
+                  <h2 className="text-2xl font-bold text-text-primary">{t('section_streaming')}</h2>
                 </div>
 
                 {/* Sorted streams */}
@@ -633,7 +633,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                           <button
                             key={idx}
                             onClick={() => setSelectedStreamIdx(idx)}
-                            className={`w-full text-left transition-colors duration-300 rounded-xl border-2 p-4 flex items-center justify-between ${
+                            className={`w-full text-left transition-colors duration-300 rounded-xl border-2 border-border-primary p-4 flex items-center justify-between ${
                               selectedStreamIdx === idx
                                 ? stream.official
                                   ? 'bg-gradient-to-r from-[#F44576]/30 to-pink-500/20 border-[#F44576]/70'
@@ -659,15 +659,15 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                                   {stream.main && t('stream_main') + ' '}
                                   {stream.language.toUpperCase()}
                                 </p>
-                                <p className="text-gray-300 text-sm">
+                                <p className="text-texte-secondary text-sm">
                                   {stream.raw_url.includes('twitch') ? t('platform_twitch') : stream.raw_url.includes('youtube') ? t('platform_youtube') : t('stream_fallback')}
                                 </p>
                               </div>
                             </div>
                             {selectedStreamIdx === idx ? (
-                              <div className="text-[#F44576] font-bold">{t('stream_status_playing')}</div>
+                              <div className="text-text-accent font-bold">{t('stream_status_playing')}</div>
                             ) : (
-                              <Play className="w-6 h-6 text-[#F44576]" />
+                              <Play className="w-6 h-6 text-text-accent" />
                             )}
                           </button>
                         ))}

@@ -98,24 +98,24 @@ export default function ArticlesPageClient() {
 
   if (isLoadingArticles) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
       <main className="container mx-auto px-4 py-8 pt-24">
         <div className="flex gap-8">
           {/* Articles content */}
           <div className="flex-1 min-w-0">
             {articles.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-gray-400 text-lg mb-2">
+                <div className="text-text-secondary text-lg mb-2">
                   📰 Aucun article disponible
                 </div>
-                <p className="text-gray-500 text-sm">
+                <p className="text-text-muted text-sm">
                   Revenez bientôt pour découvrir les dernières nouvelles de l'esport !
                 </p>
               </div>
@@ -134,17 +134,17 @@ export default function ArticlesPageClient() {
                   <section key={category} className="space-y-6">
                     {/* Divider de catégorie */}
                     <div className="relative">
-                      <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/40 rounded-xl border border-gray-700/50 overflow-hidden">
+                      <div className="bg-gradient-to-r from-bg-tertiary/80 to-bg-secondary/40 rounded-xl border border-border-primary/50 overflow-hidden">
                         <div className="px-6 py-4 flex items-center gap-4">
                           <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold text-white">
+                            <h2 className="text-lg font-bold text-text-primary">
                               {category}
                             </h2>
-                            <span className="bg-pink-500/20 text-pink-400 px-2.5 py-1 rounded-full text-xs font-medium">
+                            <span className="bg-accent/20 text-accent px-2.5 py-1 rounded-full text-xs font-medium">
                               {categoryArticles.length}
                             </span>
                           </div>
-                          <div className="flex-1 h-px bg-gradient-to-r from-gray-600/50 to-transparent"></div>
+                          <div className="flex-1 h-px bg-gradient-to-r from-border-muted/50 to-transparent"></div>
                         </div>
                       </div>
                     </div>

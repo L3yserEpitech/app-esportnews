@@ -75,18 +75,25 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
         <div className="absolute bottom-0 left-0 right-0 p-8">
           {/* Category badge */}
           <div className="mb-4">
-            <span className="inline-block bg-pink-600 text-white px-4 py-2 rounded text-xs font-medium uppercase">
+            <span
+              className="inline-block text-text-inverse px-4 py-2 rounded text-xs font-medium uppercase"
+              style={{ backgroundColor: 'var(--color-accent-hover)' }}
+            >
               {article.category}
             </span>
           </div>
 
           {/* Title */}
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+          <h2
+            className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg text-white"
+          >
             {article.title}
           </h2>
 
           {/* Meta info (date et auteur) */}
-          <div className="flex items-center space-x-3 text-sm text-gray-300">
+          <div
+            className="flex items-center space-x-3 text-sm text-white"
+          >
             <span>{formatDate(article.created_at)}</span>
             <span>•</span>
             <span>{article.author}</span>

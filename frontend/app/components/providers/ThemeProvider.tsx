@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePreferences } from '@/app/hooks/usePreferences';
+import { usePreferencesContext } from '@/app/contexts/PreferencesContext';
 import type { Theme } from '@/lib/preferences';
 
 /**
@@ -10,7 +10,8 @@ import type { Theme } from '@/lib/preferences';
  * Handles 'dark', 'light', and 'auto' themes
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, isLoading } = usePreferences();
+  const { preferences, isLoading } = usePreferencesContext();
+  const theme = preferences.theme;
 
   useEffect(() => {
     if (isLoading) return;

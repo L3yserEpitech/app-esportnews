@@ -115,7 +115,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="bg-[#060B13] relative overflow-hidden min-h-screen flex items-center justify-center px-4 pt-20">
+    <div className="bg-bg-primary relative overflow-hidden min-h-screen flex items-center justify-center px-4 pt-20">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#F22E62]/20 rounded-full blur-3xl"></div>
@@ -146,15 +146,15 @@ export default function RegisterPage() {
               <span className="text-sm font-medium text-[#F22E62]">{t('pages.register.rejoignez_communaute')}</span>
             </div>
 
-            <h1 className="text-5xl font-bold text-white leading-tight">
-              {t('pages.register.bienvenue_sur')}<br />
+            <h1 className="text-5xl font-bold text-text-primary leading-tight">
+              Bienvenue sur<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F22E62] to-pink-400">
                 EsportNews
               </span>
             </h1>
 
-            <p className="text-xl text-gray-400 leading-relaxed">
-              {t('pages.register.suivez_actualite_esport')}
+            <p className="text-xl text-text-secondary leading-relaxed">
+              Suivez l'actualité esport en direct et en détail
             </p>
 
             <div className="space-y-4 pt-4">
@@ -163,8 +163,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">{t('pages.register.matchs_en_direct')}</h3>
-                  <p className="text-gray-400 text-sm">{t('pages.register.suivez_matchs_multi_jeux')}</p>
+                  <h3 className="text-text-primary font-semibold">Matchs en direct</h3>
+                  <p className="text-text-secondary text-sm">Suivez tous les matchs des jeux multiples en temps réel</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -172,8 +172,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">{t('pages.register.actualites_exclusives')}</h3>
-                  <p className="text-gray-400 text-sm">{t('pages.register.restez_informe_news')}</p>
+                  <h3 className="text-text-primary font-semibold">Actualités exclusives</h3>
+                  <p className="text-text-secondary text-sm">Restez informé des dernières news de l'esport</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -181,8 +181,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">{t('pages.register.tournois_calendrier')}</h3>
-                  <p className="text-gray-400 text-sm">{t('pages.register.ne_ratez_competitions')}</p>
+                  <h3 className="text-text-primary font-semibold">Tournois et calendrier</h3>
+                  <p className="text-text-secondary text-sm">Ne ratez jamais une compétition importante</p>
                 </div>
               </div>
             </div>
@@ -191,27 +191,27 @@ export default function RegisterPage() {
 
         {/* Right side - Form */}
         <div className="w-full max-w-md mx-auto lg:ml-auto lg:mr-0">
-          <div className="bg-[#091626]/30 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mt-5">
+          <div className="bg-bg-secondary/30 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mt-5">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">{t('pages.register.creer_mon_compte')}</h2>
-              <p className="text-gray-400">{t('pages.register.remplissez_informations')}</p>
+              <h2 className="text-3xl font-bold text-text-primary mb-2">{t('pages.register.creer_mon_compte')}</h2>
+              <p className="text-text-secondary">{t('pages.register.remplissez_informations')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {errors.general && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 animate-fade-in">
-                  <p className="text-red-400 text-sm">{errors.general}</p>
+                  <p className="text-red-600 text-sm">{errors.general}</p>
                 </div>
               )}
 
               {/* Nom */}
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-2">
                   {t('pages.register.nom_complet')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-500" />
+                    <User className="h-5 w-5 text-text-muted" />
                   </div>
                   <input
                     id="name"
@@ -219,14 +219,14 @@ export default function RegisterPage() {
                     type="text"
                     value={formData.name}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.name ? 'border-red-500/50' : 'border-[#182859]/50'
-                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.name ? 'border-red-500/50' : 'border-border-primary/50'
+                      } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
                     placeholder={t('pages.register.placeholder_name')}
                     disabled={isLoading}
                   />
                 </div>
                 {errors.name && (
-                  <p className="mt-2 text-sm text-red-400 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
                     <span>•</span>
                     <span>{errors.name}</span>
                   </p>
@@ -235,12 +235,12 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
                   {t('pages.login.adresse_email')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-500" />
+                    <Mail className="h-5 w-5 text-text-muted" />
                   </div>
                   <input
                     id="email"
@@ -248,14 +248,14 @@ export default function RegisterPage() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.email ? 'border-red-500/50' : 'border-[#182859]/50'
-                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.email ? 'border-red-500/50' : 'border-border-primary/50'
+                      } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
                     placeholder={t('pages.register.placeholder_email')}
                     disabled={isLoading}
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-2 text-sm text-red-400 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
                     <span>•</span>
                     <span>{errors.email}</span>
                   </p>
@@ -264,12 +264,12 @@ export default function RegisterPage() {
 
               {/* Mot de passe */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
                   {t('pages.login.mot_de_passe')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-500" />
+                    <Lock className="h-5 w-5 text-text-muted" />
                   </div>
                   <input
                     id="password"
@@ -277,14 +277,14 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.password ? 'border-red-500/50' : 'border-[#182859]/50'
-                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.password ? 'border-red-500/50' : 'border-border-primary/50'
+                      } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
                     placeholder="••••••••"
                     disabled={isLoading}
                   />
                 </div>
                 {errors.password && (
-                  <p className="mt-2 text-sm text-red-400 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
                     <span>•</span>
                     <span>{errors.password}</span>
                   </p>
@@ -293,12 +293,12 @@ export default function RegisterPage() {
 
               {/* Confirmation mot de passe */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-secondary mb-2">
                   {t('pages.register.confirmer_mot_de_passe')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-500" />
+                    <Lock className="h-5 w-5 text-text-muted" />
                   </div>
                   <input
                     id="confirmPassword"
@@ -306,14 +306,14 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.confirmPassword ? 'border-red-500/50' : 'border-[#182859]/50'
-                      } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.confirmPassword ? 'border-red-500/50' : 'border-border-primary/50'
+                      } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
                     placeholder="••••••••"
                     disabled={isLoading}
                   />
                 </div>
                 {errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-red-400 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
                     <span>•</span>
                     <span>{errors.confirmPassword}</span>
                   </p>
@@ -324,7 +324,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-pink-600 to-pink-400 text-white font-semibold py-4 px-4 rounded-xl hover:from-pink-600/90 hover:to-pink-400/90 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:ring-offset-2 focus:ring-offset-[#091626] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-600/20 group mt-6"
+                className="w-full bg-gradient-to-r from-[#F22E62] to-pink-400 text-white font-semibold py-4 px-4 rounded-xl hover:from-[#F22E62]/90 hover:to-pink-400/90 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:ring-offset-2 focus:ring-offset-bg-secondary transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#F22E62]/20 group mt-6"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center">
@@ -345,11 +345,11 @@ export default function RegisterPage() {
 
             {/* Lien vers la connexion */}
             <div className="mt-8 text-center">
-              <p className="text-gray-400 text-sm">
+              <p className="text-text-secondary text-sm">
                 {t('pages.register.vous_avez_compte')}{' '}
                 <Link
                   href="/auth/login"
-                  className="text-[#F22E62] hover:text-pink-400 font-semibold transition-colors"
+                  className="text-[#F22E62] hover:text-[#F22E62]/80 font-semibold transition-colors"
                 >
                   {t('pages.register.se_connecter')}
                 </Link>
@@ -358,13 +358,13 @@ export default function RegisterPage() {
           </div>
 
           {/* Mentions légales */}
-          <p className="mt-6 text-center text-gray-500 text-xs">
+          <p className="mt-6 text-center text-text-muted text-xs">
             {t('pages.register.en_creant_compte')}{' '}
-            <Link href="/legal/terms" className="underline hover:text-gray-400">
+            <Link href="/legal/terms" className="underline hover:text-text-secondary">
               {t('pages.register.conditions_utilisation')}
             </Link>{' '}
             {t('pages.register.et_notre')}{' '}
-            <Link href="/legal/privacy" className="underline hover:text-gray-400">
+            <Link href="/legal/privacy" className="underline hover:text-text-secondary">
               {t('pages.register.politique_confidentialite')}
             </Link>
             .

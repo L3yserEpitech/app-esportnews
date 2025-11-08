@@ -58,6 +58,19 @@
   --color-input-text: #FFFFFF;
   --color-input-placeholder: #808080;
 
+  /* Semantic tournament tier colors */
+  --color-tier-s: #FBBF24;
+  --color-tier-a: #3B82F6;
+  --color-tier-b: #10B981;
+  --color-tier-c: #A855F7;
+  --color-tier-d: #6B7280;
+
+  /* Accent RGB for filters (for GameSelector) */
+  --accent-rgb: 242, 46, 98;
+
+  /* Article section colors */
+  --color-article-gradient-end: #0369A1;
+
   /* Variables thème */
   --font-inter: var(--font-inter);
   --radius: 0.625rem;
@@ -309,6 +322,19 @@ body {
   --color-input-border-focus: #F22E62;
   --color-input-text: #1A1A1A;
   --color-input-placeholder: #808080;
+
+  /* Semantic tournament tier colors (same for light mode) */
+  --color-tier-s: #FBBF24;
+  --color-tier-a: #3B82F6;
+  --color-tier-b: #10B981;
+  --color-tier-c: #A855F7;
+  --color-tier-d: #6B7280;
+
+  /* Accent RGB for filters */
+  --accent-rgb: 242, 46, 98;
+
+  /* Article section colors */
+  --color-article-gradient-end: #0369A1;
 }
 
 /* AUTO MODE - Respect système preference */
@@ -359,6 +385,19 @@ body {
     --color-input-border-focus: #F22E62;
     --color-input-text: #1A1A1A;
     --color-input-placeholder: #808080;
+
+    /* Semantic tournament tier colors (same for light mode) */
+    --color-tier-s: #FBBF24;
+    --color-tier-a: #3B82F6;
+    --color-tier-b: #10B981;
+    --color-tier-c: #A855F7;
+    --color-tier-d: #6B7280;
+
+    /* Accent RGB for filters */
+    --accent-rgb: 242, 46, 98;
+
+    /* Article section colors */
+    --color-article-gradient-end: #0369A1;
   }
 }
 

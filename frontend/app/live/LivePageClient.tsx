@@ -175,7 +175,7 @@ export default function LivePage() {
   const memoizedAds = useMemo(() => ads, [ads]);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
 
       {/* Contenu principal */}
       <main className="container mx-auto px-4 py-8 pt-24">
@@ -185,7 +185,7 @@ export default function LivePage() {
 
             {/* Filtres et Contrôles */}
             <div className="mb-6 mt-2 sticky top-24 z-30">
-              <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+              <div className="bg-bg-secondary rounded-xl border border-border-primary overflow-hidden">
                 {/* Desktop Version - Inchangée */}
                 <div className="hidden lg:flex gap-4 items-center justify-between p-4">
                   {/* Filtres Desktop */}
@@ -195,9 +195,9 @@ export default function LivePage() {
                       <select
                         value={filterByGame}
                         onChange={(e) => setFilterByGame(e.target.value)}
-                        className="min-w-[150px] bg-gray-800/80 backdrop-blur-sm border border-gray-600/50 rounded-lg px-3 py-2 text-white text-xs font-medium
+                        className="min-w-[150px] bg-bg-secondary/80 backdrop-blur-sm border border-border-primary/50 rounded-lg px-3 py-2 text-text-primary text-xs font-medium
                                  focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-200
-                                 hover:border-gray-500 cursor-pointer appearance-none"
+                                 hover:border-border-muted cursor-pointer appearance-none"
                       >
                         <option value="all">{t('pages_detail.live.tous_les_jeux')}</option>
                         {getGameOptions.filter(game => game !== 'all').map(game => (
@@ -218,9 +218,9 @@ export default function LivePage() {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as 'tournament' | 'time' | 'league')}
-                        className="min-w-[120px] bg-gray-800/80 backdrop-blur-sm border border-gray-600/50 rounded-lg px-3 py-2 text-white text-xs font-medium
+                        className="min-w-[120px] bg-bg-secondary/80 backdrop-blur-sm border border-border-primary/50 rounded-lg px-3 py-2 text-text-primary text-xs font-medium
                                  focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-200
-                                 hover:border-gray-500 cursor-pointer appearance-none"
+                                 hover:border-border-muted cursor-pointer appearance-none"
                       >
                         <option value="tournament" className="bg-gray-800">{t('pages_detail.live.tournoi')}</option>
                         <option value="time" className="bg-gray-800">{t('pages_detail.live.heure')}</option>
@@ -238,9 +238,9 @@ export default function LivePage() {
                   <div className="flex items-center gap-3">
                     {/* Indicateur de statut live */}
                     {groupedMatches.live.length > 0 && (
-                      <div className="flex items-center gap-1.5 bg-red-500/10 backdrop-blur-sm rounded-full px-2.5 py-1.5 border border-red-500/20">
-                        <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></div>
-                        <span className="text-[10px] text-red-400 font-medium">
+                      <div className="flex items-center gap-1.5 bg-status-live/10 backdrop-blur-sm rounded-full px-2.5 py-1.5 border border-status-live/20">
+                        <div className="w-1.5 h-1.5 bg-status-live rounded-full animate-pulse"></div>
+                        <span className="text-[10px] text-status-live font-medium">
                           {groupedMatches.live.length} live
                         </span>
                       </div>
@@ -253,24 +253,24 @@ export default function LivePage() {
                   {/* Header mobile - Toujours visible */}
                   <button
                     onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-gray-800/50 transition-colors"
+                    className="w-full flex items-center justify-between p-4 hover:bg-bg-hover transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                       </svg>
-                      <span className="text-white text-sm font-medium">{t('pages_detail.live.filter_label')}</span>
+                      <span className="text-text-primary text-sm font-medium">{t('pages_detail.live.filter_label')}</span>
                       {/* Indicateurs actifs */}
                       <div className="flex items-center gap-1">
                         {filterByGame !== 'all' && (
-                          <div className="bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                          <div className="bg-accent/20 text-accent px-2 py-0.5 rounded-full text-[10px] font-medium">
                             {filterByGame}
                           </div>
                         )}
                         {groupedMatches.live.length > 0 && (
-                          <div className="flex items-center gap-1 bg-red-500/10 rounded-full px-1.5 py-0.5">
-                            <div className="w-1 h-1 bg-red-400 rounded-full animate-pulse"></div>
-                            <span className="text-[10px] text-red-400 font-medium">
+                          <div className="flex items-center gap-1 bg-status-live/10 rounded-full px-1.5 py-0.5">
+                            <div className="w-1 h-1 bg-status-live rounded-full animate-pulse"></div>
+                            <span className="text-[10px] text-status-live font-medium">
                               {groupedMatches.live.length}
                             </span>
                           </div>
@@ -279,9 +279,9 @@ export default function LivePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">{sortedMatches.length} matchs</span>
+                      <span className="text-xs text-text-secondary">{sortedMatches.length} matchs</span>
                       <svg
-                        className={`w-4 h-4 text-gray-400 transform transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-text-secondary transform transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -291,15 +291,15 @@ export default function LivePage() {
 
                   {/* Contenu des filtres - Expandable */}
                   <div className={`overflow-hidden transition-all duration-300 ease-out ${isFiltersExpanded ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="px-4 pb-4 border-t border-gray-700/50">
+                    <div className="px-4 pb-4 border-t border-border-primary/50">
                       <div className="flex flex-col gap-3 pt-3">
                         {/* Filtre par jeu mobile */}
                         <div className="relative">
-                          <label className="block text-xs text-gray-400 mb-2 font-medium">{t('pages_detail.live.game_label')}</label>
+                          <label className="block text-xs text-text-secondary mb-2 font-medium">{t('pages_detail.live.game_label')}</label>
                           <select
                             value={filterByGame}
                             onChange={(e) => setFilterByGame(e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm
+                            className="w-full bg-bg-secondary border border-border-primary rounded-lg px-4 py-3 text-text-primary text-sm
                                      focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-all
                                      appearance-none"
                           >
@@ -319,11 +319,11 @@ export default function LivePage() {
 
                         {/* Tri mobile */}
                         <div className="relative">
-                          <label className="block text-xs text-gray-400 mb-2 font-medium">{t('pages_detail.live.sort_label')}</label>
+                          <label className="block text-xs text-text-secondary mb-2 font-medium">{t('pages_detail.live.sort_label')}</label>
                           <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as 'tournament' | 'time' | 'league')}
-                            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm
+                            className="w-full bg-bg-secondary border border-border-primary rounded-lg px-4 py-3 text-text-primary text-sm
                                      focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-all
                                      appearance-none"
                           >
@@ -347,19 +347,19 @@ export default function LivePage() {
             {/* Loading State */}
             {isLoadingMatches && (
               <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mb-4"></div>
-                <p className="text-gray-400">{t('pages_detail.live.chargement_matchs')}</p>
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent mb-4"></div>
+                <p className="text-text-secondary">{t('pages_detail.live.chargement_matchs')}</p>
               </div>
             )}
 
             {/* No Matches State */}
             {!isLoadingMatches && sortedMatches.length === 0 && (
-              <div className="text-center py-12 bg-gray-900 rounded-xl">
+              <div className="text-center py-12 bg-bg-secondary rounded-xl">
                 <div className="text-6xl mb-4">🎮</div>
-                <h2 className="text-xl font-semibold text-white mb-2">
+                <h2 className="text-xl font-semibold text-text-primary mb-2">
                   {t('pages_detail.live.aucun_match_trouve')}
                 </h2>
-                <p className="text-gray-400 max-w-md mx-auto">
+                <p className="text-text-secondary max-w-md mx-auto">
                   {t('pages_detail.live.aucun_match_moment')}
                 </p>
               </div>
@@ -370,9 +370,9 @@ export default function LivePage() {
               <section className="mb-12">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.en_direct')}</h2>
-                    <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="w-3 h-3 bg-status-live rounded-full animate-pulse"></div>
+                    <h2 className="text-2xl font-bold text-text-primary">{t('pages_detail.live.en_direct')}</h2>
+                    <span className="bg-status-live/20 text-status-live px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.live.length}
                     </span>
                   </div>
@@ -385,18 +385,18 @@ export default function LivePage() {
                       <div key={gameName} className="space-y-4">
                         {/* Titre du jeu */}
                         <div className="relative">
-                          <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/40 rounded-xl border border-gray-700/50 overflow-hidden">
+                          <div className="bg-gradient-to-r from-bg-tertiary/80 to-bg-secondary/40 rounded-xl border border-border-primary/50 overflow-hidden">
                             <div className="px-6 py-4 flex items-center gap-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                <h3 className="text-lg font-bold text-white capitalize">
+                                <div className="w-2 h-2 bg-status-live rounded-full animate-pulse"></div>
+                                <h3 className="text-lg font-bold text-text-primary capitalize">
                                   {gameName} {t('pages_detail.live.game_matches')}
                                 </h3>
-                                <span className="bg-red-500/20 text-red-400 px-2.5 py-1 rounded-full text-xs font-medium">
+                                <span className="bg-status-live/20 text-status-live px-2.5 py-1 rounded-full text-xs font-medium">
                                   {matches.length}
                                 </span>
                               </div>
-                              <div className="flex-1 h-px bg-gradient-to-r from-gray-600/50 to-transparent"></div>
+                              <div className="flex-1 h-px bg-gradient-to-r from-border-muted/50 to-transparent"></div>
                             </div>
                           </div>
                         </div>
@@ -426,9 +426,9 @@ export default function LivePage() {
               <section className="mb-12">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.a_venir')}</h2>
-                    <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="w-3 h-3 bg-status-upcoming rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-text-primary">{t('pages_detail.live.a_venir')}</h2>
+                    <span className="bg-status-upcoming/20 text-status-upcoming px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.upcoming.length}
                     </span>
                   </div>
@@ -441,18 +441,18 @@ export default function LivePage() {
                       <div key={gameName} className="space-y-4">
                         {/* Titre du jeu */}
                         <div className="relative">
-                          <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/40 rounded-xl border border-gray-700/50 overflow-hidden">
+                          <div className="bg-gradient-to-r from-bg-tertiary/80 to-bg-secondary/40 rounded-xl border border-border-primary/50 overflow-hidden">
                             <div className="px-6 py-4 flex items-center gap-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                <h3 className="text-lg font-bold text-white capitalize">
+                                <div className="w-2 h-2 bg-status-upcoming rounded-full"></div>
+                                <h3 className="text-lg font-bold text-text-primary capitalize">
                                   {gameName} {t('pages_detail.live.game_matches')}
                                 </h3>
-                                <span className="bg-blue-500/20 text-blue-400 px-2.5 py-1 rounded-full text-xs font-medium">
+                                <span className="bg-status-upcoming/20 text-status-upcoming px-2.5 py-1 rounded-full text-xs font-medium">
                                   {matches.length}
                                 </span>
                               </div>
-                              <div className="flex-1 h-px bg-gradient-to-r from-gray-600/50 to-transparent"></div>
+                              <div className="flex-1 h-px bg-gradient-to-r from-border-muted/50 to-transparent"></div>
                             </div>
                           </div>
                         </div>
@@ -482,9 +482,9 @@ export default function LivePage() {
               <section>
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.termines')}</h2>
-                    <span className="bg-gray-500/20 text-gray-400 px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="w-3 h-3 bg-status-finished rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-text-primary">{t('pages_detail.live.termines')}</h2>
+                    <span className="bg-status-finished/20 text-status-finished px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.finished.length}
                     </span>
                   </div>
@@ -501,18 +501,18 @@ export default function LivePage() {
                         <div key={gameName} className="space-y-4">
                           {/* Titre du jeu */}
                           <div className="relative">
-                            <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/40 rounded-xl border border-gray-700/50 overflow-hidden">
+                            <div className="bg-gradient-to-r from-bg-tertiary/80 to-bg-secondary/40 rounded-xl border border-border-primary/50 overflow-hidden">
                               <div className="px-6 py-4 flex items-center gap-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                                  <h3 className="text-lg font-bold text-white capitalize">
+                                  <div className="w-2 h-2 bg-status-finished rounded-full"></div>
+                                  <h3 className="text-lg font-bold text-text-primary capitalize">
                                     {gameName} {t('pages_detail.live.game_matches')}
                                   </h3>
-                                  <span className="bg-gray-500/20 text-gray-400 px-2.5 py-1 rounded-full text-xs font-medium">
+                                  <span className="bg-status-finished/20 text-status-finished px-2.5 py-1 rounded-full text-xs font-medium">
                                     {matches.length}
                                   </span>
                                 </div>
-                                <div className="flex-1 h-px bg-gradient-to-r from-gray-600/50 to-transparent"></div>
+                                <div className="flex-1 h-px bg-gradient-to-r from-border-muted/50 to-transparent"></div>
                               </div>
                             </div>
                           </div>
@@ -527,7 +527,7 @@ export default function LivePage() {
                           {/* Indicateur de matchs restants */}
                           {remainingCount > 0 && (
                             <div className="text-center">
-                              <p className="text-gray-400 text-sm">
+                              <p className="text-text-secondary text-sm">
                                 {remainingCount} {t('pages_detail.live.other_finished')}
                               </p>
                             </div>
@@ -547,7 +547,7 @@ export default function LivePage() {
 
                     {groupedMatches.finished.length > 12 && (
                       <div className="text-center mt-8">
-                        <p className="text-gray-400">
+                        <p className="text-text-secondary">
                           {groupedMatches.finished.length - 12} {t('pages_detail.live.other_finished')}
                         </p>
                       </div>

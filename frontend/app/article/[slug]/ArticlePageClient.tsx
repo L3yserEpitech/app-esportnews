@@ -27,6 +27,18 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
   const [isLoadingArticle, setIsLoadingArticle] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    // Détecter le thème au montage du composant
+    const detectTheme = () => {
+      const htmlElement = document.documentElement;
+      const theme = htmlElement.getAttribute('data-theme');
+      setIsDarkMode(theme !== 'light');
+    };
+
+    detectTheme();
+  }, []);
 
   useEffect(() => {
     const loadArticle = async () => {
@@ -86,7 +98,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
 
   if (isLoadingArticle) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -94,13 +106,13 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
 
   if (!article) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">Article non trouvé</h1>
-          <p className="text-gray-400 mb-6">L'article que vous recherchez n'existe pas ou a été supprimé.</p>
+          <h1 className="text-3xl font-bold text-text-primary mb-4">Article non trouvé</h1>
+          <p className="text-text-secondary mb-6">L'article que vous recherchez n'existe pas ou a été supprimé.</p>
           <Link
             href="/articles"
-            className="inline-block bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 rounded-lg transition-colors"
+            className="inline-block bg-[#F22E62] hover:bg-[#F22E62]/80 text-white px-6 py-3 rounded-lg transition-colors"
           >
             Retour aux articles
           </Link>
@@ -119,7 +131,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
       {/* Structured Data pour SEO */}
       {article && (
         <>
@@ -142,7 +154,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
           <div className="flex-1 min-w-0">
 
             {/* Article header */}
-            <article className="bg-gray-900 md:rounded-xl overflow-hidden">
+            <article className="bg-bg-secondary md:rounded-xl overflow-hidden border border-border-primary">
               {/* Featured image or video */}
               <div className="relative w-full">
                 <ArticleCover
@@ -150,40 +162,40 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
                   title={article.title}
                   className="w-full"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg-secondary via-transparent to-transparent" />
               </div>
 
               {/* Article meta and content */}
               <div className="px-4 md:px-8 py-6">
                 {/* Category badge and credit */}
                 <div className="mb-4 w-full flex items-center justify-between">
-                  <span className="bg-pink-500 text-white px-4 py-2 rounded-full text-sm font-medium">
+                  <span className="bg-[#F22E62] text-white px-4 py-2 rounded-full text-sm font-medium">
                     {article.category}
                   </span>
                   {article.credit && (
-                    <span className="text-gray-400 text-sm italic">
+                    <span className="text-text-secondary text-sm italic">
                       {article.credit}
                     </span>
                   )}
                 </div>
 
                 {/* Title */}
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                <h1 className="text-4xl md:text-5xl font-bold text-text-primary mb-4">
                   {article.title}
                 </h1>
 
                 {/* Subtitle */}
                 {article.subtitle && (
-                  <h2 className="text-xl text-gray-300 mb-6">
+                  <h2 className="text-xl text-text-secondary mb-6">
                     {article.subtitle}
                   </h2>
                 )}
 
                 {/* Meta info */}
-                <div className="flex items-center space-x-4 text-gray-400 mb-6 pb-6 border-b border-gray-800">
+                <div className="flex items-center space-x-4 text-text-secondary mb-6 pb-6 border-b border-border-primary">
                   <div className="flex items-center space-x-2">
                     <span>Par</span>
-                    <span className="text-white font-medium">{article.author}</span>
+                    <span className="text-text-primary font-medium">{article.author}</span>
                   </div>
                   <span>•</span>
                   <span>{formatDate(article.created_at)}</span>
@@ -193,7 +205,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
 
                 {/* Article content */}
                 <div className="mb-8">
-                  <ArticleContent content={article.content_black || article.content} />
+                  <ArticleContent content={isDarkMode ? (article.content_black ?? '') : (article.content_white ?? '')} />
                 </div>
 
                 {/* Tags */}
@@ -202,7 +214,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
                     {article.tags.map((tag, index) => (
                       <span
                         key={index}
-                        className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-sm hover:bg-gray-700 transition-colors"
+                        className="bg-bg-tertiary text-text-secondary px-3 py-1 rounded-full text-sm hover:bg-border-muted transition-colors"
                       >
                         #{tag}
                       </span>
@@ -216,7 +228,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
             {/* Similar articles section */}
             {similarArticles.length > 0 && (
               <div className="mt-12 px-4 md:px-0">
-                <h2 className="text-2xl font-bold text-white mb-6">{t('pages_detail.articles.voir_aussi')}</h2>
+                <h2 className="text-2xl font-bold text-text-primary mb-6">{t('pages_detail.articles.voir_aussi')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {similarArticles.map((similarArticle) => (
                     <ArticleCard key={similarArticle.id} article={similarArticle} />

@@ -30,7 +30,12 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
 
   return (
     <article
-      className="group cursor-pointer bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl"
+      className="group cursor-pointer rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl"
+      style={{
+        backgroundImage: 'linear-gradient(to bottom right, rgba(var(--accent-rgb), 0.1), rgba(3, 105, 161, 0.1))',
+        borderWidth: '1px',
+        borderColor: 'rgba(var(--accent-rgb), 0.2)',
+      }}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -71,22 +76,25 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
       {/* Content */}
       <div className="p-6">
         {/* Category */}
-        <span className="inline-block bg-pink-600 text-white px-3 py-1 rounded text-xs font-medium uppercase mb-3">
+        <span
+          className="inline-block text-text-inverse px-3 py-1 rounded text-xs font-medium uppercase mb-3"
+          style={{ backgroundColor: 'var(--color-accent-hover)' }}
+        >
           {article.category}
         </span>
 
         {/* Title */}
-        <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">
+        <h3 className="text-xl font-bold text-text-primary mb-3 line-clamp-2">
           {article.title}
         </h3>
 
         {/* Description */}
-        <p className="text-gray-400 text-sm line-clamp-3 mb-4">
+        <p className="text-text-secondary text-sm line-clamp-3 mb-4">
           {article.description}
         </p>
 
         {/* Meta info */}
-        <div className="flex items-center space-x-2 text-xs text-gray-500">
+        <div className="flex items-center space-x-2 text-xs text-text-muted">
           <span>{formatDate(article.created_at)}</span>
           <span>•</span>
           <span>{article.readTime} min</span>

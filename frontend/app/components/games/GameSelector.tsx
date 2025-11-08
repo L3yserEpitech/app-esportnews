@@ -80,7 +80,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   return (
     <div className={`
-      relative bg-gray-900/90 backdrop-blur-sm border-b border-gray-700/40
+      relative bg-bg-primary backdrop-blur-sm
       transition-transform duration-300 ease-in-out
       ${isVisible ? 'transform translate-y-0' : 'transform -translate-y-full'}
       ${className}
@@ -115,7 +115,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   hover:brightness-110 hover:saturate-125
                 `}
                 style={{
-                  filter: selected ? 'brightness(1.15) saturate(1.3) drop-shadow(0 0 20px rgba(244, 63, 94, 0.6))' : 'brightness(0.85) saturate(0.75)',
+                  filter: selected ? 'brightness(1.15) saturate(1.3) drop-shadow(0 0 20px rgba(var(--accent-rgb), 0.6))' : 'brightness(0.85) saturate(0.75)',
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease-out',
                 }}
                 aria-pressed={selected}

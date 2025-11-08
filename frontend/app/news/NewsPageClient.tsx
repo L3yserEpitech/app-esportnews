@@ -78,24 +78,24 @@ export default function NewsPage() {
 
   if (isLoadingArticles) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-bg-primary">
       <main className="container mx-auto px-4 py-8 pt-24">
         <div className="flex gap-8">
           {/* News content */}
           <div className="flex-1 min-w-0">
             {articles.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-gray-400 text-lg mb-2">
+                <div className="text-text-muted text-lg mb-2">
                   {t('pages.home.news.no_news')}
                 </div>
-                <p className="text-gray-500 text-sm">
+                <p className="text-text-muted-alt text-sm">
                   {t('pages.home.news.no_news_subtitle')}
                 </p>
               </div>
