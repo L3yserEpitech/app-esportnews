@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { PandaTournament, PandaPlayer } from '../../types';
 import { Users, MapPin, Trophy, Zap } from 'lucide-react';
 
@@ -10,6 +11,7 @@ interface TeamsRostersProps {
 }
 
 const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' }) => {
+  const t = useTranslations('pages_detail.tournament_detail');
   const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
   const [hoveredPlayer, setHoveredPlayer] = useState<number | null>(null);
 
@@ -41,11 +43,11 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
           <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
             <Users className="w-5 h-5 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white">Équipes & Rosters</h2>
+          <h2 className="text-3xl font-bold text-white">{t('teams_rosters')}</h2>
         </div>
         <p className="text-gray-400 text-sm ml-13">
-          {tournament.expected_roster.length} équipe{tournament.expected_roster.length > 1 ? 's' : ''} •
-          {' '}{tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0)} joueur{tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0) > 1 ? 's' : ''}
+          {tournament.expected_roster.length} {tournament.expected_roster.length > 1 ? t('teams_count_plural') : t('teams_count_singular')} •
+          {' '}{tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0)} {tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0) > 1 ? t('players_count_plural') : t('players_count_singular')}
         </p>
       </div>
 
