@@ -4,7 +4,7 @@
 
 import { getCookie, setCookie } from './cookies';
 
-export type Language = 'fr' | 'en' | 'es' | 'de';
+export type Language = 'fr' | 'en' | 'es' | 'de' | 'it';
 export type Theme = 'light' | 'dark' | 'auto';
 
 export type UserPreferences = {
@@ -92,7 +92,7 @@ export function setPreferences(preferences: Partial<UserPreferences>): void {
  * Valider une langue
  */
 function isValidLanguage(language: string): language is Language {
-  return ['fr', 'en', 'es', 'de'].includes(language);
+  return ['fr', 'en', 'es', 'de', 'it'].includes(language);
 }
 
 /**

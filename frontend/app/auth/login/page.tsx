@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTranslations();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -34,15 +36,15 @@ export default function LoginPage() {
     let isValid = true;
 
     if (!formData.email.trim()) {
-      newErrors.email = 'L\'email est requis';
+      newErrors.email = t('pages.login.email_requis');
       isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email invalide';
+      newErrors.email = t('pages.login.email_invalide');
       isValid = false;
     }
 
     if (!formData.password) {
-      newErrors.password = 'Le mot de passe est requis';
+      newErrors.password = t('pages.login.mot_de_passe_requis');
       isValid = false;
     }
 
@@ -70,7 +72,7 @@ export default function LoginPage() {
     } catch (error) {
       setErrors(prev => ({
         ...prev,
-        general: error instanceof Error ? error.message : 'Une erreur est survenue lors de la connexion',
+        general: error instanceof Error ? error.message : t('pages.login.erreur_connexion'),
       }));
     } finally {
       setIsLoading(false);
@@ -115,18 +117,18 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-[#F22E62]/10 border border-[#F22E62]/20 rounded-full">
               <Sparkles className="w-4 h-4 text-[#F22E62]" />
-              <span className="text-sm font-medium text-[#F22E62]">Content de vous revoir !</span>
+              <span className="text-sm font-medium text-[#F22E62]">{t('pages.login.content_de_vous_revoir')}</span>
             </div>
 
             <h1 className="text-5xl font-bold text-white leading-tight">
-              Connectez-vous à<br />
+              {t('pages.login.connectez_vous_a')}<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F22E62] to-pink-400">
-                EsportNews
+                {t('pages.login.esportnews')}
               </span>
             </h1>
 
             <p className="text-xl text-gray-400 leading-relaxed">
-              Accédez à votre espace personnel et profitez de toutes les fonctionnalités de la plateforme.
+              {t('pages.login.acces_espace_personnel')}
             </p>
 
             <div className="space-y-4 pt-4">
@@ -135,8 +137,8 @@ export default function LoginPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Personnalisez votre expérience</h3>
-                  <p className="text-gray-400 text-sm">Suivez vos jeux et équipes favoris</p>
+                  <h3 className="text-white font-semibold">{t('pages.login.personnalisez_experience')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.login.suivez_jeux_equipes')}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -144,8 +146,8 @@ export default function LoginPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Notifications en temps réel</h3>
-                  <p className="text-gray-400 text-sm">Ne manquez aucun match important</p>
+                  <h3 className="text-white font-semibold">{t('pages.login.notifications_temps_reel')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.login.ne_manquez_aucun_match')}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -153,8 +155,8 @@ export default function LoginPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Communauté active</h3>
-                  <p className="text-gray-400 text-sm">Échangez avec d'autres passionnés</p>
+                  <h3 className="text-white font-semibold">{t('pages.login.communaute_active')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.login.echangez_passionnes')}</p>
                 </div>
               </div>
             </div>
@@ -165,8 +167,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md mx-auto lg:ml-auto lg:mr-0 mt-5">
           <div className="lg:bg-[#091626]/30 lg:backdrop-blur-xl lg:rounded-3xl lg:p-8 lg:shadow-2xl">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">Connexion</h2>
-              <p className="text-gray-400">Accédez à votre compte</p>
+              <h2 className="text-3xl font-bold text-white mb-2">{t('pages.login.connexion')}</h2>
+              <p className="text-gray-400">{t('pages.login.acces_compte')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -179,7 +181,7 @@ export default function LoginPage() {
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                  Adresse email
+                  {t('pages.login.adresse_email')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -193,7 +195,7 @@ export default function LoginPage() {
                     onChange={handleChange}
                     className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.email ? 'border-red-500/50' : 'border-[#182859]/50'
                       } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
-                    placeholder="john@exemple.com"
+                    placeholder={t('pages.login.placeholder_email')}
                     disabled={isLoading}
                     autoComplete="email"
                   />
@@ -210,13 +212,13 @@ export default function LoginPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                    Mot de passe
+                    {t('pages.login.mot_de_passe')}
                   </label>
                   <Link
                     href="/auth/forgot-password"
                     className="text-sm text-[#F22E62] hover:text-pink-400 transition-colors"
                   >
-                    Mot de passe oublié ?
+                    {t('pages.login.mot_de_passe_oublie')}
                   </Link>
                 </div>
                 <div className="relative">
@@ -256,11 +258,11 @@ export default function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Connexion en cours...
+                    {t('pages.login.connexion_en_cours')}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center space-x-2">
-                    <span>Se connecter</span>
+                    <span>{t('pages.login.se_connecter')}</span>
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                 )}
@@ -273,20 +275,20 @@ export default function LoginPage() {
                 <div className="w-full border-t border-[#182859]/50"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-[#091626]/60 text-gray-500">ou</span>
+                <span className="px-4 bg-[#091626]/60 text-gray-500">{t('pages.login.ou')}</span>
               </div>
             </div>
 
             {/* Lien vers l'inscription */}
             <div className="text-center">
               <p className="text-gray-400 text-sm mb-4">
-                Vous n'avez pas encore de compte ?
+                {t('pages.login.pas_compte_encore')}
               </p>
               <Link
                 href="/auth/register"
                 className="inline-flex items-center justify-center space-x-2 w-full px-4 py-3.5 bg-[#060B13]/50 border border-[#182859]/50 rounded-xl text-white font-medium hover:bg-[#182859]/30 hover:border-[#F22E62]/30 transition-all group"
               >
-                <span>Créer un compte</span>
+                <span>{t('pages.login.creer_compte')}</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -298,7 +300,7 @@ export default function LoginPage() {
               href="/"
               className="text-sm text-gray-500 hover:text-gray-400 transition-colors"
             >
-              ← Retour à l'accueil
+              {t('pages.login.retour_accueil')}
             </Link>
           </div>
         </div>

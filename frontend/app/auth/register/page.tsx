@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { User, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useTranslations();
   const { signup } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -40,34 +42,34 @@ export default function RegisterPage() {
     let isValid = true;
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Le nom est requis';
+      newErrors.name = t('pages.register.nom_requis');
       isValid = false;
     } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Le nom doit contenir au moins 2 caractères';
+      newErrors.name = t('pages.register.nom_min_2_chars');
       isValid = false;
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'L\'email est requis';
+      newErrors.email = t('pages.register.email_requis');
       isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email invalide';
+      newErrors.email = t('pages.register.email_invalide');
       isValid = false;
     }
 
     if (!formData.password) {
-      newErrors.password = 'Le mot de passe est requis';
+      newErrors.password = t('pages.register.mot_de_passe_requis');
       isValid = false;
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      newErrors.password = t('pages.register.mot_de_passe_min_6');
       isValid = false;
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Veuillez confirmer votre mot de passe';
+      newErrors.confirmPassword = t('pages.register.confirmer_mot_de_passe_requis');
       isValid = false;
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+      newErrors.confirmPassword = t('pages.register.mots_de_passe_ne_correspondent');
       isValid = false;
     }
 
@@ -96,7 +98,7 @@ export default function RegisterPage() {
     } catch (error) {
       setErrors(prev => ({
         ...prev,
-        general: error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'inscription',
+        general: error instanceof Error ? error.message : t('pages.register.erreur_inscription'),
       }));
     } finally {
       setIsLoading(false);
@@ -141,18 +143,18 @@ export default function RegisterPage() {
           <div className="space-y-6">
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-[#F22E62]/10 border border-[#F22E62]/20 rounded-full">
               <Sparkles className="w-4 h-4 text-[#F22E62]" />
-              <span className="text-sm font-medium text-[#F22E62]">Rejoignez la communauté</span>
+              <span className="text-sm font-medium text-[#F22E62]">{t('pages.register.rejoignez_communaute')}</span>
             </div>
 
             <h1 className="text-5xl font-bold text-white leading-tight">
-              Bienvenue sur<br />
+              {t('pages.register.bienvenue_sur')}<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F22E62] to-pink-400">
                 EsportNews
               </span>
             </h1>
 
             <p className="text-xl text-gray-400 leading-relaxed">
-              Suivez l'actualité esport en temps réel et ne manquez aucun match de vos jeux préférés.
+              {t('pages.register.suivez_actualite_esport')}
             </p>
 
             <div className="space-y-4 pt-4">
@@ -161,8 +163,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Matchs en direct</h3>
-                  <p className="text-gray-400 text-sm">Suivez tous les matchs live multi-jeux</p>
+                  <h3 className="text-white font-semibold">{t('pages.register.matchs_en_direct')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.register.suivez_matchs_multi_jeux')}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -170,8 +172,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Actualités exclusives</h3>
-                  <p className="text-gray-400 text-sm">Restez informé des dernières news</p>
+                  <h3 className="text-white font-semibold">{t('pages.register.actualites_exclusives')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.register.restez_informe_news')}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -179,8 +181,8 @@ export default function RegisterPage() {
                   <div className="w-2 h-2 rounded-full bg-[#F22E62]"></div>
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Tournois & Calendrier</h3>
-                  <p className="text-gray-400 text-sm">Ne ratez aucune compétition importante</p>
+                  <h3 className="text-white font-semibold">{t('pages.register.tournois_calendrier')}</h3>
+                  <p className="text-gray-400 text-sm">{t('pages.register.ne_ratez_competitions')}</p>
                 </div>
               </div>
             </div>
@@ -191,8 +193,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-md mx-auto lg:ml-auto lg:mr-0">
           <div className="bg-[#091626]/30 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mt-5">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">Créer un compte</h2>
-              <p className="text-gray-400">Remplissez les informations ci-dessous</p>
+              <h2 className="text-3xl font-bold text-white mb-2">{t('pages.register.creer_mon_compte')}</h2>
+              <p className="text-gray-400">{t('pages.register.remplissez_informations')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -205,7 +207,7 @@ export default function RegisterPage() {
               {/* Nom */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-                  Nom complet
+                  {t('pages.register.nom_complet')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -219,7 +221,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.name ? 'border-red-500/50' : 'border-[#182859]/50'
                       } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
-                    placeholder="John Doe"
+                    placeholder={t('pages.register.placeholder_name')}
                     disabled={isLoading}
                   />
                 </div>
@@ -234,7 +236,7 @@ export default function RegisterPage() {
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                  Adresse email
+                  {t('pages.login.adresse_email')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -248,7 +250,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className={`w-full pl-12 pr-4 py-3.5 bg-[#060B13]/50 border ${errors.email ? 'border-red-500/50' : 'border-[#182859]/50'
                       } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:border-transparent transition-all`}
-                    placeholder="john@exemple.com"
+                    placeholder={t('pages.register.placeholder_email')}
                     disabled={isLoading}
                   />
                 </div>
@@ -263,7 +265,7 @@ export default function RegisterPage() {
               {/* Mot de passe */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                  Mot de passe
+                  {t('pages.login.mot_de_passe')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -292,7 +294,7 @@ export default function RegisterPage() {
               {/* Confirmation mot de passe */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
-                  Confirmer le mot de passe
+                  {t('pages.register.confirmer_mot_de_passe')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -330,11 +332,11 @@ export default function RegisterPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Création en cours...
+                    {t('pages.register.creation_en_cours')}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center space-x-2">
-                    <span>Créer mon compte</span>
+                    <span>{t('pages.register.creer_mon_compte')}</span>
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                 )}
@@ -344,12 +346,12 @@ export default function RegisterPage() {
             {/* Lien vers la connexion */}
             <div className="mt-8 text-center">
               <p className="text-gray-400 text-sm">
-                Vous avez déjà un compte ?{' '}
+                {t('pages.register.vous_avez_compte')}{' '}
                 <Link
                   href="/auth/login"
                   className="text-[#F22E62] hover:text-pink-400 font-semibold transition-colors"
                 >
-                  Se connecter
+                  {t('pages.register.se_connecter')}
                 </Link>
               </p>
             </div>
@@ -357,13 +359,13 @@ export default function RegisterPage() {
 
           {/* Mentions légales */}
           <p className="mt-6 text-center text-gray-500 text-xs">
-            En créant un compte, vous acceptez nos{' '}
+            {t('pages.register.en_creant_compte')}{' '}
             <Link href="/legal/terms" className="underline hover:text-gray-400">
-              conditions d'utilisation
+              {t('pages.register.conditions_utilisation')}
             </Link>{' '}
-            et notre{' '}
+            {t('pages.register.et_notre')}{' '}
             <Link href="/legal/privacy" className="underline hover:text-gray-400">
-              politique de confidentialité
+              {t('pages.register.politique_confidentialite')}
             </Link>
             .
           </p>

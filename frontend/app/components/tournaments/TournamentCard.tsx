@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { PandaTournament } from '../../types';
 import { esportBackgrounds } from '../../constants/images';
 
@@ -46,6 +47,7 @@ const formatPrizepool = (prizepool: string | null) => {
 };
 
 const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBadge = false }) => {
+  const t = useTranslations();
   // Utiliser l'ID du tournoi pour sélectionner une image de manière déterministe
   const backgroundImage = esportBackgrounds[tournament.id % esportBackgrounds.length];
 
@@ -67,7 +69,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
         {/* Badge tier */}
         <div className="absolute top-4 left-4 flex gap-2">
           <span className={`px-2 py-1 rounded-full text-xs font-bold text-white uppercase ${getTierColor(tournament.tier)}`}>
-            Tier {tournament.tier.toUpperCase()}
+            {t('pages.home.tournaments.tier_label')} {tournament.tier.toUpperCase()}
           </span>
           {showGameBadge && tournament.gameSlug && (
             <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded-full uppercase">
@@ -82,7 +84,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
          new Date(tournament.end_at) > new Date() && (
           <div className="absolute top-4 right-4">
             <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full uppercase animate-pulse">
-              En cours
+              {t('pages.home.tournaments.live_badge')}
             </span>
           </div>
         )}
@@ -109,9 +111,9 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
 
         {/* Dates */}
         <div className="text-gray-400 text-sm mb-3">
-          <div>Début: {formatDate(tournament.begin_at)}</div>
+          <div>{t('pages.home.tournaments.begin_label')} {formatDate(tournament.begin_at)}</div>
           {tournament.end_at && (
-            <div>Fin: {formatDate(tournament.end_at)}</div>
+            <div>{t('pages.home.tournaments.end_label')} {formatDate(tournament.end_at)}</div>
           )}
         </div>
 
@@ -124,15 +126,15 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
               </span>
             )}
             <span className="text-gray-400 text-xs">
-              {tournament.teams.length} équipes
+              {tournament.teams.length} {t('pages.home.tournaments.team_count')}
             </span>
           </div>
 
           {/* Indicateur de matchs */}
           <div className="text-gray-400 text-xs text-right">
-            <div>{tournament.matches.length} matchs</div>
+            <div>{tournament.matches.length} {t('pages.home.tournaments.match_count')}</div>
             <div className="text-pink-400">
-              {tournament.matches.filter(m => m.status === 'not_started').length} à venir
+              {tournament.matches.filter(m => m.status === 'not_started').length} {t('pages.home.tournaments.upcoming_count')}
             </div>
           </div>
         </div>

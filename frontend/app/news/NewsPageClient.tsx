@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import AdColumn from '../components/ads/AdColumn';
 import ArticleCard from '../components/article/ArticleCard';
 import FeaturedArticleCard from '../components/article/FeaturedArticleCard';
@@ -10,6 +11,7 @@ import { advertisementService } from '../services/advertisementService';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 export default function NewsPage() {
+  const t = useTranslations();
   const [articles, setArticles] = useState<NewsItem[]>([]);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(true);
@@ -91,10 +93,10 @@ export default function NewsPage() {
             {articles.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 text-lg mb-2">
-                  📰 Aucune actualité disponible
+                  {t('pages.home.news.no_news')}
                 </div>
                 <p className="text-gray-500 text-sm">
-                  Revenez bientôt pour découvrir les dernières actualités de l'esport !
+                  {t('pages.home.news.no_news_subtitle')}
                 </p>
               </div>
             ) : (

@@ -161,15 +161,16 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
         {/* Actions footer */}
         <div className="border-t border-[#182859]/20 p-3 space-y-2">
           {hasStream && (
-            <a
-              href={mainStream.raw_url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(mainStream.raw_url, '_blank', 'noopener,noreferrer');
+              }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-[#F44576] to-[#F44576] hover:from-[#F44576]/90 hover:to-[#F44576]/80 text-white rounded-lg font-semibold transition-all duration-200 text-sm shadow-lg shadow-[#F44576]/20 hover:shadow-[#F44576]/40"
             >
               <Play className="w-4 h-4 fill-current" />
               Regarder
-            </a>
+            </button>
           )}
 
           {/* Games list */}

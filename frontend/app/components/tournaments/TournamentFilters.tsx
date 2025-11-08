@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Filter } from 'lucide-react';
 
 export interface TournamentFiltersType {
@@ -18,6 +19,7 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
   onFiltersChange,
   className = ''
 }) => {
+  const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Options des tiers avec couleurs et descriptions
@@ -26,33 +28,33 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
       value: 's',
       label: 'Tier S',
       color: 'bg-yellow-500',
-      description: 'Tournois majeurs'
+      description: t('pages_detail.tournaments.tier_s_description')
     },
     {
       value: 'a',
       label: 'Tier A',
       color: 'bg-blue-500',
-      description: 'Tournois premium'
+      description: t('pages_detail.tournaments.tier_a_description')
     },
     {
       value: 'b',
       label: 'Tier B',
       color: 'bg-green-500',
-      description: 'Tournois intermédiaires'
+      description: t('pages_detail.tournaments.tier_b_description')
     },
     {
       value: 'c',
       label: 'Tier C',
       color: 'bg-purple-500',
-      description: 'Tournois mineurs'
+      description: t('pages_detail.tournaments.tier_c_description')
     },
     {
       value: 'd',
       label: 'Tier D',
       color: 'bg-gray-500',
-      description: 'Tournois amateurs'
+      description: t('pages_detail.tournaments.tier_d_description')
     }
-  ], []);
+  ], [t]);
 
 
   // Handler pour les tiers
@@ -97,10 +99,10 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
         <div className="flex items-center space-x-3">
           <Filter className="w-5 h-5 text-pink-400" />
           <div>
-            <span className="text-white font-medium">Filtres de recherche</span>
+            <span className="text-white font-medium">{t('pages_detail.tournaments.filters_title')}</span>
             {activeFiltersCount > 0 && (
               <div className="text-xs text-gray-400 mt-0.5">
-                {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif{activeFiltersCount > 1 ? 's' : ''}
+                {activeFiltersCount} {activeFiltersCount > 1 ? t('pages_detail.tournaments.filter_active_plural') : t('pages_detail.tournaments.filter_active_singular')}
               </div>
             )}
           </div>
@@ -117,7 +119,7 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
               onClick={handleResetFilters}
               className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-700/50 border border-gray-600 hover:border-gray-500"
             >
-              Réinitialiser
+              {t('pages_detail.tournaments.reset_button')}
             </button>
           )}
           <button
@@ -127,7 +129,7 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
                 ? 'text-pink-400 bg-pink-500/10 border border-pink-500/30'
                 : 'text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500'
             }`}
-            title={isExpanded ? 'Masquer les filtres' : 'Afficher les filtres'}
+            title={isExpanded ? t('pages_detail.tournaments.hide_filters') : t('pages_detail.tournaments.show_filters')}
           >
             <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,13 +147,13 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-300">
-                Rang des tournois
+                {t('pages_detail.tournaments.tier_label')}
               </label>
               <button
                 onClick={handleSelectAllTiers}
                 className="text-xs text-pink-400 hover:text-pink-300 transition-colors font-medium"
               >
-                {filters.tiers.length === tierOptions.length ? 'Tout décocher' : 'Tout cocher'}
+                {filters.tiers.length === tierOptions.length ? t('pages_detail.tournaments.uncheck_all') : t('pages_detail.tournaments.check_all')}
               </button>
             </div>
 
@@ -170,7 +172,7 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
                       <div key={tier.value} className={`w-1.5 h-1.5 rounded-full ${tier.color}`} />
                     ))}
                   </div>
-                  <span className="text-sm font-medium text-white">Tous les rangs</span>
+                  <span className="text-sm font-medium text-white">{t('pages_detail.tournaments.all_tiers')}</span>
                 </div>
               </label>
             </div>
@@ -208,7 +210,7 @@ const TournamentFilters: React.FC<TournamentFiltersProps> = ({
               <div className="mt-3 p-2 bg-gray-800/30 border border-gray-600/50 rounded text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">
-                    <span className="text-white font-medium">{filters.tiers.length}</span> sélectionné{filters.tiers.length > 1 ? 's' : ''}
+                    <span className="text-white font-medium">{filters.tiers.length}</span> {filters.tiers.length > 1 ? t('pages_detail.tournaments.selected_plural') : t('pages_detail.tournaments.selected_singular')}
                   </span>
                   <div className="flex space-x-1">
                     {filters.tiers.slice(0, 5).map(tierValue => {

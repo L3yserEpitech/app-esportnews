@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface CalendarProps {
   selectedDate: Date;
@@ -13,14 +14,28 @@ const Calendar: React.FC<CalendarProps> = ({
   onDateSelect,
   className = ''
 }) => {
+  const t = useTranslations();
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
-  const monthNames = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-  ];
+  // Get localized month and day names from Intl API
+  const monthNames = useMemo(() => {
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(2024, i, 1);
+      months.push(new Intl.DateTimeFormat(undefined, { month: 'long' }).format(date).charAt(0).toUpperCase() +
+                  new Intl.DateTimeFormat(undefined, { month: 'long' }).format(date).slice(1));
+    }
+    return months;
+  }, []);
 
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const dayNames = useMemo(() => {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(2024, 0, 1 + i); // Start from Monday
+      days.push(new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date).toUpperCase().substring(0, 3));
+    }
+    return days;
+  }, []);
 
   const getDaysInMonth = useCallback((date: Date) => {
     const year = date.getFullYear();
@@ -83,7 +98,7 @@ const Calendar: React.FC<CalendarProps> = ({
           <button
             onClick={() => navigateMonth('prev')}
             className="p-2 text-gray-400 hover:text-pink-400 transition-all duration-200 hover:bg-gray-700/30 rounded-lg"
-            aria-label="Mois précédent"
+            aria-label={t('pages_detail.calendar.previous_month')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -97,7 +112,7 @@ const Calendar: React.FC<CalendarProps> = ({
           <button
             onClick={() => navigateMonth('next')}
             className="p-2 text-gray-400 hover:text-pink-400 transition-all duration-200 hover:bg-gray-700/30 rounded-lg"
-            aria-label="Mois suivant"
+            aria-label={t('pages_detail.calendar.next_month')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -135,7 +150,7 @@ const Calendar: React.FC<CalendarProps> = ({
                       : 'text-gray-300 hover:bg-gray-700/50 hover:text-white hover:scale-95'
                     }
                   `}
-                  aria-label={`Sélectionner le ${day.getDate()} ${monthNames[day.getMonth()]}`}
+                  aria-label={`${t('pages_detail.calendar.select_date')} ${day.getDate()} ${monthNames[day.getMonth()]}`}
                 >
                   <span className="relative z-10">{day.getDate()}</span>
                   {isSelected(day) && (

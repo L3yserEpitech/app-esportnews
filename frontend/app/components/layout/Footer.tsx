@@ -1,13 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-
-  useEffect(() => {
-    setYear(new Date().getFullYear());
-  }, []);
+  const t = useTranslations();
+  const year = new Date().getFullYear();
 
   return (
     <footer className="bg-[#060B13] border-t border-[#182859]/30">
@@ -25,13 +22,13 @@ export default function Footer() {
               />
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
-              Votre plateforme de référence pour suivre les matchs esport en direct et rester informé de toute l'actualité de la scène compétitive.
+              {t('layout.footer.description')}
             </p>
           </div>
 
           {/* Réseaux sociaux */}
           <div>
-            <h4 className="font-semibold text-white mb-4 text-base">Suivez-nous</h4>
+            <h4 className="font-semibold text-white mb-4 text-base">{t('layout.footer.suivez_nous')}</h4>
             <ul className="space-y-3 text-sm">
               <li>
                 <a
@@ -77,36 +74,36 @@ export default function Footer() {
 
           {/* Navigation */}
           <div>
-            <h4 className="font-semibold text-white mb-4 text-base">Navigation</h4>
+            <h4 className="font-semibold text-white mb-4 text-base">{t('layout.footer.navigation')}</h4>
             <ul className="space-y-3 text-sm">
               <li>
                 <Link href="/" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Accueil
+                  {t('layout.navbar.accueil')}
                 </Link>
               </li>
               <li>
                 <Link href="/live" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Matchs en Direct
+                  {t('layout.footer.matchs_en_direct')}
                 </Link>
               </li>
               <li>
                 <Link href="/tournois" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Tournois
+                  {t('layout.navbar.tournois')}
                 </Link>
               </li>
               <li>
                 <Link href="/news" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Actualités
+                  {t('layout.navbar.actualites')}
                 </Link>
               </li>
               <li>
                 <Link href="/articles" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Articles
+                  {t('layout.navbar.articles')}
                 </Link>
               </li>
               <li>
                 <Link href="/calendrier" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                  Calendrier
+                  {t('layout.navbar.calendrier')}
                 </Link>
               </li>
             </ul>
@@ -115,11 +112,11 @@ export default function Footer() {
           {/* Informations légales */}
           <div className="flex flex-col justify-between">
             <div>
-              <h4 className="font-semibold text-white mb-4 text-base">Informations légales</h4>
+              <h4 className="font-semibold text-white mb-4 text-base">{t('layout.footer.informations_legales')}</h4>
               <ul className="space-y-3 text-sm">
                 <li>
                   <Link href="/legal/mentions-legales" className="text-gray-400 hover:text-[#F22E62] transition-colors duration-200">
-                    Mentions légales
+                    {t('layout.footer.mentions_legales')}
                   </Link>
                 </li>
               </ul>
@@ -127,7 +124,7 @@ export default function Footer() {
 
             {/* Kit média */}
             <div className="mt-6">
-              <h4 className="font-semibold text-white mb-4 text-base">Kit média</h4>
+              <h4 className="font-semibold text-white mb-4 text-base">{t('layout.footer.kit_media')}</h4>
               <a
                 href="/Kit Média ESPORT NEWS.pdf"
                 download="Kit_Media_ESPORT_NEWS.pdf"
@@ -146,7 +143,7 @@ export default function Footer() {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                   />
                 </svg>
-                Télécharger le kit média
+                {t('layout.footer.telecharger_kit_media')}
               </a>
             </div>
           </div>
@@ -155,7 +152,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="border-t border-[#182859]/30 mt-12 pt-8">
           <p className="text-sm text-gray-500 text-center">
-            &copy; {year || new Date().getFullYear()} EsportNews. Tous droits réservés.
+            &copy; {year} EsportNews. {t('layout.footer.copyright')}
           </p>
         </div>
       </div>

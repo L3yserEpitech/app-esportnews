@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { User, Shield, Heart, Bell, Settings, ChevronDown } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'notifications';
 
@@ -11,15 +12,16 @@ interface ProfileNavDropdownProps {
 }
 
 export default function ProfileNavDropdown({ activeSection, onSectionChange }: ProfileNavDropdownProps) {
+  const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const menuItems = [
-    { id: 'profile' as SidebarSection, label: 'Profil', icon: User },
-    { id: 'favorite-teams' as SidebarSection, label: 'Équipes', icon: Heart },
-    { id: 'security' as SidebarSection, label: 'Sécurité', icon: Shield },
-    { id: 'preferences' as SidebarSection, label: 'Préférences', icon: Settings },
-    { id: 'notifications' as SidebarSection, label: 'Notifications', icon: Bell },
+    { id: 'profile' as SidebarSection, label: t('profile.sidebar.profil'), icon: User },
+    { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
+    { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
+    { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
+    { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },
   ];
 
   const activeItem = menuItems.find(item => item.id === activeSection);

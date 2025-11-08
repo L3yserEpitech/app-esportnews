@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2, X, Heart } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { teamService, Team } from '@/app/services/teamService';
 import TeamSearchResult from '../TeamSearchResult';
 
 export default function FavoriteTeamsSection() {
+  const t = useTranslations();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Team[]>([]);
   const [favoriteTeams, setFavoriteTeams] = useState<Team[]>([]);
@@ -36,7 +38,7 @@ export default function FavoriteTeamsSection() {
         }
       } catch (err) {
         console.error('Error loading favorite teams:', err);
-        setError('Impossible de charger vos équipes favorites');
+        setError(t('profile.favorite_teams_section.erreur_charger_equipes'));
       } finally {
         setIsLoadingFavorites(false);
       }
@@ -61,7 +63,7 @@ export default function FavoriteTeamsSection() {
         setSearchResults(results);
       } catch (err) {
         console.error('Error searching teams:', err);
-        setError('Erreur lors de la recherche d\'équipes');
+        setError(t('profile.favorite_teams_section.erreur_recherche_equipes'));
         setSearchResults([]);
       } finally {
         setIsSearching(false);
@@ -83,7 +85,7 @@ export default function FavoriteTeamsSection() {
   const handleToggleFavorite = async (teamId: number) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
-      setError('Vous devez être connecté');
+      setError(t('profile.favorite_teams_section.vous_devez_etre_connecte'));
       return;
     }
 
@@ -111,7 +113,7 @@ export default function FavoriteTeamsSection() {
       }
     } catch (err: any) {
       console.error('Error toggling favorite:', err);
-      setError(err.message || 'Erreur lors de la modification des favoris');
+      setError(err.message || t('profile.favorite_teams_section.erreur_modification_favoris'));
     } finally {
       setLoadingTeamId(null);
     }
@@ -120,8 +122,8 @@ export default function FavoriteTeamsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Équipes Favorites</h2>
-        <p className="text-gray-400">Suivez vos équipes préférées et recevez des notifications</p>
+        <h2 className="text-2xl font-bold text-white mb-2">{t('profile.favorite_teams_section.equipes_favorites')}</h2>
+        <p className="text-gray-400">{t('profile.favorite_teams_section.suivez_equipes')}</p>
       </div>
 
       {/* Erreur */}
@@ -144,7 +146,7 @@ export default function FavoriteTeamsSection() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher une équipe..."
+              placeholder={t('profile.favorite_teams_section.rechercher_equipe')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-11 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all text-sm sm:text-base"
@@ -159,7 +161,7 @@ export default function FavoriteTeamsSection() {
         {searchQuery.trim().length >= 2 && (
           <div className="space-y-3 mb-6">
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-              Résultats de recherche ({searchResults.length})
+              {t('profile.favorite_teams_section.resultats_recherche')} ({searchResults.length})
             </h3>
             {searchResults.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -176,7 +178,7 @@ export default function FavoriteTeamsSection() {
             ) : (
               !isSearching && (
                 <p className="text-gray-400 text-sm py-4">
-                  Aucune équipe trouvée pour &quot;{searchQuery}&quot;
+                  {t('profile.favorite_teams_section.aucune_equipe_trouvee')} &quot;{searchQuery}&quot;
                 </p>
               )
             )}
@@ -186,7 +188,7 @@ export default function FavoriteTeamsSection() {
         {/* Mes équipes favorites */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-            Mes équipes favorites ({favoriteTeams.length})
+            {t('profile.favorite_teams_section.mes_equipes_favorites')} ({favoriteTeams.length})
           </h3>
 
           {isLoadingFavorites ? (
@@ -210,9 +212,9 @@ export default function FavoriteTeamsSection() {
               <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 mb-4">
                 <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">Aucune équipe favorite</h3>
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">{t('profile.favorite_teams_section.aucune_equipe_favorite')}</h3>
               <p className="text-sm sm:text-base text-gray-400 mb-6">
-                Utilisez la barre de recherche ci-dessus pour trouver et ajouter vos équipes préférées
+                {t('profile.favorite_teams_section.utilisez_recherche')}
               </p>
             </div>
           )}

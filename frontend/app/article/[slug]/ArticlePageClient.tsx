@@ -11,6 +11,7 @@ import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import { ArticleSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 interface ArticlePageClientProps {
@@ -18,6 +19,7 @@ interface ArticlePageClientProps {
 }
 
 export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
+  const t = useTranslations();
   const [article, setArticle] = useState<Article | null>(null);
   const [similarArticles, setSimilarArticles] = useState<NewsItem[]>([]);
   const [recentArticles, setRecentArticles] = useState<NewsItem[]>([]);
@@ -214,7 +216,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
             {/* Similar articles section */}
             {similarArticles.length > 0 && (
               <div className="mt-12 px-4 md:px-0">
-                <h2 className="text-2xl font-bold text-white mb-6">Voir aussi</h2>
+                <h2 className="text-2xl font-bold text-white mb-6">{t('pages_detail.articles.voir_aussi')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {similarArticles.map((similarArticle) => (
                     <ArticleCard key={similarArticle.id} article={similarArticle} />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { NewsItem } from '../../types';
 import ArticleCard from '../article/ArticleCard';
 import FeaturedArticleCard from '../article/FeaturedArticleCard';
@@ -20,6 +21,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   isLoading = false,
   className = ''
 }) => {
+  const t = useTranslations();
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
@@ -50,7 +52,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
     <section className={`space-y-6 ${className}`} aria-labelledby="news-section">
       <div className="flex items-center justify-between">
         <h2 id="news-section" className="text-2xl font-bold text-white">
-          Actualités
+          {t('pages.home.news.title')}
         </h2>
         <Button
           variant="ghost"
@@ -58,7 +60,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
           onClick={handleViewAllClick}
           className="text-pink-400 hover:text-pink-300"
         >
-          Voir tout →
+          {t('pages.home.news.view_all_button')}
         </Button>
       </div>
 
@@ -86,10 +88,10 @@ const NewsSection: React.FC<NewsSectionProps> = ({
       {!hasNews && (
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg mb-2">
-            📰 Aucune actualité disponible
+            {t('pages.home.news.no_news')}
           </div>
           <p className="text-gray-500 text-sm">
-            Revenez bientôt pour découvrir les dernières nouvelles de l'esport !
+            {t('pages.home.news.no_news_subtitle')}
           </p>
         </div>
       )}

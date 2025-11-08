@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGame } from '../contexts/GameContext';
 import { PandaTournament, Advertisement } from '../types';
 import { tournamentService, TournamentFiltersType } from '../services/tournamentService';
@@ -13,6 +14,7 @@ import AdColumn from '../components/ads/AdColumn';
 type TournamentStatus = 'running' | 'upcoming' | 'finished';
 
 const TournamentsPage: React.FC = () => {
+  const t = useTranslations();
   const { selectedGame, games, isLoadingGames: gamesLoading, setSelectedGame, getSelectedGameData } = useGame();
   const [tournaments, setTournaments] = useState<PandaTournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ const TournamentsPage: React.FC = () => {
       setTournaments(tournamentsData);
     } catch (err) {
       console.error('Error loading tournaments:', err);
-      setError('Erreur lors du chargement des tournois');
+      setError(t('pages_detail.tournaments.error_loading'));
       setTournaments([]);
     } finally {
       setLoading(false);
@@ -125,20 +127,20 @@ const TournamentsPage: React.FC = () => {
 
   // Mémoriser les options de statut avec les counts
   const statusOptions = useMemo(() => [
-    { value: 'running' as const, label: 'En cours', count: memoizedTournaments.length },
-    { value: 'upcoming' as const, label: 'À venir', count: 0 },
-    { value: 'finished' as const, label: 'Passés', count: 0 }
-  ], [memoizedTournaments.length]);
+    { value: 'running' as const, label: t('pages_detail.tournaments.status_running'), count: memoizedTournaments.length },
+    { value: 'upcoming' as const, label: t('pages_detail.tournaments.status_upcoming'), count: 0 },
+    { value: 'finished' as const, label: t('pages_detail.tournaments.status_finished'), count: 0 }
+  ], [memoizedTournaments.length, t]);
 
   // Mémoriser la fonction getStatusLabel
   const getStatusLabel = useCallback((status: TournamentStatus) => {
     switch (status) {
-      case 'running': return 'en cours';
-      case 'upcoming': return 'à venir';
-      case 'finished': return 'passés';
-      default: return 'en cours';
+      case 'running': return t('pages_detail.tournaments.status_label_running');
+      case 'upcoming': return t('pages_detail.tournaments.status_label_upcoming');
+      case 'finished': return t('pages_detail.tournaments.status_label_finished');
+      default: return t('pages_detail.tournaments.status_label_running');
     }
-  }, []);
+  }, [t]);
 
   // Mémoriser les handlers
   const handleRefresh = useCallback(() => {
@@ -158,9 +160,9 @@ const TournamentsPage: React.FC = () => {
   const emptyStateMessage = useMemo(() => {
     const statusLabel = getStatusLabel(selectedStatus);
     return selectedGameData
-      ? `Il n'y a actuellement aucun tournoi ${statusLabel} pour ${selectedGameData.name}`
-      : `Il n'y a actuellement aucun tournoi ${statusLabel} pour tous les jeux`;
-  }, [getStatusLabel, selectedStatus, selectedGameData]);
+      ? `${t('pages_detail.tournaments.empty_message')} ${statusLabel} ${t('pages_detail.tournaments.empty_message_game')} ${selectedGameData.name}`
+      : `${t('pages_detail.tournaments.empty_message')} ${statusLabel} ${t('pages_detail.tournaments.empty_message_all_games')}`;
+  }, [getStatusLabel, selectedStatus, selectedGameData, t]);
 
   // Mémoriser les skeletons pour éviter la re-création
   const loadingSkeletons = useMemo(() =>
@@ -239,7 +241,7 @@ const TournamentsPage: React.FC = () => {
                     onClick={handleRefresh}
                     disabled={loading}
                     className="p-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg transition-colors"
-                    title={loading ? 'Chargement...' : 'Actualiser'}
+                    title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
                   >
                     <svg
                       className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
@@ -288,7 +290,7 @@ const TournamentsPage: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">
-                  Aucun tournoi {getStatusLabel(selectedStatus)}
+                  {t('pages_detail.tournaments.no_tournaments')} {getStatusLabel(selectedStatus)}
                 </h3>
                 <p className="text-gray-400 mb-4">
                   {emptyStateMessage}
@@ -297,7 +299,7 @@ const TournamentsPage: React.FC = () => {
                   onClick={handleRefresh}
                   className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-medium transition-colors"
                 >
-                  Actualiser
+                  {t('pages_detail.tournaments.refresh_button')}
                 </button>
               </div>
             )}

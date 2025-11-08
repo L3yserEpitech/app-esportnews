@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Advertisement } from '../../types';
 import AdBanner from './AdBanner';
 import AdSkeleton from '../ui/AdSkeleton';
@@ -18,6 +19,7 @@ const AdColumn: React.FC<AdColumnProps> = ({
   isLoading = false,
   className = ''
 }) => {
+  const t = useTranslations();
   // Filtrer les pubs valides et les trier par position
   const activeAds = useMemo(() =>
     (ads || [])
@@ -78,16 +80,16 @@ const AdColumn: React.FC<AdColumnProps> = ({
         {!isLoading && activeAds.length < 3 && activeAds.length > 0 && (
           <div className="bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg p-4 text-center">
             <h3 className="text-pink-400 font-medium mb-2">
-              🎆 Premium
+              {t('pages.home.ads.premium_title')}
             </h3>
             <p className="text-gray-300 text-sm mb-3">
-              Découvrir le premium pour de nombreux avantages
+              {t('pages.home.ads.premium_description')}
             </p>
             <button
               onClick={handlePremiumClick}
               className="cursor-pointer bg-pink-600 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
-              Découvrir Premium
+              {t('pages.home.ads.discover_premium_button')}
             </button>
           </div>
         )}

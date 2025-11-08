@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useGame } from '../../contexts/GameContext';
 import { tournamentService } from '../../services/tournamentService';
 import { PandaTournament } from '../../types';
 import TournamentCard from './TournamentCard';
 
 const RunningTournaments: React.FC = () => {
+  const t = useTranslations();
   const { selectedGame, getSelectedGameData } = useGame();
   const [tournaments, setTournaments] = useState<PandaTournament[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ const RunningTournaments: React.FC = () => {
         <div className="hidden md:flex items-center justify-between">
           <div className="flex items-center">
             <h2 className="text-2xl font-bold text-white mr-4">
-              Tournois en cours
+              {t('pages.home.tournaments.title')}
             </h2>
             {selectedGameData ? (
               <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
@@ -87,7 +89,7 @@ const RunningTournaments: React.FC = () => {
             ) : (
               <div className="flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
                 <span className="text-blue-400 font-medium text-sm">
-                  Tous les jeux
+                  {t('pages.home.tournaments.all_games')}
                 </span>
               </div>
             )}
@@ -106,14 +108,14 @@ const RunningTournaments: React.FC = () => {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            {loading ? 'Chargement...' : 'Actualiser'}
+            {loading ? t('pages.home.tournaments.loading_button') : t('pages.home.tournaments.refresh_button')}
           </button>
         </div>
 
         {/* Mobile layout */}
         <div className="md:hidden flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">
-            Tournois en cours
+            {t('pages.home.tournaments.title')}
           </h2>
 
           <div className="flex items-center space-x-2">
@@ -132,7 +134,7 @@ const RunningTournaments: React.FC = () => {
             ) : (
               <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 border border-gray-700 text-sm">
                 <span className="text-blue-400 font-medium">
-                  (Tous les jeux)
+                  {t('pages.home.tournaments.all_games_mobile')}
                 </span>
               </div>
             )}
@@ -142,7 +144,7 @@ const RunningTournaments: React.FC = () => {
               onClick={() => selectedGameData?.acronym ? loadTournaments(selectedGameData.acronym) : loadAllTournaments()}
               disabled={loading}
               className="p-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center"
-              aria-label={loading ? 'Chargement...' : 'Actualiser'}
+              aria-label={loading ? t('pages.home.tournaments.refresh_aria_label') : t('pages.home.tournaments.refresh_aria_label_idle')}
             >
               <svg
                 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
@@ -206,7 +208,7 @@ const RunningTournaments: React.FC = () => {
                 onClick={() => window.location.href = '/tournament'}
                 className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium"
               >
-                <span>Afficher tous</span>
+                <span>{t('pages.home.tournaments.view_all_button')}</span>
                 <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -224,12 +226,12 @@ const RunningTournaments: React.FC = () => {
             </svg>
           </div>
           <p className="text-gray-300 text-lg mb-2">
-            Aucun tournoi en cours
+            {t('pages.home.tournaments.no_tournaments')}
           </p>
           <p className="text-gray-400">
             {selectedGameData
-              ? `Il n'y a actuellement aucun tournoi en cours pour ${selectedGameData.name}`
-              : "Il n'y a actuellement aucun tournoi en cours pour tous les jeux"
+              ? `${t('pages.home.tournaments.no_tournaments_game')} ${selectedGameData.name}`
+              : t('pages.home.tournaments.no_tournaments_all_games')
             }
           </p>
         </div>

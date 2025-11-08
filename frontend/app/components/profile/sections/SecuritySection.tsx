@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Lock, Check, X, Eye, EyeOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { authService } from '@/app/services/authService';
 import { userService } from '@/app/services/userService';
 
@@ -10,6 +11,7 @@ interface SecuritySectionProps {
 }
 
 export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
+  const t = useTranslations();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -40,17 +42,17 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
     const newErrors: Record<string, string> = {};
 
     if (!formData.currentPassword) {
-      newErrors.currentPassword = 'Le mot de passe actuel est requis';
+      newErrors.currentPassword = t('profile.security_section.mot_de_passe_actuel_requis');
     }
 
     if (!formData.newPassword) {
-      newErrors.newPassword = 'Le nouveau mot de passe est requis';
+      newErrors.newPassword = t('profile.security_section.nouveau_mot_de_passe_requis');
     } else if (formData.newPassword.length < 6) {
-      newErrors.newPassword = 'Le mot de passe doit contenir au moins 6 caractères';
+      newErrors.newPassword = t('profile.security_section.mot_de_passe_min_6');
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+      newErrors.confirmPassword = t('profile.security_section.mots_de_passe_ne_correspondent');
     }
 
     setErrors(newErrors);
@@ -77,7 +79,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
 
       onUpdate();
 
-      setMessage({ type: 'success', text: 'Mot de passe modifié avec succès' });
+      setMessage({ type: 'success', text: t('profile.security_section.mot_de_passe_modifie') });
 
       // Réinitialiser le formulaire
       setFormData({
@@ -115,7 +117,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
         {/* Mot de passe actuel */}
         <div>
           <label htmlFor="currentPassword" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Mot de passe actuel
+            {t('profile.security_section.mot_de_passe_actuel')}
           </label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -144,7 +146,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
         {/* Nouveau mot de passe */}
         <div>
           <label htmlFor="newPassword" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Nouveau mot de passe
+            {t('profile.security_section.nouveau_mot_de_passe')}
           </label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -173,7 +175,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
         {/* Confirmer le mot de passe */}
         <div>
           <label htmlFor="confirmPassword" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Confirmer le mot de passe
+            {t('profile.security_section.confirmer_mot_de_passe')}
           </label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -208,12 +210,12 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
             {isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Enregistrement...</span>
+                <span>{t('profile.security_section.enregistrement')}</span>
               </>
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>Modifier le mot de passe</span>
+                <span>{t('profile.security_section.modifier_mot_de_passe')}</span>
               </>
             )}
           </button>
@@ -223,7 +225,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
       {/* Informations de sécurité */}
       <div className="mt-6 pt-6 border-t border-white/10">
         <p className="text-xs text-gray-500 leading-relaxed">
-          Utilisez un mot de passe unique d'au moins 6 caractères combinant majuscules, minuscules, chiffres et caractères spéciaux.
+          {t('profile.security_section.info_securite')}
         </p>
       </div>
     </div>

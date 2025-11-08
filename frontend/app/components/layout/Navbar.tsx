@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Gamepad2, User, LogOut, Settings } from 'lucide-react';
 import MobileGameSelector from '../games/MobileGameSelector';
@@ -21,6 +22,7 @@ const Navbar: React.FC<NavbarProps> = ({
   selectedGame,
   onGameSelectionChange
 }) => {
+  const t = useTranslations();
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -29,15 +31,20 @@ const Navbar: React.FC<NavbarProps> = ({
   const [isMobileGameSelectorOpen, setIsMobileGameSelectorOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const navLinks = useMemo(() => [
-    { href: '/', label: 'Accueil' },
-    { href: '/news', label: 'Actualités' },
-    { href: '/live', label: 'Direct' },
-    { href: '/tournois', label: 'Tournois' },
-    { href: '/articles', label: 'Articles' },
-    { href: '/calendrier', label: 'Calendrier' },
-  ], []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const navLinks = [
+    { href: '/', label: mounted ? t('layout.navbar.accueil') : '' },
+    { href: '/news', label: mounted ? t('layout.navbar.actualites') : '' },
+    { href: '/live', label: mounted ? t('layout.navbar.direct') : '' },
+    { href: '/tournois', label: mounted ? t('layout.navbar.tournois') : '' },
+    { href: '/articles', label: mounted ? t('layout.navbar.articles') : '' },
+    { href: '/calendrier', label: mounted ? t('layout.navbar.calendrier') : '' },
+  ];
 
   // Détection du scroll pour changer le background de la navbar
   useEffect(() => {
@@ -138,7 +145,8 @@ const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
                 className="p-2 rounded-lg hover:bg-gray-800/50 transition-all duration-300 text-gray-300 hover:text-white"
-                aria-label="Paramètres"
+                aria-label={t('layout.navbar.parametres')}
+                title={t('layout.navbar.parametres')}
               >
                 <Settings className={`w-5 h-5 transition-transform duration-500 ${isSettingsMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
               </button>
@@ -189,7 +197,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     />
                     <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800/30 rounded-lg shadow-2xl overflow-hidden z-20">
                       <div className="px-4 py-3 border-b border-gray-800/30">
-                        <p className="text-sm text-gray-400">Connecté en tant que</p>
+                        <p className="text-sm text-gray-400">{t('layout.navbar.connecte_en_tant_que')}</p>
                         <p className="text-sm font-medium text-white truncate">{user.email}</p>
                       </div>
                       <div className="py-2">
@@ -199,14 +207,14 @@ const Navbar: React.FC<NavbarProps> = ({
                           onClick={() => setIsUserMenuOpen(false)}
                         >
                           <User className="w-4 h-4" />
-                          <span>Mon profil</span>
+                          <span>{t('layout.navbar.mon_profil')}</span>
                         </Link>
                         <button
                           onClick={handleLogout}
                           className="cursor-pointer flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-gray-800 hover:text-red-300 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />
-                          <span>Se déconnecter</span>
+                          <span>{t('layout.navbar.se_deconnecter')}</span>
                         </button>
                       </div>
                     </div>
@@ -218,7 +226,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 href="/auth/login"
                 className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all duration-300"
               >
-                Se connecter
+                {t('layout.navbar.se_connecter')}
               </Link>
             )}
           </div>
@@ -231,7 +239,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={toggleMobileGameSelector}
                 className="text-white hover:text-gray-200 focus:outline-none focus:text-gray-200 transition-colors duration-300 p-2 rounded-lg hover:bg-gray-800/50"
-                aria-label="Sélectionner un jeu"
+                aria-label={t('layout.navbar.selectionner_un_jeu')}
               >
                 <Gamepad2 className="h-6 w-6" />
               </button>
@@ -242,7 +250,7 @@ const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={toggleMobileMenu}
               className="text-gray-300 hover:text-white focus:outline-none focus:text-white transition-colors duration-300 p-2 rounded-lg hover:bg-gray-800/50"
-              aria-label="Menu"
+              aria-label={t('layout.navbar.menu')}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? (
@@ -317,7 +325,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="flex items-center space-x-2 px-3 py-3 text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
                   >
                     <User className="w-5 h-5" />
-                    <span>Mon profil</span>
+                    <span>{t('layout.navbar.mon_profil')}</span>
                   </Link>
                   <button
                     onClick={() => {
@@ -327,7 +335,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="flex items-center space-x-2 w-full px-3 py-3 text-base font-medium text-red-400 hover:text-red-300 hover:bg-gray-800/50 rounded-lg transition-all"
                   >
                     <LogOut className="w-5 h-5" />
-                    <span>Se déconnecter</span>
+                    <span>{t('layout.navbar.se_deconnecter')}</span>
                   </button>
                 </div>
               ) : (
@@ -337,14 +345,14 @@ const Navbar: React.FC<NavbarProps> = ({
                     onClick={closeMobileMenu}
                     className="block px-3 py-3 text-base font-medium text-white hover:bg-gray-800/50 rounded-lg transition-all text-center"
                   >
-                    Se connecter
+                    {t('layout.navbar.se_connecter')}
                   </Link>
                   <Link
                     href="/auth/register"
                     onClick={closeMobileMenu}
                     className="block px-3 py-3 text-base font-medium text-white bg-gradient-to-r from-pink-600 to-pink-400 rounded-lg hover:from-pink-600/90 hover:to-pink-400/90 transition-all text-center"
                   >
-                    S'inscrire
+                    {t('layout.navbar.sinscrire')}
                   </Link>
                 </div>
               )}

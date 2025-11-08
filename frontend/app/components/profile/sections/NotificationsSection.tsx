@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Bell, Mail, Smartphone, Newspaper } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 interface NotificationPreferences {
@@ -12,6 +13,7 @@ interface NotificationPreferences {
 }
 
 export default function NotificationsSection() {
+  const t = useTranslations();
   const [settings, setSettings] = useState<NotificationPreferences>({
     notifi_push: false,
     notif_articles: false,
@@ -119,8 +121,8 @@ export default function NotificationsSection() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-white mb-2">Notifications</h2>
-          <p className="text-gray-400">Chargement des préférences...</p>
+          <h2 className="text-2xl font-bold text-white mb-2">{t('profile.notifications.notifications')}</h2>
+          <p className="text-gray-400">{t('profile.notifications.chargement_preferences')}</p>
         </div>
       </div>
     );
@@ -129,22 +131,22 @@ export default function NotificationsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Notifications</h2>
-        <p className="text-gray-400">Gérez vos préférences de notifications</p>
+        <h2 className="text-2xl font-bold text-white mb-2">{t('profile.notifications.notifications')}</h2>
+        <p className="text-gray-400">{t('profile.notifications.gerez_preferences')}</p>
       </div>
 
       {/* Paramètres de notifications */}
       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Paramètres de notifications</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">{t('profile.notifications.parametres_notifications')}</h3>
         <div className="space-y-4">
           <label className="flex items-center justify-between gap-3 cursor-pointer group">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
-                  Notifications push
+                  {t('profile.notifications.notifications_push')}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Recevoir des notifications sur votre appareil</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">{t('profile.notifications.recevoir_notifications_appareil')}</p>
               </div>
             </div>
             <button
@@ -168,9 +170,9 @@ export default function NotificationsSection() {
               <Newspaper className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
-                  Notifications d'articles
+                  {t('profile.notifications.notifications_articles')}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié des nouveaux articles</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">{t('profile.notifications.etre_notifie_articles')}</p>
               </div>
             </div>
             <button
@@ -194,9 +196,9 @@ export default function NotificationsSection() {
               <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
-                  Alertes d'actualités
+                  {t('profile.notifications.alertes_actualites')}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié des nouvelles actualités</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">{t('profile.notifications.etre_notifie_actualites')}</p>
               </div>
             </div>
             <button
@@ -220,9 +222,9 @@ export default function NotificationsSection() {
               <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62] flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm sm:text-base text-white font-medium group-hover:text-[#F22E62] transition-colors truncate">
-                  Rappels de matchs
+                  {t('profile.notifications.rappels_matchs')}
                 </p>
-                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Être notifié avant le début des matchs</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">{t('profile.notifications.etre_notifie_avant_matchs')}</p>
               </div>
             </div>
             <button
