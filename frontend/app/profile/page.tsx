@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileSidebar from '../components/profile/ProfileSidebar';
 import ProfileNavDropdown from '../components/profile/ProfileNavDropdown';
@@ -14,6 +15,7 @@ import NotificationsSection from '../components/profile/sections/NotificationsSe
 type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'notifications';
 
 export default function ProfilePage() {
+  const t = useTranslations();
   const { user, isAuthenticated, isLoading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<SidebarSection>('profile');
@@ -28,7 +30,7 @@ export default function ProfilePage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#060B13] via-[#091626] to-[#182859] flex items-center justify-center">
-        <div className="text-white text-lg">Chargement...</div>
+        <div className="text-white text-lg">{t('pages.profile.chargement')}</div>
       </div>
     );
   }
@@ -59,8 +61,8 @@ export default function ProfilePage() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Paramètres</h1>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">Gérez votre profil et vos préférences</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">{t('pages.profile.parametres')}</h1>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">{t('pages.profile.gerez_profil_preferences')}</p>
         </div>
 
         {/* Dropdown mobile uniquement */}

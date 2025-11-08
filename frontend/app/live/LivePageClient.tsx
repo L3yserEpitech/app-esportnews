@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { LiveMatch, Advertisement } from '../types';
 import { liveMatchService } from '../services/liveMatchService';
 import { advertisementService } from '../services/advertisementService';
@@ -10,6 +11,7 @@ import LiveMatchCard from '../components/matches/LiveMatchCard';
 import AdColumn from '../components/ads/AdColumn';
 
 export default function LivePage() {
+  const t = useTranslations();
   const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
@@ -197,7 +199,7 @@ export default function LivePage() {
                                  focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-200
                                  hover:border-gray-500 cursor-pointer appearance-none"
                       >
-                        <option value="all">Tous les jeux</option>
+                        <option value="all">{t('pages_detail.live.tous_les_jeux')}</option>
                         {getGameOptions.filter(game => game !== 'all').map(game => (
                           <option key={game} value={game} className="bg-gray-800">
                             {game.charAt(0).toUpperCase() + game.slice(1)}
@@ -220,9 +222,9 @@ export default function LivePage() {
                                  focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-200
                                  hover:border-gray-500 cursor-pointer appearance-none"
                       >
-                        <option value="tournament" className="bg-gray-800">Tournoi</option>
-                        <option value="time" className="bg-gray-800">Heure</option>
-                        <option value="league" className="bg-gray-800">Ligue</option>
+                        <option value="tournament" className="bg-gray-800">{t('pages_detail.live.tournoi')}</option>
+                        <option value="time" className="bg-gray-800">{t('pages_detail.live.heure')}</option>
+                        <option value="league" className="bg-gray-800">{t('pages_detail.live.ligue')}</option>
                       </select>
                       <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +259,7 @@ export default function LivePage() {
                       <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                       </svg>
-                      <span className="text-white text-sm font-medium">Filtres</span>
+                      <span className="text-white text-sm font-medium">{t('pages_detail.live.filter_label')}</span>
                       {/* Indicateurs actifs */}
                       <div className="flex items-center gap-1">
                         {filterByGame !== 'all' && (
@@ -293,7 +295,7 @@ export default function LivePage() {
                       <div className="flex flex-col gap-3 pt-3">
                         {/* Filtre par jeu mobile */}
                         <div className="relative">
-                          <label className="block text-xs text-gray-400 mb-2 font-medium">Jeu</label>
+                          <label className="block text-xs text-gray-400 mb-2 font-medium">{t('pages_detail.live.game_label')}</label>
                           <select
                             value={filterByGame}
                             onChange={(e) => setFilterByGame(e.target.value)}
@@ -301,7 +303,7 @@ export default function LivePage() {
                                      focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-all
                                      appearance-none"
                           >
-                            <option value="all">Tous les jeux</option>
+                            <option value="all">{t('pages_detail.live.tous_les_jeux')}</option>
                             {getGameOptions.filter(game => game !== 'all').map(game => (
                               <option key={game} value={game} className="bg-gray-800">
                                 {game.charAt(0).toUpperCase() + game.slice(1)}
@@ -317,7 +319,7 @@ export default function LivePage() {
 
                         {/* Tri mobile */}
                         <div className="relative">
-                          <label className="block text-xs text-gray-400 mb-2 font-medium">Tri</label>
+                          <label className="block text-xs text-gray-400 mb-2 font-medium">{t('pages_detail.live.sort_label')}</label>
                           <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as 'tournament' | 'time' | 'league')}
@@ -325,9 +327,9 @@ export default function LivePage() {
                                      focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-all
                                      appearance-none"
                           >
-                            <option value="tournament" className="bg-gray-800">Tournoi</option>
-                            <option value="time" className="bg-gray-800">Heure</option>
-                            <option value="league" className="bg-gray-800">Ligue</option>
+                            <option value="tournament" className="bg-gray-800">{t('pages_detail.live.tournoi')}</option>
+                            <option value="time" className="bg-gray-800">{t('pages_detail.live.heure')}</option>
+                            <option value="league" className="bg-gray-800">{t('pages_detail.live.ligue')}</option>
                           </select>
                           <div className="absolute right-3 top-9 pointer-events-none">
                             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,7 +348,7 @@ export default function LivePage() {
             {isLoadingMatches && (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mb-4"></div>
-                <p className="text-gray-400">Chargement des matchs en direct...</p>
+                <p className="text-gray-400">{t('pages_detail.live.chargement_matchs')}</p>
               </div>
             )}
 
@@ -355,13 +357,10 @@ export default function LivePage() {
               <div className="text-center py-12 bg-gray-900 rounded-xl">
                 <div className="text-6xl mb-4">🎮</div>
                 <h2 className="text-xl font-semibold text-white mb-2">
-                  Aucun match trouvé
+                  {t('pages_detail.live.aucun_match_trouve')}
                 </h2>
                 <p className="text-gray-400 max-w-md mx-auto">
-                  {filterByGame !== 'all'
-                    ? `Aucun match ${filterByGame} en cours pour le moment.`
-                    : 'Aucun match en cours pour le moment. Revenez plus tard !'
-                  }
+                  {t('pages_detail.live.aucun_match_moment')}
                 </p>
               </div>
             )}
@@ -372,7 +371,7 @@ export default function LivePage() {
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <h2 className="text-2xl font-bold text-white">En Direct</h2>
+                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.en_direct')}</h2>
                     <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.live.length}
                     </span>
@@ -391,7 +390,7 @@ export default function LivePage() {
                               <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                                 <h3 className="text-lg font-bold text-white capitalize">
-                                  {gameName} Matchs
+                                  {gameName} {t('pages_detail.live.game_matches')}
                                 </h3>
                                 <span className="bg-red-500/20 text-red-400 px-2.5 py-1 rounded-full text-xs font-medium">
                                   {matches.length}
@@ -428,7 +427,7 @@ export default function LivePage() {
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <h2 className="text-2xl font-bold text-white">À Venir</h2>
+                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.a_venir')}</h2>
                     <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.upcoming.length}
                     </span>
@@ -447,7 +446,7 @@ export default function LivePage() {
                               <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                 <h3 className="text-lg font-bold text-white capitalize">
-                                  {gameName} Matchs
+                                  {gameName} {t('pages_detail.live.game_matches')}
                                 </h3>
                                 <span className="bg-blue-500/20 text-blue-400 px-2.5 py-1 rounded-full text-xs font-medium">
                                   {matches.length}
@@ -484,7 +483,7 @@ export default function LivePage() {
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                    <h2 className="text-2xl font-bold text-white">Terminés</h2>
+                    <h2 className="text-2xl font-bold text-white">{t('pages_detail.live.termines')}</h2>
                     <span className="bg-gray-500/20 text-gray-400 px-3 py-1 rounded-full text-sm font-medium">
                       {groupedMatches.finished.length}
                     </span>
@@ -507,7 +506,7 @@ export default function LivePage() {
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
                                   <h3 className="text-lg font-bold text-white capitalize">
-                                    {gameName} Matchs
+                                    {gameName} {t('pages_detail.live.game_matches')}
                                   </h3>
                                   <span className="bg-gray-500/20 text-gray-400 px-2.5 py-1 rounded-full text-xs font-medium">
                                     {matches.length}
@@ -529,7 +528,7 @@ export default function LivePage() {
                           {remainingCount > 0 && (
                             <div className="text-center">
                               <p className="text-gray-400 text-sm">
-                                {remainingCount} autres matchs {gameName} terminés...
+                                {remainingCount} {t('pages_detail.live.other_finished')}
                               </p>
                             </div>
                           )}
@@ -549,7 +548,7 @@ export default function LivePage() {
                     {groupedMatches.finished.length > 12 && (
                       <div className="text-center mt-8">
                         <p className="text-gray-400">
-                          {groupedMatches.finished.length - 12} autres matchs terminés...
+                          {groupedMatches.finished.length - 12} {t('pages_detail.live.other_finished')}
                         </p>
                       </div>
                     )}

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Carousel,
   CarouselContent,
@@ -15,6 +16,7 @@ interface LiveMatchesCarouselProps {
 }
 
 export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesCarouselProps) {
+  const t = useTranslations();
   const carouselOptions = useMemo(() => ({
     align: "start" as const,
     loop: false,
@@ -26,7 +28,7 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
     return (
       <div className="text-center py-12 bg-gray-900 rounded-lg">
         <div className="text-gray-400 text-lg mb-2">
-          ⏳ Chargement des matchs...
+          {t('pages.home.matches.loading')}
         </div>
       </div>
     );
@@ -36,10 +38,10 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
     return (
       <div className="text-center py-12 bg-gray-900 rounded-lg">
         <div className="text-gray-400 text-lg mb-2">
-          🎮 Aucun match en direct
+          {t('pages.home.matches.no_matches')}
         </div>
         <p className="text-gray-500 text-sm">
-          Aucun match en cours pour le moment !
+          {t('pages.home.matches.no_matches_subtitle')}
         </p>
       </div>
     );

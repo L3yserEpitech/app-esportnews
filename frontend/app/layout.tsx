@@ -5,6 +5,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { GameProvider } from "./contexts/GameContext";
 import ClientLayout from "./components/layout/ClientLayout";
 import { Analytics } from "@vercel/analytics/next"
+import { getLanguagePreference } from "@/lib/preferences";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -39,8 +40,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = getLanguagePreference();
+  const langMap: Record<string, string> = {
+    fr: 'fr',
+    en: 'en',
+    es: 'es',
+    de: 'de',
+    it: 'it',
+  };
+
   return (
-    <html lang="fr" className="dark">
+    <html lang={langMap[locale] || 'fr'} className="dark">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#060B13" />

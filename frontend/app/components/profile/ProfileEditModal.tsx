@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Camera, User, Mail, Check, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { authService } from '@/app/services/authService';
 import { userService } from '@/app/services/userService';
 import {
@@ -19,6 +20,7 @@ interface ProfileEditModalProps {
 }
 
 export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: ProfileEditModalProps) {
+  const t = useTranslations();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -48,12 +50,12 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        setMessage({ type: 'error', text: 'Veuillez sélectionner une image valide' });
+        setMessage({ type: 'error', text: t('profile.edit_modal.veuillez_selectionner_image') });
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        setMessage({ type: 'error', text: "L'image ne doit pas dépasser 5MB" });
+        setMessage({ type: 'error', text: t('profile.edit_modal.image_ne_doit_pas_depasser') });
         return;
       }
 
@@ -151,7 +153,7 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Modifier le profil</DialogTitle>
+          <DialogTitle>{t('profile.edit_modal.modifier_profil')}</DialogTitle>
         </DialogHeader>
 
         {/* Message de feedback */}
@@ -215,7 +217,7 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="name" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Nom complet
+              {t('profile.edit_modal.nom_complet')}
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -236,7 +238,7 @@ export default function ProfileEditModal({ user, isOpen, onClose, onUpdate }: Pr
 
           <div>
             <label htmlFor="email" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              Adresse email
+              {t('profile.edit_modal.adresse_email')}
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />

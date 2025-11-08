@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { User, Mail, Edit } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import ProfileEditModal from '../ProfileEditModal';
 
 interface ProfileInfoSectionProps {
@@ -10,6 +11,7 @@ interface ProfileInfoSectionProps {
 }
 
 export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectionProps) {
+  const t = useTranslations();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -38,7 +40,7 @@ export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectio
       <div className="space-y-5">
         <div>
           <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Nom complet
+            {t('profile.edit_modal.nom_complet')}
           </label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -50,7 +52,7 @@ export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectio
 
         <div>
           <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Adresse email
+            {t('profile.edit_modal.adresse_email')}
           </label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -67,7 +69,7 @@ export default function ProfileInfoSection({ user, onUpdate }: ProfileInfoSectio
             className="w-full py-2.5 bg-[#F22E62] hover:bg-[#F22E62]/80 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <Edit className="w-4 h-4" />
-            <span>Modifier</span>
+            <span>{t('profile.edit_modal.modifier')}</span>
           </button>
         </div>
       </div>

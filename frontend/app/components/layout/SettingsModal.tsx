@@ -1,6 +1,7 @@
 'use client';
 
 import { Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { usePreferences } from '@/app/hooks/usePreferences';
 import { Language, Theme } from '@/lib/preferences';
 
@@ -10,6 +11,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const t = useTranslations();
   const { preferences, updateLanguage, updateTheme } = usePreferences();
 
   // Gérer le changement de langue
@@ -17,6 +19,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     console.log('🌍 Changement de langue:', newLanguage);
     console.log('📊 Préférences avant:', preferences);
     updateLanguage(newLanguage as Language);
+    // Recharger la page pour appliquer les traductions
+    setTimeout(() => {
+      window.location.reload();
+    }, 300);
   };
 
   // Gérer le changement de thème (toggle entre dark et light uniquement)
@@ -46,17 +52,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           <div className="px-3 py-2">
             <div className="flex items-center space-x-2 mb-2">
               <Globe className="w-4 h-4 text-gray-400" />
-              <label className="text-xs font-medium text-gray-300">Langue</label>
+              <label className="text-xs font-medium text-gray-300">{t('layout.settings_modal.langue')}</label>
             </div>
             <select
               value={preferences.language}
               onChange={(e) => handleLanguageChange(e.target.value)}
               className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
             >
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="de">Deutsch</option>
+              <option value="fr">{t('layout.settings_modal.francais')}</option>
+              <option value="en">{t('layout.settings_modal.english')}</option>
+              <option value="es">{t('layout.settings_modal.espanol')}</option>
+              <option value="de">{t('layout.settings_modal.deutsch')}</option>
+              <option value="it">{t('layout.settings_modal.italiano')}</option>
             </select>
           </div>
 
@@ -72,7 +79,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   <Monitor className="w-4 h-4 text-gray-400" />
                 )}
                 <label className="text-xs font-medium text-gray-300">
-                  {preferences.theme === 'dark' ? 'Sombre' : preferences.theme === 'light' ? 'Clair' : 'Auto'}
+                  {preferences.theme === 'dark' ? t('layout.settings_modal.sombre') : preferences.theme === 'light' ? t('layout.settings_modal.clair') : t('layout.settings_modal.auto')}
                 </label>
               </div>
 

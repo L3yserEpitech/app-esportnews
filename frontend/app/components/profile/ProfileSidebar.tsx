@@ -1,6 +1,7 @@
 'use client';
 
 import { User, Shield, Heart, Bell, Settings, LogOut } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { authService } from '@/app/services/authService';
 import { useRouter } from 'next/navigation';
 
@@ -12,14 +13,15 @@ interface ProfileSidebarProps {
 }
 
 export default function ProfileSidebar({ activeSection, onSectionChange }: ProfileSidebarProps) {
+  const t = useTranslations();
   const router = useRouter();
 
   const menuItems = [
-    { id: 'profile' as SidebarSection, label: 'Profil', icon: User },
-    { id: 'favorite-teams' as SidebarSection, label: 'Équipes', icon: Heart },
-    { id: 'security' as SidebarSection, label: 'Sécurité', icon: Shield },
-    { id: 'preferences' as SidebarSection, label: 'Préférences', icon: Settings },
-    { id: 'notifications' as SidebarSection, label: 'Notifications', icon: Bell },
+    { id: 'profile' as SidebarSection, label: t('profile.sidebar.profil'), icon: User },
+    { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
+    { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
+    { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
+    { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },
   ];
 
   const handleLogout = () => {
@@ -58,7 +60,7 @@ export default function ProfileSidebar({ activeSection, onSectionChange }: Profi
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-colors"
         >
           <LogOut className="w-4 h-4" />
-          <span>Déconnexion</span>
+          <span>{t('profile.sidebar.deconnexion')}</span>
         </button>
       </nav>
     </aside>

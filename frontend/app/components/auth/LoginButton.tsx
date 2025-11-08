@@ -1,12 +1,14 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 
 interface LoginButtonProps {
   className?: string
 }
 
 const LoginButton: React.FC<LoginButtonProps> = ({ className = '' }) => {
+  const t = useTranslations()
   const handleLogin = () => {
     signIn(undefined, { callbackUrl: '/' })
   }
@@ -21,7 +23,7 @@ const LoginButton: React.FC<LoginButtonProps> = ({ className = '' }) => {
         ${className}
       `}
     >
-      Se connecter
+      {t('pages.login.se_connecter')}
     </button>
   )
 }

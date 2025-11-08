@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useGame } from '../contexts/GameContext';
 import Calendar from '../components/calendar/Calendar';
 import TournamentCard from '../components/tournaments/TournamentCard';
@@ -15,6 +17,8 @@ import { advertisementService } from '../services/advertisementService';
 type ViewMode = 'tournaments' | 'matches';
 
 export default function CalendrierPage() {
+  const router = useRouter();
+  const t = useTranslations();
   const { games, selectedGame, setSelectedGame, isLoadingGames, getSelectedGameData } = useGame();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('tournaments');
@@ -96,8 +100,8 @@ export default function CalendrierPage() {
 
   // Gérer le clic sur un match
   const handleMatchClick = useCallback((match: PandaMatch) => {
-    // TODO: Navigation vers la page détail du match
-  }, []);
+    router.push(`/match/${match.id}`);
+  }, [router]);
 
   // Gérer le changement de mode d'affichage
   const handleViewModeChange = useCallback((mode: ViewMode) => {
@@ -114,15 +118,15 @@ export default function CalendrierPage() {
   }, [selectedDate]);
 
   const selectedGameName = useMemo(() => {
-    return selectedGameData ? selectedGameData.name : 'TOUS LES JEUX';
-  }, [selectedGameData]);
+    return selectedGameData ? selectedGameData.name : t('pages_detail.calendar.all_games');
+  }, [selectedGameData, t]);
 
   const currentData = useMemo(() => {
     return viewMode === 'tournaments' ? tournaments : matches;
   }, [viewMode, tournaments, matches]);
 
   const currentDataLabel = useMemo(() => {
-    return viewMode === 'tournaments' ? 'tournoi' : 'match';
+    return viewMode === 'tournaments' ? 'tournament' : 'match';
   }, [viewMode]);
 
   return (
@@ -176,7 +180,7 @@ export default function CalendrierPage() {
                             <span className="text-gray-400 text-sm">{selectedGameName}</span>
                             <span className="text-gray-600">•</span>
                             <span className="bg-gray-700/50 text-gray-300 px-2.5 py-1 rounded-full text-xs font-medium">
-                              {currentData.length} {currentDataLabel}{currentData.length !== 1 ? 's' : ''}
+                              {currentData.length} {currentData.length !== 1 ? t(`pages_detail.calendar.${currentDataLabel}_plural`) : t(`pages_detail.calendar.${currentDataLabel}_singular`)}
                             </span>
                           </div>
                         </div>
@@ -196,7 +200,7 @@ export default function CalendrierPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                             </svg>
                           </div>
-                          <span className="text-sm font-medium text-gray-300">Type d'affichage</span>
+                          <span className="text-sm font-medium text-gray-300">{t('pages_detail.calendar.type_affichage')}</span>
                         </div>
 
                         {/* Toggle responsive */}
@@ -210,7 +214,7 @@ export default function CalendrierPage() {
                             }`}
                           >
                             <span className="text-base">🏆</span>
-                            <span className="hidden sm:inline">Tournois</span>
+                            <span className="hidden sm:inline">{t('pages_detail.calendar.tournois')}</span>
                           </button>
                           <button
                             onClick={() => handleViewModeChange('matches')}
@@ -221,7 +225,7 @@ export default function CalendrierPage() {
                             }`}
                           >
                             <span className="text-base">⚔️</span>
-                            <span className="hidden sm:inline">Matchs</span>
+                            <span className="hidden sm:inline">{t('pages_detail.calendar.matchs')}</span>
                           </button>
                         </div>
                       </div>
@@ -234,7 +238,7 @@ export default function CalendrierPage() {
                   <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-12">
                     <div className="flex flex-col items-center justify-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mb-4"></div>
-                      <p className="text-gray-400 text-sm">Chargement des {currentDataLabel}s...</p>
+                      <p className="text-gray-400 text-sm">{viewMode === 'tournaments' ? t('pages_detail.calendar.loading_tournaments') : t('pages_detail.calendar.loading_matches')}</p>
                     </div>
                   </div>
                 ) : currentData.length === 0 ? (
@@ -248,10 +252,10 @@ export default function CalendrierPage() {
                         </div>
                       </div>
                       <h3 className="text-xl font-bold text-white mb-3">
-                        Aucun {currentDataLabel} ce jour
+                        {viewMode === 'tournaments' ? t('pages_detail.calendar.no_tournaments_on_date') : t('pages_detail.calendar.no_matches_on_date')}
                       </h3>
                       <p className="text-gray-400 max-w-md mx-auto">
-                        Aucun {currentDataLabel} prévu pour <span className="text-pink-400 font-medium">{formatSelectedDate}</span> en {selectedGameName}
+                        {viewMode === 'tournaments' ? t('pages_detail.calendar.no_data_tournaments') : t('pages_detail.calendar.no_data_matches')} <span className="text-pink-400 font-medium">{formatSelectedDate}</span> {selectedGameName}
                       </p>
                     </div>
                   </div>

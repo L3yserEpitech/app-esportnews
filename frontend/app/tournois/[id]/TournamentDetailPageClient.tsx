@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Gamepad2,
   Calendar,
@@ -55,6 +56,7 @@ const esportBackgrounds = [
 ];
 
 export default function TournamentDetailPageClient({ tournamentId }: TournamentDetailPageClientProps) {
+  const t = useTranslations('pages_detail.tournament_detail');
   const [tournament, setTournament] = useState<PandaTournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,9 +170,9 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
     const begin = new Date(tournament.begin_at);
     const end = new Date(tournament.end_at || tournament.begin_at);
 
-    if (now < begin) return 'À venir';
-    if (now > end) return 'Terminé';
-    return 'En cours';
+    if (now < begin) return t('status_upcoming');
+    if (now > end) return t('status_finished');
+    return t('status_running');
   };
 
   if (loading) {
@@ -178,7 +180,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-pink-500 border-t-pink-200 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-300">Chargement du tournoi...</p>
+          <p className="text-gray-300">{t('loading')}</p>
         </div>
       </div>
     );
@@ -189,7 +191,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <Card variant="outlined" className="p-8 max-w-md">
           <p className="text-red-400 text-center">
-            {error || 'Tournoi non trouvé'}
+            {error || t('not_found')}
           </p>
         </Card>
       </div>
@@ -253,10 +255,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             {/* Badges */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${getTierColor(tournament.tier)}`}>
-                Tier {tournament.tier.toUpperCase()}
+                {t('tier_label')} {tournament.tier.toUpperCase()}
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === 'En cours' ? 'bg-red-500/20 text-red-400' :
-                status === 'À venir' ? 'bg-orange-500/20 text-orange-400' :
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === t('status_running') ? 'bg-red-500/20 text-red-400' :
+                status === t('status_upcoming') ? 'bg-orange-500/20 text-orange-400' :
                   'bg-gray-500/20 text-gray-400'
                 }`}>
                 {status}
@@ -298,10 +300,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Gamepad2 className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-3xl font-bold text-white">Tous les Matchs</h2>
+                  <h2 className="text-3xl font-bold text-white">{t('all_matches')}</h2>
                 </div>
                 <p className="text-gray-400 text-sm ml-13">
-                  {tournament.matches.length} match{tournament.matches.length > 1 ? 's' : ''} au total
+                  {tournament.matches.length} {tournament.matches.length > 1 ? t('matches_total_plural') : t('matches_total_singular')}
                 </p>
               </div>
 
@@ -317,8 +319,8 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                     <div className="w-16 h-16 mx-auto bg-gradient-to-br from-gray-500/20 to-gray-600/10 rounded-xl flex items-center justify-center">
                       <Gamepad2 className="w-8 h-8 text-gray-400" />
                     </div>
-                    <p className="text-gray-400 text-lg">Aucun match disponible</p>
-                    <p className="text-gray-500 text-sm">Les matchs apparaîtront ici une fois programmés</p>
+                    <p className="text-gray-400 text-lg">{t('no_matches')}</p>
+                    <p className="text-gray-500 text-sm">{t('no_matches_subtitle')}</p>
                   </div>
                 </Card>
               )}
@@ -336,7 +338,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                   <div className="w-10 h-10 bg-gradient-to-br from-[#F44576] to-[#F44576] rounded-lg flex items-center justify-center shadow-lg shadow-[#F44576]/20">
                     <Newspaper className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-3xl font-bold text-white">Actualités sur ce tournoi</h2>
+                  <h2 className="text-3xl font-bold text-white">{t('related_news')}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

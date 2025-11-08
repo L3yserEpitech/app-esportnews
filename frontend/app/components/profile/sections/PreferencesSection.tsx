@@ -1,9 +1,11 @@
 'use client';
 
 import { Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { usePreferences } from '@/app/hooks/usePreferences';
 
 export default function PreferencesSection() {
+  const t = useTranslations();
   const { preferences, updatePreferences } = usePreferences();
 
   const handleSelect = (key: 'language' | 'theme', value: string) => {
@@ -13,8 +15,8 @@ export default function PreferencesSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Préférences</h2>
-        <p className="text-gray-400">Personnalisez votre expérience sur la plateforme</p>
+        <h2 className="text-2xl font-bold text-white mb-2">{t('profile.preferences_section.preferences')}</h2>
+        <p className="text-gray-400">{t('profile.preferences_section.personnalisez_experience')}</p>
       </div>
 
       <div className="space-y-4 sm:space-y-6">
@@ -22,7 +24,7 @@ export default function PreferencesSection() {
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62]" />
-            <h3 className="text-base sm:text-lg font-semibold text-white">Langue</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-white">{t('profile.preferences_section.langue')}</h3>
           </div>
           <select
             value={preferences.language}
@@ -40,7 +42,7 @@ export default function PreferencesSection() {
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-3 mb-4">
             <Monitor className="w-4 h-4 sm:w-5 sm:h-5 text-[#F22E62]" />
-            <h3 className="text-base sm:text-lg font-semibold text-white">Thème</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-white">{t('profile.preferences_section.theme')}</h3>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <button
@@ -53,7 +55,7 @@ export default function PreferencesSection() {
               }`}
             >
               <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="font-medium text-xs sm:text-sm">Clair</span>
+              <span className="font-medium text-xs sm:text-sm">{t('profile.preferences_section.clair')}</span>
             </button>
             <button
               type="button"
@@ -65,7 +67,7 @@ export default function PreferencesSection() {
               }`}
             >
               <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="font-medium text-xs sm:text-sm">Sombre</span>
+              <span className="font-medium text-xs sm:text-sm">{t('profile.preferences_section.sombre')}</span>
             </button>
             <button
               type="button"
@@ -77,7 +79,7 @@ export default function PreferencesSection() {
               }`}
             >
               <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="font-medium text-xs sm:text-sm">Auto</span>
+              <span className="font-medium text-xs sm:text-sm">{t('profile.preferences_section.auto')}</span>
             </button>
           </div>
         </div>
