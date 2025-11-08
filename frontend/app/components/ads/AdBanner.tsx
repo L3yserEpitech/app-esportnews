@@ -72,7 +72,7 @@ const AdBanner: React.FC<AdBannerProps> = ({
             aria-label={ad.title || 'Publicité vidéo'}
           >
             <source src={ad.url || undefined} type="video/mp4" />
-            <div className="flex items-center justify-center h-32 bg-gray-800 text-gray-400">
+            <div className="flex items-center justify-center h-32 bg-bg-tertiary text-text-secondary">
               Vidéo non supportée
             </div>
           </video>
@@ -89,10 +89,10 @@ const AdBanner: React.FC<AdBannerProps> = ({
         {/* Overlay avec effet de slide depuis le bas */}
         <div className="absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
           <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
-            <h3 className="text-white text-sm font-semibold mb-1">
+            <h3 className="text-text-inverse text-sm font-semibold mb-1">
               {ad.title || 'Publicité'}
             </h3>
-            <span className="text-xs text-pink-400 font-medium">Publicité</span>
+            <span className="text-xs text-accent font-medium">Publicité</span>
           </div>
         </div>
 

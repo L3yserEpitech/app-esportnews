@@ -97,3 +97,55 @@
 .articleContent em {
   font-style: italic;
 }
+
+/* LIGHT MODE STYLES */
+[data-theme="light"] .articleContent h1 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .articleContent h2 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .articleContent h3 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .articleContent p {
+  color: #4b5563;
+}
+
+[data-theme="light"] .articleContent ul {
+  color: #4b5563;
+}
+
+[data-theme="light"] .articleContent ol {
+  color: #4b5563;
+}
+
+[data-theme="light"] .articleContent li {
+  color: #4b5563;
+}
+
+[data-theme="light"] .articleContent a {
+  color: #0369a1;
+}
+
+[data-theme="light"] .articleContent a:hover {
+  color: #0284c7;
+}
+
+[data-theme="light"] .articleContent blockquote {
+  border-left-color: #F22E62;
+  color: #4b5563;
+}
+
+[data-theme="light"] .articleContent pre {
+  background-color: #f0f4f8;
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .articleContent code {
+  background-color: #f0f4f8;
+  color: #F22E62;
+}

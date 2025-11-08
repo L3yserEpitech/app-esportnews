@@ -11,12 +11,12 @@ interface TournamentCardProps {
 
 const getTierColor = (tier: string) => {
   switch (tier.toLowerCase()) {
-    case 's': return 'bg-yellow-500';
-    case 'a': return 'bg-blue-500';
-    case 'b': return 'bg-green-500';
-    case 'c': return 'bg-purple-500';
-    case 'd': return 'bg-gray-500';
-    default: return 'bg-gray-500';
+    case 's': return 'bg-[var(--color-tier-s)]';
+    case 'a': return 'bg-[var(--color-tier-a)]';
+    case 'b': return 'bg-[var(--color-tier-b)]';
+    case 'c': return 'bg-[var(--color-tier-c)]';
+    case 'd': return 'bg-[var(--color-tier-d)]';
+    default: return 'bg-[var(--color-tier-d)]';
   }
 };
 
@@ -56,7 +56,18 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
   return (
     <a
       href={`/tournois/${tournament.id}`}
-      className="group relative overflow-hidden rounded-xl bg-gray-900 border border-gray-700 hover:border-pink-500 transition-all duration-300 cursor-pointer block"
+      className="group relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer block"
+      style={{
+        backgroundColor: 'var(--color-bg-secondary)',
+        borderWidth: '1px',
+        borderColor: 'var(--color-border-secondary)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-accent)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-border-secondary)';
+      }}
     >
       {/* Image de fond avec overlay */}
       <div className="relative h-48 overflow-hidden">
@@ -64,7 +75,12 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
           className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
           style={{ backgroundImage: `url(${backgroundImage})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'linear-gradient(to top, var(--color-bg-primary) 0%, rgba(var(--color-primary-800-rgb), 0.6) 50%, transparent 100%)'
+          }}
+        />
 
         {/* Badge tier */}
         <div className="absolute top-4 left-4 flex gap-2">
@@ -93,7 +109,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
       {/* Contenu */}
       <div className="p-4">
         {/* Titre du tournoi */}
-        <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 group-hover:text-pink-400 transition-colors">
+        <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-2 group-hover:text-accent transition-colors">
           {tournament.name}
         </h3>
 
@@ -106,11 +122,11 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
               className="w-6 h-6 rounded mr-2"
             />
           )}
-          <span className="text-gray-400 text-sm">{tournament.league.name}</span>
+          <span className="text-text-secondary text-sm">{tournament.league.name}</span>
         </div>
 
         {/* Dates */}
-        <div className="text-gray-400 text-sm mb-3">
+        <div className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
           <div>{t('pages.home.tournaments.begin_label')} {formatDate(tournament.begin_at)}</div>
           {tournament.end_at && (
             <div>{t('pages.home.tournaments.end_label')} {formatDate(tournament.end_at)}</div>
@@ -121,34 +137,40 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             {prizepool && (
-              <span className="text-green-400 font-semibold text-sm">
+              <span className="font-semibold text-sm" style={{ color: 'var(--color-success)' }}>
                 💰 {prizepool}
               </span>
             )}
-            <span className="text-gray-400 text-xs">
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {tournament.teams.length} {t('pages.home.tournaments.team_count')}
             </span>
           </div>
 
           {/* Indicateur de matchs */}
-          <div className="text-gray-400 text-xs text-right">
+          <div className="text-xs text-right" style={{ color: 'var(--color-text-secondary)' }}>
             <div>{tournament.matches.length} {t('pages.home.tournaments.match_count')}</div>
-            <div className="text-pink-400">
+            <div style={{ color: 'var(--color-accent)' }}>
               {tournament.matches.filter(m => m.status === 'not_started').length} {t('pages.home.tournaments.upcoming_count')}
             </div>
           </div>
         </div>
 
         {/* Region */}
-        <div className="mt-2 pt-2 border-t border-gray-700">
-          <span className="text-gray-500 text-xs uppercase tracking-wide">
+        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--color-border-secondary)' }}>
+          <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
             {tournament.region}
           </span>
         </div>
       </div>
 
       {/* Hover effect overlay */}
-      <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(135deg, var(--color-accent), var(--color-primary-600))',
+          opacity: 0,
+        }}
+      />
     </a>
   );
 };

@@ -51,14 +51,14 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   return (
     <section className={`space-y-6 ${className}`} aria-labelledby="news-section">
       <div className="flex items-center justify-between">
-        <h2 id="news-section" className="text-2xl font-bold text-white">
+        <h2 id="news-section" className="text-2xl font-bold text-text-primary">
           {t('pages.home.news.title')}
         </h2>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleViewAllClick}
-          className="text-pink-400 hover:text-pink-300"
+          className="text-accent hover:text-accent-hover"
         >
           {t('pages.home.news.view_all_button')}
         </Button>

@@ -167,15 +167,15 @@ const TournamentsPage: React.FC = () => {
   // Mémoriser les skeletons pour éviter la re-création
   const loadingSkeletons = useMemo(() =>
     [...Array(9)].map((_, index) => (
-      <div key={`skeleton-${index}`} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden animate-pulse">
-        <div className="h-48 bg-gray-700" />
+      <div key={`skeleton-${index}`} className="bg-bg-secondary rounded-xl border border-border-primary overflow-hidden animate-pulse">
+        <div className="h-48 bg-bg-tertiary" />
         <div className="p-4">
-          <div className="h-4 bg-gray-700 rounded mb-2" />
-          <div className="h-3 bg-gray-700 rounded mb-2 w-3/4" />
-          <div className="h-3 bg-gray-700 rounded mb-3 w-1/2" />
+          <div className="h-4 bg-bg-tertiary rounded mb-2" />
+          <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
+          <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
           <div className="flex justify-between">
-            <div className="h-3 bg-gray-700 rounded w-1/4" />
-            <div className="h-3 bg-gray-700 rounded w-1/4" />
+            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
+            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ const TournamentsPage: React.FC = () => {
     )), [memoizedTournaments, selectedGameData]);
 
   return (
-    <div className="min-h-screen bg-[#060B13]">
+    <div className="min-h-screen bg-bg-primary">
       {/* Sélecteur de jeux tout en haut - masqué sur mobile */}
       <div className="pt-20 hidden md:block">
         <GameSelector
@@ -221,8 +221,8 @@ const TournamentsPage: React.FC = () => {
                         className={`
                           px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center
                           ${selectedStatus === option.value
-                            ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700'
+                            ? 'bg-accent text-text-inverse shadow-lg shadow-accent/25'
+                            : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary hover:text-text-primary border border-border-primary'
                           }
                         `}
                       >
@@ -240,7 +240,7 @@ const TournamentsPage: React.FC = () => {
                   <button
                     onClick={handleRefresh}
                     disabled={loading}
-                    className="p-2 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+                    className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
                     title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
                   >
                     <svg
@@ -264,12 +264,12 @@ const TournamentsPage: React.FC = () => {
 
             {/* Contenu des tournois */}
             {error && (
-              <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6">
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
                 <div className="flex items-center">
-                  <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                   </svg>
-                  <p className="text-red-300">{error}</p>
+                  <p className="text-red-600">{error}</p>
                 </div>
               </div>
             )}
@@ -283,21 +283,21 @@ const TournamentsPage: React.FC = () => {
                 {tournamentsGrid}
               </div>
             ) : (
-              <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-                <div className="text-gray-400 mb-4">
+              <div className="bg-bg-secondary rounded-lg border border-border-primary p-12 text-center">
+                <div className="text-text-secondary mb-4">
                   <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-xl font-semibold text-text-primary mb-2">
                   {t('pages_detail.tournaments.no_tournaments')} {getStatusLabel(selectedStatus)}
                 </h3>
-                <p className="text-gray-400 mb-4">
+                <p className="text-text-secondary mb-4">
                   {emptyStateMessage}
                 </p>
                 <button
                   onClick={handleRefresh}
-                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-medium transition-colors"
+                  className="px-4 py-2 bg-accent hover:bg-accent/80 text-text-inverse rounded-lg font-medium transition-colors"
                 >
                   {t('pages_detail.tournaments.refresh_button')}
                 </button>

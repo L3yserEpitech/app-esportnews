@@ -52,20 +52,20 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {/* Main card */}
-        <div className="relative h-full bg-gradient-to-br from-[#091626]/40 to-[#060B13]/60 border border-[#182859]/40 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col group-hover:scale-102 group-hover:-translate-y-1">
+        <div className="relative h-full bg-bg-primary border border-border-primary rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col group-hover:scale-102 group-hover:-translate-y-1">
 
         {/* Header with status and tournament */}
         <div className="relative p-4 border-b border-[#182859]/20">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">{tournamentName}</p>
-              <p className="text-xs text-gray-400 mt-1 line-clamp-2">{match.name}</p>
+              <p className="text-xs uppercase tracking-widest text-gray-400 font-semibold">{tournamentName}</p>
+              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{match.name}</p>
             </div>
 
             {/* Status badge */}
             <div className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-bold uppercase whitespace-nowrap ${
               isLive ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
-              isFinished ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30' :
+              isFinished ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30' :
               'bg-blue-500/20 text-blue-300 border border-blue-500/30'
             }`}>
               {isLive && <><Zap className="w-3 h-3 inline mr-1" />LIVE</> }
@@ -90,14 +90,14 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
                     loading="lazy"
                   />
                 ) : (
-                  <Trophy className="w-6 h-6 text-gray-500" />
+                  <Trophy className="w-6 h-6 text-gray-400" />
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-white truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight">
                   {homeTeam?.acronym || homeTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{homeTeam?.name?.slice(0, 12) || '-'}</p>
+                <p className="text-xs text-gray-400 truncate">{homeTeam?.name?.slice(0, 12) || '-'}</p>
               </div>
             </div>
 
@@ -108,7 +108,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
                   {isFinished || isLive ? (
                     <>
                       <span>{homeScore}</span>
-                      <span className="text-gray-600 mx-1">-</span>
+                      <span className="text-gray-400 mx-1">-</span>
                       <span>{awayScore}</span>
                     </>
                   ) : (
@@ -116,7 +116,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
                   )}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 font-medium bg-[#182859]/20 px-2 py-1 rounded-md">
+              <div className="text-xs text-gray-400 font-medium bg-[#182859]/20 px-2 py-1 rounded-md">
                 BO{match.number_of_games}
               </div>
             </div>
@@ -132,14 +132,14 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
                     loading="lazy"
                   />
                 ) : (
-                  <Trophy className="w-6 h-6 text-gray-500" />
+                  <Trophy className="w-6 h-6 text-gray-400" />
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-white truncate leading-tight">
+                <p className="text-xs font-bold text-primary truncate leading-tight">
                   {awayTeam?.acronym || awayTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>
+                <p className="text-xs text-gray-400 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
 
           {/* Date & Time */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
               <Calendar className="w-3.5 h-3.5 text-[#F44576]" />
               <span className="font-medium">{formatDate(match.begin_at)}</span>
               <span className="text-gray-600">•</span>

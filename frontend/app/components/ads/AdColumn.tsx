@@ -78,16 +78,28 @@ const AdColumn: React.FC<AdColumnProps> = ({
 
         {/* Message d'abonnement si moins de 3 pubs et pas en loading */}
         {!isLoading && activeAds.length < 3 && activeAds.length > 0 && (
-          <div className="bg-gradient-to-br from-pink-500/10 to-blue-600/10 border border-pink-500/20 rounded-lg p-4 text-center">
-            <h3 className="text-pink-400 font-medium mb-2">
+          <div
+            className="rounded-lg p-4 text-center border"
+            style={{
+              backgroundImage: 'linear-gradient(to bottom right, rgba(var(--accent-rgb), 0.1), rgba(3, 105, 161, 0.1))',
+              borderColor: 'rgba(var(--accent-rgb), 0.2)',
+            }}
+          >
+            <h3
+              className="font-medium mb-2"
+              style={{ color: 'var(--color-accent)' }}
+            >
               {t('pages.home.ads.premium_title')}
             </h3>
-            <p className="text-gray-300 text-sm mb-3">
+            <p className="text-text-secondary text-sm mb-3">
               {t('pages.home.ads.premium_description')}
             </p>
             <button
               onClick={handlePremiumClick}
-              className="cursor-pointer bg-pink-600 hover:bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="cursor-pointer text-text-inverse px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'var(--color-accent-hover)',
+              }}
             >
               {t('pages.home.ads.discover_premium_button')}
             </button>

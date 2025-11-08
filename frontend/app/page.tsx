@@ -110,7 +110,7 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-primary-900 text-text-primary transition-colors duration-200">
       {/* Structured Data pour SEO */}
       <WebSiteSchema />
       <OrganizationSchema />

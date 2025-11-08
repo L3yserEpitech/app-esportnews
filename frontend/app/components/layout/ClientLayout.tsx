@@ -3,6 +3,8 @@
 import { NextIntlClientProvider } from 'next-intl';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import { ThemeProvider } from '../providers/ThemeProvider';
+import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { useGame } from '../../contexts/GameContext';
 import { getLanguagePreference } from '@/lib/preferences';
 import frMessages from '@/public/locales/fr.json';
@@ -28,19 +30,23 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const locale = getLanguagePreference();
 
   return (
-    <NextIntlClientProvider
-      locale={locale}
-      messages={messages[locale]}
-      timeZone="Europe/Paris"
-    >
-      <Navbar
-        games={games}
-        selectedGame={selectedGame}
-        onGameSelectionChange={setSelectedGame}
-      />
-      {children}
-      <Footer />
-    </NextIntlClientProvider>
+    <PreferencesProvider>
+      <ThemeProvider>
+        <NextIntlClientProvider
+          locale={locale}
+          messages={messages[locale]}
+          timeZone="Europe/Paris"
+        >
+          <Navbar
+            games={games}
+            selectedGame={selectedGame}
+            onGameSelectionChange={setSelectedGame}
+          />
+          {children}
+          <Footer />
+        </NextIntlClientProvider>
+      </ThemeProvider>
+    </PreferencesProvider>
   );
 };
 
