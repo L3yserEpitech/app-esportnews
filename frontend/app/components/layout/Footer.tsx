@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import DynamicLogo from '../common/DynamicLogo';
 
 export default function Footer() {
   const t = useTranslations();
@@ -13,9 +13,7 @@ export default function Footer() {
           {/* Logo et description */}
           <div className="space-y-4">
             <Link href="/" className="inline-block">
-              <Image
-                src="/logo_blanc.png"
-                alt="EsportNews Logo"
+              <DynamicLogo
                 width={180}
                 height={60}
                 className="h-12 w-auto"

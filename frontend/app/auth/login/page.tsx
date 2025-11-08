@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import DynamicLogo from '@/app/components/common/DynamicLogo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -104,9 +104,7 @@ export default function LoginPage() {
         {/* Left side - Branding */}
         <div className="hidden lg:block space-y-8">
           <Link href="/" className="inline-block">
-            <Image
-              src="/logo_blanc.png"
-              alt="EsportNews"
+            <DynamicLogo
               width={280}
               height={180}
               className="h-16 w-auto"
