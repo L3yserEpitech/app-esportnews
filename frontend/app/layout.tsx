@@ -50,13 +50,17 @@ export default function RootLayout({
   };
 
   return (
-    <html lang={langMap[locale] || 'fr'} className="dark">
+    <html lang={langMap[locale] || 'fr'}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#060B13" />
       </head>
       <body
-        className={`${inter.variable} font-sans antialiased bg-gray-950 text-white min-h-screen`}
+        className={`${inter.variable} font-sans antialiased min-h-screen`}
+        style={{
+          backgroundColor: 'var(--color-bg-primary)',
+          color: 'var(--color-text-primary)',
+        }}
       >
         <AuthProvider>
           <GameProvider>

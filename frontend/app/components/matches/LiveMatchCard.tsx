@@ -17,20 +17,42 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
     switch (status) {
       case 'live':
         return (
-          <div className="flex items-center gap-1.5 bg-red-500/20 text-red-400 px-2 py-1 rounded-full">
-            <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></div>
+          <div
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+            style={{
+              backgroundColor: 'var(--color-status-live)',
+              color: 'white',
+              opacity: 0.2,
+            }}
+          >
+            <div
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: 'var(--color-status-live)' }}
+            ></div>
             <span className="text-xs font-medium">EN DIRECT</span>
           </div>
         );
       case 'finished':
         return (
-          <div className="bg-gray-700/50 text-gray-300 px-2 py-1 rounded-full">
+          <div
+            className="px-2 py-1 rounded-full"
+            style={{
+              backgroundColor: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
             <span className="text-xs font-medium">TERMINÉ</span>
           </div>
         );
       default:
         return (
-          <div className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
+          <div
+            className="px-2 py-1 rounded-full"
+            style={{
+              backgroundColor: 'var(--color-primary-600)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
             <span className="text-xs font-medium">À VENIR</span>
           </div>
         );
@@ -51,21 +73,40 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
   };
 
   return (
-    <div className="group relative bg-gradient-to-br from-gray-900 to-gray-950 rounded-xl p-5 border border-gray-800/50 hover:border-pink-500/30 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
+    <div
+      className="group relative rounded-xl p-5 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden"
+      style={{
+        backgroundColor: 'var(--color-bg-secondary)',
+        borderWidth: '1px',
+        borderColor: 'var(--color-border-secondary)',
+      }}
+    >
       {/* Background glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          backgroundImage: 'linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))',
+          opacity: '0.05',
+        }}
+      ></div>
 
       {/* Header */}
       <div className="relative flex items-center justify-between mb-4">
         {getStatusBadge(match.status_type)}
-        <div className="text-xs text-gray-400 font-mono">
+        <div
+          className="text-xs font-mono"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
           {formatTime(match.start_time)}
         </div>
       </div>
 
       {/* Tournament info */}
       <div className="relative mb-4">
-        <h3 className="text-white font-semibold text-sm mb-1 line-clamp-1">
+        <h3
+          className="font-semibold text-sm mb-1 line-clamp-1"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
           {match.tournament_name}
         </h3>
       </div>
@@ -75,7 +116,13 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
         <div className="flex items-center justify-between">
           {/* Home team */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border-secondary)',
+              }}
+            >
               {match.home_team_hash_image ? (
                 <img
                   src={getImageUrl(match.home_team_hash_image)}
@@ -90,13 +137,19 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
                 />
               ) : null}
               <span
-                className="text-xs font-bold text-gray-200"
-                style={{ display: match.home_team_hash_image ? 'none' : 'block' }}
+                className="text-xs font-bold"
+                style={{
+                  display: match.home_team_hash_image ? 'none' : 'block',
+                  color: 'var(--color-text-secondary)',
+                }}
               >
                 {getTeamInitials(match.home_team_name)}
               </span>
             </div>
-            <span className="text-white text-sm font-medium truncate">
+            <span
+              className="text-sm font-medium truncate"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
               {match.home_team_name}
             </span>
           </div>
@@ -104,13 +157,24 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
           {/* Score */}
           <div className="flex items-center gap-2 mx-4 flex-shrink-0">
             <div className="text-center">
-              <div className="text-lg font-bold text-pink-400">
+              <div
+                className="text-lg font-bold"
+                style={{ color: 'var(--color-accent)' }}
+              >
                 {match.home_team_score.display}
               </div>
             </div>
-            <div className="text-gray-500 text-sm">-</div>
+            <div
+              className="text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              -
+            </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-pink-400">
+              <div
+                className="text-lg font-bold"
+                style={{ color: 'var(--color-accent)' }}
+              >
                 {match.away_team_score.display}
               </div>
             </div>
@@ -118,10 +182,19 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
 
           {/* Away team */}
           <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-            <span className="text-white text-sm font-medium truncate text-right">
+            <span
+              className="text-sm font-medium truncate text-right"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
               {match.away_team_name}
             </span>
-            <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border-secondary)',
+              }}
+            >
               {match.away_team_hash_image ? (
                 <img
                   src={getImageUrl(match.away_team_hash_image)}
@@ -136,8 +209,11 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
                 />
               ) : null}
               <span
-                className="text-xs font-bold text-gray-200"
-                style={{ display: match.away_team_hash_image ? 'none' : 'block' }}
+                className="text-xs font-bold"
+                style={{
+                  display: match.away_team_hash_image ? 'none' : 'block',
+                  color: 'var(--color-text-secondary)',
+                }}
               >
                 {getTeamInitials(match.away_team_name)}
               </span>
@@ -147,16 +223,33 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="relative pt-3 border-t border-gray-800/50">
+      <div
+        className="relative pt-3 border-t"
+        style={{ borderColor: 'var(--color-border-secondary)' }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-medium">{match.class_name}</span>
+            <span
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {match.class_name}
+            </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 truncate max-w-[100px]">
+            <span
+              className="text-xs truncate max-w-[100px]"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
               {match.league_name}
             </span>
-            <div className="w-4 h-4 bg-gradient-to-br from-gray-700 to-gray-800 rounded-sm flex-shrink-0 overflow-hidden border border-gray-600">
+            <div
+              className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border-secondary)',
+              }}
+            >
               {match.league_hash_image ? (
                 <img
                   src={getImageUrl(match.league_hash_image)}
@@ -166,7 +259,9 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
                     const parent = target.parentElement;
-                    if (parent) parent.classList.add('bg-gradient-to-br', 'from-pink-500', 'to-blue-500');
+                    if (parent) {
+                      parent.style.backgroundImage = `linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))`;
+                    }
                   }}
                 />
               ) : null}
@@ -176,11 +271,20 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
       </div>
 
       {/* Match name overlay on hover */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 gap-1">
+      <div
+        className="absolute inset-0 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 gap-1"
+        style={{ backgroundColor: 'var(--color-bg-overlay)' }}
+      >
         <div className="flex items-center justify-between w-full max-w-xs">
           {/* Home team logo */}
           <div className="flex flex-col items-center gap-1.5 flex-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 overflow-hidden">
+            <div
+              className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border-secondary)',
+              }}
+            >
               {match.home_team_hash_image ? (
                 <img
                   src={getImageUrl(match.home_team_hash_image)}
@@ -195,23 +299,40 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
                 />
               ) : null}
               <span
-                className="text-sm font-bold text-gray-200"
-                style={{ display: match.home_team_hash_image ? 'none' : 'block' }}
+                className="text-sm font-bold"
+                style={{
+                  display: match.home_team_hash_image ? 'none' : 'block',
+                  color: 'var(--color-text-secondary)',
+                }}
               >
                 {getTeamInitials(match.home_team_name)}
               </span>
             </div>
-            <span className="text-xs text-gray-300 font-medium text-center max-w-[70px] truncate">
+            <span
+              className="text-xs font-medium text-center max-w-[70px] truncate"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               {match.home_team_name}
             </span>
           </div>
 
           {/* VS separator */}
-          <div className="text-2xl font-bold text-pink-400 flex-shrink-0">VS</div>
+          <div
+            className="text-2xl font-bold flex-shrink-0"
+            style={{ color: 'var(--color-accent)' }}
+          >
+            VS
+          </div>
 
           {/* Away team logo */}
           <div className="flex flex-col items-center gap-1.5 flex-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 overflow-hidden">
+            <div
+              className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border-secondary)',
+              }}
+            >
               {match.away_team_hash_image ? (
                 <img
                   src={getImageUrl(match.away_team_hash_image)}
@@ -226,13 +347,19 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
                 />
               ) : null}
               <span
-                className="text-sm font-bold text-gray-200"
-                style={{ display: match.away_team_hash_image ? 'none' : 'block' }}
+                className="text-sm font-bold"
+                style={{
+                  display: match.away_team_hash_image ? 'none' : 'block',
+                  color: 'var(--color-text-secondary)',
+                }}
               >
                 {getTeamInitials(match.away_team_name)}
               </span>
             </div>
-            <span className="text-xs text-gray-300 font-medium text-center max-w-[70px] truncate">
+            <span
+              className="text-xs font-medium text-center max-w-[70px] truncate"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               {match.away_team_name}
             </span>
           </div>

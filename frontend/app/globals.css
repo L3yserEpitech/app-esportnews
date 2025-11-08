@@ -3,13 +3,60 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Variables CSS pour le design system */
+/* Variables CSS pour le design system - DARK MODE (DEFAULT) */
 :root {
-  /* Couleurs principales du CLAUDE.md */
+  /* Couleurs principales du CLAUDE.md - Dark */
   --primary-900: #060B13;
   --primary-800: #091626;
   --primary-600: #182859;
-  --accent: oklch(0.97 0 0);
+  --accent: #F22E62;
+
+  /* Colors - Dark Mode */
+  --color-primary-900: #060B13;
+  --color-primary-800: #091626;
+  --color-primary-600: #182859;
+
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B0B0B0;
+  --color-text-muted: #808080;
+  --color-text-muted-alt: #6B7280;
+  --color-text-inverse: #000000;
+  --color-text-accent: #F22E62;
+
+  --color-bg-primary: #060B13;
+  --color-bg-secondary: #091626;
+  --color-bg-tertiary: #182859;
+  --color-bg-surface: #091626;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-active: rgba(255, 255, 255, 0.1);
+  --color-bg-disabled: rgba(255, 255, 255, 0.05);
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  --color-accent: #F22E62;
+  --color-accent-hover: #D91E52;
+  --color-accent-alt: #F54A7B;
+
+  --color-border-primary: #182859;
+  --color-border-secondary: #091626;
+  --color-border-accent: #F22E62;
+  --color-border-muted: #374151;
+  --color-border-focus: #F22E62;
+
+  --color-status-live: #FF4444;
+  --color-status-upcoming: #FFA500;
+  --color-status-finished: #808080;
+  --color-status-success: #4ADE80;
+
+  --color-card-bg: #091626;
+  --color-card-border: #182859;
+  --color-card-text: #FFFFFF;
+  --color-card-text-secondary: #B0B0B0;
+
+  --color-input-bg: #060B13;
+  --color-input-border: #374151;
+  --color-input-border-focus: #F22E62;
+  --color-input-text: #FFFFFF;
+  --color-input-placeholder: #808080;
 
   /* Variables thème */
   --font-inter: var(--font-inter);
@@ -211,6 +258,107 @@ body {
 
   .no-print {
     display: none;
+  }
+}
+
+/* LIGHT MODE */
+[data-theme="light"] {
+  /* Colors - Light Mode */
+  --color-primary-900: #F8F9FA;
+  --color-primary-800: #FFFFFF;
+  --color-primary-600: #F0F4F8;
+
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #808080;
+  --color-text-muted-alt: #A0A0A0;
+  --color-text-inverse: #FFFFFF;
+  --color-text-accent: #F22E62;
+
+  --color-bg-primary: #F8F9FA;
+  --color-bg-secondary: #FFFFFF;
+  --color-bg-tertiary: #F0F4F8;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-hover: rgba(0, 0, 0, 0.05);
+  --color-bg-active: rgba(0, 0, 0, 0.08);
+  --color-bg-disabled: rgba(0, 0, 0, 0.04);
+  --color-bg-overlay: rgba(0, 0, 0, 0.3);
+
+  --color-accent: #F22E62;
+  --color-accent-hover: #D91E52;
+  --color-accent-alt: #F54A7B;
+
+  --color-border-primary: #E5E7EB;
+  --color-border-secondary: #F0F4F8;
+  --color-border-accent: #F22E62;
+  --color-border-muted: #D1D5DB;
+  --color-border-focus: #F22E62;
+
+  --color-status-live: #FF4444;
+  --color-status-upcoming: #FFA500;
+  --color-status-finished: #999999;
+  --color-status-success: #4ADE80;
+
+  --color-card-bg: #FFFFFF;
+  --color-card-border: #E5E7EB;
+  --color-card-text: #1A1A1A;
+  --color-card-text-secondary: #4B5563;
+
+  --color-input-bg: #F8F9FA;
+  --color-input-border: #D1D5DB;
+  --color-input-border-focus: #F22E62;
+  --color-input-text: #1A1A1A;
+  --color-input-placeholder: #808080;
+}
+
+/* AUTO MODE - Respect système preference */
+[data-theme="auto"] {
+  @media (prefers-color-scheme: light) {
+    --color-primary-900: #F8F9FA;
+    --color-primary-800: #FFFFFF;
+    --color-primary-600: #F0F4F8;
+
+    --color-text-primary: #1A1A1A;
+    --color-text-secondary: #4B5563;
+    --color-text-muted: #808080;
+    --color-text-muted-alt: #A0A0A0;
+    --color-text-inverse: #FFFFFF;
+    --color-text-accent: #F22E62;
+
+    --color-bg-primary: #F8F9FA;
+    --color-bg-secondary: #FFFFFF;
+    --color-bg-tertiary: #F0F4F8;
+    --color-bg-surface: #FFFFFF;
+    --color-bg-hover: rgba(0, 0, 0, 0.05);
+    --color-bg-active: rgba(0, 0, 0, 0.08);
+    --color-bg-disabled: rgba(0, 0, 0, 0.04);
+    --color-bg-overlay: rgba(0, 0, 0, 0.3);
+
+    --color-accent: #F22E62;
+    --color-accent-hover: #D91E52;
+    --color-accent-alt: #F54A7B;
+
+    --color-border-primary: #E5E7EB;
+    --color-border-secondary: #F0F4F8;
+    --color-border-accent: #F22E62;
+    --color-border-muted: #D1D5DB;
+    --color-border-focus: #F22E62;
+
+    --color-status-live: #FF4444;
+    --color-status-upcoming: #FFA500;
+    --color-status-finished: #999999;
+    --color-status-success: #4ADE80;
+
+    --color-card-bg: #FFFFFF;
+    --color-card-border: #E5E7EB;
+    --color-card-text: #1A1A1A;
+    --color-card-text-secondary: #4B5563;
+
+    --color-input-bg: #F8F9FA;
+    --color-input-border: #D1D5DB;
+    --color-input-border-focus: #F22E62;
+    --color-input-text: #1A1A1A;
+    --color-input-placeholder: #808080;
   }
 }
 
