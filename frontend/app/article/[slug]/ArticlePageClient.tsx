@@ -214,7 +214,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
                     {article.tags.map((tag, index) => (
                       <span
                         key={index}
-                        className="bg-bg-tertiary text-text-secondary px-3 py-1 rounded-full text-sm hover:bg-border-muted transition-colors"
+                        className="bg-[#F22E62] text-white px-3 py-1 rounded-full text-sm hover:bg-[#F22E62]/80 transition-colors"
                       >
                         #{tag}
                       </span>
