@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: esportnews_postgres
+    environment:
+      POSTGRES_USER: esportnews
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: esportnews
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esportnews"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - esportnews_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: esportnews_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory-policy allkeys-lru --maxmemory 256mb
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - esportnews_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esportnews_backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      ENV: "development"
+      DATABASE_URL: "postgres://esportnews:secret@postgres:5432/esportnews"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "your-secret-key"
+      FRONTEND_URL: "http://localhost:3002"
+      PANDASCORE_API_KEY: "rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - esportnews_network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: esportnews_frontend
+    ports:
+      - "3002:3002"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:4000"
+    depends_on:
+      - backend
+    networks:
+      - esportnews_network
+
+volumes:
+  postgres_data:
+
+networks:
+  esportnews_network:
+    driver: bridge

@@ -9,7 +9,8 @@ interface TournamentCardProps {
   showGameBadge?: boolean; // Afficher le badge du jeu quand on montre tous les jeux
 }
 
-const getTierColor = (tier: string) => {
+const getTierColor = (tier: string | null | undefined) => {
+  if (!tier) return 'bg-[var(--color-tier-d)]';
   switch (tier.toLowerCase()) {
     case 's': return 'bg-[var(--color-tier-s)]';
     case 'a': return 'bg-[var(--color-tier-a)]';
@@ -84,9 +85,11 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
 
         {/* Badge tier */}
         <div className="absolute top-4 left-4 flex gap-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-bold text-white uppercase ${getTierColor(tournament.tier)}`}>
-            {t('pages.home.tournaments.tier_label')} {tournament.tier.toUpperCase()}
-          </span>
+          {tournament.tier && (
+            <span className={`px-2 py-1 rounded-full text-xs font-bold text-white uppercase ${getTierColor(tournament.tier)}`}>
+              {t('pages.home.tournaments.tier_label')} {tournament.tier.toUpperCase()}
+            </span>
+          )}
           {showGameBadge && tournament.gameSlug && (
             <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded-full uppercase">
               {tournament.gameSlug}
@@ -114,16 +117,18 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
         </h3>
 
         {/* Informations de la ligue */}
-        <div className="flex items-center mb-2">
-          {tournament.league.image_url && (
-            <img
-              src={tournament.league.image_url}
-              alt={tournament.league.name}
-              className="w-6 h-6 rounded mr-2"
-            />
-          )}
-          <span className="text-text-secondary text-sm">{tournament.league.name}</span>
-        </div>
+        {tournament.league && (
+          <div className="flex items-center mb-2">
+            {tournament.league.image_url && (
+              <img
+                src={tournament.league.image_url}
+                alt={tournament.league.name}
+                className="w-6 h-6 rounded mr-2"
+              />
+            )}
+            <span className="text-text-secondary text-sm">{tournament.league.name}</span>
+          </div>
+        )}
 
         {/* Dates */}
         <div className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
@@ -142,15 +147,15 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
               </span>
             )}
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {tournament.teams.length} {t('pages.home.tournaments.team_count')}
+              {tournament.teams?.length || 0} {t('pages.home.tournaments.team_count')}
             </span>
           </div>
 
           {/* Indicateur de matchs */}
           <div className="text-xs text-right" style={{ color: 'var(--color-text-secondary)' }}>
-            <div>{tournament.matches.length} {t('pages.home.tournaments.match_count')}</div>
+            <div>{tournament.matches?.length || 0} {t('pages.home.tournaments.match_count')}</div>
             <div style={{ color: 'var(--color-accent)' }}>
-              {tournament.matches.filter(m => m.status === 'not_started').length} {t('pages.home.tournaments.upcoming_count')}
+              {tournament.matches?.filter(m => m.status === 'not_started').length || 0} {t('pages.home.tournaments.upcoming_count')}
             </div>
           </div>
         </div>

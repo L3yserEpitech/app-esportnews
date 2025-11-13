@@ -20,6 +20,10 @@ class ArticleService {
       const data: SupabaseArticle[] = await response.json();
 
       // Transformer les données API vers le format NewsItem
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+
       return data.map((item: SupabaseArticle) => ({
         id: item.id,
         slug: item.slug,
@@ -115,6 +119,10 @@ class ArticleService {
       const data: SupabaseArticle[] = await response.json();
 
       // Transformer les données API vers le format NewsItem
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+
       return data.map((item: SupabaseArticle) => ({
         id: item.id,
         slug: item.slug,

@@ -19,6 +19,11 @@ class AdvertisementService {
 
       const data = await response.json();
 
+      // Vérifier que data est un array valide
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+
       // Trier par position et limiter à 3 emplacements maximum
       return data
         .filter((ad: Advertisement) => ad.url && ad.redirect_link) // Filtrer les ads valides

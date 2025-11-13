@@ -4,14 +4,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useGame } from '../contexts/GameContext';
 import { PandaTournament, Advertisement } from '../types';
-import { tournamentService, TournamentFiltersType } from '../services/tournamentService';
 import { advertisementService } from '../services/advertisementService';
 import TournamentCard from '../components/tournaments/TournamentCard';
-import TournamentFilters from '../components/tournaments/TournamentFilters';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
-
-type TournamentStatus = 'running' | 'upcoming' | 'finished';
 
 const TournamentsPage: React.FC = () => {
   const t = useTranslations();
@@ -19,13 +15,11 @@ const TournamentsPage: React.FC = () => {
   const [tournaments, setTournaments] = useState<PandaTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<TournamentStatus>('running');
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [filters, setFilters] = useState<TournamentFiltersType>({
-    tiers: []
-  });
+  const [currentPage, setCurrentPage] = useState(0);
+  const TOURNAMENTS_PER_PAGE = 12;
 
   // Mémoriser les données du jeu sélectionné
   const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
@@ -35,63 +29,32 @@ const TournamentsPage: React.FC = () => {
   const memoizedAds = useMemo(() => ads, [ads]);
   const memoizedGames = useMemo(() => games, [games]);
 
-  // Charger les tournois selon le statut, le jeu sélectionné et les filtres
-  const loadTournaments = useCallback(async (
-    status: TournamentStatus,
-    gameAcronym?: string,
-    currentFilters?: TournamentFiltersType
-  ) => {
+  // Charger les tournois avec pagination via l'API
+  const loadTournaments = useCallback(async (page: number = 0) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Utiliser la nouvelle méthode avec filtres
-      const activeFilters = currentFilters || filters;
-      const hasFilters = activeFilters.tiers.length > 0;
+      const offset = page * TOURNAMENTS_PER_PAGE;
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-      let tournamentsData: PandaTournament[];
-
-      if (hasFilters) {
-        // Utiliser la route filtrée
-        tournamentsData = await tournamentService.getFilteredTournaments(
-          status,
-          gameAcronym,
-          activeFilters
-        );
-      } else {
-        // Utiliser les routes existantes
-        if (gameAcronym) {
-          switch (status) {
-            case 'running':
-              tournamentsData = await tournamentService.getRunningTournaments(gameAcronym);
-              break;
-            case 'upcoming':
-              tournamentsData = await tournamentService.getUpcomingTournaments(gameAcronym);
-              break;
-            case 'finished':
-              tournamentsData = await tournamentService.getFinishedTournaments(gameAcronym);
-              break;
-            default:
-              tournamentsData = await tournamentService.getRunningTournaments(gameAcronym);
-          }
-        } else {
-          switch (status) {
-            case 'running':
-              tournamentsData = await tournamentService.getAllRunningTournaments();
-              break;
-            case 'upcoming':
-              tournamentsData = await tournamentService.getAllUpcomingTournaments();
-              break;
-            case 'finished':
-              tournamentsData = await tournamentService.getAllFinishedTournaments();
-              break;
-            default:
-              tournamentsData = await tournamentService.getAllRunningTournaments();
-          }
+      const response = await fetch(
+        `${baseUrl}/api/tournaments?limit=${TOURNAMENTS_PER_PAGE}&offset=${offset}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tournaments');
       }
 
-      setTournaments(tournamentsData);
+      const tournamentsData = await response.json();
+      setTournaments(Array.isArray(tournamentsData) ? tournamentsData : []);
+      setCurrentPage(page);
     } catch (err) {
       console.error('Error loading tournaments:', err);
       setError(t('pages_detail.tournaments.error_loading'));
@@ -99,7 +62,7 @@ const TournamentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [t, TOURNAMENTS_PER_PAGE]);
 
   // Charger les publicités
   const loadAds = useCallback(async () => {
@@ -114,55 +77,39 @@ const TournamentsPage: React.FC = () => {
     }
   }, []);
 
-  // Recharger quand le jeu, le statut ou les filtres changent
+  // Recharger au démarrage (page 0)
   useEffect(() => {
-    const gameAcronym = selectedGameData?.acronym;
-    loadTournaments(selectedStatus, gameAcronym, filters);
-  }, [selectedStatus, selectedGameData?.acronym, filters, loadTournaments]);
+    setCurrentPage(0);
+    loadTournaments(0);
+  }, [loadTournaments]);
 
   // Charger les publicités au démarrage
   useEffect(() => {
     loadAds();
   }, [loadAds]);
 
-  // Mémoriser les options de statut avec les counts
-  const statusOptions = useMemo(() => [
-    { value: 'running' as const, label: t('pages_detail.tournaments.status_running'), count: memoizedTournaments.length },
-    { value: 'upcoming' as const, label: t('pages_detail.tournaments.status_upcoming'), count: 0 },
-    { value: 'finished' as const, label: t('pages_detail.tournaments.status_finished'), count: 0 }
-  ], [memoizedTournaments.length, t]);
-
-  // Mémoriser la fonction getStatusLabel
-  const getStatusLabel = useCallback((status: TournamentStatus) => {
-    switch (status) {
-      case 'running': return t('pages_detail.tournaments.status_label_running');
-      case 'upcoming': return t('pages_detail.tournaments.status_label_upcoming');
-      case 'finished': return t('pages_detail.tournaments.status_label_finished');
-      default: return t('pages_detail.tournaments.status_label_running');
-    }
-  }, [t]);
 
   // Mémoriser les handlers
   const handleRefresh = useCallback(() => {
-    loadTournaments(selectedStatus, selectedGameData?.acronym, filters);
-  }, [loadTournaments, selectedStatus, selectedGameData?.acronym, filters]);
+    setCurrentPage(0);
+    loadTournaments(0);
+  }, [loadTournaments]);
 
-  const handleStatusChange = useCallback((newStatus: TournamentStatus) => {
-    setSelectedStatus(newStatus);
-  }, []);
+  const handlePreviousPage = useCallback(() => {
+    if (currentPage > 0) {
+      const newPage = currentPage - 1;
+      setCurrentPage(newPage);
+      loadTournaments(newPage);
+    }
+  }, [currentPage, loadTournaments]);
 
-  const handleFiltersChange = useCallback((newFilters: TournamentFiltersType) => {
-    setFilters(newFilters);
-  }, []);
+  const handleNextPage = useCallback(() => {
+    const newPage = currentPage + 1;
+    setCurrentPage(newPage);
+    loadTournaments(newPage);
+  }, [currentPage, loadTournaments]);
 
   // Mémoriser les propriétés de rendu pour éviter les re-créations
-
-  const emptyStateMessage = useMemo(() => {
-    const statusLabel = getStatusLabel(selectedStatus);
-    return selectedGameData
-      ? `${t('pages_detail.tournaments.empty_message')} ${statusLabel} ${t('pages_detail.tournaments.empty_message_game')} ${selectedGameData.name}`
-      : `${t('pages_detail.tournaments.empty_message')} ${statusLabel} ${t('pages_detail.tournaments.empty_message_all_games')}`;
-  }, [getStatusLabel, selectedStatus, selectedGameData, t]);
 
   // Mémoriser les skeletons pour éviter la re-création
   const loadingSkeletons = useMemo(() =>
@@ -209,31 +156,14 @@ const TournamentsPage: React.FC = () => {
           <div className="flex gap-8">
             {/* Contenu principal */}
             <div className="flex-1 max-w-none">
-              {/* Header avec menu de statut et bouton actualiser */}
+              {/* Header avec bouton actualiser et pagination */}
               <div className="mb-6 pt-4">
                 <div className="flex items-center justify-between">
-                  {/* Menu de sélection du statut */}
-                  <div className="flex flex-wrap gap-2">
-                    {statusOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleStatusChange(option.value)}
-                        className={`
-                          px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center
-                          ${selectedStatus === option.value
-                            ? 'bg-accent text-text-inverse shadow-lg shadow-accent/25'
-                            : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary hover:text-text-primary border border-border-primary'
-                          }
-                        `}
-                      >
-                        {option.label}
-                        {selectedStatus === option.value && memoizedTournaments.length > 0 && (
-                          <span className="ml-2 px-2 py-0.5 bg-white/20 text-xs rounded-full">
-                            {memoizedTournaments.length}
-                          </span>
-                        )}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-text-primary">Tous les tournois</h2>
+                    <span className="text-text-secondary text-sm">
+                      Page {currentPage + 1} • {memoizedTournaments.length} tournois
+                    </span>
                   </div>
 
                   {/* Bouton actualiser - icon seulement */}
@@ -255,13 +185,6 @@ const TournamentsPage: React.FC = () => {
                 </div>
               </div>
 
-            {/* Filtres des tournois */}
-            <TournamentFilters
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              className="mb-8"
-            />
-
             {/* Contenu des tournois */}
             {error && (
               <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
@@ -279,9 +202,34 @@ const TournamentsPage: React.FC = () => {
                 {loadingSkeletons}
               </div>
             ) : memoizedTournaments.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {tournamentsGrid}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {tournamentsGrid}
+                </div>
+
+                {/* Pagination */}
+                <div className="mt-12 flex items-center justify-center gap-4">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 0 || loading}
+                    className="px-6 py-2 bg-bg-secondary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed text-text-primary rounded-lg font-medium transition-colors border border-border-primary"
+                  >
+                    ← Précédent
+                  </button>
+
+                  <span className="text-text-secondary font-medium">
+                    Page {currentPage + 1}
+                  </span>
+
+                  <button
+                    onClick={handleNextPage}
+                    disabled={memoizedTournaments.length < TOURNAMENTS_PER_PAGE || loading}
+                    className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse rounded-lg font-medium transition-colors"
+                  >
+                    Suivant →
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="bg-bg-secondary rounded-lg border border-border-primary p-12 text-center">
                 <div className="text-text-secondary mb-4">
@@ -290,10 +238,10 @@ const TournamentsPage: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-text-primary mb-2">
-                  {t('pages_detail.tournaments.no_tournaments')} {getStatusLabel(selectedStatus)}
+                  {t('pages_detail.tournaments.no_tournaments')}
                 </h3>
                 <p className="text-text-secondary mb-4">
-                  {emptyStateMessage}
+                  Aucun tournoi trouvé pour cette page.
                 </p>
                 <button
                   onClick={handleRefresh}

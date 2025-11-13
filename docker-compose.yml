@@ -1,40 +1,90 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: esportnews-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: esportnews
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend-go/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - esportnews
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d esportnews"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: esportnews-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - esportnews
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
-      context: ./backend
+      context: ./backend-go
       dockerfile: Dockerfile
+    container_name: esportnews-backend
     ports:
-      - "4343:4343"
+      - "4000:4000"
     environment:
-      - NODE_ENV=development
-      - PORT=4343
-      - VERCEL_TOKEN=${VERCEL_TOKEN}
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - PORT=4000
+      - ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/esportnews
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-jz0t+KB0qyBF/hsv4r0MCdEMYJGSfdFxpJ0V5usLuu8=}
+      - PANDASCORE_API_KEY=${PANDASCORE_API_KEY:-rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk}
+      - FRONTEND_URL=http://localhost:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - esportnews
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: esportnews-frontend
     ports:
-      - "3000:3000"
+      - "3002:3002"
     environment:
       - NODE_ENV=development
-      - PORT=3000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    networks:
-      - esportnews
+      - PORT=3002
+      - NEXT_PUBLIC_API_URL=http://127.0.0.1:4000/api
     depends_on:
       - backend
+    networks:
+      - esportnews
     restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
 
 networks:
   esportnews:
