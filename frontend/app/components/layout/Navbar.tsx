@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Gamepad2, User, LogOut, Settings } from 'lucide-react';
@@ -18,10 +18,12 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({
-  games = [],
+  games,
   selectedGame,
   onGameSelectionChange
 }) => {
+  const gamesList = games ?? [];
+
   const t = useTranslations();
   const pathname = usePathname();
   const router = useRouter();
@@ -245,7 +247,7 @@ const Navbar: React.FC<NavbarProps> = ({
           {/* Mobile buttons */}
           <div className="md:hidden flex items-center space-x-3">
             {/* Mobile game selector button */}
-            {games.length > 0 && (
+            {gamesList.length > 0 && (
               <button
                 type="button"
                 onClick={toggleMobileGameSelector}
@@ -381,9 +383,9 @@ const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Mobile Game Selector */}
-      {games.length > 0 && onGameSelectionChange && (
+      {gamesList.length > 0 && onGameSelectionChange && (
         <MobileGameSelector
-          games={games}
+          games={gamesList}
           selectedGame={selectedGame}
           onSelectionChange={onGameSelectionChange}
           isOpen={isMobileGameSelectorOpen}

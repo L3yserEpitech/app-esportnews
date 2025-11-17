@@ -1,6 +1,3 @@
--- +goose Up
--- +goose StatementBegin
-
 CREATE TABLE IF NOT EXISTS public.users (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -137,18 +134,3 @@ CREATE INDEX idx_matches_tournament_id ON public.matches(tournament_id);
 CREATE INDEX idx_matches_begin_at ON public.matches(begin_at);
 CREATE INDEX idx_games_pandascore_match_id ON public.games_pandascore(match_id);
 CREATE INDEX idx_games_pandascore_panda_id ON public.games_pandascore(panda_id);
-
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
-
-DROP TABLE IF EXISTS public.games_pandascore;
-DROP TABLE IF EXISTS public.matches;
-DROP TABLE IF EXISTS public.tournaments;
-DROP TABLE IF EXISTS public.ads;
-DROP TABLE IF EXISTS public.articles;
-DROP TABLE IF EXISTS public.games;
-DROP TABLE IF EXISTS public.users;
-
--- +goose StatementEnd
