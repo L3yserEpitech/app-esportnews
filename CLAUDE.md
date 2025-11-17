@@ -11,8 +11,8 @@
 * **Valeur clé / différenciation** : Focus **live-only** agrégé (SportDevs), tournois/équipes/matchs structurés (PandaScore), UX rapide par **jeu** et calendrier simple.
 * **Mesure du succès (KPI)** : CTR jeux en home, temps sur « Direct », clics pubs, impressions bannières publicitaires, conversions abonnement (no-popup-ads mobile), pages vues News/Articles, retour visiteurs.
 * **Contraintes business** : Pas de back-office à développer (déjà existant). Pas de conservation de données côté app. Pas de limite API contractuelle.
-* **Backend** : Backend node présent dans /backend/api
-**
+* **Infrastructure** : Migration de Vercel/Supabase vers déploiement local (PostgreSQL + Redis + Go backend en Docker Compose).
+* **Backend** : Backend Go en cours de finalisation dans `/backend-go` (remplace ancien Node.js `/backend/api`)
 
 ### Décisions actées (20/09/2025)
 
@@ -52,24 +52,117 @@
 * **Stratégie mots-clés** : primaire / secondaires, intention.
 * **Règles URL** : kebab-case, i18n, redirections (301/302), canonical.
 
+## 2bis) Infrastructure & Déploiement
+
+* **Stack infrastructure** :
+  - **Backend** : Go 1.22 + Echo framework (remplace Node.js)
+  - **Database** : PostgreSQL 15 (local, via Docker)
+  - **Cache** : Redis 7 (live data + sessions)
+  - **Frontend** : Next.js 15 (Node.js + Turbopack)
+  - **Orchestration** : Docker Compose (3 conteneurs : postgres, redis, backend-go)
+
+* **Architecture de synchronisation** :
+  - Backend Go polling **PandaScore toutes les 5 minutes**
+  - Insertion/update automatique des tournaments et matches
+  - Déduplication via `panda_id` unique
+  - Aucun stockage persistant de données **SportDevs** (cache Redis seulement)
+
+* **Données persistantes vs volatiles** :
+  - **Persistantes** : users, articles, ads (édités via back-office)
+  - **Volatiles/Sync'd** : tournaments, matches, games_pandascore (PandaScore)
+  - **Cache Redis** : live data (30 sec TTL), sessions utilisateur
+
 ## 7) Technique — Stack & Architecture
 
 * **Données & APIs** :
 
-  * **SportDevs** (live-only + news) → lecture en temps réel (polling court ou webhooks si dispo). Aucun stockage persistant ; **cache en mémoire**/CDN seulement.
-  * **PandaScore** (tournois/équipes/matchs structurels) → hydratation des listes/fiche.
-* **Stratégie data** : pas de base de données applicative pour persister ; prévoir **adapters** + **normalizers**; règles d’assainissement **post-V1**.
-* **Infra** : CDN + edge cache ; SSR/ISR possible pour pages éditoriales (SEO), live en CSR.
+  * **SportDevs** (live-only + news) → lecture en temps réel (polling court ou webhooks si dispo). Aucun stockage persistant ; **cache Redis** uniquement.
+  * **PandaScore** (tournois/équipes/matchs structurels) → sync toutes les 5 min par backend Go, stockage en DB avec `panda_id` comme clé de déduplication.
+* **Stratégie data** : Base de données PostgreSQL pour persistance (users, articles, ads) + auto-sync PandaScore. Aucun stockage SportDevs. Prévoir **adapters** + **normalizers** post-V1 pour nettoyage.
+* **Infra** : Docker local (dev/prod identique) + CDN + edge cache pour assets ; SSR/ISR pour pages éditoriales (SEO), live en CSR.
 * **Interop** : liens de diffusion ouverts en **new tab**.
 
-## 9) Données & Contrats
+## 8) Base de Données — Architecture Détaillée
 
-* **Modèle logique (volatile)** : Game → Competition/Tournament → Match (live) → Streams ; News (source SportDevs) ; Article (via BO).
-* **Politiques** : **Aucune rétention**. Pas de sauvegardes de données tierces. Seuls logs techniques non-PII.
+* **7 tables principales** :
+
+  1. **users** - Comptes utilisateurs + préférences
+     - Persistant | Édité par : authentification frontend + back-office
+     - Cols clés : id, email (unique), avatar, favorite_teams[], notif_* (push/articles/news/matchs)
+
+  2. **games** - Référence des 10 jeux supportés
+     - Persistant | Édité par : back-office
+     - Cols clés : id, name, acronym, selected_image, unselected_image
+
+  3. **articles** - Contenu éditorial
+     - Persistant | Édité par : back-office + CMS
+     - Cols clés : id, slug (unique), title, content, category, tags[], featuredImage, videoUrl
+     - Support vidéo : youtube/vimeo/mp4
+
+  4. **ads** - Bannières publicitaires gérées en interne
+     - Persistant | Édité par : back-office
+     - Cols clés : id, title, position (max 3), url, redirect_link, type
+
+  5. **tournaments** - Tournois PandaScore
+     - Synced (5 min polling) | Source : PandaScore API
+     - Clé déduplication : **panda_id** (unique)
+     - Cols clés : id, panda_id, name, slug, status, begin_at/end_at, tier, prizepool, raw_data (JSONB)
+
+  6. **matches** - Matchs de tournois PandaScore
+     - Synced (5 min polling) | Source : PandaScore API
+     - Clé déduplication : **panda_id** (unique)
+     - FK : tournament_id → tournaments(id)
+     - Cols clés : id, panda_id, name, status, begin_at, end_at, live_supported, live_url, raw_data (JSONB)
+
+  7. **games_pandascore** - Sous-matchs individuels (map/game)
+     - Synced (5 min polling) | Source : PandaScore API
+     - Clé déduplication : **panda_id** (unique)
+     - FK : match_id → matches(id)
+     - Cols clés : id, panda_id, position, status, begin_at/end_at, winner_id, raw_data (JSONB)
+
+* **Indexes pour perf** :
+  - users(email), articles(slug), tournaments(panda_id, videogame_id, status)
+  - matches(panda_id, tournament_id, begin_at), games_pandascore(panda_id, match_id)
+
+* **Politique de données** :
+  - **Persistance** : users, articles, ads (jamais supprimés, soft-delete si besoin)
+  - **Sync** : tournaments, matches, games_pandascore (re-sync complète à chaque polling, upsert via panda_id)
+  - **Cache** : live data dans Redis (TTL 30s)
+  - **Aucun tracking tiers** : pas de cookies de régies publicitaires
+
+## 9) Migration Supabase → Local
+
+* **Données à exporter de Supabase** :
+  - Export complet `.sql` des 7 tables
+  - Exports séparés par table (plus facile à vérifier)
+  - Vérifier intégrité des foreign keys après import
+
+* **Procédure de migration** :
+  1. Dump complet Supabase : `pg_dump -U postgres supabase_db > backup.sql`
+  2. Nettoyer le dump : supprimer les extensions Supabase spécifiques (postgrest, jwt, etc.)
+  3. Importer en local : `psql -U postgres -d esportnews < backup.sql`
+  4. Vérifier FK et indexes : `\d+` dans psql
+  5. Valider : compter les lignes par table (users, articles, ads)
+
+* **Points d'attention** :
+  - URLs images (articles.featuredImage, ads.url) doivent rester accessibles
+  - Métadonnées Supabase (created_at, updated_at) seront préservées
+  - Contrevérifier les contraintes UNIQUE après import (id, email, slug, panda_id)
+  - **Tournois/matchs ne se migrent PAS** : re-synced à chaque démarrage du backend Go
+
+## 9bis) Données & Contrats
+
+* **Modèle logique** : Game → Tournament → Match → SubMatch (game_pandascore) → Live streams
+  - News (source SportDevs) → Article cache
+  - Article (via BO) → DB persistant
+* **Politiques** :
+  - **users, articles, ads** : rétention permanente (soft-delete si besoin)
+  - **tournaments, matches, games_pandascore** : aucune rétention (re-sync à chaque cycle)
+  - Pas de sauvegardes de données SportDevs en DB. Seuls logs techniques non-PII.
 * **RGPD** : abonnement géré côté BO/processor ; bannières publicitaires internes sans tracking tiers (pas de consentement requis pour l'affichage simple).
-* **Contrats d’API** : wrappers typed (OpenAPI/TypeScript), timeouts/retries, circuit-breaker.
+* **Contrats d'API** : wrappers typed (Go structs), timeouts/retries (5 min polling), circuit-breaker Redis.
 
-## 10) Observabilité & Qualité Produit
+## 10) Observabilité & Qualité Produit (Backend)
 
 * **Metrics** : Web Vitals (LCP<2.5s, CLS<0.1), temps de réponse APIs tierces, taux d’erreur fetch.
 * **Alerting** : flux live down, dépassement temps réponse, anomalies volume.
@@ -84,7 +177,20 @@
 * **Plan de marquage (exemples)** : select\_game, view\_live\_list, open\_stream, click\_ad, view\_news, read\_article, subscribe\_noads.
 * **Consentement** : déclenchement selon CMP.
 
-### Shema database
+## 12) Notes de Transition & Dépréciations
+
+* **DEPRECATED** :
+  - ❌ Backend Node.js (`/backend/api`) - remplacé par Go backend
+  - ❌ Supabase hosted - migré vers PostgreSQL local
+  - ❌ Vercel deployment - infrastructure locale Docker
+
+* **En cours** :
+  - 🔄 Backend Go (`/backend-go`) - finalisation des endpoints + gestion erreurs
+  - 🔄 Migration données Supabase (users, articles, ads seulement)
+
+---
+
+### Schéma Database (Référence complète)
 
 create table public.users (
   id bigint generated by default as identity not null,
