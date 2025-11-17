@@ -25,7 +25,7 @@ export default function NewsPage() {
       const fetchedArticles = await articleService.getAllArticles();
       // Filter only articles with "Actualité" category
       const newsArticles = fetchedArticles.filter(
-        article => article.category === 'Actualité'
+        article => article.category === 'Actus'
       );
       setArticles(newsArticles);
     } catch (error) {
