@@ -69,9 +69,8 @@ export default function HomePage() {
       setIsLoadingNews(true);
       const allArticles = await articleService.getAllArticles();
 
-      // Filtrer les articles avec la catégorie "Actualité"
       const actualiteArticles = allArticles.filter(
-        article => article.category === 'Actualité'
+        article => article.category === 'Actus'
       );
 
       // Le premier article est l'article en vedette
