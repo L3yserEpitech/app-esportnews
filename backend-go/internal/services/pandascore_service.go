@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/esportnews/backend/internal/cache"
@@ -26,7 +27,7 @@ func NewPandaScoreService(apiKey string, redisCache *cache.RedisCache) *PandaSco
 }
 
 // makePandaRequest makes an HTTP request to PandaScore API with cache support
-func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string) ([]byte, error) {
+func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, bodyParams map[string]string) ([]byte, error) {
 	// Try cache first (5 min TTL)
 	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != "" {
 		return []byte(cached), nil
@@ -35,12 +36,33 @@ func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint strin
 	// Make API request
 	fullURL := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
+	// Build body from params if provided
+	var bodyReader io.Reader
+	if len(bodyParams) > 0 {
+		bodyStr := ""
+		for k, v := range bodyParams {
+			if bodyStr != "" {
+				bodyStr += "&"
+			}
+			bodyStr += fmt.Sprintf("%s=%s", k, v)
+		}
+		bodyReader = strings.NewReader(bodyStr)
+	}
+
+	method := "GET"
+	if bodyReader != nil {
+		method = "POST"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.apiKey))
+	if bodyReader != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -74,7 +96,7 @@ func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*mode
 	endpoint := fmt.Sprintf("/tournaments/%s", id)
 	cacheKey := cache.PandaScoreTournamentKey(id)
 
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +124,7 @@ func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game stri
 	}
 
 	cacheKey := cache.PandaScoreTournamentsKey(game, status)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -143,16 +165,23 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
 	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
 
-	// Build endpoint directly with literal comma (Go's http client will handle encoding)
+	// Build endpoint
 	var endpoint string
 	if game != nil && *game != "" {
-		endpoint = fmt.Sprintf("/%s/tournaments?range[begin_at]=%s,%s&sort=-begin_at&page[size]=100", *game, dateStart, dateEnd)
+		endpoint = fmt.Sprintf("/%s/tournaments", *game)
 	} else {
-		endpoint = fmt.Sprintf("/tournaments?range[begin_at]=%s,%s&sort=-begin_at&page[size]=100", dateStart, dateEnd)
+		endpoint = "/tournaments"
+	}
+
+	// Build body params
+	bodyParams := map[string]string{
+		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
+		"sort":            "-begin_at",
+		"page[size]":      "100",
 	}
 
 	cacheKey := cache.PandaScoreTournamentsByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +230,7 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 			}
 
 			cacheKey := cache.PandaScoreFilteredTournamentsKey(g, status, tier)
-			data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+			data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 			if err != nil {
 				continue
 			}
@@ -225,7 +254,7 @@ func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*models.Pa
 	endpoint := fmt.Sprintf("/matches/%s", id)
 	cacheKey := cache.PandaScoreMatchKey(id)
 
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -249,16 +278,23 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
 	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
 
-	// Build endpoint directly with literal comma (Go's http client will handle encoding)
+	// Build endpoint
 	var endpoint string
 	if game != nil && *game != "" {
-		endpoint = fmt.Sprintf("/%s/matches?range[begin_at]=%s,%s&per_page=100&sort=-begin_at", *game, dateStart, dateEnd)
+		endpoint = fmt.Sprintf("/%s/matches", *game)
 	} else {
-		endpoint = fmt.Sprintf("/matches?range[begin_at]=%s,%s&per_page=100&sort=-begin_at", dateStart, dateEnd)
+		endpoint = "/matches"
+	}
+
+	// Build body params
+	bodyParams := map[string]string{
+		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
+		"per_page":        "100",
+		"sort":            "-begin_at",
 	}
 
 	cacheKey := cache.PandaScoreMatchesByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +344,7 @@ func (s *PandaScoreService) GetTeam(ctx context.Context, id string) (*models.Pan
 	endpoint := fmt.Sprintf("/teams/%s", id)
 	cacheKey := cache.PandaScoreTeamKey(id)
 
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +366,7 @@ func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageS
 	endpoint := fmt.Sprintf("/teams?search[name]=%s&page[size]=%d", query, pageSize)
 	cacheKey := cache.PandaScoreSearchTeamsKey(query)
 
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
