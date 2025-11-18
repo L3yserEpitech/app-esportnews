@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/esportnews/backend/internal/cache"
@@ -27,42 +27,29 @@ func NewPandaScoreService(apiKey string, redisCache *cache.RedisCache) *PandaSco
 }
 
 // makePandaRequest makes an HTTP request to PandaScore API with cache support
-func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, bodyParams map[string]string) ([]byte, error) {
+func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, queryParams map[string]string) ([]byte, error) {
 	// Try cache first (5 min TTL)
 	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != "" {
 		return []byte(cached), nil
 	}
 
-	// Make API request
+	// Build full URL with query parameters
 	fullURL := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
 
-	// Build body from params if provided
-	var bodyReader io.Reader
-	if len(bodyParams) > 0 {
-		bodyStr := ""
-		for k, v := range bodyParams {
-			if bodyStr != "" {
-				bodyStr += "&"
-			}
-			bodyStr += fmt.Sprintf("%s=%s", k, v)
+	if len(queryParams) > 0 {
+		values := url.Values{}
+		for k, v := range queryParams {
+			values.Set(k, v)
 		}
-		bodyReader = strings.NewReader(bodyStr)
+		fullURL = fullURL + "?" + values.Encode()
 	}
 
-	method := "GET"
-	if bodyReader != nil {
-		method = "POST"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.apiKey))
-	if bodyReader != nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -173,15 +160,15 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 		endpoint = "/tournaments"
 	}
 
-	// Build body params
-	bodyParams := map[string]string{
+	// Build query params with properly escaped range
+	queryParams := map[string]string{
 		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
 		"sort":            "-begin_at",
 		"page[size]":      "100",
 	}
 
 	cacheKey := cache.PandaScoreTournamentsByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -286,15 +273,15 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 		endpoint = "/matches"
 	}
 
-	// Build body params
-	bodyParams := map[string]string{
+	// Build query params with properly escaped range
+	queryParams := map[string]string{
 		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
 		"per_page":        "100",
 		"sort":            "-begin_at",
 	}
 
 	cacheKey := cache.PandaScoreMatchesByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, queryParams)
 	if err != nil {
 		return nil, err
 	}
