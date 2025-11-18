@@ -13,6 +13,16 @@ const (
 	CacheTeams           = "cache:teams:%d"
 	CacheUserFavorites   = "cache:user:favorites:%d"
 
+	// PandaScore API (5 min cache)
+	PandaScoreTournament         = "pandascore:tournament:%s"
+	PandaScoreTournaments        = "pandascore:tournaments:%s:%s"
+	PandaScoreTournamentsByDate  = "pandascore:tournaments:date:%s:%s"
+	PandaScoreFilteredTournaments = "pandascore:tournaments:filtered:%s:%s:%s"
+	PandaScoreMatch              = "pandascore:match:%s"
+	PandaScoreMatches            = "pandascore:matches:%s:%s"
+	PandaScoreTeam               = "pandascore:team:%s"
+	PandaScoreSearchTeams        = "pandascore:teams:search:%s"
+
 	// Auth
 	AuthJWT     = "auth:jwt:%s"
 	AuthRefresh = "auth:refresh:%d"
@@ -60,4 +70,50 @@ func RefreshTokenKey(userID int64) string {
 
 func RateLimitKey(ip string) string {
 	return fmt.Sprintf(RateLimit, ip)
+}
+
+// PandaScore cache key builders
+func PandaScoreTournamentKey(id string) string {
+	return fmt.Sprintf(PandaScoreTournament, id)
+}
+
+func PandaScoreTournamentsKey(game, status string) string {
+	return fmt.Sprintf(PandaScoreTournaments, game, status)
+}
+
+func PandaScoreTournamentsByDateKey(date string, game *string) string {
+	gameStr := "all"
+	if game != nil && *game != "" {
+		gameStr = *game
+	}
+	return fmt.Sprintf(PandaScoreTournamentsByDate, date, gameStr)
+}
+
+func PandaScoreFilteredTournamentsKey(game, status, tier string) string {
+	return fmt.Sprintf(PandaScoreFilteredTournaments, game, status, tier)
+}
+
+func PandaScoreMatchKey(id string) string {
+	return fmt.Sprintf(PandaScoreMatch, id)
+}
+
+func PandaScoreMatchesKey(date string, game *string) string {
+	gameStr := "all"
+	if game != nil && *game != "" {
+		gameStr = *game
+	}
+	return fmt.Sprintf(PandaScoreMatches, date, gameStr)
+}
+
+func PandaScoreMatchesByDateKey(date string, game *string) string {
+	// Alias for PandaScoreMatchesKey for consistency with service naming
+	return PandaScoreMatchesKey(date, game)
+}
+
+func PandaScoreTeamKey(id string) string {
+	return fmt.Sprintf(PandaScoreTeam, id)
+}
+
+func PandaScoreSearchTeamsKey(query string) string {
+	return fmt.Sprintf(PandaScoreSearchTeams, query)
 }

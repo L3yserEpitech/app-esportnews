@@ -10,10 +10,12 @@ import (
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
+	"github.com/esportnews/backend/internal/services"
 )
 
 type GameHandler struct {
 	BaseHandler
+	gameService *services.GameService
 }
 
 func (h *GameHandler) RegisterRoutes(g RouterGroup) {
@@ -27,7 +29,7 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 	defer cancel()
 
 	// Try to get from cache
-	cached, err := h.Cache.Get(ctx, cache.CacheGames)
+	cached, err := h.gameService.Cache.Get(ctx, cache.CacheGames)
 	if err == nil {
 		var games []*models.Game
 		if err := json.Unmarshal([]byte(cached), &games); err == nil {
@@ -35,25 +37,15 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 		}
 	}
 
-	// Query database
-	rows, err := h.DB.Query(ctx, "SELECT id, name, selected_image, unselected_image, acronym, full_name FROM public.games ORDER BY name")
+	// Get games from service (handles GORM or pgxpool)
+	games, err := h.gameService.GetAllGames(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch games")
-	}
-	defer rows.Close()
-
-	var games []*models.Game
-	for rows.Next() {
-		var game models.Game
-		if err := rows.Scan(&game.ID, &game.Name, &game.SelectedImage, &game.UnselectedImage, &game.Acronym, &game.FullName); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to scan game")
-		}
-		games = append(games, &game)
 	}
 
 	// Cache for 24h (manual refresh)
 	if data, err := json.Marshal(games); err == nil {
-		h.Cache.Set(ctx, cache.CacheGames, string(data), 24*time.Hour)
+		h.gameService.Cache.Set(ctx, cache.CacheGames, string(data), 24*time.Hour)
 	}
 
 	return c.JSON(http.StatusOK, games)
@@ -67,7 +59,7 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 
 	// Try cache
 	cacheKey := cache.GameKey(0) // Should parse ID properly
-	cached, err := h.Cache.Get(ctx, cacheKey)
+	cached, err := h.gameService.Cache.Get(ctx, cacheKey)
 	if err == nil {
 		var game models.Game
 		if err := json.Unmarshal([]byte(cached), &game); err == nil {
@@ -75,11 +67,8 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 		}
 	}
 
-	// Query database
-	var game models.Game
-	err = h.DB.QueryRow(ctx, "SELECT id, name, selected_image, unselected_image, acronym, full_name FROM public.games WHERE id = $1", id).Scan(
-		&game.ID, &game.Name, &game.SelectedImage, &game.UnselectedImage, &game.Acronym, &game.FullName,
-	)
+	// Get game from service
+	game, err := h.gameService.GetGameByID(ctx, id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}
@@ -93,10 +82,8 @@ func (h *GameHandler) GetGameByAcronym(c echo.Context) error {
 
 	acronym := c.Param("acronym")
 
-	var game models.Game
-	err := h.DB.QueryRow(ctx, "SELECT id, name, selected_image, unselected_image, acronym, full_name FROM public.games WHERE acronym = $1", acronym).Scan(
-		&game.ID, &game.Name, &game.SelectedImage, &game.UnselectedImage, &game.Acronym, &game.FullName,
-	)
+	// Get game from service
+	game, err := h.gameService.GetGameByAcronym(ctx, acronym)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}

@@ -97,7 +97,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // Fonction pour obtenir les données du jeu sélectionné
   const getSelectedGameData = useCallback((): Game | null => {
-    if (!selectedGame || games.length === 0) return null;
+    if (!selectedGame || !games || games.length === 0) return null;
     return games.find(game => game.id.toString() === selectedGame) || null;
   }, [selectedGame, games]);
 

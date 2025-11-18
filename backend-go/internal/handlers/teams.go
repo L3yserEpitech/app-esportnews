@@ -14,10 +14,12 @@ import (
 
 type TeamHandler struct {
 	BaseHandler
+	pandaService *services.PandaScoreService
 }
 
 func (h *TeamHandler) RegisterRoutes(g RouterGroup) {
 	g.GET("/teams/search", h.SearchTeams)
+	g.GET("/teams/:id", h.GetTeam)
 	g.GET("/users/favorite-teams/ids", h.GetFavoriteTeamIDs)
 	g.GET("/users/favorite-teams", h.GetFavoriteTeams)
 	g.POST("/users/favorite-teams/:teamId", h.AddFavoriteTeam)
@@ -25,28 +27,46 @@ func (h *TeamHandler) RegisterRoutes(g RouterGroup) {
 }
 
 func (h *TeamHandler) SearchTeams(c echo.Context) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query := c.QueryParam("q")
+	query := c.QueryParam("query")
 	if query == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing search query")
+		// Also try "q" parameter for backward compatibility
+		query = c.QueryParam("q")
+	}
+	if query == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Query parameter is required")
 	}
 
-	limit := 10
-	if l := c.QueryParam("limit"); l != "" {
-		if lim, err := strconv.Atoi(l); err == nil && lim > 0 {
-			limit = lim
+	pageSize := 50
+	if l := c.QueryParam("page_size"); l != "" {
+		if ps, err := strconv.Atoi(l); err == nil && ps > 0 {
+			pageSize = ps
 		}
 	}
 
-	service := services.NewTeamService(h.DB)
-	teams, err := service.SearchTeams(ctx, query, limit)
+	teams, err := h.pandaService.SearchTeams(ctx, query, pageSize)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to search teams: "+err.Error())
 	}
 
 	return c.JSON(http.StatusOK, teams)
+}
+
+// GetTeam retrieves a single team by ID
+func (h *TeamHandler) GetTeam(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	id := c.Param("id")
+
+	team, err := h.pandaService.GetTeam(ctx, id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch team: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, team)
 }
 
 func (h *TeamHandler) GetFavoriteTeamIDs(c echo.Context) error {

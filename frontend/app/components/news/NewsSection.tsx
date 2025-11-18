@@ -22,6 +22,8 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   className = ''
 }) => {
   const t = useTranslations();
+  const newsListArray = newsList ?? [];
+
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
@@ -44,8 +46,8 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   }, []);
 
   // Mémorisation pour éviter les recalculs
-  const hasNews = useMemo(() => newsList.length > 0 || !!featuredNews, [newsList.length, featuredNews]);
-  const memoizedNewsList = useMemo(() => newsList, [newsList]);
+  const hasNews = useMemo(() => newsListArray.length > 0 || !!featuredNews, [newsListArray.length, featuredNews]);
+  const memoizedNewsList = useMemo(() => newsListArray, [newsListArray]);
   const memoizedFeaturedNews = useMemo(() => featuredNews, [featuredNews]);
 
   return (

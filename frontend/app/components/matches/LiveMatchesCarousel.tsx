@@ -22,9 +22,10 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
     loop: false,
   }), []);
 
-  const showNavigation = useMemo(() => matches.length > 1, [matches.length]);
+  const matchList = matches ?? [];
+  const showNavigation = useMemo(() => matchList.length > 1, [matchList.length]);
 
-  if (matches.length === 0) {
+  if (matchList.length === 0) {
     return (
       null
     );
@@ -37,7 +38,7 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
         className="w-full max-w-full"
       >
         <CarouselContent className="-ml-2 md:-ml-4 overflow-visible">
-          {matches.map((match) => (
+          {matchList.map((match) => (
             <CarouselItem key={match.id} className="pl-2 md:pl-4 basis-[320px] md:basis-[350px] lg:basis-[380px] flex-shrink-0">
               <div className="w-full max-w-full">
                 <LiveMatchCard match={match} />

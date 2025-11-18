@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+
+	"github.com/esportnews/backend/internal/database"
 )
 
 type Config struct {
@@ -55,22 +57,37 @@ func LoadConfig() *Config {
 	return cfg
 }
 
-func InitDB(cfg *Config) (*pgxpool.Pool, error) {
+// InitDBWithGORM initializes both pgxpool and GORM for dual-mode database access
+func InitDBWithGORM(cfg *Config, log *logrus.Logger) (*pgxpool.Pool, *database.Database, error) {
+	// Initialize pgxpool for backward compatibility
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create connection pool: %w", err)
+		return nil, nil, fmt.Errorf("unable to create connection pool: %w", err)
 	}
 
 	// Test connection
 	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("unable to ping database: %w", err)
+		return nil, nil, fmt.Errorf("unable to ping database: %w", err)
 	}
 
-	logrus.Info("Database connected successfully")
-	return pool, nil
+	log.Info("Database (pgxpool) connected successfully")
+
+	// Initialize GORM for new code
+	gormDB, err := database.InitGORM(cfg.DatabaseURL, cfg.Env, log)
+	if err != nil {
+		pool.Close()
+		return nil, nil, err
+	}
+
+	return pool, gormDB, nil
+}
+
+// InitGORM initializes GORM database connection only
+func InitGORM(cfg *Config, log *logrus.Logger) (*database.Database, error) {
+	return database.InitGORM(cfg.DatabaseURL, cfg.Env, log)
 }
 
 func getEnv(key, defaultVal string) string {

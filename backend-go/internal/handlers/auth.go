@@ -14,7 +14,8 @@ import (
 
 type AuthHandler struct {
 	BaseHandler
-	JWTSecret string
+	authService *services.AuthService
+	JWTSecret   string
 }
 
 func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
@@ -37,8 +38,7 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	user, err := service.Signup(ctx, &input)
+	user, err := h.authService.Signup(ctx, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -55,8 +55,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	response, err := service.Login(ctx, &input)
+	response, err := h.authService.Login(ctx, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -73,8 +72,7 @@ func (h *AuthHandler) GetMe(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	user, err := service.GetUser(ctx, userID)
+	user, err := h.authService.GetUser(ctx, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
@@ -96,8 +94,7 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	user, err := service.UpdateProfile(ctx, userID, &input)
+	user, err := h.authService.UpdateProfile(ctx, userID, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -118,13 +115,7 @@ func (h *AuthHandler) DeleteAvatar(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	input := &models.UpdateUserInput{Avatar: nil}
-
-	// TODO: properly update avatar field
-	_ = input
-
-	_, err = service.GetUser(ctx, userID)
+	_, err = h.authService.GetUser(ctx, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "User not found")
 	}
@@ -141,13 +132,12 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Missing token")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	claims, err := service.VerifyToken(tokenString)
+	claims, err := h.authService.VerifyToken(tokenString)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	if err := service.Logout(ctx, claims.ID); err != nil {
+	if err := h.authService.Logout(ctx, claims.ID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to logout")
 	}
 
@@ -171,8 +161,7 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	newAccessToken, err := service.RefreshAccessToken(ctx, userID, req.RefreshToken)
+	newAccessToken, err := h.authService.RefreshAccessToken(ctx, userID, req.RefreshToken)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -187,8 +176,7 @@ func (h *AuthHandler) extractUserID(c echo.Context) (int64, error) {
 		return 0, fmt.Errorf("missing token")
 	}
 
-	service := services.NewAuthService(h.DB, h.Cache, h.JWTSecret)
-	claims, err := service.VerifyToken(tokenString)
+	claims, err := h.authService.VerifyToken(tokenString)
 	if err != nil {
 		return 0, err
 	}

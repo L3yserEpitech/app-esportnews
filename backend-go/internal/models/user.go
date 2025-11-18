@@ -5,18 +5,18 @@ import (
 )
 
 type User struct {
-	ID                  int64         `json:"id"`
-	CreatedAt           time.Time     `json:"created_at"`
+	ID                  int64         `json:"id" gorm:"primaryKey"`
+	CreatedAt           time.Time     `json:"created_at" gorm:"autoCreateTime:milli"`
 	Name                string         `json:"name"`
-	Email               string         `json:"email"`
+	Email               string         `json:"email" gorm:"uniqueIndex"`
 	Password            string         `json:"-"` // Never expose password
 	Avatar              *string        `json:"avatar"`
-	Admin               bool           `json:"admin"`
-	FavoriteTeams       []int64        `json:"favorite_teams"`
-	NotifiPush          *bool          `json:"notifi_push"`
-	NotifArticles       *bool          `json:"notif_articles"`
-	NotifNews           *bool          `json:"notif_news"`
-	NotifMatches        *bool          `json:"notif_matchs"`
+	Admin               bool           `json:"admin" gorm:"default:false"`
+	FavoriteTeams       []int64        `json:"favorite_teams" gorm:"type:integer[]"`
+	NotifiPush          *bool          `json:"notifi_push" gorm:"column:notifi_push"`
+	NotifArticles       *bool          `json:"notif_articles" gorm:"column:notif_articles"`
+	NotifNews           *bool          `json:"notif_news" gorm:"column:notif_news"`
+	NotifMatches        *bool          `json:"notif_matchs" gorm:"column:notif_matchs"`
 }
 
 type CreateUserInput struct {
