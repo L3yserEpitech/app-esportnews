@@ -170,76 +170,38 @@ export interface UserPreferences {
   theme: 'light' | 'dark';
 }
 
-// Tournament types (PandaScore)
+// Tournament types (PandaScore) - Go Backend Compatible
 export interface PandaTournament {
   id: number;
   name: string;
-  type: string;
-  matches: PandaMatch[];
-  country: string;
-  begin_at: string;
-  detailed_stats: boolean;
-  end_at: string | null;
-  winner_id: number | null;
-  winner_type: string;
-  teams: PandaTeam[];
-  slug: string;
-  serie_id: number;
-  serie: PandaSerie;
-  modified_at: string;
-  videogame: PandaVideogame;
-  league_id: number;
-  league: PandaLeague;
-  has_bracket: boolean;
-  prizepool: string | null;
-  region: string;
-  tier: 's' | 'a' | 'b' | 'c' | 'd';
-  videogame_title: PandaVideogameTitle;
-  live_supported: boolean;
-  expected_roster: PandaExpectedRoster[];
-  gameSlug?: string; // Ajouté par le backend pour identifier le jeu
+  slug?: string | null;
+  status?: string | null;
+  type?: string;
+  tier?: string | null;
+  begin_at?: string | null;
+  end_at?: string | null;
+  region?: string | null;
+  prizepool?: string | null;
+  has_bracket?: boolean;
+  videogame?: PandaVideogame;
+  league?: PandaLeague;
+  teams?: PandaTeam[];
+  matches?: PandaMatch[];
 }
 
 export interface PandaMatch {
   id: number;
   name: string;
-  status: string;
-  live: {
-    supported: boolean;
-    url: string | null;
-    opens_at: string | null;
-  };
-  begin_at: string;
-  detailed_stats: boolean;
-  end_at: string | null;
-  forfeit: boolean;
-  winner_id: number | null;
-  winner_type: string;
-  draw: boolean;
-  slug: string;
-  modified_at: string;
-  tournament_id: number;
-  match_type: string;
-  number_of_games: number;
-  scheduled_at: string;
-  original_scheduled_at: string;
-  game_advantage: any | null;
-  streams_list: PandaStream[];
-  rescheduled: boolean;
-  // Nouvelles propriétés étendues de l'API
+  slug?: string | null;
+  status?: string | null;
+  begin_at?: string | null;
+  end_at?: string | null;
+  scheduled_at?: string | null;
+  original_scheduled_at?: string | null;
+  match_type?: string | null;
+  number_of_games?: number | null;
   tournament?: PandaTournament;
-  league?: PandaLeague;
-  serie?: PandaSerie;
-  videogame?: PandaVideogame;
   opponents?: PandaOpponent[];
-  results?: PandaResult[];
-  games?: PandaGame[];
-  map_picks?: PandaMapPick[];
-  winner?: PandaTeam | null;
-  videogame_version?: {
-    name: string;
-    current: boolean;
-  };
 }
 
 export interface PandaStream {
@@ -253,11 +215,9 @@ export interface PandaStream {
 export interface PandaTeam {
   id: number;
   name: string;
-  location: string;
   slug: string;
-  modified_at: string;
-  acronym: string | null;
-  image_url: string;
+  image_url?: string | null;
+  players?: PandaPlayer[];
 }
 
 export interface PandaSerie {
@@ -303,24 +263,17 @@ export interface PandaExpectedRoster {
 }
 
 export interface PandaPlayer {
-  active: boolean;
   id: number;
   name: string;
-  role: string | null;
-  slug: string;
-  modified_at: string;
-  age: number | null;
-  birthday: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  nationality: string;
-  image_url: string | null;
+  role?: string | null;
+  image_url?: string | null;
 }
 
 // Nouveaux types pour les matchs étendus
 export interface PandaOpponent {
+  id: number;
   type: string;
-  opponent: PandaTeam;
+  team?: PandaTeam;
 }
 
 export interface PandaResult {

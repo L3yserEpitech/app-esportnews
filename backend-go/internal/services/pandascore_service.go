@@ -9,71 +9,12 @@ import (
 	"time"
 
 	"github.com/esportnews/backend/internal/cache"
+	"github.com/esportnews/backend/internal/models"
 )
 
 type PandaScoreService struct {
 	apiKey string
 	cache  *cache.RedisCache
-}
-
-// PandaScore API response structures
-type PandaTournament struct {
-	ID           int64       `json:"id"`
-	Name         string      `json:"name"`
-	Slug         *string     `json:"slug"`
-	Status       *string     `json:"status"`
-	Type         *string     `json:"type"`
-	Tier         *string     `json:"tier"`
-	BeginAt      *time.Time  `json:"begin_at"`
-	EndAt        *time.Time  `json:"end_at"`
-	Region       *string     `json:"region"`
-	Prizepool    *string     `json:"prizepool"`
-	HasBracket   bool        `json:"has_bracket"`
-	Videogame    *Videogame  `json:"videogame"`
-	Teams        []Team      `json:"teams,omitempty"`
-	Matches      []PandaMatch `json:"matches,omitempty"`
-}
-
-type PandaMatch struct {
-	ID                  int64       `json:"id"`
-	Name                string      `json:"name"`
-	Slug                *string     `json:"slug"`
-	Status              *string     `json:"status"`
-	BeginAt             *time.Time  `json:"begin_at"`
-	EndAt               *time.Time  `json:"end_at"`
-	ScheduledAt         *time.Time  `json:"scheduled_at"`
-	OriginalScheduledAt *time.Time  `json:"original_scheduled_at"`
-	MatchType           *string     `json:"match_type"`
-	NumberOfGames       *int32      `json:"number_of_games"`
-	Tournament          *PandaTournament `json:"tournament,omitempty"`
-	Opponents           []Opponent  `json:"opponents,omitempty"`
-}
-
-type Team struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Slug  string `json:"slug"`
-	Image *string `json:"image_url"`
-	Players []Player `json:"players,omitempty"`
-}
-
-type Player struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Role  *string `json:"role"`
-	Image *string `json:"image_url"`
-}
-
-type Opponent struct {
-	ID    int64  `json:"id"`
-	Type  string `json:"type"`
-	Team  *Team  `json:"team"`
-}
-
-type Videogame struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
 }
 
 // NewPandaScoreService creates a new PandaScoreService
@@ -92,8 +33,9 @@ func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint strin
 	}
 
 	// Make API request
-	url := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	fullURL := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -128,7 +70,7 @@ func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint strin
 // ============ TOURNAMENT ENDPOINTS ============
 
 // GetTournament retrieves a single tournament by ID
-func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*PandaTournament, error) {
+func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*models.Tournament, error) {
 	endpoint := fmt.Sprintf("/tournaments/%s", id)
 	cacheKey := cache.PandaScoreTournamentKey(id)
 
@@ -137,7 +79,7 @@ func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*Pand
 		return nil, err
 	}
 
-	var tournament PandaTournament
+	var tournament models.Tournament
 	if err := json.Unmarshal(data, &tournament); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tournament: %w", err)
 	}
@@ -146,7 +88,7 @@ func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*Pand
 }
 
 // GetTournamentsForGame retrieves tournaments for a specific game and status
-func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game string, status string) ([]PandaTournament, error) {
+func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game string, status string) ([]models.Tournament, error) {
 	var endpoint string
 	switch status {
 	case "running":
@@ -165,7 +107,7 @@ func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game stri
 		return nil, err
 	}
 
-	var tournaments []PandaTournament
+	var tournaments []models.Tournament
 	if err := json.Unmarshal(data, &tournaments); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tournaments: %w", err)
 	}
@@ -174,9 +116,9 @@ func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game stri
 }
 
 // GetTournamentsAllGames retrieves tournaments for all games with a specific status
-func (s *PandaScoreService) GetTournamentsAllGames(ctx context.Context, status string) ([]PandaTournament, error) {
+func (s *PandaScoreService) GetTournamentsAllGames(ctx context.Context, status string) ([]models.Tournament, error) {
 	games := []string{"valorant", "fifa", "lol-wild-rift", "dota2", "overwatch", "cod-mw", "lol", "rainbow-six-siege", "rocket-league", "csgo"}
-	var allTournaments []PandaTournament
+	var allTournaments []models.Tournament
 
 	for _, game := range games {
 		tournaments, err := s.GetTournamentsForGame(ctx, game, status)
@@ -191,7 +133,7 @@ func (s *PandaScoreService) GetTournamentsAllGames(ctx context.Context, status s
 }
 
 // GetTournamentsByDate retrieves tournaments within a date range
-func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date string, game *string) ([]PandaTournament, error) {
+func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date string, game *string) ([]models.Tournament, error) {
 	// Parse date for range
 	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -201,6 +143,7 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
 	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
 
+	// Build endpoint directly with literal comma (Go's http client will handle encoding)
 	var endpoint string
 	if game != nil && *game != "" {
 		endpoint = fmt.Sprintf("/%s/tournaments?range[begin_at]=%s,%s&sort=-begin_at&page[size]=100", *game, dateStart, dateEnd)
@@ -214,7 +157,7 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 		return nil, err
 	}
 
-	var tournaments []PandaTournament
+	var tournaments []models.Tournament
 	if err := json.Unmarshal(data, &tournaments); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tournaments: %w", err)
 	}
@@ -223,8 +166,8 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 }
 
 // GetFilteredTournaments retrieves tournaments with multiple filters
-func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *string, status string, tiers []string) ([]PandaTournament, error) {
-	var allTournaments []PandaTournament
+func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *string, status string, tiers []string) ([]models.Tournament, error) {
+	var allTournaments []models.Tournament
 
 	// Determine which games to query
 	var gamesToQuery []string
@@ -263,7 +206,7 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 				continue
 			}
 
-			var tournaments []PandaTournament
+			var tournaments []models.Tournament
 			if err := json.Unmarshal(data, &tournaments); err != nil {
 				continue
 			}
@@ -278,7 +221,7 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 // ============ MATCH ENDPOINTS ============
 
 // GetMatch retrieves a single match by ID
-func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*PandaMatch, error) {
+func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*models.PandaMatch, error) {
 	endpoint := fmt.Sprintf("/matches/%s", id)
 	cacheKey := cache.PandaScoreMatchKey(id)
 
@@ -287,7 +230,7 @@ func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*PandaMatc
 		return nil, err
 	}
 
-	var match PandaMatch
+	var match models.PandaMatch
 	if err := json.Unmarshal(data, &match); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal match: %w", err)
 	}
@@ -296,7 +239,7 @@ func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*PandaMatc
 }
 
 // GetMatchesByDate retrieves matches within a date range
-func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, game *string) ([]PandaMatch, error) {
+func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, game *string) ([]models.PandaMatch, error) {
 	// Parse date for range
 	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -306,6 +249,7 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
 	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
 
+	// Build endpoint directly with literal comma (Go's http client will handle encoding)
 	var endpoint string
 	if game != nil && *game != "" {
 		endpoint = fmt.Sprintf("/%s/matches?range[begin_at]=%s,%s&per_page=100&sort=-begin_at", *game, dateStart, dateEnd)
@@ -319,18 +263,48 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 		return nil, err
 	}
 
-	var matches []PandaMatch
-	if err := json.Unmarshal(data, &matches); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal matches: %w", err)
+	// First check if response is empty or null
+	if len(data) == 0 || string(data) == "null" {
+		return []models.PandaMatch{}, nil
 	}
 
-	return matches, nil
+	// Try to unmarshal as array first
+	var matches []models.PandaMatch
+	if err := json.Unmarshal(data, &matches); err == nil {
+		return matches, nil
+	}
+
+	// If array parsing fails, try as an object (for paginated responses)
+	var respObj map[string]interface{}
+	if err := json.Unmarshal(data, &respObj); err == nil {
+		// Try to find the data in common keys
+		for _, key := range []string{"data", "matches", "results", "items"} {
+			if val, ok := respObj[key]; ok {
+				// Try to unmarshal this field as matches
+				if matchData, err := json.Marshal(val); err == nil {
+					var matches []models.PandaMatch
+					if err := json.Unmarshal(matchData, &matches); err == nil {
+						return matches, nil
+					}
+				}
+			}
+		}
+	}
+
+	// If we get here, log the response for debugging
+	truncated := data
+	if len(data) > 1000 {
+		truncated = data[:1000]
+	}
+	fmt.Printf("[GetMatchesByDate] Failed to parse response\n[GetMatchesByDate] Raw response: %s\n", string(truncated))
+
+	return nil, fmt.Errorf("failed to unmarshal matches: unsupported response format")
 }
 
 // ============ TEAM ENDPOINTS ============
 
 // GetTeam retrieves a single team by ID
-func (s *PandaScoreService) GetTeam(ctx context.Context, id string) (*Team, error) {
+func (s *PandaScoreService) GetTeam(ctx context.Context, id string) (*models.PandaTeam, error) {
 	endpoint := fmt.Sprintf("/teams/%s", id)
 	cacheKey := cache.PandaScoreTeamKey(id)
 
@@ -339,7 +313,7 @@ func (s *PandaScoreService) GetTeam(ctx context.Context, id string) (*Team, erro
 		return nil, err
 	}
 
-	var team Team
+	var team models.PandaTeam
 	if err := json.Unmarshal(data, &team); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal team: %w", err)
 	}
@@ -348,7 +322,7 @@ func (s *PandaScoreService) GetTeam(ctx context.Context, id string) (*Team, erro
 }
 
 // SearchTeams searches for teams by name
-func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageSize int) ([]Team, error) {
+func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageSize int) ([]models.PandaTeam, error) {
 	if pageSize <= 0 {
 		pageSize = 50
 	}
@@ -361,7 +335,7 @@ func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageS
 		return nil, err
 	}
 
-	var teams []Team
+	var teams []models.PandaTeam
 	if err := json.Unmarshal(data, &teams); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal teams: %w", err)
 	}
@@ -370,9 +344,9 @@ func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageS
 }
 
 // GetTeams retrieves multiple teams by IDs (parallel requests)
-func (s *PandaScoreService) GetTeams(ctx context.Context, teamIDs []int64) ([]Team, error) {
-	var teams []Team
-	teamChan := make(chan *Team, len(teamIDs))
+func (s *PandaScoreService) GetTeams(ctx context.Context, teamIDs []int64) ([]models.PandaTeam, error) {
+	var teams []models.PandaTeam
+	teamChan := make(chan *models.PandaTeam, len(teamIDs))
 	errChan := make(chan error, len(teamIDs))
 
 	// Fetch teams in parallel

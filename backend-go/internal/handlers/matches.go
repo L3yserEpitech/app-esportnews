@@ -32,9 +32,14 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 
 	game := c.QueryParam("game")
 
-	matches, err := h.pandaService.GetMatchesByDate(ctx, date, nil)
+	var matches interface{}
+	var err error
+
+	// If game is provided, fetch for specific game; otherwise fetch for all games
 	if game != "" {
 		matches, err = h.pandaService.GetMatchesByDate(ctx, date, &game)
+	} else {
+		matches, err = h.pandaService.GetMatchesByDate(ctx, date, nil)
 	}
 
 	if err != nil {

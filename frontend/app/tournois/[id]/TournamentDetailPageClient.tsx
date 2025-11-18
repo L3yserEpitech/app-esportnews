@@ -87,12 +87,22 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
     const loadTournament = async () => {
       try {
         setLoading(true);
+        console.log(`[Tournament Detail] Fetching tournament ID: ${tournamentId}`);
         const data = await tournamentService.getTournamentById(tournamentId);
+        console.log(`[Tournament Detail] ✅ Tournament loaded:`, {
+          id: data.id,
+          name: data.name,
+          matchesCount: data.matches?.length || 0,
+          teamsCount: data.teams?.length || 0,
+          expectedRosterCount: data.expected_roster?.length || 0,
+        });
         setTournament(data);
 
         // Charger les détails complets de chaque match
         if (data.matches && data.matches.length > 0) {
-          console.log(`📦 Loading details for ${data.matches.length} matches...`);
+          console.log(`[Tournament Detail] 📦 Loading match details for ${data.matches.length} matches...`, {
+            matchIds: data.matches.map(m => m.id),
+          });
           const matchIds = data.matches.map((m) => m.id);
 
           try {
@@ -105,16 +115,19 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                 matches: enrichedMatches,
               };
             });
-            console.log('✅ All match details loaded');
+            console.log(`[Tournament Detail] ✅ All ${enrichedMatches.length} match details loaded`, enrichedMatches);
           } catch (matchError) {
-            console.error('Error loading match details, using basic tournament data:', matchError);
+            console.error('[Tournament Detail] ⚠️ Error loading match details, using basic tournament data:', matchError);
             // On continue avec les données de base du tournoi si le chargement détaillé échoue
           }
+        } else {
+          console.log(`[Tournament Detail] ℹ️ No matches found for this tournament`);
         }
 
         // Charger les articles liés au tournoi
         try {
           const tournamentTags = [data.name, data.league?.name].filter(Boolean);
+          console.log(`[Tournament Detail] 📰 Searching related articles with tags:`, tournamentTags);
           const articles = await articleService.getAllArticles();
           const related = articles
             .filter(a => {
@@ -124,12 +137,13 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
               );
             })
             .slice(0, 3);
+          console.log(`[Tournament Detail] 📰 Found ${related.length} related articles`);
           setRelatedArticles(related);
         } catch (articleError) {
-          console.error('Error loading related articles:', articleError);
+          console.error('[Tournament Detail] Error loading related articles:', articleError);
         }
       } catch (err) {
-        console.error('Error loading tournament:', err);
+        console.error('[Tournament Detail] ❌ Error loading tournament:', err);
         setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
       } finally {
         setLoading(false);
@@ -275,9 +289,11 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
             {/* Sous-titre et infos */}
             <div className="space-y-2">
-              <p className="text-xl text-white">
-                {tournament.league.name}
-              </p>
+              {tournament.league?.name && (
+                <p className="text-xl text-white">
+                  {tournament.league.name}
+                </p>
+              )}
               <p className="text-white flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-white" />
                 {formatDate(tournament.begin_at)} - {formatDate(tournament.end_at || tournament.begin_at)}
@@ -303,13 +319,13 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                   <h2 className="text-3xl font-bold text-text-primary">{t('all_matches')}</h2>
                 </div>
                 <p className="text-text-secondary text-sm ml-13">
-                  {tournament.matches.length} {tournament.matches.length > 1 ? t('matches_total_plural') : t('matches_total_singular')}
+                  {(tournament.matches?.length || 0)} {(tournament.matches?.length || 0) > 1 ? t('matches_total_plural') : t('matches_total_singular')}
                 </p>
               </div>
 
-              {tournament.matches.length > 0 ? (
+              {(tournament.matches?.length || 0) > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {tournament.matches.map(match => (
+                  {(tournament.matches || []).map(match => (
                     <PandaMatchCard key={match.id} match={match} tournamentName={tournament.name} />
                   ))}
                 </div>

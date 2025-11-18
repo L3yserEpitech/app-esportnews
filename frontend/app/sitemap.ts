@@ -76,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let tournamentPages: SitemapEntry[] = [];
 
   try {
-    const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+    const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
     // Récupérer les articles
     try {
@@ -99,9 +99,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       console.error('Error fetching articles for sitemap:', error);
     }
 
-    // Récupérer les tournois (top 100 les plus récents)
+    // Récupérer les tournois (tous les tournois en cours)
     try {
-      const tournamentsResponse = await fetch(`${baseUrl_api}/api/tournaments?limit=100`, {
+      const tournamentsResponse = await fetch(`${baseUrl_api}/api/tournaments/all`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         next: { revalidate: 3600 },
@@ -110,7 +110,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (tournamentsResponse.ok) {
         const tournaments = await tournamentsResponse.json();
         const tournamentsArray = Array.isArray(tournaments) ? tournaments : [];
-        tournamentPages = tournamentsArray.map((tournament: any) => ({
+        tournamentPages = tournamentsArray.slice(0, 100).map((tournament: any) => ({
           url: `${baseUrl}/tournois/${tournament.id}`,
           lastModified: tournament.modified_at || tournament.begin_at,
           changeFrequency: 'weekly' as const,

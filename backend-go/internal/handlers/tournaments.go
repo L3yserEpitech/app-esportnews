@@ -3,10 +3,13 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 )
 
@@ -67,22 +70,64 @@ func (h *TournamentHandler) FilterTournaments(c echo.Context) error {
 	return c.JSON(http.StatusOK, tournaments)
 }
 
-// ListTournaments retrieves tournaments for a specific game
+// ListTournaments retrieves tournaments (optionally filtered by game) with pagination and sorting support
 func (h *TournamentHandler) ListTournaments(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	game := c.QueryParam("game")
-	if game == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Game acronym is required")
+	limitParam := c.QueryParam("limit")
+	offsetParam := c.QueryParam("offset")
+	sortParam := c.QueryParam("sort") // e.g., "tier", "-tier", "begin_at", "-begin_at"
+
+	// Default pagination values
+	limit := 20
+	offset := 0
+
+	// Parse limit if provided
+	if limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 {
+			limit = parsed
+		}
 	}
 
-	tournaments, err := h.pandaService.GetTournamentsForGame(ctx, game, "running")
+	// Parse offset if provided
+	if offsetParam != "" {
+		if parsed, err := strconv.Atoi(offsetParam); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	// If game is provided, fetch for specific game
+	if game != "" {
+		tournaments, err := h.pandaService.GetTournamentsForGame(ctx, game, "running")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournaments: "+err.Error())
+		}
+		h.sortTournaments(tournaments, sortParam)
+		return c.JSON(http.StatusOK, tournaments)
+	}
+
+	// If no game, fetch all tournaments with pagination
+	tournaments, err := h.pandaService.GetTournamentsAllGames(ctx, "running")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournaments: "+err.Error())
 	}
 
-	return c.JSON(http.StatusOK, tournaments)
+	// Apply sorting before pagination
+	h.sortTournaments(tournaments, sortParam)
+
+	// Apply pagination to results
+	if offset >= len(tournaments) {
+		return c.JSON(http.StatusOK, []interface{}{})
+	}
+
+	end := offset + limit
+	if end > len(tournaments) {
+		end = len(tournaments)
+	}
+
+	return c.JSON(http.StatusOK, tournaments[offset:end])
 }
 
 // ListAllTournaments retrieves all running tournaments
@@ -182,4 +227,68 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tournaments)
+}
+
+// sortTournaments sorts tournaments based on the sort parameter
+// Supported sort fields: "tier", "-tier", "begin_at", "-begin_at"
+// Prefix with "-" for descending order
+func (h *TournamentHandler) sortTournaments(tournaments []models.Tournament, sortParam string) {
+	if sortParam == "" {
+		return // No sorting if param is empty
+	}
+
+	descending := false
+	field := sortParam
+
+	// Check for descending order
+	if len(sortParam) > 0 && sortParam[0] == '-' {
+		descending = true
+		field = sortParam[1:]
+	}
+
+	sort.Slice(tournaments, func(i, j int) bool {
+		var less bool
+
+		switch field {
+		case "tier":
+			// Tier order: S > A > B > C > D
+			tierOrder := map[string]int{"s": 0, "a": 1, "b": 2, "c": 3, "d": 4}
+			tierI := tierOrder["d"]
+			tierJ := tierOrder["d"]
+
+			if tournaments[i].Tier != nil {
+				if val, ok := tierOrder[*tournaments[i].Tier]; ok {
+					tierI = val
+				}
+			}
+			if tournaments[j].Tier != nil {
+				if val, ok := tierOrder[*tournaments[j].Tier]; ok {
+					tierJ = val
+				}
+			}
+
+			less = tierI < tierJ
+
+		case "begin_at":
+			// Sort by tournament start date
+			var timeI, timeJ time.Time
+
+			if tournaments[i].BeginAt != nil {
+				timeI = *tournaments[i].BeginAt
+			}
+			if tournaments[j].BeginAt != nil {
+				timeJ = *tournaments[j].BeginAt
+			}
+
+			less = timeI.Before(timeJ)
+
+		default:
+			return false // Unknown sort field, no sorting
+		}
+
+		if descending {
+			return !less
+		}
+		return less
+	})
 }

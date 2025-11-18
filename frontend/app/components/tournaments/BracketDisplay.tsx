@@ -13,7 +13,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
   const organizeMatchesByPhase = () => {
     const phases: { [key: string]: PandaMatch[] } = {};
 
-    tournament.matches.forEach(match => {
+    (tournament.matches || []).forEach(match => {
       let phase = 'Groupes';
       
       // Logique plus précise pour déterminer la phase
@@ -284,7 +284,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
         </div>
 
         {/* Fallback si pas de matches */}
-        {tournament.matches.length === 0 && (
+        {(tournament.matches?.length || 0) === 0 && (
           <Card variant="outlined" className="p-8 text-center">
             <div className="space-y-4">
               <div className="text-6xl">🏆</div>

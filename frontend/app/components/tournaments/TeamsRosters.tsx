@@ -35,6 +35,9 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
     return 'text-cyan-400';
   };
 
+  const rosters = tournament.expected_roster || [];
+  const totalPlayers = rosters.reduce((acc, r) => acc + (r.players?.length || 0), 0);
+
   return (
     <div className={`space-y-8 ${className}`}>
       {/* Header */}
@@ -46,16 +49,16 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
           <h2 className="text-3xl font-bold text-primary">{t('teams_rosters')}</h2>
         </div>
         <p className="text-text-muted text-sm ml-13">
-          {tournament.expected_roster.length} {tournament.expected_roster.length > 1 ? t('teams_count_plural') : t('teams_count_singular')} •
-          {' '}{tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0)} {tournament.expected_roster.reduce((acc, r) => acc + r.players.length, 0) > 1 ? t('players_count_plural') : t('players_count_singular')}
+          {rosters.length} {rosters.length > 1 ? t('teams_count_plural') : t('teams_count_singular')} •
+          {' '}{totalPlayers} {totalPlayers > 1 ? t('players_count_plural') : t('players_count_singular')}
         </p>
       </div>
 
       {/* Teams Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {tournament.expected_roster.map(roster => {
+        {rosters.map(roster => {
           const isExpanded = expandedTeam === roster.team.id;
-          const activePlayers = roster.players.filter(p => p.active).length;
+          const activePlayers = (roster.players || []).filter(p => p.active).length;
 
           return (
             <div key={roster.team.id} className="group">
@@ -103,7 +106,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                           </>
                         )}
                         <span className="text-text-muted">•</span>
-                        <span>{roster.players.length} joueur{roster.players.length > 1 ? 's' : ''}</span>
+                        <span>{roster.players?.length || 0} joueur{(roster.players?.length || 0) > 1 ? 's' : ''}</span>
                       </div>
                     </div>
 
@@ -126,11 +129,11 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                 {/* Players Section */}
                 <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[1000px]' : 'max-h-96'}`}>
                   <div className="p-4 space-y-4">
-                    {roster.players.length > 0 ? (
+                    {(roster.players?.length || 0) > 0 ? (
                       <>
                         {/* Players Grid */}
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                          {roster.players.map((player) => (
+                          {(roster.players || []).map((player) => (
                             <div
                               key={player.id}
                               className="group/player cursor-pointer"
@@ -184,7 +187,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                         {/* Team Stats */}
                         <div className="border-t border-border-primary pt-4 grid grid-cols-2 gap-3">
                           <div className="text-center p-2 bg-bg-hover rounded-lg">
-                            <p className="text-lg font-bold text-text-accent">{roster.players.length}</p>
+                            <p className="text-lg font-bold text-text-accent">{roster.players?.length || 0}</p>
                             <p className="text-xs text-text-muted">Joueurs</p>
                           </div>
                           <div className="text-center p-2 bg-bg-hover rounded-lg">
@@ -208,7 +211,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
       </div>
 
       {/* Empty state */}
-      {tournament.expected_roster.length === 0 && (
+      {rosters.length === 0 && (
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-text-accent/5 via-transparent to-bg-hover/5 rounded-2xl blur-2xl -z-10"></div>
           <div className="bg-bg-primary border border-border-primary rounded-2xl p-12 text-center backdrop-blur-sm">

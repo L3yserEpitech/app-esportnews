@@ -68,25 +68,29 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
 
   // Calculs des statistiques
   const stats = useMemo(() => {
-    const totalMatches = tournament.matches.length;
-    const finishedMatches = tournament.matches.filter(m => m.status === 'finished').length;
-    const runningMatches = tournament.matches.filter(m => m.status === 'running').length;
-    const notStartedMatches = tournament.matches.filter(m => m.status === 'not_started').length;
-    const rescheduleMatches = tournament.matches.filter(m => m.rescheduled).length;
+    const matches = tournament.matches || [];
+    const teams = tournament.teams || [];
+    const expectedRosters = tournament.expected_roster || [];
+
+    const totalMatches = matches.length;
+    const finishedMatches = matches.filter(m => m.status === 'finished').length;
+    const runningMatches = matches.filter(m => m.status === 'running').length;
+    const notStartedMatches = matches.filter(m => m.status === 'not_started').length;
+    const rescheduleMatches = matches.filter(m => m.rescheduled).length;
     const progressPercentage = totalMatches > 0 ? (finishedMatches / totalMatches) * 100 : 0;
 
     // Stats d'équipes
-    const totalTeams = tournament.teams.length;
-    const confirmedRosters = tournament.expected_roster.length;
+    const totalTeams = teams.length;
+    const confirmedRosters = expectedRosters.length;
     const teamsByParticipation = totalTeams > 0 ? (confirmedRosters / totalTeams * 100) : 0;
 
     // Stats des matchs par format
-    const bestOf3Matches = tournament.matches.filter(m => m.number_of_games === 3).length;
-    const bestOf5Matches = tournament.matches.filter(m => m.number_of_games === 5).length;
-    const bestOf1Matches = tournament.matches.filter(m => m.number_of_games === 1).length;
+    const bestOf3Matches = matches.filter(m => m.number_of_games === 3).length;
+    const bestOf5Matches = matches.filter(m => m.number_of_games === 5).length;
+    const bestOf1Matches = matches.filter(m => m.number_of_games === 1).length;
 
     // Matchs en direct disponibles
-    const liveMatches = tournament.matches.filter(m => m.live?.supported).length;
+    const liveMatches = matches.filter(m => m.live?.supported).length;
 
     return {
       totalMatches,
@@ -103,7 +107,7 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
       bestOf1Matches,
       liveMatches,
     };
-  }, [tournament.matches, tournament.teams.length, tournament.expected_roster.length]);
+  }, [tournament.matches, tournament.teams, tournament.expected_roster]);
 
   return (
     <section className="relative space-y-8">
@@ -304,7 +308,7 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
                 </div>
                 <div className="space-y-3">
                   {(() => {
-                    const winner = tournament.winner_id ? tournament.teams.find(t => t.id === tournament.winner_id) : null;
+                    const winner = tournament.winner_id ? (tournament.teams || []).find(t => t.id === tournament.winner_id) : null;
 
                     if (winner) {
                       return (

@@ -46,3 +46,6 @@ install-backend: ## Install backend dependencies
 
 status: ## Show status of services
 	docker-compose ps
+
+start:
+	docker compose down && docker compose build && docker compose up

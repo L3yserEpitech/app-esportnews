@@ -1,7 +1,7 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
 
 class ArticleService {
-  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   async getAllArticles(): Promise<NewsItem[]> {
     try {

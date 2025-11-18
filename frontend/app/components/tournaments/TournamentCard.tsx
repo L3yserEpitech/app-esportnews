@@ -9,7 +9,7 @@ interface TournamentCardProps {
   showGameBadge?: boolean; // Afficher le badge du jeu quand on montre tous les jeux
 }
 
-const getTierColor = (tier: string | null | undefined) => {
+const getTierColor = (tier: string | null | undefined): string => {
   if (!tier) return 'bg-[var(--color-tier-d)]';
   switch (tier.toLowerCase()) {
     case 's': return 'bg-[var(--color-tier-s)]';
@@ -30,7 +30,7 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const formatPrizepool = (prizepool: string | null) => {
+const formatPrizepool = (prizepool: string | null | undefined): string | null => {
   if (!prizepool) return null;
 
   // Si c'est un nombre, le formater
@@ -90,9 +90,14 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
               {t('pages.home.tournaments.tier_label')} {tournament.tier.toUpperCase()}
             </span>
           )}
-          {showGameBadge && tournament.gameSlug && (
+          {!showGameBadge && tournament.videogame?.slug && (
+            <span className="px-2 py-1 bg-pink-600 text-white text-xs font-bold rounded-full uppercase shadow-lg">
+              {tournament.videogame.slug.toUpperCase()}
+            </span>
+          )}
+          {showGameBadge && tournament.videogame?.slug && (
             <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded-full uppercase">
-              {tournament.gameSlug}
+              {tournament.videogame.slug.toUpperCase()}
             </span>
           )}
         </div>

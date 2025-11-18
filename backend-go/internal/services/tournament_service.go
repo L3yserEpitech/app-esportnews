@@ -25,12 +25,12 @@ func NewTournamentService(db *pgxpool.Pool, redisCache *cache.RedisCache) *Tourn
 }
 
 // GetTournaments retrieves tournaments with optional filters
-func (s *TournamentService) GetTournaments(ctx context.Context, filter *models.TournamentFilter) ([]*models.Tournament, error) {
+func (s *TournamentService) GetTournaments(ctx context.Context, filter *models.TournamentFilter) ([]*models.DatabaseTournament, error) {
 	// Try cache first
 	cacheKey := cache.TournamentsKey(filter.GameAcronym)
 	cached, err := s.cache.Get(ctx, cacheKey)
 	if err == nil {
-		var tournaments []*models.Tournament
+		var tournaments []*models.DatabaseTournament
 		if err := json.Unmarshal([]byte(cached), &tournaments); err == nil {
 			return tournaments, nil
 		}
@@ -75,9 +75,9 @@ func (s *TournamentService) GetTournaments(ctx context.Context, filter *models.T
 	}
 	defer rows.Close()
 
-	var tournaments []*models.Tournament
+	var tournaments []*models.DatabaseTournament
 	for rows.Next() {
-		var t models.Tournament
+		var t models.DatabaseTournament
 		if err := rows.Scan(&t.ID, &t.CreatedAt, &t.PandaID, &t.Name, &t.Slug, &t.Type, &t.Status, &t.BeginAt, &t.EndAt,
 			&t.Region, &t.Tier, &t.Prizepool, &t.HasBracket, &t.VideogameID, &t.LeagueID, &t.SerieID, &t.WinnerID, &t.ModifiedAt, &t.RawData); err != nil {
 			return nil, fmt.Errorf("failed to scan tournament: %w", err)
@@ -94,8 +94,8 @@ func (s *TournamentService) GetTournaments(ctx context.Context, filter *models.T
 }
 
 // GetTournament retrieves a single tournament by ID
-func (s *TournamentService) GetTournament(ctx context.Context, id int64) (*models.Tournament, error) {
-	var t models.Tournament
+func (s *TournamentService) GetTournament(ctx context.Context, id int64) (*models.DatabaseTournament, error) {
+	var t models.DatabaseTournament
 	err := s.db.QueryRow(ctx,
 		`SELECT id, created_at, panda_id, name, slug, type, status, begin_at, end_at,
 		        region, tier, prizepool, has_bracket, videogame_id, league_id, serie_id, winner_id, modified_at, raw_data
