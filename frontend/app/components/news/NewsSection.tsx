@@ -42,7 +42,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   }, []);
 
   const handleViewAllClick = useCallback(() => {
-    window.location.href = '/articles';
+    window.location.href = '/news';
   }, []);
 
   // Mémorisation pour éviter les recalculs

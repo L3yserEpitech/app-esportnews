@@ -51,11 +51,11 @@ export default function ArticlesPageClient() {
     window.location.href = `/article/${slug}`;
   }, []);
 
-  // Article le plus récent (featured) - exclure les articles "Actualité"
+  // Article le plus récent (featured) - exclure les articles "Actus"
   const featuredArticle = useMemo(() => {
     if (articles.length === 0) return null;
     const nonActualityArticles = articles.filter(
-      article => article.category !== 'Actualité'
+      article => article.category !== 'Actus'
     );
     if (nonActualityArticles.length === 0) return null;
     return [...nonActualityArticles].sort((a, b) =>
@@ -64,15 +64,15 @@ export default function ArticlesPageClient() {
   }, [articles]);
 
   // Grouper les articles par catégorie et trier par date (plus récent au plus vieux)
-  // Exclure l'article featured et les articles de la catégorie "Actualité"
+  // Exclure l'article featured et les articles de la catégorie "Actus"
   const articlesByCategory = useMemo(() => {
     const articlesWithoutFeatured = articles.filter(
       article => article.id !== featuredArticle?.id
     );
 
-    // Filtrer les articles (exclure la catégorie "Actualité")
+    // Filtrer les articles (exclure la catégorie "Actus")
     const filteredArticles = articlesWithoutFeatured.filter(
-      article => article.category !== 'Actualité'
+      article => article.category !== 'Actus'
     );
 
     // Grouper par catégorie
