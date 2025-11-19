@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import { Metadata, ResolvingMetadata } from 'next';
 import { articleService } from '@/app/services/articleService';
 import ArticlePageClient from './ArticlePageClient';
 
@@ -19,16 +19,6 @@ export async function generateMetadata(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
   const url = `${siteUrl}/article/${article.slug}`;
 
-  const ogImages = article.featuredImage
-    ? [{
-        url: article.featuredImage,
-        width: 1200,
-        height: 630,
-        alt: article.title,
-        type: 'image/jpeg',
-      }]
-    : [];
-
   return {
     title: `${article.title} | EsportNews`,
     description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
@@ -36,22 +26,19 @@ export async function generateMetadata(
     authors: [{ name: article.author || 'EsportNews' }],
     openGraph: {
       title: article.title,
-      description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
+      description: article.description || article.subtitle,
       type: 'article',
       url,
-      images: ogImages,
+      images: article.featuredImage ? [{ url: article.featuredImage }] : [],
       publishedTime: article.created_at,
-      modifiedTime: article.created_at,
       authors: [article.author || 'EsportNews'],
       tags: article.tags,
-      siteName: 'EsportNews',
     },
     twitter: {
       card: 'summary_large_image',
       title: article.title,
-      description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
+      description: article.description || article.subtitle,
       images: article.featuredImage ? [article.featuredImage] : [],
-      creator: '@esportnews_off',
     },
     alternates: {
       canonical: url,

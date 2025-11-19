@@ -32,7 +32,13 @@ const notificationsRoutes = require('./routes/notifications');
 /**
  * Enregistrement de toutes les routes
  */
+let initialized = false;
+
 async function registerRoutes() {
+  if (initialized) {
+    return; // Évite de re-enregistrer les routes
+  }
+
   await healthRoutes(fastify);
   await gameRoutes(fastify);
   await tournamentRoutes(fastify);
@@ -44,12 +50,19 @@ async function registerRoutes() {
   await teamsRoutes(fastify);
   await notificationsRoutes(fastify);
 
+  initialized = true;
   console.log('✅ All routes registered successfully');
 }
 
 // Export pour Vercel
 module.exports = async (req, res) => {
-  await registerRoutes();
-  await fastify.ready();
-  fastify.server.emit('request', req, res);
+  try {
+    await registerRoutes();
+    await fastify.ready();
+    fastify.server.emit('request', req, res);
+  } catch (error) {
+    console.error('❌ Fatal error:', error);
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
 };
