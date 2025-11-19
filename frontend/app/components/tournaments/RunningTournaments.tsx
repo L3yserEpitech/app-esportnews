@@ -29,7 +29,7 @@ const RunningTournaments: React.FC = () => {
     setError(null);
 
     try {
-      const tournamentsData = await tournamentService.getRunningTournaments(gameAcronym);
+      const tournamentsData = await tournamentService.getRunningTournaments(gameAcronym, 'tier');
       setTournaments(tournamentsData);
     } catch (err) {
       console.error('Error loading tournaments:', err);
@@ -45,7 +45,7 @@ const RunningTournaments: React.FC = () => {
     setError(null);
 
     try {
-      const tournamentsData = await tournamentService.getAllRunningTournaments();
+      const tournamentsData = await tournamentService.getAllRunningTournaments('tier');
       setTournaments(tournamentsData);
     } catch (err) {
       console.error('Error loading all tournaments:', err);
@@ -205,8 +205,8 @@ const RunningTournaments: React.FC = () => {
           {memoizedTournaments.length > 0 && (
             <div className="mt-8 flex justify-end">
               <button
-                onClick={() => window.location.href = '/tournament'}
-                className="flex items-center px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary text-text-secondary hover:text-text-primary rounded-lg transition-colors text-sm font-medium"
+                onClick={() => window.location.href = '/tournois'}
+                className="flex items-center cursor-pointer px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary text-text-secondary hover:text-text-primary rounded-lg transition-colors text-sm font-medium"
               >
                 <span>{t('pages.home.tournaments.view_all_button')}</span>
                 <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

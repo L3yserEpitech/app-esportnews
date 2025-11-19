@@ -20,6 +20,7 @@ const TournamentsPage: React.FC = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
+  const [status, setStatus] = useState<'running' | 'upcoming' | 'finished'>('running');
   const TOURNAMENTS_PER_PAGE = 12;
 
   // Mémoriser les données du jeu sélectionné
@@ -39,15 +40,28 @@ const TournamentsPage: React.FC = () => {
       const offset = page * TOURNAMENTS_PER_PAGE;
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-      const response = await fetch(
-        `${baseUrl}/api/tournaments?limit=${TOURNAMENTS_PER_PAGE}&offset=${offset}&sort=${sortBy}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      // Déterminer l'endpoint en fonction du statut
+      let endpoint = '/api/tournaments';
+      if (status === 'upcoming') {
+        endpoint = '/api/tournaments/upcoming';
+      } else if (status === 'finished') {
+        endpoint = '/api/tournaments/finished';
+      }
+
+      // Construire l'URL avec les paramètres
+      const params = new URLSearchParams();
+      params.append('limit', TOURNAMENTS_PER_PAGE.toString());
+      params.append('offset', offset.toString());
+      params.append('sort', sortBy);
+
+      const url = `${baseUrl}${endpoint}?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch tournaments');
@@ -64,7 +78,7 @@ const TournamentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [t, TOURNAMENTS_PER_PAGE, sortBy]);
+  }, [t, TOURNAMENTS_PER_PAGE, sortBy, status]);
 
   // Charger les publicités
   const loadAds = useCallback(async () => {
@@ -160,43 +174,88 @@ const TournamentsPage: React.FC = () => {
             <div className="flex-1 max-w-none">
               {/* Header avec bouton actualiser et pagination */}
               <div className="mb-6 pt-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-text-primary">Tous les tournois</h2>
-                    <span className="text-text-secondary text-sm">
-                      Page {currentPage + 1} • {memoizedTournaments.length} tournois
-                    </span>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-2xl font-bold text-text-primary">Tous les tournois</h2>
+                      <span className="text-text-secondary text-sm">
+                        Page {currentPage + 1} • {memoizedTournaments.length} tournois
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Sort dropdown */}
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
+                        className="px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg border border-border-primary transition-colors cursor-pointer text-sm"
+                        title="Trier les tournois"
+                      >
+                        <option value="tier">Tier (S → D)</option>
+                        <option value="-tier">Tier (D → S)</option>
+                        <option value="begin_at">Date (anciens → récents)</option>
+                        <option value="-begin_at">Date (récents → anciens)</option>
+                      </select>
+
+                      {/* Bouton actualiser - icon seulement */}
+                      <button
+                        onClick={handleRefresh}
+                        disabled={loading}
+                        className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
+                        title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
+                      >
+                        <svg
+                          className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Sort dropdown */}
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
-                      className="px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg border border-border-primary transition-colors cursor-pointer text-sm"
-                      title="Trier les tournois"
-                    >
-                      <option value="tier">Tier (S → D)</option>
-                      <option value="-tier">Tier (D → S)</option>
-                      <option value="begin_at">Date (anciens → récents)</option>
-                      <option value="-begin_at">Date (récents → anciens)</option>
-                    </select>
-
-                    {/* Bouton actualiser - icon seulement */}
+                  {/* Filtres de statut */}
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={handleRefresh}
-                      disabled={loading}
-                      className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
-                      title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
+                      onClick={() => {
+                        setStatus('running');
+                        setCurrentPage(0);
+                      }}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        status === 'running'
+                          ? 'bg-accent text-text-inverse'
+                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                      }`}
                     >
-                      <svg
-                        className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
+                      {t('pages_detail.tournaments.status_running')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStatus('upcoming');
+                        setCurrentPage(0);
+                      }}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        status === 'upcoming'
+                          ? 'bg-accent text-text-inverse'
+                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                      }`}
+                    >
+                      {t('pages_detail.tournaments.status_upcoming')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStatus('finished');
+                        setCurrentPage(0);
+                      }}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        status === 'finished'
+                          ? 'bg-accent text-text-inverse'
+                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                      }`}
+                    >
+                      {t('pages_detail.tournaments.status_finished')}
                     </button>
                   </div>
                 </div>

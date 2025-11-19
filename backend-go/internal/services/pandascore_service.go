@@ -27,7 +27,7 @@ func NewPandaScoreService(apiKey string, redisCache *cache.RedisCache) *PandaSco
 }
 
 // makePandaRequest makes an HTTP request to PandaScore API with cache support
-func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, queryParams map[string]string) ([]byte, error) {
+func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, bodyParams map[string]string) ([]byte, error) {
 	// Try cache first (5 min TTL)
 	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != "" {
 		return []byte(cached), nil
@@ -36,12 +36,14 @@ func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint strin
 	// Build full URL with query parameters
 	fullURL := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
 
-	if len(queryParams) > 0 {
+	// Add params as query string (GET request)
+	if len(bodyParams) > 0 {
 		values := url.Values{}
-		for k, v := range queryParams {
+		for k, v := range bodyParams {
 			values.Set(k, v)
 		}
-		fullURL = fullURL + "?" + values.Encode()
+		encoded := values.Encode()
+		fullURL = fmt.Sprintf("%s?%s", fullURL, encoded)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
@@ -101,11 +103,11 @@ func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game stri
 	var endpoint string
 	switch status {
 	case "running":
-		endpoint = fmt.Sprintf("/%s/tournaments", game)
+		endpoint = fmt.Sprintf("/tournaments/running?filter[videogame_title]=%s", game)
 	case "upcoming":
-		endpoint = fmt.Sprintf("/%s/tournaments/upcoming", game)
+		endpoint = fmt.Sprintf("/tournaments/upcoming?filter[videogame_title]=%s", game)
 	case "finished":
-		endpoint = fmt.Sprintf("/%s/tournaments/past", game)
+		endpoint = fmt.Sprintf("/tournaments/past?filter[videogame_title]=%s", game)
 	default:
 		return nil, fmt.Errorf("invalid status: %s", status)
 	}
@@ -126,19 +128,30 @@ func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game stri
 
 // GetTournamentsAllGames retrieves tournaments for all games with a specific status
 func (s *PandaScoreService) GetTournamentsAllGames(ctx context.Context, status string) ([]models.Tournament, error) {
-	games := []string{"valorant", "fifa", "lol-wild-rift", "dota2", "overwatch", "cod-mw", "lol", "rainbow-six-siege", "rocket-league", "csgo"}
-	var allTournaments []models.Tournament
-
-	for _, game := range games {
-		tournaments, err := s.GetTournamentsForGame(ctx, game, status)
-		if err != nil {
-			// Log but continue with other games
-			continue
-		}
-		allTournaments = append(allTournaments, tournaments...)
+	var endpoint string
+	switch status {
+	case "running":
+		endpoint = "/tournaments/running"
+	case "upcoming":
+		endpoint = "/tournaments/upcoming"
+	case "finished":
+		endpoint = "/tournaments/past"
+	default:
+		return nil, fmt.Errorf("invalid status: %s", status)
 	}
 
-	return allTournaments, nil
+	cacheKey := cache.PandaScoreTournamentsAllGamesKey(status)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+
+	var tournaments []models.Tournament
+	if err := json.Unmarshal(data, &tournaments); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tournaments: %w", err)
+	}
+
+	return tournaments, nil
 }
 
 // GetTournamentsByDate retrieves tournaments within a date range
@@ -149,26 +162,26 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 		return nil, fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
 	}
 
-	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
-	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
+	dateStart := parsedDate.Format("2006-01-02T") + "00:00:00Z"
+	dateEnd := parsedDate.Format("2006-01-02T") + "23:59:59Z"
 
-	// Build endpoint
-	var endpoint string
-	if game != nil && *game != "" {
-		endpoint = fmt.Sprintf("/%s/tournaments", *game)
-	} else {
-		endpoint = "/tournaments"
-	}
+	// Build endpoint - use global tournaments endpoint with filters
+	endpoint := "/tournaments"
 
-	// Build query params with properly escaped range
-	queryParams := map[string]string{
+	// Build body params with properly escaped range
+	bodyParams := map[string]string{
 		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
 		"sort":            "-begin_at",
 		"page[size]":      "100",
 	}
 
+	// Add game filter if provided
+	if game != nil && *game != "" {
+		bodyParams["filter[videogame_title]"] = *game
+	}
+
 	cacheKey := cache.PandaScoreTournamentsByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, queryParams)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
 	if err != nil {
 		return nil, err
 	}
@@ -185,14 +198,6 @@ func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date strin
 func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *string, status string, tiers []string) ([]models.Tournament, error) {
 	var allTournaments []models.Tournament
 
-	// Determine which games to query
-	var gamesToQuery []string
-	if game != nil && *game != "" {
-		gamesToQuery = []string{*game}
-	} else {
-		gamesToQuery = []string{"valorant", "fifa", "lol-wild-rift", "dota2", "overwatch", "cod-mw", "lol", "rainbow-six-siege", "rocket-league", "csgo"}
-	}
-
 	// Determine which tiers to query
 	var tiersToQuery []string
 	if len(tiers) > 0 {
@@ -201,34 +206,50 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 		tiersToQuery = []string{"s", "a", "b", "c", "d"}
 	}
 
-	// Query each game/tier combination
-	for _, g := range gamesToQuery {
-		for _, tier := range tiersToQuery {
-			var endpoint string
-			switch status {
-			case "running":
-				endpoint = fmt.Sprintf("/%s/tournaments?filter[tier]=%s&page[size]=100", g, tier)
-			case "upcoming":
-				endpoint = fmt.Sprintf("/%s/tournaments/upcoming?filter[tier]=%s&page[size]=100", g, tier)
-			case "finished":
-				endpoint = fmt.Sprintf("/%s/tournaments/past?filter[tier]=%s&page[size]=100", g, tier)
-			default:
-				continue
-			}
+	// Build base endpoint
+	var baseEndpoint string
+	switch status {
+	case "running":
+		baseEndpoint = "/tournaments/running"
+	case "upcoming":
+		baseEndpoint = "/tournaments/upcoming"
+	case "finished":
+		baseEndpoint = "/tournaments/past"
+	default:
+		return nil, fmt.Errorf("invalid status: %s", status)
+	}
 
-			cacheKey := cache.PandaScoreFilteredTournamentsKey(g, status, tier)
-			data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
-			if err != nil {
-				continue
-			}
-
-			var tournaments []models.Tournament
-			if err := json.Unmarshal(data, &tournaments); err != nil {
-				continue
-			}
-
-			allTournaments = append(allTournaments, tournaments...)
+	// Query each tier with filters
+	for _, tier := range tiersToQuery {
+		// Build filter string
+		var endpoint string
+		filterParts := []string{fmt.Sprintf("filter[tier]=%s", tier)}
+		if game != nil && *game != "" {
+			filterParts = append(filterParts, fmt.Sprintf("filter[videogame_title]=%s", *game))
 		}
+
+		endpoint = fmt.Sprintf("%s?%s&page[size]=100", baseEndpoint, filterParts[0])
+		if len(filterParts) > 1 {
+			endpoint = fmt.Sprintf("%s&%s", endpoint, filterParts[1])
+		}
+
+		gameStr := "all"
+		if game != nil && *game != "" {
+			gameStr = *game
+		}
+
+		cacheKey := cache.PandaScoreFilteredTournamentsKey(gameStr, status, tier)
+		data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})
+		if err != nil {
+			continue
+		}
+
+		var tournaments []models.Tournament
+		if err := json.Unmarshal(data, &tournaments); err != nil {
+			continue
+		}
+
+		allTournaments = append(allTournaments, tournaments...)
 	}
 
 	return allTournaments, nil
@@ -262,26 +283,26 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 		return nil, fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
 	}
 
-	dateStart := parsedDate.Format("2006-01-02T00:00:00Z")
-	dateEnd := parsedDate.Format("2006-01-02T23:59:59Z")
+	dateStart := parsedDate.Format("2006-01-02T") + "00:00:00Z"
+	dateEnd := parsedDate.Format("2006-01-02T") + "23:59:59Z"
 
-	// Build endpoint
-	var endpoint string
-	if game != nil && *game != "" {
-		endpoint = fmt.Sprintf("/%s/matches", *game)
-	} else {
-		endpoint = "/matches"
-	}
+	// Build endpoint - use global matches endpoint
+	endpoint := "/matches"
 
-	// Build query params with properly escaped range
-	queryParams := map[string]string{
+	// Build body params with properly escaped range
+	bodyParams := map[string]string{
 		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
 		"per_page":        "100",
 		"sort":            "-begin_at",
 	}
 
+	// Add game filter if provided
+	if game != nil && *game != "" {
+		bodyParams["filter[videogame_title]"] = *game
+	}
+
 	cacheKey := cache.PandaScoreMatchesByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, queryParams)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
 	if err != nil {
 		return nil, err
 	}

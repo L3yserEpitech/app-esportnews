@@ -16,7 +16,7 @@ type MatchHandler struct {
 }
 
 func (h *MatchHandler) RegisterRoutes(g RouterGroup) {
-	g.GET("/matches/by-date", h.GetMatchesByDate)
+	g.POST("/matches/by-date", h.GetMatchesByDate)
 	g.GET("/matches/:id", h.GetMatch)
 }
 
@@ -25,12 +25,17 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	date := c.QueryParam("date")
+	// Parse form body
+	if err := c.Request().ParseForm(); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid form data")
+	}
+
+	date := c.Request().FormValue("date")
 	if date == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Date is required (format: YYYY-MM-DD)")
 	}
 
-	game := c.QueryParam("game")
+	game := c.Request().FormValue("game")
 
 	var matches interface{}
 	var err error

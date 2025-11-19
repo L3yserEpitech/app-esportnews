@@ -72,6 +72,56 @@
   - **Volatiles/Sync'd** : tournaments, matches, games_pandascore (PandaScore)
   - **Cache Redis** : live data (30 sec TTL), sessions utilisateur
 
+## 3bis) API Endpoints — Documentation Complète
+
+### **Tournois (Tournaments)**
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|-----------|
+| `/api/tournaments` | GET | Tournois en cours (running) | `limit`, `offset`, `sort`, `game` |
+| `/api/tournaments/all` | GET | Tous les tournois en cours | `sort` |
+| `/api/tournaments/upcoming` | GET | Tournois à venir (upcoming) | `limit`, `offset`, `sort` |
+| `/api/tournaments/finished` | GET | Tournois terminés (past) | `limit`, `offset`, `sort` |
+| `/api/tournaments/by-date` | POST | Tournois à une date précise | `date` (form), `game` (form, optionnel) |
+| `/api/tournaments/:id` | GET | Détails d'un tournoi | `id` (path) |
+| `/api/tournaments/filtered` | GET | Tournois avec filtres | `game`, `status`, `filter[tier]` |
+
+**Paramètres de query disponibles** :
+- `limit` : nombre de résultats par page (défaut: 20)
+- `offset` : décalage de pagination (défaut: 0)
+- `sort` : critère de tri (valeurs: `tier`, `-tier`, `begin_at`, `-begin_at`)
+- `game` : acronyme du jeu pour filtrer (ex: `valorant`, `lol`, `cs2`)
+- `status` : statut du tournoi (`running`, `upcoming`, `finished`)
+- `filter[tier]` : rang du tournoi (`s`, `a`, `b`, `c`, `d`)
+
+**Statuts supportés** :
+- `running` → PandaScore: `/running`
+- `upcoming` → PandaScore: `/upcoming`
+- `finished` → PandaScore: `/past` (mappé automatiquement)
+
+### **Matchs (Matches)**
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|-----------|
+| `/api/matches/by-date` | POST | Matchs à une date précise | `date` (form), `game` (form, optionnel) |
+| `/api/matches/:id` | GET | Détails d'un match | `id` (path) |
+
+### **Autres Endpoints**
+
+| Endpoint | Méthode | Description | Paramètres |
+|----------|---------|-------------|-----------|
+| `/api/games` | GET | Liste des jeux supportés | - |
+| `/api/articles` | GET | Articles éditoriaux | `limit`, `offset`, `category` |
+| `/api/ads` | GET | Publicités actives | - |
+| `/api/live` | GET | Matchs en direct (SportDevs) | - |
+
+**Exemple de requête avec paramètres** :
+```
+GET /api/tournaments?limit=12&offset=0&sort=tier&game=valorant
+GET /api/tournaments/upcoming?limit=20&offset=0&sort=-begin_at
+POST /api/tournaments/by-date (body: date=2025-11-19&game=lol)
+```
+
 ## 7) Technique — Stack & Architecture
 
 * **Données & APIs** :

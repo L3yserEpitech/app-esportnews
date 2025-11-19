@@ -14,14 +14,15 @@ const (
 	CacheUserFavorites   = "cache:user:favorites:%d"
 
 	// PandaScore API (5 min cache)
-	PandaScoreTournament         = "pandascore:tournament:%s"
-	PandaScoreTournaments        = "pandascore:tournaments:%s:%s"
-	PandaScoreTournamentsByDate  = "pandascore:tournaments:date:%s:%s"
+	PandaScoreTournament          = "pandascore:tournament:%s"
+	PandaScoreTournaments         = "pandascore:tournaments:%s:%s"
+	PandaScoreTournamentsAllGames = "pandascore:tournaments:all:%s"
+	PandaScoreTournamentsByDate   = "pandascore:tournaments:date:%s:%s"
 	PandaScoreFilteredTournaments = "pandascore:tournaments:filtered:%s:%s:%s"
-	PandaScoreMatch              = "pandascore:match:%s"
-	PandaScoreMatches            = "pandascore:matches:%s:%s"
-	PandaScoreTeam               = "pandascore:team:%s"
-	PandaScoreSearchTeams        = "pandascore:teams:search:%s"
+	PandaScoreMatch               = "pandascore:match:%s"
+	PandaScoreMatches             = "pandascore:matches:%s:%s"
+	PandaScoreTeam                = "pandascore:team:%s"
+	PandaScoreSearchTeams         = "pandascore:teams:search:%s"
 
 	// Auth
 	AuthJWT     = "auth:jwt:%s"
@@ -79,6 +80,10 @@ func PandaScoreTournamentKey(id string) string {
 
 func PandaScoreTournamentsKey(game, status string) string {
 	return fmt.Sprintf(PandaScoreTournaments, game, status)
+}
+
+func PandaScoreTournamentsAllGamesKey(status string) string {
+	return fmt.Sprintf(PandaScoreTournamentsAllGames, status)
 }
 
 func PandaScoreTournamentsByDateKey(date string, game *string) string {

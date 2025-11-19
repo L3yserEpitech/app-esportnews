@@ -8,17 +8,18 @@ class TournamentService {
   // Tournois à une date précise
   async getTournamentsByDate(date: string, game?: string): Promise<PandaTournament[]> {
     try {
-      const params = new URLSearchParams();
-      params.set('date', date);
+      const body = new URLSearchParams();
+      body.set('date', date);
       if (game) {
-        params.set('game', game);
+        body.set('game', game);
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/tournaments/by-date?${params.toString()}`, {
-        method: 'GET',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/tournaments/by-date`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
+        body: body.toString(),
         cache: 'no-store',
       });
 
@@ -38,17 +39,18 @@ class TournamentService {
   // Matchs à une date précise
   async getMatchesByDate(date: string, game?: string): Promise<PandaMatch[]> {
     try {
-      const params = new URLSearchParams();
-      params.set('date', date);
+      const body = new URLSearchParams();
+      body.set('date', date);
       if (game) {
-        params.set('game', game);
+        body.set('game', game);
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/matches/by-date?${params.toString()}`, {
-        method: 'GET',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/matches/by-date`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
+        body: body.toString(),
         cache: 'no-store',
       });
 
@@ -111,9 +113,16 @@ class TournamentService {
     }
   }
   // Tournois en cours - tous jeux
-  async getAllRunningTournaments(): Promise<PandaTournament[]> {
+  async getAllRunningTournaments(sort?: string): Promise<PandaTournament[]> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/tournaments/all`, {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      let url = `${baseUrl}/api/tournaments/all`;
+
+      if (sort) {
+        url += `?sort=${encodeURIComponent(sort)}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -135,9 +144,16 @@ class TournamentService {
   }
 
   // Tournois en cours - jeu spécifique
-  async getRunningTournaments(gameAcronym: string): Promise<PandaTournament[]> {
+  async getRunningTournaments(gameAcronym: string, sort?: string): Promise<PandaTournament[]> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/tournaments?game=${encodeURIComponent(gameAcronym)}`, {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      let url = `${baseUrl}/api/tournaments?game=${encodeURIComponent(gameAcronym)}`;
+
+      if (sort) {
+        url += `&sort=${encodeURIComponent(sort)}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
