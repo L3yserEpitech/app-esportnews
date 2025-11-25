@@ -348,6 +348,16 @@
       "empty_message": "Es gibt derzeit keine Turniere",
       "empty_message_game": "für",
       "empty_message_all_games": "für alle Spiele",
+      "search": {
+        "placeholder": "Turnier suchen...",
+        "input_placeholder": "Turnier nach Name, Liga, Stufe, Region, Spiel oder Status suchen...",
+        "result_singular": "Turnier gefunden",
+        "result_plural": "Turniere gefunden",
+        "start_typing": "Beginnen Sie mit der Eingabe, um zu suchen",
+        "search_by": "Suchen Sie nach Name, Liga, Stufe, Region, Spiel oder Status",
+        "no_results": "Keine Ergebnisse gefunden",
+        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern"
+      },
       "filters_title": "Suchfilter",
       "filter_active_singular": "aktiver Filter",
       "filter_active_plural": "aktive Filter",

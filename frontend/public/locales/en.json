@@ -348,6 +348,16 @@
       "empty_message": "There are currently no tournaments",
       "empty_message_game": "for",
       "empty_message_all_games": "for all games",
+      "search": {
+        "placeholder": "Search for a tournament...",
+        "input_placeholder": "Search for a tournament by name, league, tier, region, game or status...",
+        "result_singular": "tournament found",
+        "result_plural": "tournaments found",
+        "start_typing": "Start typing to search",
+        "search_by": "Search by name, league, tier, region, game or status",
+        "no_results": "No results found",
+        "try_other_keywords": "Try with other keywords"
+      },
       "filters_title": "Search Filters",
       "filter_active_singular": "active filter",
       "filter_active_plural": "active filters",

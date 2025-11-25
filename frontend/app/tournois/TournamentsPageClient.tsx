@@ -2,12 +2,17 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { Search, X } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
 import TournamentCard from '../components/tournaments/TournamentCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 const TournamentsPage: React.FC = () => {
   const t = useTranslations();
@@ -21,6 +26,8 @@ const TournamentsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
   const [status, setStatus] = useState<'running' | 'upcoming' | 'finished'>('running');
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const TOURNAMENTS_PER_PAGE = 12;
 
   // Mémoriser les données du jeu sélectionné
@@ -104,6 +111,44 @@ const TournamentsPage: React.FC = () => {
     loadAds();
   }, [loadAds]);
 
+  // Raccourci clavier pour ouvrir la modale de recherche (⌘K ou Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen(true);
+      }
+      // Fermer avec Escape
+      if (e.key === 'Escape' && isSearchModalOpen) {
+        setIsSearchModalOpen(false);
+        setSearchQuery('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchModalOpen]);
+
+  // Filtrer les tournois selon la recherche
+  const filteredTournaments = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return memoizedTournaments;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return memoizedTournaments.filter((tournament) => {
+      const nameMatch = tournament.name?.toLowerCase().includes(query);
+      const slugMatch = tournament.slug?.toLowerCase().includes(query);
+      const tierMatch = tournament.tier?.toLowerCase().includes(query);
+      const regionMatch = tournament.region?.toLowerCase().includes(query);
+      const leagueMatch = tournament.league?.name?.toLowerCase().includes(query);
+      const gameMatch = tournament.videogame?.name?.toLowerCase().includes(query);
+      const statusMatch = tournament.status?.toLowerCase().includes(query);
+
+      return nameMatch || slugMatch || tierMatch || regionMatch || leagueMatch || gameMatch || statusMatch;
+    });
+  }, [memoizedTournaments, searchQuery]);
+
 
   // Mémoriser les handlers
   const handleRefresh = useCallback(() => {
@@ -172,8 +217,22 @@ const TournamentsPage: React.FC = () => {
           <div className="flex gap-8">
             {/* Contenu principal */}
             <div className="flex-1 max-w-none">
-              {/* Header avec bouton actualiser et pagination */}
+              {/* Barre de recherche */}
               <div className="mb-6 pt-4">
+                <button
+                  onClick={() => setIsSearchModalOpen(true)}
+                  className="w-full max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                >
+                  <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
+                  <span className="text-sm">{t('pages_detail.tournaments.search.placeholder')}</span>
+                  <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
+                    <span className="text-xs">⌘</span>K
+                  </kbd>
+                </button>
+              </div>
+
+              {/* Header avec bouton actualiser et pagination */}
+              <div className="mb-6">
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -338,6 +397,81 @@ const TournamentsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modale de recherche plein écran */}
+      <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-bg-primary border-border-primary/50 flex flex-col [&>button]:hidden">
+          {/* Header de la modale avec barre de recherche */}
+          <div className="p-6 border-b border-border-primary/50">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-muted" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('pages_detail.tournaments.search.input_placeholder')}
+                  className="w-full pl-12 pr-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 transition-all"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setIsSearchModalOpen(false);
+                  setSearchQuery('');
+                }}
+                className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            {searchQuery && (
+              <p className="mt-3 text-sm text-text-muted">
+                {filteredTournaments.length} {filteredTournaments.length === 1 ? t('pages_detail.tournaments.search.result_singular') : t('pages_detail.tournaments.search.result_plural')}
+              </p>
+            )}
+          </div>
+
+          {/* Contenu scrollable avec résultats */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {!searchQuery ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
+                  <p className="text-text-secondary text-lg mb-2">{t('pages_detail.tournaments.search.start_typing')}</p>
+                  <p className="text-text-muted text-sm">{t('pages_detail.tournaments.search.search_by')}</p>
+                </div>
+              </div>
+            ) : filteredTournaments.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
+                  <p className="text-text-secondary text-lg mb-2">{t('pages_detail.tournaments.search.no_results')}</p>
+                  <p className="text-text-muted text-sm">{t('pages_detail.tournaments.search.try_other_keywords')}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTournaments.map((tournament) => (
+                  <TournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    showGameBadge={!selectedGameData}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

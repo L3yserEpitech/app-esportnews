@@ -352,6 +352,16 @@
       "empty_message": "Actualmente no hay ningún torneo",
       "empty_message_game": "para",
       "empty_message_all_games": "para todos los juegos",
+      "search": {
+        "placeholder": "Buscar un torneo...",
+        "input_placeholder": "Buscar un torneo por nombre, liga, nivel, región, juego o estado...",
+        "result_singular": "torneo encontrado",
+        "result_plural": "torneos encontrados",
+        "start_typing": "Comience a escribir para buscar",
+        "search_by": "Busque por nombre, liga, nivel, región, juego o estado",
+        "no_results": "No se encontraron resultados",
+        "try_other_keywords": "Pruebe con otras palabras clave"
+      },
       "filters_title": "Filtros de búsqueda",
       "filter_active_singular": "filtro activo",
       "filter_active_plural": "filtros activos",
