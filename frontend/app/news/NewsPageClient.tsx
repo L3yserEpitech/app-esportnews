@@ -13,6 +13,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from '@/components/ui/dialog';
 
 export default function NewsPage() {
@@ -205,6 +206,7 @@ export default function NewsPage() {
       {/* Modale de recherche plein écran */}
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
         <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-bg-primary border-border-primary/50 flex flex-col [&>button]:hidden">
+          <DialogTitle className="sr-only">{t('pages_detail.articles.search.placeholder_news')}</DialogTitle>
           {/* Header de la modale avec barre de recherche */}
           <div className="p-6 border-b border-border-primary/50">
             <div className="flex items-center gap-4">
