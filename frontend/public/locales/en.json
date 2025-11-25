@@ -295,7 +295,18 @@
     "articles": {
       "aucun_article": "No articles available",
       "revenez_decouvrir": "Come back soon to discover the latest esports news!",
-      "voir_aussi": "See also"
+      "voir_aussi": "See also",
+      "search": {
+        "placeholder_article": "Search for an article...",
+        "placeholder_news": "Search for news...",
+        "input_placeholder": "Search for an article by title, description, category, author or tags...",
+        "result_singular": "result found",
+        "result_plural": "results found",
+        "start_typing": "Start typing to search",
+        "search_by": "Search by title, description, category, author or tags",
+        "no_results": "No results found",
+        "try_other_keywords": "Try with other keywords"
+      }
     },
     "calendar": {
       "type_affichage": "Display type",

@@ -296,7 +296,18 @@
     "articles": {
       "aucun_article": "Aucun article disponible",
       "revenez_decouvrir": "Revenez bientôt pour découvrir les dernières nouvelles de l'esport !",
-      "voir_aussi": "Voir aussi"
+      "voir_aussi": "Voir aussi",
+      "search": {
+        "placeholder_article": "Rechercher un article...",
+        "placeholder_news": "Rechercher une actualité...",
+        "input_placeholder": "Rechercher un article par titre, description, catégorie, auteur ou tags...",
+        "result_singular": "résultat trouvé",
+        "result_plural": "résultats trouvés",
+        "start_typing": "Commencez à taper pour rechercher",
+        "search_by": "Recherchez par titre, description, catégorie, auteur ou tags",
+        "no_results": "Aucun résultat trouvé",
+        "try_other_keywords": "Essayez avec d'autres mots-clés"
+      }
     },
     "calendar": {
       "type_affichage": "Type d'affichage",

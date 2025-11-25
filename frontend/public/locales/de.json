@@ -295,7 +295,18 @@
     "articles": {
       "aucun_article": "Keine Artikel verfügbar",
       "revenez_decouvrir": "Kommen Sie bald wieder, um die neuesten Esports-Nachrichten zu entdecken!",
-      "voir_aussi": "Siehe auch"
+      "voir_aussi": "Siehe auch",
+      "search": {
+        "placeholder_article": "Artikel suchen...",
+        "placeholder_news": "Nachricht suchen...",
+        "input_placeholder": "Artikel nach Titel, Beschreibung, Kategorie, Autor oder Tags suchen...",
+        "result_singular": "Ergebnis gefunden",
+        "result_plural": "Ergebnisse gefunden",
+        "start_typing": "Beginnen Sie mit der Eingabe, um zu suchen",
+        "search_by": "Suchen Sie nach Titel, Beschreibung, Kategorie, Autor oder Tags",
+        "no_results": "Keine Ergebnisse gefunden",
+        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern"
+      }
     },
     "calendar": {
       "type_affichage": "Anzeigetyp",
