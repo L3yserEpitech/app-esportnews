@@ -217,8 +217,16 @@ const TournamentsPage: React.FC = () => {
           <div className="flex gap-8">
             {/* Contenu principal */}
             <div className="flex-1 max-w-none">
+              {/* Titre de la page */}
+              <div className="mb-6 pt-7">
+                <h1 className="text-3xl font-bold text-text-primary mb-2">Tous les tournois</h1>
+                <p className="text-text-secondary text-sm">
+                  Page {currentPage + 1} • {memoizedTournaments.length} tournois
+                </p>
+              </div>
+
               {/* Barre de recherche */}
-              <div className="mb-6 pt-4">
+              <div className="mb-6">
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
                   className="w-full max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
@@ -231,52 +239,11 @@ const TournamentsPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Header avec bouton actualiser et pagination */}
+              {/* Filtres et options */}
               <div className="mb-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <h2 className="text-2xl font-bold text-text-primary">Tous les tournois</h2>
-                      <span className="text-text-secondary text-sm">
-                        Page {currentPage + 1} • {memoizedTournaments.length} tournois
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {/* Sort dropdown */}
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
-                        className="px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg border border-border-primary transition-colors cursor-pointer text-sm"
-                        title="Trier les tournois"
-                      >
-                        <option value="tier">Tier (S → D)</option>
-                        <option value="-tier">Tier (D → S)</option>
-                        <option value="begin_at">Date (anciens → récents)</option>
-                        <option value="-begin_at">Date (récents → anciens)</option>
-                      </select>
-
-                      {/* Bouton actualiser - icon seulement */}
-                      <button
-                        onClick={handleRefresh}
-                        disabled={loading}
-                        className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
-                        title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
-                      >
-                        <svg
-                          className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   {/* Filtres de statut */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => {
                         setStatus('running');
@@ -315,6 +282,39 @@ const TournamentsPage: React.FC = () => {
                       }`}
                     >
                       {t('pages_detail.tournaments.status_finished')}
+                    </button>
+                  </div>
+
+                  {/* Options de tri et actualiser */}
+                  <div className="flex items-center gap-3">
+                    {/* Sort dropdown */}
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
+                      className="px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg border border-border-primary transition-colors cursor-pointer text-sm"
+                      title="Trier les tournois"
+                    >
+                      <option value="tier">Tier (S → D)</option>
+                      <option value="-tier">Tier (D → S)</option>
+                      <option value="begin_at">Date (anciens → récents)</option>
+                      <option value="-begin_at">Date (récents → anciens)</option>
+                    </select>
+
+                    {/* Bouton actualiser */}
+                    <button
+                      onClick={handleRefresh}
+                      disabled={loading}
+                      className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
+                      title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
+                    >
+                      <svg
+                        className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
                     </button>
                   </div>
                 </div>
