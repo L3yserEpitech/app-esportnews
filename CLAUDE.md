@@ -146,8 +146,9 @@ POST /api/tournaments/by-date (body: date=2025-11-19&game=lol)
 
   3. **articles** - Contenu éditorial
      - Persistant | Édité par : back-office + CMS
-     - Cols clés : id, slug (unique), title, content, category, tags[], featuredImage, videoUrl
+     - Cols clés : id, slug (unique), title, content, category, tags[], featuredImage, videoUrl, credit
      - Support vidéo : youtube/vimeo/mp4
+     - Credit : attribution source (ex. © VCT EMEA, © Studio X, etc.)
 
   4. **ads** - Bannières publicitaires gérées en interne
      - Persistant | Édité par : back-office
@@ -200,6 +201,42 @@ POST /api/tournaments/by-date (body: date=2025-11-19&game=lol)
   - Contrevérifier les contraintes UNIQUE après import (id, email, slug, panda_id)
   - **Tournois/matchs ne se migrent PAS** : re-synced à chaque démarrage du backend Go
 
+## 9.1) Seeding Articles — Procédure
+
+* **Source de données** :
+  - JSON export depuis Supabase : `/backend-go/initial_data/articles_rows.json`
+  - Format : Array de 47 objets Article avec tous les champs (title, content, tags[], etc.)
+  - Dépourvu de migrations SQL volumineux (idéal pour 40+ articles)
+
+* **Script de seeding** :
+  - Binaire Go : `./seed` (compilé automatiquement par Docker)
+  - Logique : `internal/seed/articles.go` + `cmd/seed/main.go`
+  - Gère les doublons via `ON CONFLICT (slug) DO NOTHING`
+
+* **Procédure d'import** :
+  1. S'assurer que Docker Compose est up : `docker-compose ps`
+  2. Lancer le seeding :
+     ```bash
+     docker-compose exec -T backend ./seed --data=initial_data/articles_rows.json
+     ```
+  3. Vérifier le résultat (logs affichent nombre inséré + total en DB)
+  4. Le script est **idempotent** : peut être re-exécuté sans créer de doublons
+
+* **Flags disponibles** :
+  - `--data=<path>` : chemin vers le fichier JSON (défaut: `initial_data/articles_rows.json`)
+  - `--dry-run` : teste sans insérer (valide JSON + structure)
+  - `-v` : verbose output (GORM debug logs)
+
+* **Vérification** :
+  ```sql
+  -- Compter articles en BD
+  SELECT COUNT(*) FROM articles;
+
+  -- Vérifier un article par slug
+  SELECT slug, title, author, array_length(tags, 1) as tag_count
+  FROM articles WHERE slug = '<article-slug>';
+  ```
+
 ## 9bis) Données & Contrats
 
 * **Modèle logique** : Game → Tournament → Match → SubMatch (game_pandascore) → Live streams
@@ -236,7 +273,10 @@ POST /api/tournaments/by-date (body: date=2025-11-19&game=lol)
 
 * **En cours** :
   - 🔄 Backend Go (`/backend-go`) - finalisation des endpoints + gestion erreurs
-  - 🔄 Migration données Supabase (users, articles, ads seulement)
+
+* **Complétés** :
+  - ✅ Migration données Supabase (users, articles, ads)
+  - ✅ Seeding articles (47 articles importés via script Go + JSON)
 
 ---
 

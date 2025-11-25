@@ -11,6 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend-go/migrations:/docker-entrypoint-initdb.d
+      - ./backend-go/initial_data:/initial_data:ro
     networks:
       - esportnews
     healthcheck:

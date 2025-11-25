@@ -21,6 +21,7 @@ type Article struct {
 	FeaturedImage  *string        `json:"featuredImage" gorm:"column:featuredImage"`
 	VideoURL       *string        `json:"videoUrl" gorm:"column:videoUrl"`
 	VideoType      *string        `json:"videoType" gorm:"column:videoType"`
+	Credit         *string        `json:"credit"`
 }
 
 type ArticleWithMetadata struct {
