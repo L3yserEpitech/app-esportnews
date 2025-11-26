@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Search, X } from 'lucide-react';
 import AdColumn from '../components/ads/AdColumn';
@@ -162,6 +162,16 @@ export default function ArticlesPageClient() {
     const startIndex = (currentPage - 1) * ARTICLES_PER_PAGE;
     return filteredAndSortedArticles.slice(startIndex, startIndex + ARTICLES_PER_PAGE);
   }, [filteredAndSortedArticles, currentPage]);
+
+  // Ref pour la section des articles
+  const articlesSectionRef = useRef<HTMLDivElement>(null);
+
+  // Scroll vers la section des articles lors du changement de page
+  useEffect(() => {
+    if (articlesSectionRef.current) {
+      articlesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPage]);
 
   // Gérer la sélection/désélection des catégories
   const toggleCategory = useCallback((category: string) => {

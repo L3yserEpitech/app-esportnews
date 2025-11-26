@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Search, X } from 'lucide-react';
 import AdColumn from '../components/ads/AdColumn';
@@ -25,6 +25,8 @@ export default function NewsPage() {
   const [isSubscribed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ARTICLES_PER_PAGE = 9;
 
   // Load all articles and filter by "Actualité" category
   const loadArticles = useCallback(async () => {
@@ -126,6 +128,23 @@ export default function NewsPage() {
     );
   }, [articles, featuredArticle]);
 
+  // Pagination
+  const totalPages = Math.ceil(newsArticles.length / ARTICLES_PER_PAGE);
+  const paginatedArticles = useMemo(() => {
+    const startIndex = (currentPage - 1) * ARTICLES_PER_PAGE;
+    return newsArticles.slice(startIndex, startIndex + ARTICLES_PER_PAGE);
+  }, [newsArticles, currentPage]);
+
+  // Ref pour la section des articles
+  const articlesSectionRef = useRef<HTMLDivElement>(null);
+
+  // Scroll vers la section des articles lors du changement de page
+  useEffect(() => {
+    if (articlesSectionRef.current) {
+      articlesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPage]);
+
   if (isLoadingArticles) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center">
@@ -174,13 +193,10 @@ export default function NewsPage() {
                 )}
 
                 {/* News articles section */}
-                {newsArticles.length > 0 && (
-                  <section className="space-y-6">
-                    {/* Section header */}
-
-                    {/* News articles grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {newsArticles.map((article) => (
+                {newsArticles.length > 0 ? (
+                  <>
+                    <div ref={articlesSectionRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {paginatedArticles.map((article) => (
                         <ArticleCard
                           key={article.id}
                           article={article}
@@ -188,8 +204,33 @@ export default function NewsPage() {
                         />
                       ))}
                     </div>
-                  </section>
-                )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="mt-8 flex items-center justify-center gap-4">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-6 py-2 bg-bg-secondary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed text-text-primary rounded-lg font-medium transition-colors border border-border-primary"
+                        >
+                          ← Précédent
+                        </button>
+
+                        <span className="text-text-secondary font-medium">
+                          Page {currentPage} sur {totalPages}
+                        </span>
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse rounded-lg font-medium transition-colors"
+                        >
+                          Suivant →
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
             )}
           </div>
