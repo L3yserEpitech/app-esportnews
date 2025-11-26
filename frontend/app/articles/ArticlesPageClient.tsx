@@ -25,6 +25,9 @@ export default function ArticlesPageClient() {
   const [isSubscribed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const ARTICLES_PER_PAGE = 9; // 3 lignes x 3 colonnes
 
   // Load all articles
   const loadArticles = useCallback(async () => {
@@ -115,38 +118,74 @@ export default function ArticlesPageClient() {
     });
   }, [articles, searchQuery]);
 
-  // Grouper les articles par catégorie et trier par date (plus récent au plus vieux)
-  // Exclure l'article featured et les articles de la catégorie "Actus"
-  const articlesByCategory = useMemo(() => {
-    const articlesWithoutFeatured = articles.filter(
-      article => article.id !== featuredArticle?.id
-    );
-
-    // Filtrer les articles (exclure la catégorie "Actus")
-    const filteredArticles = articlesWithoutFeatured.filter(
-      article => article.category !== 'Actus'
-    );
-
-    // Grouper par catégorie
-    const grouped = filteredArticles.reduce((acc, article) => {
-      const category = article.category || 'Non catégorisé';
-      if (!acc[category]) {
-        acc[category] = [];
+  // Obtenir toutes les catégories disponibles (exclure "Actus")
+  const availableCategories = useMemo(() => {
+    const categories = new Set<string>();
+    articles.forEach(article => {
+      if (article.category && article.category !== 'Actus') {
+        categories.add(article.category);
       }
-      acc[category].push(article);
-      return acc;
-    }, {} as Record<string, NewsItem[]>);
-
-    // Trier chaque catégorie par date (plus récent en premier)
-    Object.keys(grouped).forEach(category => {
-      grouped[category].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
     });
+    return Array.from(categories).sort();
+  }, [articles]);
 
-    // Trier les catégories par le nombre d'articles (décroissant)
-    return Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
-  }, [articles, featuredArticle]);
+  // Initialiser les catégories sélectionnées avec toutes les catégories au chargement
+  useEffect(() => {
+    if (availableCategories.length > 0 && selectedCategories.size === 0) {
+      setSelectedCategories(new Set(availableCategories));
+    }
+  }, [availableCategories, selectedCategories.size]);
+
+  // Filtrer et trier les articles selon les catégories sélectionnées
+  const filteredAndSortedArticles = useMemo(() => {
+    const articlesWithoutFeatured = articles.filter(
+      article => article.id !== featuredArticle?.id && article.category !== 'Actus'
+    );
+
+    // Filtrer par catégories sélectionnées
+    let filtered = articlesWithoutFeatured;
+    if (selectedCategories.size > 0) {
+      filtered = articlesWithoutFeatured.filter(article =>
+        article.category && selectedCategories.has(article.category)
+      );
+    }
+
+    // Trier par date (plus récent en premier)
+    return filtered.sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [articles, featuredArticle, selectedCategories]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedArticles.length / ARTICLES_PER_PAGE);
+  const paginatedArticles = useMemo(() => {
+    const startIndex = (currentPage - 1) * ARTICLES_PER_PAGE;
+    return filteredAndSortedArticles.slice(startIndex, startIndex + ARTICLES_PER_PAGE);
+  }, [filteredAndSortedArticles, currentPage]);
+
+  // Gérer la sélection/désélection des catégories
+  const toggleCategory = useCallback((category: string) => {
+    setSelectedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+    setCurrentPage(1); // Reset à la page 1 lors du changement de filtre
+  }, []);
+
+  // Sélectionner/désélectionner toutes les catégories
+  const toggleAllCategories = useCallback(() => {
+    if (selectedCategories.size === availableCategories.length) {
+      setSelectedCategories(new Set());
+    } else {
+      setSelectedCategories(new Set(availableCategories));
+    }
+    setCurrentPage(1);
+  }, [selectedCategories.size, availableCategories]);
 
   if (isLoadingArticles) {
     return (
@@ -195,29 +234,43 @@ export default function ArticlesPageClient() {
                   />
                 )}
 
-                {/* Articles groupés par catégorie */}
-                {articlesByCategory.map(([category, categoryArticles]) => (
-                  <section key={category} className="space-y-6">
-                    {/* Divider de catégorie */}
-                    <div className="relative">
-                      <div className="bg-gradient-to-r from-bg-tertiary/80 to-bg-secondary/40 rounded-xl border border-border-primary/50 overflow-hidden">
-                        <div className="px-6 py-4 flex items-center gap-4">
-                          <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold text-text-primary">
-                              {category}
-                            </h2>
-                            <span className="bg-accent/20 text-accent px-2.5 py-1 rounded-full text-xs font-medium">
-                              {categoryArticles.length}
-                            </span>
-                          </div>
-                          <div className="flex-1 h-px bg-gradient-to-r from-border-muted/50 to-transparent"></div>
-                        </div>
+                {/* Filtres de catégories */}
+                {availableCategories.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-text-primary">Filtrer par catégorie</h3>
+                        <button
+                          onClick={toggleAllCategories}
+                          className="text-sm text-accent hover:text-accent/80 transition-colors"
+                        >
+                          {selectedCategories.size === availableCategories.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {availableCategories.map((category) => (
+                          <button
+                            key={category}
+                            onClick={() => toggleCategory(category)}
+                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                              selectedCategories.has(category)
+                                ? 'bg-pink-600 hover:bg-pink-700 text-white'
+                                : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                            }`}
+                          >
+                            {category}
+                          </button>
+                        ))}
                       </div>
                     </div>
+                  </div>
+                )}
 
-                    {/* Articles de la catégorie */}
+                {/* Articles paginés */}
+                {filteredAndSortedArticles.length > 0 ? (
+                  <>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {categoryArticles.map((article) => (
+                      {paginatedArticles.map((article) => (
                         <ArticleCard
                           key={article.id}
                           article={article}
@@ -225,8 +278,42 @@ export default function ArticlesPageClient() {
                         />
                       ))}
                     </div>
-                  </section>
-                ))}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="mt-8 flex items-center justify-center gap-4">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-6 py-2 bg-bg-secondary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed text-text-primary rounded-lg font-medium transition-colors border border-border-primary"
+                        >
+                          ← Précédent
+                        </button>
+
+                        <span className="text-text-secondary font-medium">
+                          Page {currentPage} sur {totalPages}
+                        </span>
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse rounded-lg font-medium transition-colors"
+                        >
+                          Suivant →
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-text-secondary text-lg mb-2">
+                      Aucun article trouvé
+                    </p>
+                    <p className="text-text-muted text-sm">
+                      Essayez de sélectionner d'autres catégories
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
