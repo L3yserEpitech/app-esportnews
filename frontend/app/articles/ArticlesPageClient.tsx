@@ -173,6 +173,20 @@ export default function ArticlesPageClient() {
               </div>
             ) : (
               <div className="space-y-12">
+                {/* Barre de recherche */}
+                <div className="mb-8 mt-3">
+                  <button
+                    onClick={() => setIsSearchModalOpen(true)}
+                    className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  >
+                    <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
+                    <span className="text-sm">{t('pages_detail.articles.search.placeholder_article')}</span>
+                    <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
+                      <span className="text-xs">⌘</span>K
+                    </kbd>
+                  </button>
+                </div>
+
                 {/* Article Featured (le plus récent) */}
                 {featuredArticle && (
                   <FeaturedArticleCard
@@ -180,20 +194,6 @@ export default function ArticlesPageClient() {
                     onClick={handleArticleClick}
                   />
                 )}
-
-                {/* Barre de recherche */}
-              <div className="mb-8">
-                <button
-                  onClick={() => setIsSearchModalOpen(true)}
-                  className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
-                >
-                  <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
-                  <span className="text-sm">{t('pages_detail.articles.search.placeholder_article')}</span>
-                  <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
-                    <span className="text-xs">⌘</span>K
-                  </kbd>
-                </button>
-              </div>
 
                 {/* Articles groupés par catégorie */}
                 {articlesByCategory.map(([category, categoryArticles]) => (

@@ -151,16 +151,8 @@ export default function NewsPage() {
               </div>
             ) : (
               <div className="space-y-12">
-                {/* Featured article (most recent) */}
-                {featuredArticle && (
-                  <FeaturedArticleCard
-                    article={featuredArticle}
-                    onClick={handleArticleClick}
-                  />
-                )}
-
                 {/* Barre de recherche */}
-                <div className="mb-8">
+                <div className="mb-8 mt-3">
                   <button
                     onClick={() => setIsSearchModalOpen(true)}
                     className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
@@ -172,6 +164,14 @@ export default function NewsPage() {
                     </kbd>
                   </button>
                 </div>
+
+                {/* Featured article (most recent) */}
+                {featuredArticle && (
+                  <FeaturedArticleCard
+                    article={featuredArticle}
+                    onClick={handleArticleClick}
+                  />
+                )}
 
                 {/* News articles section */}
                 {newsArticles.length > 0 && (
