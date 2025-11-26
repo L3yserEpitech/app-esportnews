@@ -3,14 +3,12 @@ package services
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
-	"github.com/esportnews/backend/internal/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +24,7 @@ func TestSignup_ValidUser(t *testing.T) {
 		Name:     "Test User",
 		Email:    "test@example.com",
 		Password: "SecurePass123",
+		Age:      25,
 	}
 
 	user, err := authService.Signup(context.Background(), input)
@@ -49,6 +48,7 @@ func TestSignup_WeakPassword(t *testing.T) {
 		Name:     "Test User",
 		Email:    "weak@example.com",
 		Password: "weak", // Less than 8 characters
+		Age:      25,
 	}
 
 	user, err := authService.Signup(context.Background(), input)
@@ -209,9 +209,9 @@ func TestUpdateUser(t *testing.T) {
 
 	// Update user
 	updateInput := &models.UpdateUserInput{
-		Name:     "Updated Name",
-		Email:    "updated@example.com",
-		Avatar:   "https://example.com/avatar.jpg",
+		Name:   "Updated Name",
+		Email:  "updated@example.com",
+		Avatar: "https://example.com/avatar.jpg",
 	}
 
 	updatedUser, err := authService.UpdateUser(context.Background(), createdUser.ID, updateInput)
@@ -285,7 +285,8 @@ func createTestTables(t *testing.T, db *pgxpool.Pool) {
 		email TEXT NOT NULL UNIQUE,
 		password TEXT NOT NULL,
 		avatar TEXT NULL,
-		admin BOOLEAN NOT NULL DEFAULT FALSE
+		admin BOOLEAN NOT NULL DEFAULT FALSE,
+		age INTEGER NOT NULL
 	);
 	`
 

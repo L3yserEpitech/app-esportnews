@@ -59,9 +59,9 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*models
 	var user models.User
 	var hashedPassword string
 	err := s.db.QueryRow(ctx,
-		`SELECT id, created_at, name, email, password, avatar, admin FROM public.users WHERE email = $1`,
+		`SELECT id, created_at, name, email, password, avatar, admin, age FROM public.users WHERE email = $1`,
 		email,
-	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &hashedPassword, &user.Avatar, &user.Admin)
+	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &hashedPassword, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
@@ -79,6 +79,11 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 		return nil, fmt.Errorf("password must be at least 8 characters")
 	}
 
+	// Validate age
+	if input.Age < 13 || input.Age > 120 {
+		return nil, fmt.Errorf("age must be between 13 and 120 years")
+	}
+
 	// Hash password
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
@@ -92,6 +97,7 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 			Email:    input.Email,
 			Password: hashedPassword,
 			Admin:    false,
+			Age:      input.Age,
 		}
 
 		if err := s.gormDB.WithContext(ctx).Create(user).Error; err != nil {
@@ -104,17 +110,46 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 	// Fallback to pgxpool
 	var user models.User
 	err = s.db.QueryRow(ctx,
-		`INSERT INTO public.users (name, email, password, admin)
-		 VALUES ($1, $2, $3, false)
-		 RETURNING id, created_at, name, email, avatar, admin`,
-		input.Name, input.Email, hashedPassword,
-	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin)
+		`INSERT INTO public.users (name, email, password, admin, age)
+		 VALUES ($1, $2, $3, false, $4)
+		 RETURNING id, created_at, name, email, avatar, admin, age`,
+		input.Name, input.Email, hashedPassword, input.Age,
+	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return &user, nil
+}
+
+// LoginAfterSignup generates tokens for a newly created user (used after signup)
+func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (*models.AuthResponse, error) {
+	// Generate JWT access token (7 days)
+	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 7*24*time.Hour)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Store token in Redis for blacklist (7 days)
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
+
+	// Generate refresh token (14 days)
+	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 14*24*time.Hour)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Store refresh token in Redis (14 days)
+	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID), refreshToken, 14*24*time.Hour)
+
+	return &models.AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         user,
+	}, nil
 }
 
 // Login authenticates a user and returns tokens
@@ -215,9 +250,9 @@ func (s *AuthService) GetUser(ctx context.Context, userID int64) (*models.User, 
 	// Fallback to pgxpool
 	var user models.User
 	err := s.db.QueryRow(ctx,
-		`SELECT id, created_at, name, email, avatar, admin FROM public.users WHERE id = $1`,
+		`SELECT id, created_at, name, email, avatar, admin, age FROM public.users WHERE id = $1`,
 		userID,
-	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin)
+	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
@@ -264,9 +299,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 	if input.Name != nil && input.Email != nil {
 		err := s.db.QueryRow(ctx,
 			`UPDATE public.users SET name = $1, email = $2 WHERE id = $3
-			 RETURNING id, created_at, name, email, avatar, admin`,
+			 RETURNING id, created_at, name, email, avatar, admin, age`,
 			*input.Name, *input.Email, userID,
-		).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin)
+		).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to update user: %w", err)
@@ -274,9 +309,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 	} else if input.Name != nil {
 		err := s.db.QueryRow(ctx,
 			`UPDATE public.users SET name = $1 WHERE id = $2
-			 RETURNING id, created_at, name, email, avatar, admin`,
+			 RETURNING id, created_at, name, email, avatar, admin, age`,
 			*input.Name, userID,
-		).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin)
+		).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to update user: %w", err)

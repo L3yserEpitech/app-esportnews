@@ -43,7 +43,13 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	return c.JSON(http.StatusCreated, user)
+	// Generate tokens after successful signup (same as login)
+	response, err := h.authService.LoginAfterSignup(ctx, user)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate tokens")
+	}
+
+	return c.JSON(http.StatusCreated, response)
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {

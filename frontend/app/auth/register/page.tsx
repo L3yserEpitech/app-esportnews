@@ -19,6 +19,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    age: '',
   });
 
   const [errors, setErrors] = useState({
@@ -26,6 +27,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    age: '',
     general: '',
   });
 
@@ -37,6 +39,7 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
+      age: '',
       general: '',
     };
 
@@ -74,6 +77,17 @@ export default function RegisterPage() {
       isValid = false;
     }
 
+    if (!formData.age) {
+      newErrors.age = t('pages.register.age_requis');
+      isValid = false;
+    } else {
+      const ageNum = parseInt(formData.age, 10);
+      if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
+        newErrors.age = t('pages.register.age_invalide');
+        isValid = false;
+      }
+    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -93,6 +107,7 @@ export default function RegisterPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        age: parseInt(formData.age, 10),
       });
 
       router.push('/');
@@ -260,6 +275,37 @@ export default function RegisterPage() {
                 )}
               </div>
 
+              {/* Age */}
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium text-text-secondary mb-2">
+                  {t('pages.register.age')}
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-text-muted" />
+                  </div>
+                  <input
+                    id="age"
+                    name="age"
+                    type="number"
+                    min="13"
+                    max="120"
+                    value={formData.age}
+                    onChange={handleChange}
+                    className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.age ? 'border-red-500/50' : 'border-border-primary/50'
+                      } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
+                    placeholder={t('pages.register.placeholder_age')}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.age && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                    <span>•</span>
+                    <span>{errors.age}</span>
+                  </p>
+                )}
+              </div>
+
               {/* Mot de passe */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
@@ -356,7 +402,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Mentions légales */}
-          <p className="mt-6 text-center text-text-muted text-xs">
+          <p className="mt-2 mb-4 text-center text-text-muted text-xs">
             {t('pages.register.en_creant_compte')}{' '}
             <Link href="/legal/terms" className="underline hover:text-text-secondary">
               {t('pages.register.conditions_utilisation')}

@@ -152,8 +152,12 @@
       "confirmer_mot_de_passe_requis": "Please confirm your password",
       "mots_de_passe_ne_correspondent": "Passwords do not match",
       "erreur_inscription": "An error occurred while creating account",
+      "age": "Age",
+      "age_requis": "Age is required",
+      "age_invalide": "Age must be between 13 and 120 years",
       "placeholder_name": "John Doe",
       "placeholder_email": "john@example.com",
+      "placeholder_age": "25",
       "se_connecter": "Sign in",
       "en_creant_compte": "By creating an account, you accept our",
       "et_notre": "and our"

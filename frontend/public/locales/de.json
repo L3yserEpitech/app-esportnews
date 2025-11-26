@@ -152,8 +152,12 @@
       "confirmer_mot_de_passe_requis": "Bitte bestätigen Sie Ihr Passwort",
       "mots_de_passe_ne_correspondent": "Passwörter stimmen nicht überein",
       "erreur_inscription": "Ein Fehler ist bei der Registrierung aufgetreten",
+      "age": "Alter",
+      "age_requis": "Das Alter ist erforderlich",
+      "age_invalide": "Das Alter muss zwischen 13 und 120 Jahren liegen",
       "placeholder_name": "John Doe",
       "placeholder_email": "john@beispiel.de",
+      "placeholder_age": "25",
       "se_connecter": "Anmelden",
       "en_creant_compte": "Wenn Sie ein Konto erstellen, akzeptieren Sie unsere",
       "et_notre": "und unsere"

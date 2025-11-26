@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -48,6 +49,7 @@ func TestSignupHandler_Success(t *testing.T) {
 		Name:     "Test User",
 		Email:    "signup@example.com",
 		Password: "SecurePass123",
+		Age:      25,
 	}
 
 	body, _ := json.Marshal(payload)
@@ -83,6 +85,7 @@ func TestSignupHandler_WeakPassword(t *testing.T) {
 		Name:     "Test User",
 		Email:    "weak@example.com",
 		Password: "weak",
+		Age:      25,
 	}
 
 	body, _ := json.Marshal(payload)
@@ -149,6 +152,7 @@ func TestLoginHandler_Success(t *testing.T) {
 		Name:     "Test User",
 		Email:    "login@example.com",
 		Password: "SecurePass123",
+		Age:      25,
 	})
 	require.NoError(t, err)
 
@@ -269,7 +273,8 @@ func createTestTables(t *testing.T, db *pgxpool.Pool) {
 		email TEXT NOT NULL UNIQUE,
 		password TEXT NOT NULL,
 		avatar TEXT NULL,
-		admin BOOLEAN NOT NULL DEFAULT FALSE
+		admin BOOLEAN NOT NULL DEFAULT FALSE,
+		age INTEGER NOT NULL
 	);
 	`
 

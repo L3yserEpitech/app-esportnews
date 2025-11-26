@@ -12,6 +12,7 @@ type User struct {
 	Password            string         `json:"-"` // Never expose password
 	Avatar              *string        `json:"avatar"`
 	Admin               bool           `json:"admin" gorm:"default:false"`
+	Age                 int            `json:"age" gorm:"not null"`
 	FavoriteTeams       []int64        `json:"favorite_teams" gorm:"type:integer[]"`
 	NotifiPush          *bool          `json:"notifi_push" gorm:"column:notifi_push"`
 	NotifArticles       *bool          `json:"notif_articles" gorm:"column:notif_articles"`
@@ -23,6 +24,7 @@ type CreateUserInput struct {
 	Name     string `json:"name" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
+	Age      int    `json:"age" validate:"required,min=13,max=120"`
 }
 
 type LoginInput struct {

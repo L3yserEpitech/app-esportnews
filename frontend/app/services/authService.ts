@@ -4,6 +4,7 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
+  age: number;
 }
 
 export interface LoginData {
@@ -12,7 +13,8 @@ export interface LoginData {
 }
 
 export interface AuthResponse {
-  authToken: string;
+  access_token: string;
+  refresh_token?: string;
   user: UserData;
 }
 
@@ -35,6 +37,7 @@ export interface UserData {
   email: string;
   admin: boolean;
   avatar: string | null;
+  age: number;
 }
 
 class AuthService {
@@ -58,7 +61,7 @@ class AuthService {
     const result: AuthResponse = await response.json();
 
     return {
-      authToken: result.authToken,
+      authToken: result.access_token,
       user: result.user,
     };
   }
@@ -83,7 +86,7 @@ class AuthService {
     const result: AuthResponse = await response.json();
 
     return {
-      authToken: result.authToken,
+      authToken: result.access_token,
       user: result.user,
     };
   }

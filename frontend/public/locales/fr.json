@@ -153,8 +153,12 @@
       "confirmer_mot_de_passe_requis": "Veuillez confirmer votre mot de passe",
       "mots_de_passe_ne_correspondent": "Les mots de passe ne correspondent pas",
       "erreur_inscription": "Une erreur est survenue lors de l'inscription",
+      "age": "Âge",
+      "age_requis": "L'âge est requis",
+      "age_invalide": "L'âge doit être entre 13 et 120 ans",
       "placeholder_name": "John Doe",
       "placeholder_email": "john@exemple.com",
+      "placeholder_age": "25",
       "se_connecter": "Se connecter",
       "en_creant_compte": "En créant un compte, vous acceptez nos",
       "et_notre": "et notre"
