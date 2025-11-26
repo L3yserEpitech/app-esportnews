@@ -79,8 +79,8 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 		return nil, fmt.Errorf("password must be at least 8 characters")
 	}
 
-	// Validate age
-	if input.Age < 13 || input.Age > 120 {
+	// Validate age if provided
+	if input.Age != nil && (*input.Age < 13 || *input.Age > 120) {
 		return nil, fmt.Errorf("age must be between 13 and 120 years")
 	}
 
@@ -97,7 +97,7 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 			Email:    input.Email,
 			Password: hashedPassword,
 			Admin:    false,
-			Age:      input.Age,
+			Age:      input.Age, // Can be nil
 		}
 
 		if err := s.gormDB.WithContext(ctx).Create(user).Error; err != nil {
@@ -113,7 +113,7 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 		`INSERT INTO public.users (name, email, password, admin, age)
 		 VALUES ($1, $2, $3, false, $4)
 		 RETURNING id, created_at, name, email, avatar, admin, age`,
-		input.Name, input.Email, hashedPassword, input.Age,
+		input.Name, input.Email, hashedPassword, input.Age, // Age can be nil
 	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {

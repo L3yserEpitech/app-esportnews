@@ -4,7 +4,7 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
-  age: number;
+  age?: number;
 }
 
 export interface LoginData {
@@ -37,7 +37,7 @@ export interface UserData {
   email: string;
   admin: boolean;
   avatar: string | null;
-  age: number;
+  age?: number | null;
 }
 
 class AuthService {

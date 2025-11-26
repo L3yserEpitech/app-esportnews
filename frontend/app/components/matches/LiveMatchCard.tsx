@@ -1,3 +1,6 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
 import { LiveMatch } from '../../types';
 
 interface LiveMatchCardProps {
@@ -5,7 +8,10 @@ interface LiveMatchCardProps {
 }
 
 export default function LiveMatchCard({ match }: LiveMatchCardProps) {
-  const formatTime = (timeString: string) => {
+  const router = useRouter();
+
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '';
     const date = new Date(timeString);
     return date.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
@@ -13,50 +19,51 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'live':
-        return (
+  const getStatusBadge = (status?: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    
+    if (statusLower === 'running' || statusLower === 'live') {
+      return (
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+          style={{
+            backgroundColor: 'var(--color-accent)',
+            color: 'white',
+          }}
+        >
           <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded-full"
-            style={{
-              backgroundColor: 'var(--color-status-live)',
-              color: 'white',
-              opacity: 0.2,
-            }}
-          >
-            <div
-              className="w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ backgroundColor: 'var(--color-status-live)' }}
-            ></div>
-            <span className="text-xs font-medium">EN DIRECT</span>
-          </div>
-        );
-      case 'finished':
-        return (
-          <div
-            className="px-2 py-1 rounded-full"
-            style={{
-              backgroundColor: 'var(--color-bg-tertiary)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <span className="text-xs font-medium">TERMINÉ</span>
-          </div>
-        );
-      default:
-        return (
-          <div
-            className="px-2 py-1 rounded-full"
-            style={{
-              backgroundColor: 'var(--color-primary-600)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <span className="text-xs font-medium">À VENIR</span>
-          </div>
-        );
+            className="w-1.5 h-1.5 rounded-full animate-pulse bg-white"
+          ></div>
+          <span className="text-xs font-medium text-white">EN DIRECT</span>
+        </div>
+      );
     }
+    
+    if (statusLower === 'finished') {
+      return (
+        <div
+          className="px-2 py-1 rounded-full"
+          style={{
+            backgroundColor: 'var(--color-bg-tertiary)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          <span className="text-xs font-medium">TERMINÉ</span>
+        </div>
+      );
+    }
+    
+    return (
+      <div
+        className="px-2 py-1 rounded-full"
+        style={{
+          backgroundColor: 'var(--color-primary-600)',
+          color: 'var(--color-text-secondary)',
+        }}
+      >
+        <span className="text-xs font-medium">À VENIR</span>
+      </div>
+    );
   };
 
   const getTeamInitials = (teamName: string) => {
@@ -68,12 +75,21 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
       .toUpperCase();
   };
 
-  const getImageUrl = (hashImage: string) => {
-    return `https://images.sportdevs.com/${hashImage}.png`;
+  // Get teams from opponents array
+  const team1 = match.opponents?.[0]?.opponent;
+  const team2 = match.opponents?.[1]?.opponent;
+  
+  // Get scores from results array
+  const team1Score = match.results?.find(r => r.team_id === team1?.id)?.score || 0;
+  const team2Score = match.results?.find(r => r.team_id === team2?.id)?.score || 0;
+
+  const handleClick = () => {
+    router.push(`/match/${match.id}`);
   };
 
   return (
     <div
+      onClick={handleClick}
       className="group relative rounded-xl p-5 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden"
       style={{
         backgroundColor: 'var(--color-bg-secondary)',
@@ -92,12 +108,12 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
 
       {/* Header */}
       <div className="relative flex items-center justify-between mb-4">
-        {getStatusBadge(match.status_type)}
+        {getStatusBadge(match.status)}
         <div
           className="text-xs font-mono"
           style={{ color: 'var(--color-text-secondary)' }}
         >
-          {formatTime(match.start_time)}
+          {formatTime(match.begin_at || match.scheduled_at)}
         </div>
       </div>
 
@@ -107,120 +123,122 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
           className="font-semibold text-sm mb-1 line-clamp-1"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          {match.tournament_name}
+          {match.tournament?.name || match.name}
         </h3>
       </div>
 
       {/* Teams and score */}
-      <div className="relative mb-4">
-        <div className="flex items-center justify-between">
-          {/* Home team */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
-              style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border-secondary)',
-              }}
-            >
-              {match.home_team_hash_image ? (
-                <img
-                  src={getImageUrl(match.home_team_hash_image)}
-                  alt={match.home_team_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
-                  }}
-                />
-              ) : null}
-              <span
-                className="text-xs font-bold"
+      {team1 && team2 && (
+        <div className="relative mb-4">
+          <div className="flex items-center justify-between">
+            {/* Team 1 */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
                 style={{
-                  display: match.home_team_hash_image ? 'none' : 'block',
-                  color: 'var(--color-text-secondary)',
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border-secondary)',
                 }}
               >
-                {getTeamInitials(match.home_team_name)}
+                {team1.image_url ? (
+                  <img
+                    src={team1.image_url}
+                    alt={team1.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'block';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="text-xs font-bold"
+                  style={{
+                    display: team1.image_url ? 'none' : 'block',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {team1.acronym || getTeamInitials(team1.name)}
+                </span>
+              </div>
+              <span
+                className="text-sm font-medium truncate"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {team1.name}
               </span>
             </div>
-            <span
-              className="text-sm font-medium truncate"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              {match.home_team_name}
-            </span>
-          </div>
 
-          {/* Score */}
-          <div className="flex items-center gap-2 mx-4 flex-shrink-0">
-            <div className="text-center">
+            {/* Score */}
+            <div className="flex items-center gap-2 mx-4 flex-shrink-0">
+              <div className="text-center">
+                <div
+                  className="text-lg font-bold"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  {team1Score}
+                </div>
+              </div>
               <div
-                className="text-lg font-bold"
-                style={{ color: 'var(--color-accent)' }}
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
               >
-                {match.home_team_score.display}
+                -
+              </div>
+              <div className="text-center">
+                <div
+                  className="text-lg font-bold"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  {team2Score}
+                </div>
               </div>
             </div>
-            <div
-              className="text-sm"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              -
-            </div>
-            <div className="text-center">
-              <div
-                className="text-lg font-bold"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                {match.away_team_score.display}
-              </div>
-            </div>
-          </div>
 
-          {/* Away team */}
-          <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-            <span
-              className="text-sm font-medium truncate text-right"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              {match.away_team_name}
-            </span>
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
-              style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border-secondary)',
-              }}
-            >
-              {match.away_team_hash_image ? (
-                <img
-                  src={getImageUrl(match.away_team_hash_image)}
-                  alt={match.away_team_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
-                  }}
-                />
-              ) : null}
+            {/* Team 2 */}
+            <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
               <span
-                className="text-xs font-bold"
+                className="text-sm font-medium truncate text-right"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {team2.name}
+              </span>
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
                 style={{
-                  display: match.away_team_hash_image ? 'none' : 'block',
-                  color: 'var(--color-text-secondary)',
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border-secondary)',
                 }}
               >
-                {getTeamInitials(match.away_team_name)}
-              </span>
+                {team2.image_url ? (
+                  <img
+                    src={team2.image_url}
+                    alt={team2.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'block';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="text-xs font-bold"
+                  style={{
+                    display: team2.image_url ? 'none' : 'block',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {team2.acronym || getTeamInitials(team2.name)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Footer */}
       <div
@@ -233,136 +251,42 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
               className="text-xs font-medium"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              {match.class_name}
+              {match.videogame?.name || 'Esport'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs truncate max-w-[100px]"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              {match.league_name}
-            </span>
-            <div
-              className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border"
-              style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border-secondary)',
-              }}
-            >
-              {match.league_hash_image ? (
-                <img
-                  src={getImageUrl(match.league_hash_image)}
-                  alt={match.league_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.style.backgroundImage = `linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))`;
-                    }
-                  }}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Match name overlay on hover */}
-      <div
-        className="absolute inset-0 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 gap-1"
-        style={{ backgroundColor: 'var(--color-bg-overlay)' }}
-      >
-        <div className="flex items-center justify-between w-full max-w-xs">
-          {/* Home team logo */}
-          <div className="flex flex-col items-center gap-1.5 flex-1">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden"
-              style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border-secondary)',
-              }}
-            >
-              {match.home_team_hash_image ? (
-                <img
-                  src={getImageUrl(match.home_team_hash_image)}
-                  alt={match.home_team_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
-                  }}
-                />
-              ) : null}
+          {match.league && (
+            <div className="flex items-center gap-2">
               <span
-                className="text-sm font-bold"
-                style={{
-                  display: match.home_team_hash_image ? 'none' : 'block',
-                  color: 'var(--color-text-secondary)',
-                }}
+                className="text-xs truncate max-w-[100px]"
+                style={{ color: 'var(--color-text-muted)' }}
               >
-                {getTeamInitials(match.home_team_name)}
+                {match.league.name}
               </span>
-            </div>
-            <span
-              className="text-xs font-medium text-center max-w-[70px] truncate"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {match.home_team_name}
-            </span>
-          </div>
-
-          {/* VS separator */}
-          <div
-            className="text-2xl font-bold flex-shrink-0"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            VS
-          </div>
-
-          {/* Away team logo */}
-          <div className="flex flex-col items-center gap-1.5 flex-1">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden"
-              style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border-secondary)',
-              }}
-            >
-              {match.away_team_hash_image ? (
-                <img
-                  src={getImageUrl(match.away_team_hash_image)}
-                  alt={match.away_team_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
+              {match.league.image_url && (
+                <div
+                  className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border-secondary)',
                   }}
-                />
-              ) : null}
-              <span
-                className="text-sm font-bold"
-                style={{
-                  display: match.away_team_hash_image ? 'none' : 'block',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                {getTeamInitials(match.away_team_name)}
-              </span>
+                >
+                  <img
+                    src={match.league.image_url}
+                    alt={match.league.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.style.backgroundImage = `linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))`;
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
-            <span
-              className="text-xs font-medium text-center max-w-[70px] truncate"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {match.away_team_name}
-            </span>
-          </div>
+          )}
         </div>
       </div>
     </div>

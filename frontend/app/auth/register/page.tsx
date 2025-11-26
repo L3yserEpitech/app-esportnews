@@ -77,10 +77,8 @@ export default function RegisterPage() {
       isValid = false;
     }
 
-    if (!formData.age) {
-      newErrors.age = t('pages.register.age_requis');
-      isValid = false;
-    } else {
+    // Age is optional, but if provided, must be valid
+    if (formData.age) {
       const ageNum = parseInt(formData.age, 10);
       if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
         newErrors.age = t('pages.register.age_invalide');
@@ -103,12 +101,18 @@ export default function RegisterPage() {
     setErrors(prev => ({ ...prev, general: '' }));
 
     try {
-      await signup({
+      const signupData: any = {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        age: parseInt(formData.age, 10),
-      });
+      };
+      
+      // Add age only if provided
+      if (formData.age) {
+        signupData.age = parseInt(formData.age, 10);
+      }
+      
+      await signup(signupData);
 
       router.push('/');
     } catch (error) {
@@ -278,7 +282,7 @@ export default function RegisterPage() {
               {/* Age */}
               <div>
                 <label htmlFor="age" className="block text-sm font-medium text-text-secondary mb-2">
-                  {t('pages.register.age')}
+                  {t('pages.register.age')} <span className="text-text-muted text-xs">({t('pages.register.optionnel')})</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -294,7 +298,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className={`w-full pl-12 pr-4 py-3.5 bg-bg-primary/50 border ${errors.age ? 'border-red-500/50' : 'border-border-primary/50'
                       } rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all`}
-                    placeholder={t('pages.register.placeholder_age')}
+                    placeholder={t('pages.register.placeholder_age') + ' (' + t('pages.register.optionnel') + ')'}
                     disabled={isLoading}
                   />
                 </div>

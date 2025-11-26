@@ -31,20 +31,57 @@ export default function HomePage() {
 
   // Charger les matchs en direct depuis l'API backend
   const loadLiveMatches = useCallback(async () => {
+    // Ne pas charger si les jeux ne sont pas encore chargés
+    if (isLoadingGames || games.length === 0) {
+      console.log('[HomePage] Games not loaded yet, skipping...');
+      return;
+    }
+
     try {
       setIsLoadingMatches(true);
-      const fetchedMatches = await liveMatchService.getLiveMatches();
+      // Récupérer l'acronym du jeu sélectionné si disponible
+      const selectedGameData = selectedGame 
+        ? games.find(g => {
+            const gameIdStr = String(g.id);
+            const selectedGameStr = String(selectedGame);
+            return gameIdStr === selectedGameStr;
+          })
+        : null;
+      const gameAcronym = selectedGameData?.acronym;
+      console.log('[HomePage] Loading live matches:', { 
+        selectedGame, 
+        selectedGameData: selectedGameData?.name,
+        gameAcronym,
+        gamesCount: games.length
+      });
+      // Utiliser directement l'acronym sans mapping
+      const fetchedMatches = await liveMatchService.getLiveMatches(gameAcronym);
+      console.log('[HomePage] Fetched matches:', fetchedMatches.length);
       setLiveMatches(fetchedMatches);
     } catch (error) {
-      console.error('Erreur lors du chargement des matchs en direct:', error);
+      console.error('[HomePage] Erreur lors du chargement des matchs en direct:', error);
     } finally {
       setIsLoadingMatches(false);
     }
-  }, []);
+  }, [selectedGame, games, isLoadingGames]);
 
+  // Recharger les matchs quand selectedGame change
   useEffect(() => {
-    loadLiveMatches();
-  }, [loadLiveMatches]);
+    if (!isLoadingGames && games.length > 0) {
+      console.log('[HomePage] selectedGame changed, triggering loadLiveMatches - selectedGame:', selectedGame, 'gamesCount:', games.length);
+      loadLiveMatches();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGame]); // Se déclencher UNIQUEMENT quand selectedGame change
+  
+  // Charger les matchs quand les jeux sont chargés pour la première fois
+  useEffect(() => {
+    if (!isLoadingGames && games.length > 0) {
+      console.log('[HomePage] Games loaded for the first time, loading all matches');
+      loadLiveMatches();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingGames]); // Se déclencher quand isLoadingGames passe de true à false
 
   // Charger les publicités depuis l'API
   const loadAds = useCallback(async () => {

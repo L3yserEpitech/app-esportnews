@@ -21,6 +21,7 @@ const (
 	PandaScoreFilteredTournaments = "pandascore:tournaments:filtered:%s:%s:%s"
 	PandaScoreMatch               = "pandascore:match:%s"
 	PandaScoreMatches             = "pandascore:matches:%s:%s"
+	PandaScoreRunningMatches     = "pandascore:matches:running:%s"
 	PandaScoreTeam                = "pandascore:team:%s"
 	PandaScoreSearchTeams         = "pandascore:teams:search:%s"
 
@@ -113,6 +114,14 @@ func PandaScoreMatchesKey(date string, game *string) string {
 func PandaScoreMatchesByDateKey(date string, game *string) string {
 	// Alias for PandaScoreMatchesKey for consistency with service naming
 	return PandaScoreMatchesKey(date, game)
+}
+
+func PandaScoreRunningMatchesKey(gameAcronym *string) string {
+	gameStr := "all"
+	if gameAcronym != nil && *gameAcronym != "" {
+		gameStr = *gameAcronym
+	}
+	return fmt.Sprintf(PandaScoreRunningMatches, gameStr)
 }
 
 func PandaScoreTeamKey(id string) string {

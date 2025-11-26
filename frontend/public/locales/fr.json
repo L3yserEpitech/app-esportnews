@@ -156,6 +156,7 @@
       "age": "Âge",
       "age_requis": "L'âge est requis",
       "age_invalide": "L'âge doit être entre 13 et 120 ans",
+      "optionnel": "optionnel",
       "placeholder_name": "John Doe",
       "placeholder_email": "john@exemple.com",
       "placeholder_age": "25",

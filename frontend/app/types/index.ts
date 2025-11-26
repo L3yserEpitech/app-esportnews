@@ -20,50 +20,63 @@ export interface Match {
   streams?: Stream[];
 }
 
-// SportDevs Live Match types
+// PandaScore Live Match types (from /api/live endpoint)
 export interface LiveMatch {
   id: number;
   name: string;
+  slug?: string;
+  status?: string;
+  begin_at?: string;
+  end_at?: string;
+  scheduled_at?: string;
+  match_type?: string;
+  number_of_games?: number;
   tournament_id: number;
-  tournament_name: string;
-  tournament_importance: number;
-  season_id: number;
-  season_name: string;
-  round_id: number;
-  round: {
+  league_id?: number;
+  serie_id?: number;
+  opponents?: Array<{
+    opponent: {
+      id: number;
+      name: string;
+      acronym: string;
+      slug: string;
+      image_url: string;
+    };
+    type: string;
+  }>;
+  results?: Array<{
+    team_id: number;
+    score: number;
+  }>;
+  tournament?: {
     id: number;
     name: string;
-    round: number;
-    end_time: string;
-    start_time: string;
+    slug?: string;
+    tier?: string;
   };
-  status: {
-    type: string;
-    reason: string;
+  league?: {
+    id: number;
+    name: string;
+    slug: string;
+    image_url: string;
   };
-  status_type: string;
-  home_team_id: number;
-  home_team_name: string;
-  home_team_hash_image: string;
-  away_team_id: number;
-  away_team_name: string;
-  away_team_hash_image: string;
-  home_team_score: {
-    current: number;
-    display: number;
+  videogame?: {
+    id: number;
+    name: string;
+    slug: string;
   };
-  away_team_score: {
-    current: number;
-    display: number;
+  live?: {
+    supported: boolean;
+    opens_at?: string;
+    url?: string;
   };
-  start_time: string;
-  duration: number;
-  class_id: number;
-  class_name: string;
-  class_hash_image: string;
-  league_id: number;
-  league_name: string;
-  league_hash_image: string;
+  streams_list?: Array<{
+    language: string;
+    main: boolean;
+    official: boolean;
+    embed_url?: string;
+    raw_url: string;
+  }>;
 }
 
 export interface Team {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -16,6 +17,7 @@ type MatchHandler struct {
 }
 
 func (h *MatchHandler) RegisterRoutes(g RouterGroup) {
+	g.GET("/live", h.GetRunningMatches)
 	g.POST("/matches/by-date", h.GetMatchesByDate)
 	g.GET("/matches/:id", h.GetMatch)
 }
@@ -67,4 +69,30 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, match)
+}
+
+// GetRunningMatches retrieves matches currently running (live)
+func (h *MatchHandler) GetRunningMatches(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get optional game filter from query parameter
+	gameAcronym := c.QueryParam("game")
+	fmt.Printf("[GetRunningMatches Handler] Query param 'game': %s\n", gameAcronym)
+	
+	var matches interface{}
+	var err error
+
+	// If game acronym is provided, filter by it; otherwise get all running matches
+	if gameAcronym != "" {
+		matches, err = h.pandaService.GetRunningMatches(ctx, &gameAcronym)
+	} else {
+		matches, err = h.pandaService.GetRunningMatches(ctx, nil)
+	}
+
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch running matches: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, matches)
 }

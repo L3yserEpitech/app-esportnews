@@ -30,8 +30,10 @@ func NewPandaScoreService(apiKey string, redisCache *cache.RedisCache) *PandaSco
 func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, bodyParams map[string]string) ([]byte, error) {
 	// Try cache first (5 min TTL)
 	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != "" {
+		fmt.Printf("[makePandaRequest] Cache HIT for key: %s\n", cacheKey)
 		return []byte(cached), nil
 	}
+	fmt.Printf("[makePandaRequest] Cache MISS for key: %s, making API request\n", cacheKey)
 
 	// Build full URL with query parameters
 	fullURL := fmt.Sprintf("https://api.pandascore.co%s", endpoint)
@@ -45,6 +47,7 @@ func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint strin
 		encoded := values.Encode()
 		fullURL = fmt.Sprintf("%s?%s", fullURL, encoded)
 	}
+	fmt.Printf("[makePandaRequest] Full URL: %s\n", fullURL)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
@@ -256,6 +259,61 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 }
 
 // ============ MATCH ENDPOINTS ============
+
+// GetRunningMatches retrieves matches currently running (live)
+// gameAcronym is optional - if provided, uses game-specific endpoint (e.g., "/csgo/matches/running")
+// If not provided, uses global endpoint "/matches/running"
+func (s *PandaScoreService) GetRunningMatches(ctx context.Context, gameAcronym *string) ([]models.PandaMatch, error) {
+	// Build endpoint: if gameAcronym provided, use game-specific endpoint
+	var endpoint string
+	if gameAcronym != nil && *gameAcronym != "" {
+		endpoint = fmt.Sprintf("/%s/matches/running", *gameAcronym)
+		fmt.Printf("[GetRunningMatches] Game acronym provided: %s, endpoint: %s\n", *gameAcronym, endpoint)
+	} else {
+		endpoint = "/matches/running"
+		fmt.Printf("[GetRunningMatches] No game acronym, using global endpoint: %s\n", endpoint)
+	}
+	
+	// Build query parameters
+	params := map[string]string{
+		"sort":     "-begin_at",
+		"per_page": "50",
+	}
+	
+	cacheKey := cache.PandaScoreRunningMatchesKey(gameAcronym)
+	fmt.Printf("[GetRunningMatches] Cache key: %s\n", cacheKey)
+	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, params)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Handle empty response
+	if len(data) == 0 || string(data) == "null" {
+		return []models.PandaMatch{}, nil
+	}
+	
+	// Try to unmarshal as array
+	var matches []models.PandaMatch
+	if err := json.Unmarshal(data, &matches); err == nil {
+		return matches, nil
+	}
+	
+	// If array parsing fails, try as an object (for paginated responses)
+	var respObj map[string]interface{}
+	if err := json.Unmarshal(data, &respObj); err == nil {
+		for _, key := range []string{"data", "matches", "results", "items"} {
+			if val, ok := respObj[key]; ok {
+				if matchesJSON, err := json.Marshal(val); err == nil {
+					if err := json.Unmarshal(matchesJSON, &matches); err == nil {
+						return matches, nil
+					}
+				}
+			}
+		}
+	}
+	
+	return nil, fmt.Errorf("failed to parse running matches response")
+}
 
 // GetMatch retrieves a single match by ID
 func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*models.PandaMatch, error) {

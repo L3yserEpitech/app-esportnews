@@ -18,29 +18,76 @@ export default function LivePage() {
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
-  const [filterByGame, setFilterByGame] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'tournament' | 'time' | 'league'>('tournament');
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
   // Charger les matchs en direct
   const loadLiveMatches = useCallback(async () => {
+    // Ne pas charger si les jeux ne sont pas encore chargés
+    if (isLoadingGames || games.length === 0) {
+      console.log('[LivePage] Games not loaded yet, skipping...');
+      return;
+    }
+
     try {
       setIsLoadingMatches(true);
-      const fetchedMatches = await liveMatchService.getLiveMatches();
+      // Récupérer l'acronym du jeu sélectionné si disponible
+      const selectedGameData = selectedGame 
+        ? games.find(g => {
+            // Comparer en string pour éviter les problèmes de type
+            const gameIdStr = String(g.id);
+            const selectedGameStr = String(selectedGame);
+            return gameIdStr === selectedGameStr;
+          })
+        : null;
+      const gameAcronym = selectedGameData?.acronym;
+      console.log('[LivePage] Loading live matches:', { 
+        selectedGame, 
+        selectedGameData: selectedGameData?.name,
+        gameAcronym,
+        gamesCount: games.length
+      });
+      // Utiliser directement l'acronym sans mapping
+      const fetchedMatches = await liveMatchService.getLiveMatches(gameAcronym);
+      console.log('[LivePage] Fetched matches:', fetchedMatches.length);
       setLiveMatches(fetchedMatches);
     } catch (error) {
-      console.error('Erreur lors du chargement des matchs en direct:', error);
+      console.error('[LivePage] Erreur lors du chargement des matchs en direct:', error);
     } finally {
       setIsLoadingMatches(false);
     }
-  }, []);
+  }, [selectedGame, games, isLoadingGames]);
 
+  // Recharger les matchs quand selectedGame change
   useEffect(() => {
+    if (!isLoadingGames && games.length > 0) {
+      console.log('[LivePage] selectedGame changed, triggering loadLiveMatches - selectedGame:', selectedGame, 'gamesCount:', games.length);
+      loadLiveMatches();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGame]); // Se déclencher UNIQUEMENT quand selectedGame change
+  
+  // Charger les matchs quand les jeux sont chargés pour la première fois
+  useEffect(() => {
+    if (!isLoadingGames && games.length > 0 && selectedGame === null) {
+      console.log('[LivePage] Games loaded for the first time, loading all matches');
+      loadLiveMatches();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingGames]); // Se déclencher quand isLoadingGames passe de true à false
+
+  // Actualiser toutes les 30 secondes (avec le bon selectedGame)
+  useEffect(() => {
+    if (isLoadingGames || games.length === 0) return;
+    
+    // Charger immédiatement au montage
     loadLiveMatches();
-    // Actualiser toutes les 30 secondes
-    const interval = setInterval(loadLiveMatches, 30000);
+    
+    const interval = setInterval(() => {
+      loadLiveMatches();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [loadLiveMatches]);
+  }, [selectedGame, games, isLoadingGames, loadLiveMatches]);
 
   // Charger les publicités depuis l'API
   const loadAds = useCallback(async () => {
@@ -59,16 +106,10 @@ export default function LivePage() {
     loadAds();
   }, [loadAds]);
 
-  // Filtrer les matchs par jeu
+  // Filtrer les matchs par jeu (déjà fait côté API, mais on garde pour compatibilité avec le filtre local)
   const filteredMatches = useMemo(() => {
-    let filtered = liveMatches;
-
-    if (filterByGame !== 'all') {
-      filtered = filtered.filter(match => match.class_name.toLowerCase() === filterByGame.toLowerCase());
-    }
-
-    return filtered;
-  }, [liveMatches, filterByGame]);
+    return liveMatches; // Le filtrage est déjà fait côté API via gameAcronym
+  }, [liveMatches]);
 
   // Trier les matchs
   const sortedMatches = useMemo(() => {
@@ -77,70 +118,93 @@ export default function LivePage() {
     switch (sortBy) {
       case 'tournament':
         return sorted.sort((a, b) => {
-          // Prioriser les matchs en cours
-          if (a.status_type === 'live' && b.status_type !== 'live') return -1;
-          if (b.status_type === 'live' && a.status_type !== 'live') return 1;
+          // Prioriser les matchs en cours (running/live)
+          const aIsLive = a.status?.toLowerCase() === 'running' || a.status?.toLowerCase() === 'live';
+          const bIsLive = b.status?.toLowerCase() === 'running' || b.status?.toLowerCase() === 'live';
+          if (aIsLive && !bIsLive) return -1;
+          if (!aIsLive && bIsLive) return 1;
 
           // Si aucun jeu sélectionné, trier d'abord par jeu
-          if (filterByGame === 'all') {
-            const gameComparison = a.class_name.localeCompare(b.class_name);
+          if (!selectedGame) {
+            const aGame = a.videogame?.name || '';
+            const bGame = b.videogame?.name || '';
+            const gameComparison = aGame.localeCompare(bGame);
             if (gameComparison !== 0) return gameComparison;
           }
 
-          // Puis trier par importance du tournoi
-          if (a.tournament_importance !== b.tournament_importance) {
-            return b.tournament_importance - a.tournament_importance;
-          }
-
-          return a.tournament_name.localeCompare(b.tournament_name);
+          // Puis trier par nom de tournoi
+          const aTournament = a.tournament?.name || '';
+          const bTournament = b.tournament?.name || '';
+          return aTournament.localeCompare(bTournament);
         });
 
       case 'time':
         return sorted.sort((a, b) => {
           // Prioriser les matchs en cours
-          if (a.status_type === 'live' && b.status_type !== 'live') return -1;
-          if (b.status_type === 'live' && a.status_type !== 'live') return 1;
+          const aIsLive = a.status?.toLowerCase() === 'running' || a.status?.toLowerCase() === 'live';
+          const bIsLive = b.status?.toLowerCase() === 'running' || b.status?.toLowerCase() === 'live';
+          if (aIsLive && !bIsLive) return -1;
+          if (!aIsLive && bIsLive) return 1;
 
           // Si aucun jeu sélectionné, trier d'abord par jeu
-          if (filterByGame === 'all') {
-            const gameComparison = a.class_name.localeCompare(b.class_name);
+          if (!selectedGame) {
+            const aGame = a.videogame?.name || '';
+            const bGame = b.videogame?.name || '';
+            const gameComparison = aGame.localeCompare(bGame);
             if (gameComparison !== 0) return gameComparison;
           }
 
-          return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+          const aTime = a.begin_at || a.scheduled_at || '';
+          const bTime = b.begin_at || b.scheduled_at || '';
+          return new Date(aTime).getTime() - new Date(bTime).getTime();
         });
 
       case 'league':
         return sorted.sort((a, b) => {
           // Prioriser les matchs en cours
-          if (a.status_type === 'live' && b.status_type !== 'live') return -1;
-          if (b.status_type === 'live' && a.status_type !== 'live') return 1;
+          const aIsLive = a.status?.toLowerCase() === 'running' || a.status?.toLowerCase() === 'live';
+          const bIsLive = b.status?.toLowerCase() === 'running' || b.status?.toLowerCase() === 'live';
+          if (aIsLive && !bIsLive) return -1;
+          if (!aIsLive && bIsLive) return 1;
 
           // Si aucun jeu sélectionné, trier d'abord par jeu
-          if (filterByGame === 'all') {
-            const gameComparison = a.class_name.localeCompare(b.class_name);
+          if (!selectedGame) {
+            const aGame = a.videogame?.name || '';
+            const bGame = b.videogame?.name || '';
+            const gameComparison = aGame.localeCompare(bGame);
             if (gameComparison !== 0) return gameComparison;
           }
 
-          return a.league_name.localeCompare(b.league_name);
+          const aLeague = a.league?.name || '';
+          const bLeague = b.league?.name || '';
+          return aLeague.localeCompare(bLeague);
         });
 
       default:
         return sorted;
     }
-  }, [filteredMatches, sortBy, filterByGame]);
+  }, [filteredMatches, sortBy, selectedGame]);
 
   // Grouper les matchs par statut et par jeu si nécessaire
   const groupedMatches = useMemo(() => {
-    const live = sortedMatches.filter(match => match.status_type === 'live');
-    const upcoming = sortedMatches.filter(match => match.status_type === 'scheduled');
-    const finished = sortedMatches.filter(match => match.status_type === 'finished');
+    const live = sortedMatches.filter(match => {
+      const status = match.status?.toLowerCase();
+      return status === 'running' || status === 'live';
+    });
+    const upcoming = sortedMatches.filter(match => {
+      const status = match.status?.toLowerCase();
+      return status === 'not_started' || status === 'not_played' || (!status && match.scheduled_at);
+    });
+    const finished = sortedMatches.filter(match => {
+      const status = match.status?.toLowerCase();
+      return status === 'finished' || status === 'canceled';
+    });
 
-    // Si "Tous les jeux" est sélectionné, grouper aussi par jeu
+    // Si aucun jeu n'est sélectionné, grouper aussi par jeu
     const groupByGame = (matches: typeof sortedMatches) => {
-      if (filterByGame === 'all') {
+      if (!selectedGame) {
         return matches.reduce((acc, match) => {
-          const gameName = match.class_name;
+          const gameName = match.videogame?.name || 'Autre';
           if (!acc[gameName]) {
             acc[gameName] = [];
           }
@@ -159,26 +223,24 @@ export default function LivePage() {
       upcomingByGame: groupByGame(upcoming),
       finishedByGame: groupByGame(finished)
     };
-  }, [sortedMatches, filterByGame]);
-
-  const getGameOptions = useMemo(() => {
-    const gameSet = new Set(['all']);
-    liveMatches.forEach(match => {
-      if (match.class_name) {
-        gameSet.add(match.class_name.toLowerCase());
-      }
-    });
-    return Array.from(gameSet);
-  }, [liveMatches]);
+  }, [sortedMatches, selectedGame]);
 
   // Mémorisation des données pour éviter les re-rendus inutiles
   const memoizedAds = useMemo(() => ads, [ads]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
+      {/* Banderole de sélection des jeux - Desktop uniquement */}
+      <GameSelector
+        games={games}
+        selectedGame={selectedGame}
+        onSelectionChange={setSelectedGame}
+        isLoading={isLoadingGames}
+        className="hidden md:block fixed top-20 left-0 right-0 z-40"
+      />
 
       {/* Contenu principal */}
-      <main className="container mx-auto px-4 py-8 pt-24">
+      <main className="container mx-auto px-4 py-8 pt-24 md:pt-27">
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0">
@@ -190,29 +252,6 @@ export default function LivePage() {
                 <div className="hidden lg:flex gap-4 items-center justify-between p-4">
                   {/* Filtres Desktop */}
                   <div className="flex gap-4 flex-1">
-                    {/* Filtre par jeu */}
-                    <div className="relative">
-                      <select
-                        value={filterByGame}
-                        onChange={(e) => setFilterByGame(e.target.value)}
-                        className="min-w-[150px] bg-bg-secondary/80 backdrop-blur-sm border border-border-primary/50 rounded-lg px-3 py-2 text-text-primary text-xs font-medium
-                                 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-200
-                                 hover:border-border-muted cursor-pointer appearance-none"
-                      >
-                        <option value="all">{t('pages_detail.live.tous_les_jeux')}</option>
-                        {getGameOptions.filter(game => game !== 'all').map(game => (
-                          <option key={game} value={game} className="bg-gray-800">
-                            {game.charAt(0).toUpperCase() + game.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-
                     {/* Tri */}
                     <div className="relative">
                       <select
@@ -262,9 +301,9 @@ export default function LivePage() {
                       <span className="text-text-primary text-sm font-medium">{t('pages_detail.live.filter_label')}</span>
                       {/* Indicateurs actifs */}
                       <div className="flex items-center gap-1">
-                        {filterByGame !== 'all' && (
+                        {selectedGame && (
                           <div className="bg-accent/20 text-accent px-2 py-0.5 rounded-full text-[10px] font-medium">
-                            {filterByGame}
+                            {games.find(g => g.id.toString() === selectedGame)?.name || 'Jeu'}
                           </div>
                         )}
                         {groupedMatches.live.length > 0 && (
@@ -293,30 +332,6 @@ export default function LivePage() {
                   <div className={`overflow-hidden transition-all duration-300 ease-out ${isFiltersExpanded ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
                     <div className="px-4 pb-4 border-t border-border-primary/50">
                       <div className="flex flex-col gap-3 pt-3">
-                        {/* Filtre par jeu mobile */}
-                        <div className="relative">
-                          <label className="block text-xs text-text-secondary mb-2 font-medium">{t('pages_detail.live.game_label')}</label>
-                          <select
-                            value={filterByGame}
-                            onChange={(e) => setFilterByGame(e.target.value)}
-                            className="w-full bg-bg-secondary border border-border-primary rounded-lg px-4 py-3 text-text-primary text-sm
-                                     focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-all
-                                     appearance-none"
-                          >
-                            <option value="all">{t('pages_detail.live.tous_les_jeux')}</option>
-                            {getGameOptions.filter(game => game !== 'all').map(game => (
-                              <option key={game} value={game} className="bg-gray-800">
-                                {game.charAt(0).toUpperCase() + game.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute right-3 top-9 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-
                         {/* Tri mobile */}
                         <div className="relative">
                           <label className="block text-xs text-text-secondary mb-2 font-medium">{t('pages_detail.live.sort_label')}</label>
@@ -378,8 +393,8 @@ export default function LivePage() {
                   </div>
                 </div>
 
-                {/* Si "Tous les jeux" est sélectionné, afficher par sections de jeux */}
-                {filterByGame === 'all' && groupedMatches.liveByGame ? (
+                {/* Si aucun jeu n'est sélectionné, afficher par sections de jeux */}
+                {!selectedGame && groupedMatches.liveByGame ? (
                   <div className="space-y-8">
                     {Object.entries(groupedMatches.liveByGame).map(([gameName, matches]) => (
                       <div key={gameName} className="space-y-4">
@@ -435,7 +450,7 @@ export default function LivePage() {
                 </div>
 
                 {/* Si "Tous les jeux" est sélectionné, afficher par sections de jeux */}
-                {filterByGame === 'all' && groupedMatches.upcomingByGame ? (
+                {!selectedGame && groupedMatches.upcomingByGame ? (
                   <div className="space-y-8">
                     {Object.entries(groupedMatches.upcomingByGame).map(([gameName, matches]) => (
                       <div key={gameName} className="space-y-4">
@@ -491,7 +506,7 @@ export default function LivePage() {
                 </div>
 
                 {/* Si "Tous les jeux" est sélectionné, afficher par sections de jeux */}
-                {filterByGame === 'all' && groupedMatches.finishedByGame ? (
+                {!selectedGame && groupedMatches.finishedByGame ? (
                   <div className="space-y-8">
                     {Object.entries(groupedMatches.finishedByGame).map(([gameName, matches]) => {
                       const limitedMatches = matches.slice(0, 12);
