@@ -117,6 +117,7 @@ class TeamService {
    * Ajouter une équipe aux favorites
    */
   async addFavoriteTeam(token: string, teamId: number): Promise<number[]> {
+    console.debug('[TeamService] Adding team', teamId, 'to favorites');
     const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/${teamId}`, {
       method: 'POST',
       headers: {
@@ -124,12 +125,21 @@ class TeamService {
       },
     });
 
+    console.debug('[TeamService] AddFavoriteTeam response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Erreur lors de l\'ajout de l\'équipe aux favorites');
+      const errorText = await response.text();
+      console.error('[TeamService] AddFavoriteTeam error response:', errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.error || `HTTP ${response.status}: Erreur lors de l'ajout de l'équipe aux favorites`);
+      } catch (e) {
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Erreur lors de l\'ajout de l\'équipe aux favorites'}`);
+      }
     }
 
     const result = await response.json();
+    console.debug('[TeamService] AddFavoriteTeam result:', result);
     return result.favorite_teams;
   }
 
@@ -137,6 +147,7 @@ class TeamService {
    * Retirer une équipe des favorites
    */
   async removeFavoriteTeam(token: string, teamId: number): Promise<number[]> {
+    console.debug('[TeamService] Removing team', teamId, 'from favorites');
     const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/${teamId}`, {
       method: 'DELETE',
       headers: {
@@ -144,12 +155,21 @@ class TeamService {
       },
     });
 
+    console.debug('[TeamService] RemoveFavoriteTeam response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Erreur lors du retrait de l\'équipe des favorites');
+      const errorText = await response.text();
+      console.error('[TeamService] RemoveFavoriteTeam error response:', errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.error || `HTTP ${response.status}: Erreur lors du retrait de l'équipe des favorites`);
+      } catch (e) {
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Erreur lors du retrait de l\'équipe des favorites'}`);
+      }
     }
 
     const result = await response.json();
+    console.debug('[TeamService] RemoveFavoriteTeam result:', result);
     return result.favorite_teams;
   }
 
