@@ -43,12 +43,21 @@ func (s *TeamService) SearchTeams(ctx context.Context, query string, limit int) 
 
 // AddFavoriteTeam adds a team to user favorites
 func (s *TeamService) AddFavoriteTeam(ctx context.Context, userID, teamID int64) error {
+	// Handle NULL favorite_teams array by using COALESCE
 	_, err := s.db.Exec(ctx,
-		`UPDATE public.users SET favorite_teams = array_append(favorite_teams, $1) 
-		 WHERE id = $2 AND NOT $1 = ANY(favorite_teams)`,
+		`UPDATE public.users 
+		 SET favorite_teams = CASE 
+		   WHEN favorite_teams IS NULL THEN ARRAY[$1]::bigint[]
+		   WHEN NOT $1 = ANY(favorite_teams) THEN array_append(favorite_teams, $1)
+		   ELSE favorite_teams
+		 END
+		 WHERE id = $2`,
 		teamID, userID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to add favorite team: %w", err)
+	}
+	return nil
 }
 
 // RemoveFavoriteTeam removes a team from user favorites
@@ -64,7 +73,8 @@ func (s *TeamService) RemoveFavoriteTeam(ctx context.Context, userID, teamID int
 // GetFavoriteTeams retrieves user's favorite teams
 func (s *TeamService) GetFavoriteTeams(ctx context.Context, userID int64) ([]*models.Team, error) {
 	var teamIDs []int64
-	err := s.db.QueryRow(ctx, "SELECT favorite_teams FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
+	// Use COALESCE to handle NULL arrays - return empty array if NULL
+	err := s.db.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get favorite team IDs: %w", err)
 	}

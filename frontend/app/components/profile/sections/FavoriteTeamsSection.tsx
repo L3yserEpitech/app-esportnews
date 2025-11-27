@@ -22,18 +22,25 @@ export default function FavoriteTeamsSection() {
     const loadFavoriteTeams = async () => {
       try {
         const token = localStorage.getItem('authToken');
+        console.debug('[FavoriteTeamsSection] Token exists:', !!token);
+
         if (!token) {
+          console.debug('[FavoriteTeamsSection] No token found, skipping load');
           setIsLoadingFavorites(false);
           return;
         }
 
         // Récupérer les IDs d'abord
+        console.debug('[FavoriteTeamsSection] Fetching favorite team IDs...');
         const ids = await teamService.getFavoriteTeamIds(token);
+        console.debug('[FavoriteTeamsSection] Favorite team IDs:', ids);
         setFavoriteTeamIds(ids);
 
         // Récupérer les détails des équipes
         if (ids.length > 0) {
+          console.debug('[FavoriteTeamsSection] Fetching full team details...');
           const teams = await teamService.getFavoriteTeams(token);
+          console.debug('[FavoriteTeamsSection] Favorite teams:', teams);
           setFavoriteTeams(teams);
         }
       } catch (err) {
@@ -45,7 +52,7 @@ export default function FavoriteTeamsSection() {
     };
 
     loadFavoriteTeams();
-  }, []);
+  }, [t]);
 
   // Recherche d'équipes avec debounce
   useEffect(() => {
@@ -109,6 +116,10 @@ export default function FavoriteTeamsSection() {
         const team = searchResults.find(t => t.id === teamId);
         if (team) {
           setFavoriteTeams(prev => [...prev, team]);
+        } else {
+          // Si l'équipe n'est pas dans les résultats de recherche, la récupérer via l'API
+          const fullTeam = await teamService.getTeamById(teamId);
+          setFavoriteTeams(prev => [...prev, fullTeam]);
         }
       }
     } catch (err: any) {

@@ -97,20 +97,26 @@ func NewAuthHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtS
 	}
 }
 
-// NewTeamHandler creates a new team handler with PandaScoreService
-func NewTeamHandler(pandaService *services.PandaScoreService) *TeamHandler {
-	return &TeamHandler{
-		pandaService: pandaService,
-	}
-}
-
-// NewTeamHandlerWithPool creates a new team handler with pgxpool (backward compatible)
-func NewTeamHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache) *TeamHandler {
+// NewTeamHandler creates a new team handler with PandaScoreService and AuthService
+func NewTeamHandler(pandaService *services.PandaScoreService, authService *services.AuthService, db *pgxpool.Pool, redisCache *cache.RedisCache) *TeamHandler {
 	return &TeamHandler{
 		BaseHandler: BaseHandler{
 			DB:    db,
 			Cache: redisCache,
 		},
+		pandaService: pandaService,
+		authService:  authService,
+	}
+}
+
+// NewTeamHandlerWithPool creates a new team handler with pgxpool (backward compatible)
+func NewTeamHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, authService *services.AuthService) *TeamHandler {
+	return &TeamHandler{
+		BaseHandler: BaseHandler{
+			DB:    db,
+			Cache: redisCache,
+		},
+		authService: authService,
 	}
 }
 

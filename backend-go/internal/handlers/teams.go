@@ -15,6 +15,7 @@ import (
 type TeamHandler struct {
 	BaseHandler
 	pandaService *services.PandaScoreService
+	authService  *services.AuthService
 }
 
 func (h *TeamHandler) RegisterRoutes(g RouterGroup) {
@@ -75,16 +76,27 @@ func (h *TeamHandler) GetFavoriteTeamIDs(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
+	fmt.Printf("[GetFavoriteTeamIDs] Extracted userID: %d\n", userID)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var teamIDs []int64
-	err = h.DB.QueryRow(ctx, "SELECT favorite_teams FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
+	// Use COALESCE to handle NULL arrays - return empty array if NULL
+	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "User not found")
+		fmt.Printf("[GetFavoriteTeamIDs] Error for userID %d: %v\n", userID, err)
+		// If user doesn't exist, return empty array
+		if err.Error() == "no rows in result set" {
+			fmt.Printf("[GetFavoriteTeamIDs] User %d not found, returning empty array\n", userID)
+			return c.JSON(http.StatusOK, []int64{})
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch favorite teams: "+err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"team_ids": teamIDs})
+	fmt.Printf("[GetFavoriteTeamIDs] Returning %d team IDs for user %d\n", len(teamIDs), userID)
+	// Return array directly, not wrapped in object
+	return c.JSON(http.StatusOK, teamIDs)
 }
 
 func (h *TeamHandler) GetFavoriteTeams(c echo.Context) error {
@@ -99,9 +111,16 @@ func (h *TeamHandler) GetFavoriteTeams(c echo.Context) error {
 	service := services.NewTeamService(h.DB)
 	teams, err := service.GetFavoriteTeams(ctx, userID)
 	if err != nil {
+		// If user doesn't exist, return empty array
+		if err.Error() == "failed to get favorite team IDs: no rows in result set" {
+			return c.JSON(http.StatusOK, []interface{}{})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	if teams == nil {
+		return c.JSON(http.StatusOK, []interface{}{})
+	}
 	return c.JSON(http.StatusOK, teams)
 }
 
@@ -124,7 +143,14 @@ func (h *TeamHandler) AddFavoriteTeam(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Team added to favorites"})
+	// Fetch updated favorite teams list
+	var teamIDs []int64
+	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": teamIDs})
 }
 
 func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
@@ -146,17 +172,31 @@ func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Team removed from favorites"})
+	// Fetch updated favorite teams list
+	var teamIDs []int64
+	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": teamIDs})
 }
 
 // Helper to extract user ID
 func extractUserIDFromHandler(h *TeamHandler, c echo.Context) (int64, error) {
-	auth := c.Request().Header.Get("Authorization")
-	if len(auth) <= 7 || auth[:7] != "Bearer " {
+	if h.authService == nil {
+		return 0, fmt.Errorf("auth service not available")
+	}
+	
+	tokenString := extractToken(c)
+	if tokenString == "" {
 		return 0, fmt.Errorf("missing token")
 	}
 
-	_ = auth[7:] // tokenString - TODO: implement token verification and parsing
-	// For now, return temporary placeholder
-	return 1, nil
+	claims, err := h.authService.VerifyToken(tokenString)
+	if err != nil {
+		return 0, err
+	}
+
+	return claims.UserID, nil
 }

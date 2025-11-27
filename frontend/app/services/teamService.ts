@@ -60,6 +60,7 @@ class TeamService {
    * Récupérer les IDs des équipes favorites
    */
   async getFavoriteTeamIds(token: string): Promise<number[]> {
+    console.debug('[TeamService] Fetching favorite team IDs from:', `${API_BASE_URL}/api/users/favorite-teams/ids`);
     const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams/ids`, {
       method: 'GET',
       headers: {
@@ -68,12 +69,21 @@ class TeamService {
       },
     });
 
+    console.debug('[TeamService] Response status:', response.status, response.statusText);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Erreur lors de la récupération des IDs favoris');
+      const errorText = await response.text();
+      console.error('[TeamService] Error response:', errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.error || `HTTP ${response.status}: Erreur lors de la récupération des IDs favoris`);
+      } catch (e) {
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Erreur lors de la récupération des IDs favoris'}`);
+      }
     }
 
     const ids: number[] = await response.json();
+    console.debug('[TeamService] Favorite team IDs received:', ids);
     return ids;
   }
 
@@ -81,6 +91,7 @@ class TeamService {
    * Récupérer les détails des équipes favorites
    */
   async getFavoriteTeams(token: string): Promise<Team[]> {
+    console.debug('[TeamService] Fetching favorite teams from:', `${API_BASE_URL}/api/users/favorite-teams`);
     const response = await fetch(`${API_BASE_URL}/api/users/favorite-teams`, {
       method: 'GET',
       headers: {
@@ -89,12 +100,16 @@ class TeamService {
       },
     });
 
+    console.debug('[TeamService] Response status:', response.status, response.statusText);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Erreur lors de la récupération des équipes favorites');
+      const errorText = await response.text();
+      console.error('[TeamService] Error response:', errorText);
+      throw new Error(errorText || 'Erreur lors de la récupération des équipes favorites');
     }
 
     const teams: Team[] = await response.json();
+    console.debug('[TeamService] Favorite teams received:', teams);
     return teams;
   }
 
