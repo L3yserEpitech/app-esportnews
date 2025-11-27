@@ -1,236 +1,240 @@
-'use client';
+// 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Search, Loader2, X, Heart } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { teamService, Team } from '@/app/services/teamService';
-import TeamSearchResult from '../TeamSearchResult';
+// import { useState, useEffect, useCallback } from 'react';
+// import { Search, Loader2, X, Heart } from 'lucide-react';
+// import { useTranslations } from 'next-intl';
+// import { teamService, Team } from '@/app/services/teamService';
+// import TeamSearchResult from '../TeamSearchResult';
+
+// export default function FavoriteTeamsSection() {
+//   const t = useTranslations();
+//   const [searchQuery, setSearchQuery] = useState('');
+//   const [searchResults, setSearchResults] = useState<Team[]>([]);
+//   const [favoriteTeams, setFavoriteTeams] = useState<Team[]>([]);
+//   const [favoriteTeamIds, setFavoriteTeamIds] = useState<number[]>([]);
+//   const [isSearching, setIsSearching] = useState(false);
+//   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
+//   const [loadingTeamId, setLoadingTeamId] = useState<number | null>(null);
+//   const [error, setError] = useState<string | null>(null);
+
+//   // Charger les équipes favorites au montage
+//   useEffect(() => {
+//     const loadFavoriteTeams = async () => {
+//       try {
+//         const token = localStorage.getItem('authToken');
+//         console.debug('[FavoriteTeamsSection] Token exists:', !!token);
+
+//         if (!token) {
+//           console.debug('[FavoriteTeamsSection] No token found, skipping load');
+//           setIsLoadingFavorites(false);
+//           return;
+//         }
+
+//         // Récupérer les IDs d'abord
+//         console.debug('[FavoriteTeamsSection] Fetching favorite team IDs...');
+//         const ids = await teamService.getFavoriteTeamIds(token);
+//         console.debug('[FavoriteTeamsSection] Favorite team IDs:', ids);
+//         setFavoriteTeamIds(ids);
+
+//         // Récupérer les détails des équipes
+//         if (ids.length > 0) {
+//           console.debug('[FavoriteTeamsSection] Fetching full team details...');
+//           const teams = await teamService.getFavoriteTeams(token);
+//           console.debug('[FavoriteTeamsSection] Favorite teams:', teams);
+//           setFavoriteTeams(teams);
+//         }
+//       } catch (err) {
+//         console.error('Error loading favorite teams:', err);
+//         setError(t('profile.favorite_teams_section.erreur_charger_equipes'));
+//       } finally {
+//         setIsLoadingFavorites(false);
+//       }
+//     };
+
+//     loadFavoriteTeams();
+//   }, [t]);
+
+//   // Recherche d'équipes avec debounce
+//   useEffect(() => {
+//     const timer = setTimeout(async () => {
+//       if (searchQuery.trim().length < 2) {
+//         setSearchResults([]);
+//         return;
+//       }
+
+//       setIsSearching(true);
+//       setError(null);
+
+//       try {
+//         const results = await teamService.searchTeams(searchQuery);
+//         setSearchResults(results);
+//       } catch (err) {
+//         console.error('Error searching teams:', err);
+//         setError(t('profile.favorite_teams_section.erreur_recherche_equipes'));
+//         setSearchResults([]);
+//       } finally {
+//         setIsSearching(false);
+//       }
+//     }, 500);
+
+//     return () => clearTimeout(timer);
+//   }, [searchQuery]);
+
+//   // Vérifier si une équipe est favorite
+//   const isFavorite = useCallback(
+//     (teamId: number) => {
+//       return favoriteTeamIds.includes(teamId);
+//     },
+//     [favoriteTeamIds]
+//   );
+
+//   // Toggle favorite
+//   const handleToggleFavorite = async (teamId: number) => {
+//     const token = localStorage.getItem('authToken');
+//     if (!token) {
+//       setError(t('profile.favorite_teams_section.vous_devez_etre_connecte'));
+//       return;
+//     }
+
+//     setLoadingTeamId(teamId);
+//     setError(null);
+
+//     try {
+//       let updatedIds: number[];
+
+//       if (isFavorite(teamId)) {
+//         // Retirer des favoris
+//         updatedIds = await teamService.removeFavoriteTeam(token, teamId);
+//         setFavoriteTeamIds(updatedIds);
+//         setFavoriteTeams(prev => prev.filter(team => team.id !== teamId));
+//       } else {
+//         // Ajouter aux favoris
+//         updatedIds = await teamService.addFavoriteTeam(token, teamId);
+//         setFavoriteTeamIds(updatedIds);
+
+//         // Récupérer les détails de l'équipe ajoutée
+//         const team = searchResults.find(t => t.id === teamId);
+//         if (team) {
+//           setFavoriteTeams(prev => [...prev, team]);
+//         } else {
+//           // Si l'équipe n'est pas dans les résultats de recherche, la récupérer via l'API
+//           const fullTeam = await teamService.getTeamById(teamId);
+//           setFavoriteTeams(prev => [...prev, fullTeam]);
+//         }
+//       }
+//     } catch (err: any) {
+//       console.error('Error toggling favorite:', err);
+//       setError(err.message || t('profile.favorite_teams_section.erreur_modification_favoris'));
+//     } finally {
+//       setLoadingTeamId(null);
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-6">
+//       <div>
+//         <h2 className="text-2xl font-bold text-white mb-2">{t('profile.favorite_teams_section.equipes_favorites')}</h2>
+//         <p className="text-gray-400">{t('profile.favorite_teams_section.suivez_equipes')}</p>
+//       </div>
+
+//       {/* Erreur */}
+//       {error && (
+//         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3">
+//           <div className="text-red-500 text-sm flex-1">{error}</div>
+//           <button
+//             onClick={() => setError(null)}
+//             className="text-red-500 hover:text-red-400 transition-colors"
+//           >
+//             <X className="w-4 h-4" />
+//           </button>
+//         </div>
+//       )}
+
+//       {/* Barre de recherche */}
+//       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
+//         <div className="mb-4 sm:mb-6">
+//           <div className="relative">
+//             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+//             <input
+//               type="text"
+//               placeholder={t('profile.favorite_teams_section.rechercher_equipe')}
+//               value={searchQuery}
+//               onChange={(e) => setSearchQuery(e.target.value)}
+//               className="w-full pl-11 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all text-sm sm:text-base"
+//             />
+//             {isSearching && (
+//               <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
+//             )}
+//           </div>
+//         </div>
+
+//         {/* Résultats de recherche */}
+//         {searchQuery.trim().length >= 2 && (
+//           <div className="space-y-3 mb-6">
+//             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+//               {t('profile.favorite_teams_section.resultats_recherche')} ({searchResults.length})
+//             </h3>
+//             {searchResults.length > 0 ? (
+//               <div className="space-y-2 max-h-96 overflow-y-auto">
+//                 {searchResults.map((team) => (
+//                   <TeamSearchResult
+//                     key={team.id}
+//                     team={team}
+//                     isFavorite={isFavorite(team.id)}
+//                     onToggleFavorite={handleToggleFavorite}
+//                     isLoading={loadingTeamId === team.id}
+//                   />
+//                 ))}
+//               </div>
+//             ) : (
+//               !isSearching && (
+//                 <p className="text-gray-400 text-sm py-4">
+//                   {t('profile.favorite_teams_section.aucune_equipe_trouvee')} &quot;{searchQuery}&quot;
+//                 </p>
+//               )
+//             )}
+//           </div>
+//         )}
+
+//         {/* Mes équipes favorites */}
+//         <div className="space-y-3">
+//           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+//             {t('profile.favorite_teams_section.mes_equipes_favorites')} ({favoriteTeams.length})
+//           </h3>
+
+//           {isLoadingFavorites ? (
+//             <div className="flex items-center justify-center py-12">
+//               <Loader2 className="w-8 h-8 text-[#F22E62] animate-spin" />
+//             </div>
+//           ) : favoriteTeams.length > 0 ? (
+//             <div className="space-y-2">
+//               {favoriteTeams.map((team) => (
+//                 <TeamSearchResult
+//                   key={team.id}
+//                   team={team}
+//                   isFavorite={true}
+//                   onToggleFavorite={handleToggleFavorite}
+//                   isLoading={loadingTeamId === team.id}
+//                 />
+//               ))}
+//             </div>
+//           ) : (
+//             <div className="text-center py-8 sm:py-12 px-4">
+//               <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 mb-4">
+//                 <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+//               </div>
+//               <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">{t('profile.favorite_teams_section.aucune_equipe_favorite')}</h3>
+//               <p className="text-sm sm:text-base text-gray-400 mb-6">
+//                 {t('profile.favorite_teams_section.utilisez_recherche')}
+//               </p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 export default function FavoriteTeamsSection() {
-  const t = useTranslations();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Team[]>([]);
-  const [favoriteTeams, setFavoriteTeams] = useState<Team[]>([]);
-  const [favoriteTeamIds, setFavoriteTeamIds] = useState<number[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
-  const [loadingTeamId, setLoadingTeamId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Charger les équipes favorites au montage
-  useEffect(() => {
-    const loadFavoriteTeams = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        console.debug('[FavoriteTeamsSection] Token exists:', !!token);
-
-        if (!token) {
-          console.debug('[FavoriteTeamsSection] No token found, skipping load');
-          setIsLoadingFavorites(false);
-          return;
-        }
-
-        // Récupérer les IDs d'abord
-        console.debug('[FavoriteTeamsSection] Fetching favorite team IDs...');
-        const ids = await teamService.getFavoriteTeamIds(token);
-        console.debug('[FavoriteTeamsSection] Favorite team IDs:', ids);
-        setFavoriteTeamIds(ids);
-
-        // Récupérer les détails des équipes
-        if (ids.length > 0) {
-          console.debug('[FavoriteTeamsSection] Fetching full team details...');
-          const teams = await teamService.getFavoriteTeams(token);
-          console.debug('[FavoriteTeamsSection] Favorite teams:', teams);
-          setFavoriteTeams(teams);
-        }
-      } catch (err) {
-        console.error('Error loading favorite teams:', err);
-        setError(t('profile.favorite_teams_section.erreur_charger_equipes'));
-      } finally {
-        setIsLoadingFavorites(false);
-      }
-    };
-
-    loadFavoriteTeams();
-  }, [t]);
-
-  // Recherche d'équipes avec debounce
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (searchQuery.trim().length < 2) {
-        setSearchResults([]);
-        return;
-      }
-
-      setIsSearching(true);
-      setError(null);
-
-      try {
-        const results = await teamService.searchTeams(searchQuery);
-        setSearchResults(results);
-      } catch (err) {
-        console.error('Error searching teams:', err);
-        setError(t('profile.favorite_teams_section.erreur_recherche_equipes'));
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Vérifier si une équipe est favorite
-  const isFavorite = useCallback(
-    (teamId: number) => {
-      return favoriteTeamIds.includes(teamId);
-    },
-    [favoriteTeamIds]
-  );
-
-  // Toggle favorite
-  const handleToggleFavorite = async (teamId: number) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setError(t('profile.favorite_teams_section.vous_devez_etre_connecte'));
-      return;
-    }
-
-    setLoadingTeamId(teamId);
-    setError(null);
-
-    try {
-      let updatedIds: number[];
-
-      if (isFavorite(teamId)) {
-        // Retirer des favoris
-        updatedIds = await teamService.removeFavoriteTeam(token, teamId);
-        setFavoriteTeamIds(updatedIds);
-        setFavoriteTeams(prev => prev.filter(team => team.id !== teamId));
-      } else {
-        // Ajouter aux favoris
-        updatedIds = await teamService.addFavoriteTeam(token, teamId);
-        setFavoriteTeamIds(updatedIds);
-
-        // Récupérer les détails de l'équipe ajoutée
-        const team = searchResults.find(t => t.id === teamId);
-        if (team) {
-          setFavoriteTeams(prev => [...prev, team]);
-        } else {
-          // Si l'équipe n'est pas dans les résultats de recherche, la récupérer via l'API
-          const fullTeam = await teamService.getTeamById(teamId);
-          setFavoriteTeams(prev => [...prev, fullTeam]);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error toggling favorite:', err);
-      setError(err.message || t('profile.favorite_teams_section.erreur_modification_favoris'));
-    } finally {
-      setLoadingTeamId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">{t('profile.favorite_teams_section.equipes_favorites')}</h2>
-        <p className="text-gray-400">{t('profile.favorite_teams_section.suivez_equipes')}</p>
-      </div>
-
-      {/* Erreur */}
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3">
-          <div className="text-red-500 text-sm flex-1">{error}</div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-400 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Barre de recherche */}
-      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
-        <div className="mb-4 sm:mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder={t('profile.favorite_teams_section.rechercher_equipe')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F22E62] focus:border-transparent transition-all text-sm sm:text-base"
-            />
-            {isSearching && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
-            )}
-          </div>
-        </div>
-
-        {/* Résultats de recherche */}
-        {searchQuery.trim().length >= 2 && (
-          <div className="space-y-3 mb-6">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-              {t('profile.favorite_teams_section.resultats_recherche')} ({searchResults.length})
-            </h3>
-            {searchResults.length > 0 ? (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {searchResults.map((team) => (
-                  <TeamSearchResult
-                    key={team.id}
-                    team={team}
-                    isFavorite={isFavorite(team.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                    isLoading={loadingTeamId === team.id}
-                  />
-                ))}
-              </div>
-            ) : (
-              !isSearching && (
-                <p className="text-gray-400 text-sm py-4">
-                  {t('profile.favorite_teams_section.aucune_equipe_trouvee')} &quot;{searchQuery}&quot;
-                </p>
-              )
-            )}
-          </div>
-        )}
-
-        {/* Mes équipes favorites */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-            {t('profile.favorite_teams_section.mes_equipes_favorites')} ({favoriteTeams.length})
-          </h3>
-
-          {isLoadingFavorites ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-[#F22E62] animate-spin" />
-            </div>
-          ) : favoriteTeams.length > 0 ? (
-            <div className="space-y-2">
-              {favoriteTeams.map((team) => (
-                <TeamSearchResult
-                  key={team.id}
-                  team={team}
-                  isFavorite={true}
-                  onToggleFavorite={handleToggleFavorite}
-                  isLoading={loadingTeamId === team.id}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 sm:py-12 px-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 mb-4">
-                <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">{t('profile.favorite_teams_section.aucune_equipe_favorite')}</h3>
-              <p className="text-sm sm:text-base text-gray-400 mb-6">
-                {t('profile.favorite_teams_section.utilisez_recherche')}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
