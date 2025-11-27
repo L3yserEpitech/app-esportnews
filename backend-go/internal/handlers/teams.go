@@ -147,6 +147,11 @@ func (h *TeamHandler) AddFavoriteTeam(c echo.Context) error {
 	var teamIDs []int64
 	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
 	if err != nil {
+		fmt.Printf("[AddFavoriteTeam] Error fetching updated teams for userID %d: %v\n", userID, err)
+		// If user doesn't exist, return empty array (shouldn't happen but handle gracefully)
+		if err.Error() == "no rows in result set" {
+			return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": []int64{}})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
 	}
 
@@ -176,6 +181,11 @@ func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
 	var teamIDs []int64
 	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
 	if err != nil {
+		fmt.Printf("[RemoveFavoriteTeam] Error fetching updated teams for userID %d: %v\n", userID, err)
+		// If user doesn't exist, return empty array (shouldn't happen but handle gracefully)
+		if err.Error() == "no rows in result set" {
+			return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": []int64{}})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
 	}
 
