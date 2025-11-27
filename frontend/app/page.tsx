@@ -106,9 +106,7 @@ export default function HomePage() {
       setIsLoadingNews(true);
       const allArticles = await articleService.getAllArticles();
 
-      const actualiteArticles = allArticles.filter(
-        article => article.category === 'Actus'
-      );
+      const actualiteArticles = allArticles;
 
       // Le premier article est l'article en vedette
       if (actualiteArticles.length > 0) {

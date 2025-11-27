@@ -102,18 +102,21 @@ func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*mode
 }
 
 // GetTournamentsForGame retrieves tournaments for a specific game and status
+// Uses game-specific endpoint format: /{game}/tournaments/{status}
 func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game string, status string) ([]models.Tournament, error) {
 	var endpoint string
 	switch status {
 	case "running":
-		endpoint = fmt.Sprintf("/tournaments/running?filter[videogame_title]=%s", game)
+		endpoint = fmt.Sprintf("/%s/tournaments/running", game)
 	case "upcoming":
-		endpoint = fmt.Sprintf("/tournaments/upcoming?filter[videogame_title]=%s", game)
+		endpoint = fmt.Sprintf("/%s/tournaments/upcoming", game)
 	case "finished":
-		endpoint = fmt.Sprintf("/tournaments/past?filter[videogame_title]=%s", game)
+		endpoint = fmt.Sprintf("/%s/tournaments/past", game)
 	default:
 		return nil, fmt.Errorf("invalid status: %s", status)
 	}
+
+	fmt.Printf("[GetTournamentsForGame] Game: %s, Status: %s, Endpoint: %s\n", game, status, endpoint)
 
 	cacheKey := cache.PandaScoreTournamentsKey(game, status)
 	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, map[string]string{})

@@ -61,6 +61,11 @@ const TournamentsPage: React.FC = () => {
       params.append('limit', TOURNAMENTS_PER_PAGE.toString());
       params.append('offset', offset.toString());
       params.append('sort', sortBy);
+      
+      // Ajouter le filtre par jeu si un jeu est sélectionné
+      if (selectedGame && selectedGameData?.acronym) {
+        params.append('game', selectedGameData.acronym);
+      }
 
       const url = `${baseUrl}${endpoint}?${params.toString()}`;
 
@@ -86,7 +91,7 @@ const TournamentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [t, TOURNAMENTS_PER_PAGE, sortBy, status]);
+  }, [t, TOURNAMENTS_PER_PAGE, sortBy, status, selectedGame, selectedGameData]);
 
   // Charger les publicités
   const loadAds = useCallback(async () => {
@@ -101,11 +106,11 @@ const TournamentsPage: React.FC = () => {
     }
   }, []);
 
-  // Recharger au démarrage (page 0)
+  // Recharger au démarrage (page 0) et quand selectedGame change
   useEffect(() => {
     setCurrentPage(0);
     loadTournaments(0);
-  }, [loadTournaments]);
+  }, [loadTournaments, selectedGame]);
 
   // Charger les publicités au démarrage
   useEffect(() => {
