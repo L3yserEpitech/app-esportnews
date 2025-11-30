@@ -68,3 +68,4 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 CREATE INDEX idx_users_email ON public.users(email);
 CREATE INDEX idx_articles_slug ON public.articles(slug);
 CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
+ 

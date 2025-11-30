@@ -448,15 +448,22 @@ func (s *PandaScoreService) SearchTeams(ctx context.Context, query string, pageS
 	return teams, nil
 }
 
-// GetTeams retrieves multiple teams by IDs (parallel requests)
+// GetTeams retrieves multiple teams by IDs (with concurrency limit to avoid overload)
 func (s *PandaScoreService) GetTeams(ctx context.Context, teamIDs []int64) ([]models.PandaTeam, error) {
 	var teams []models.PandaTeam
+
+	// Use a semaphore to limit concurrent requests to 3
+	maxConcurrent := 3
+	semaphore := make(chan struct{}, maxConcurrent)
 	teamChan := make(chan *models.PandaTeam, len(teamIDs))
 	errChan := make(chan error, len(teamIDs))
 
-	// Fetch teams in parallel
+	// Fetch teams with concurrency limit
 	for _, id := range teamIDs {
 		go func(teamID int64) {
+			semaphore <- struct{}{}        // Acquire
+			defer func() { <-semaphore }() // Release
+
 			team, err := s.GetTeam(ctx, fmt.Sprintf("%d", teamID))
 			if err != nil {
 				errChan <- err

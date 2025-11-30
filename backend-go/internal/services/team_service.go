@@ -6,15 +6,17 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
 )
 
 type TeamService struct {
-	db interface{} // Can be *gorm.DB or *database.Database
+	db            interface{} // Can be *gorm.DB or *database.Database
+	pandaService  *PandaScoreService
 }
 
-func NewTeamService(db interface{}) *TeamService {
-	return &TeamService{db: db}
+func NewTeamService(db interface{}, pandaService *PandaScoreService) *TeamService {
+	return &TeamService{db: db, pandaService: pandaService}
 }
 
 // getDB extracts the *gorm.DB from the interface
@@ -22,8 +24,10 @@ func (s *TeamService) getDB() *gorm.DB {
 	switch v := s.db.(type) {
 	case *gorm.DB:
 		return v
+	case *database.Database:
+		return v.DB // Access the embedded *gorm.DB
 	default:
-		panic("TeamService db is not a valid *gorm.DB instance")
+		panic("TeamService db is not a valid *gorm.DB or *database.Database instance")
 	}
 }
 
@@ -39,7 +43,7 @@ func (s *TeamService) SearchTeams(ctx context.Context, query string, limit int) 
 	return teams, nil
 }
 
-// AddFavoriteTeam adds a team to user favorites
+// AddFavoriteTeam adds a team to user favorites (max 3 teams)
 func (s *TeamService) AddFavoriteTeam(ctx context.Context, userID, teamID int64) error {
 	// Get current favorite teams
 	var user models.User
@@ -52,6 +56,11 @@ func (s *TeamService) AddFavoriteTeam(ctx context.Context, userID, teamID int64)
 		if id == teamID {
 			return nil // Already a favorite
 		}
+	}
+
+	// Check max limit (3 teams)
+	if len(user.FavoriteTeams) >= 3 {
+		return fmt.Errorf("vous ne pouvez avoir que 3 équipes favorites")
 	}
 
 	// Add team to favorites
@@ -84,18 +93,26 @@ func (s *TeamService) RemoveFavoriteTeam(ctx context.Context, userID, teamID int
 	return nil
 }
 
-// GetFavoriteTeams retrieves user's favorite teams
-func (s *TeamService) GetFavoriteTeams(ctx context.Context, userID int64) ([]*models.Team, error) {
+// GetFavoriteTeams retrieves user's favorite teams from PandaScore API
+func (s *TeamService) GetFavoriteTeams(ctx context.Context, userID int64) ([]models.PandaTeam, error) {
 	var user models.User
 	if err := s.getDB().WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		return nil, fmt.Errorf("failed to get favorite team IDs: %w", err)
 	}
 
 	if len(user.FavoriteTeams) == 0 {
-		return []*models.Team{}, nil
+		return []models.PandaTeam{}, nil
 	}
 
-	// For now, return empty list as teams table functionality isn't fully implemented
-	// In the future, this would fetch team details from the teams table or PandaScore API
-	return []*models.Team{}, nil
+	// Fetch team details from PandaScore API
+	if s.pandaService == nil {
+		return nil, fmt.Errorf("PandaScore service not available")
+	}
+
+	teams, err := s.pandaService.GetTeams(ctx, user.FavoriteTeams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch team details: %w", err)
+	}
+
+	return teams, nil
 }

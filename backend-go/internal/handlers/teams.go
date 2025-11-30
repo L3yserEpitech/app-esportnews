@@ -123,11 +123,11 @@ func (h *TeamHandler) GetFavoriteTeams(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewTeamService(h.DB)
+	service := services.NewTeamService(h.gormDB, h.pandaService)
 	teams, err := service.GetFavoriteTeams(ctx, userID)
 	if err != nil {
 		// If user doesn't exist, return empty array
-		if err.Error() == "failed to get favorite team IDs: no rows in result set" {
+		if err.Error() == "failed to get favorite team IDs: record not found" {
 			return c.JSON(http.StatusOK, []interface{}{})
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -140,25 +140,36 @@ func (h *TeamHandler) GetFavoriteTeams(c echo.Context) error {
 }
 
 func (h *TeamHandler) AddFavoriteTeam(c echo.Context) error {
+	fmt.Println("[AddFavoriteTeam] Starting...")
+
 	userID, err := extractUserIDFromHandler(h, c)
 	if err != nil {
+		fmt.Printf("[AddFavoriteTeam] Error extracting userID: %v\n", err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
+	fmt.Printf("[AddFavoriteTeam] UserID: %d\n", userID)
 
 	teamID, err := strconv.ParseInt(c.Param("teamId"), 10, 64)
 	if err != nil {
+		fmt.Printf("[AddFavoriteTeam] Error parsing teamID: %v\n", err)
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid team ID")
 	}
+	fmt.Printf("[AddFavoriteTeam] TeamID: %d\n", teamID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewTeamService(h.gormDB)
+	fmt.Println("[AddFavoriteTeam] Creating TeamService with gormDB...")
+	service := services.NewTeamService(h.gormDB, h.pandaService)
+	fmt.Println("[AddFavoriteTeam] Calling AddFavoriteTeam on service...")
 	if err := service.AddFavoriteTeam(ctx, userID, teamID); err != nil {
+		fmt.Printf("[AddFavoriteTeam] Service error: %v\n", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	fmt.Println("[AddFavoriteTeam] AddFavoriteTeam succeeded")
 
 	// Fetch updated favorite teams list
+	fmt.Println("[AddFavoriteTeam] Fetching updated user...")
 	var user models.User
 	if err := h.getDB().WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		fmt.Printf("[AddFavoriteTeam] Error fetching updated teams for userID %d: %v\n", userID, err)
@@ -171,6 +182,7 @@ func (h *TeamHandler) AddFavoriteTeam(c echo.Context) error {
 	if user.FavoriteTeams == nil {
 		user.FavoriteTeams = []int64{}
 	}
+	fmt.Printf("[AddFavoriteTeam] Returning favorite_teams: %v\n", user.FavoriteTeams)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": user.FavoriteTeams})
 }
@@ -189,7 +201,7 @@ func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewTeamService(h.gormDB)
+	service := services.NewTeamService(h.gormDB, h.pandaService)
 	if err := service.RemoveFavoriteTeam(ctx, userID, teamID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
