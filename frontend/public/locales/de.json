@@ -177,6 +177,9 @@
     },
     "edit_modal": {
       "modifier_profil": "Profil bearbeiten",
+      "nom_complet": "Vollständiger Name",
+      "adresse_email": "E-Mail-Adresse",
+      "modifier": "Bearbeiten",
       "veuillez_selectionner_image": "Bitte wählen Sie ein gültiges Bild",
       "image_ne_doit_pas_depasser": "Das Bild darf 5MB nicht überschreiten",
       "nom_requis": "Name ist erforderlich",
@@ -244,6 +247,7 @@
       "equipes": "Teams",
       "securite": "Sicherheit",
       "preferences": "Voreinstellungen",
+      "notifications": "Benachrichtigungen",
       "deconnexion": "Abmelden"
     }
   },

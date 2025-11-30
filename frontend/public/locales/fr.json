@@ -178,6 +178,9 @@
     },
     "edit_modal": {
       "modifier_profil": "Modifier le profil",
+      "nom_complet": "Nom complet",
+      "adresse_email": "Adresse email",
+      "modifier": "Modifier",
       "veuillez_selectionner_image": "Veuillez sélectionner une image valide",
       "image_ne_doit_pas_depasser": "L'image ne doit pas dépasser 5MB",
       "nom_requis": "Le nom est requis",
@@ -245,6 +248,7 @@
       "equipes": "Équipes",
       "securite": "Sécurité",
       "preferences": "Préférences",
+      "notifications": "Notifications",
       "deconnexion": "Déconnexion"
     }
   },

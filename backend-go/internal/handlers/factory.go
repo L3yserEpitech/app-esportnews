@@ -120,12 +120,10 @@ func NewTeamHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, auth
 	}
 }
 
-// NewNotificationHandler creates a new notification handler
-func NewNotificationHandler(db *pgxpool.Pool, redisCache *cache.RedisCache) *NotificationHandler {
+// NewNotificationHandler creates a new notification handler with GORM
+func NewNotificationHandler(gormDB interface{}, authService *services.AuthService) *NotificationHandler {
 	return &NotificationHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
+		gormDB:      gormDB,
+		authService: authService,
 	}
 }

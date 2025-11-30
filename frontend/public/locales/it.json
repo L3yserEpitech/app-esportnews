@@ -177,6 +177,9 @@
     },
     "edit_modal": {
       "modifier_profil": "Modifica Profilo",
+      "nom_complet": "Nome completo",
+      "adresse_email": "Indirizzo email",
+      "modifier": "Modifica",
       "veuillez_selectionner_image": "Seleziona un'immagine valida",
       "image_ne_doit_pas_depasser": "L'immagine non deve superare 5MB",
       "nom_requis": "Il nome è obbligatorio",
@@ -244,6 +247,7 @@
       "equipes": "Team",
       "securite": "Sicurezza",
       "preferences": "Preferenze",
+      "notifications": "Notifiche",
       "deconnexion": "Esci"
     }
   },

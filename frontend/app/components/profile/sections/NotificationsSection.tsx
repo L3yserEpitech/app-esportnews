@@ -38,7 +38,17 @@ export default function NotificationsSection() {
 
         if (response.ok) {
           const data = await response.json();
-          setSettings(data);
+          console.log('Loaded preferences (raw):', data);
+
+          // Extraire seulement les champs de notification (pas user_id)
+          const cleanedData: NotificationPreferences = {
+            notifi_push: data.notifi_push ?? false,
+            notif_articles: data.notif_articles ?? false,
+            notif_news: data.notif_news ?? false,
+            notif_matchs: data.notif_matchs ?? false,
+          };
+          console.log('Cleaned preferences:', cleanedData);
+          setSettings(cleanedData);
         }
       } catch (error) {
         console.error('Error loading notification preferences:', error);
@@ -105,8 +115,18 @@ export default function NotificationsSection() {
         setSettings(previousSettings);
       } else {
         const data = await response.json();
-        console.log('Notification preference updated:', data);
-        setSettings(data);
+        console.log('Notification preference updated (raw):', data);
+        console.log('Response keys:', Object.keys(data));
+
+        // Extraire seulement les champs de notification (pas user_id)
+        const cleanedData: NotificationPreferences = {
+          notifi_push: data.notifi_push ?? false,
+          notif_articles: data.notif_articles ?? false,
+          notif_news: data.notif_news ?? false,
+          notif_matchs: data.notif_matchs ?? false,
+        };
+        console.log('Cleaned data:', cleanedData);
+        setSettings(cleanedData);
       }
     } catch (error) {
       // Revert sur erreur

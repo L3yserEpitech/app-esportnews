@@ -177,6 +177,9 @@
     },
     "edit_modal": {
       "modifier_profil": "Edit Profile",
+      "nom_complet": "Full name",
+      "adresse_email": "Email address",
+      "modifier": "Edit",
       "veuillez_selectionner_image": "Please select a valid image",
       "image_ne_doit_pas_depasser": "Image must not exceed 5MB",
       "nom_requis": "Name is required",
@@ -244,6 +247,7 @@
       "equipes": "Teams",
       "securite": "Security",
       "preferences": "Preferences",
+      "notifications": "Notifications",
       "deconnexion": "Sign out"
     }
   },
