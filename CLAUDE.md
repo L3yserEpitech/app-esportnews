@@ -57,6 +57,7 @@
 * **Stack infrastructure** :
   - **Backend** : Go 1.22 + Echo framework (remplace Node.js)
   - **Database** : PostgreSQL 15 (local, via Docker)
+  - **ORM** : GORM pour toutes les opérations utilisateur (authentification, préférences, équipes favorites)
   - **Cache** : Redis 7 (live data + sessions)
   - **Frontend** : Next.js 15 (Node.js + Turbopack)
   - **Orchestration** : Docker Compose (3 conteneurs : postgres, redis, backend-go)
@@ -71,6 +72,12 @@
   - **Persistantes** : users, articles, ads (édités via back-office)
   - **Volatiles/Sync'd** : tournaments, matches, games_pandascore (PandaScore)
   - **Cache Redis** : live data (30 sec TTL), sessions utilisateur
+
+* **Base de données - Table utilisateurs** :
+  - **Table GORM** : `public.user` (source unique de vérité pour les utilisateurs)
+  - **Accès** : Tous les handlers (NotificationHandler, TeamHandler, AuthHandler) utilisent GORM pour lire/écrire les données utilisateurs
+  - **NOTE** : ❌ **DEPRECATED** - La table `public.users` (pgxpool) n'est plus utilisée. Tous les accès utilisateurs passent par GORM sur `public.user`
+  - **Colonnes clés** : id, email, password, avatar, admin, age, favorite_teams (BIGINT[]), notifi_push, notif_articles, notif_news, notif_matchs
 
 ## 3bis) API Endpoints — Documentation Complète
 

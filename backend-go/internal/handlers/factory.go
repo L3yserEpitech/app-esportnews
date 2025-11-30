@@ -98,14 +98,11 @@ func NewAuthHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtS
 }
 
 // NewTeamHandler creates a new team handler with PandaScoreService and AuthService
-func NewTeamHandler(pandaService *services.PandaScoreService, authService *services.AuthService, db *pgxpool.Pool, redisCache *cache.RedisCache) *TeamHandler {
+func NewTeamHandler(pandaService *services.PandaScoreService, authService *services.AuthService, gormDB interface{}) *TeamHandler {
 	return &TeamHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
 		pandaService: pandaService,
 		authService:  authService,
+		gormDB:       gormDB,
 	}
 }
 

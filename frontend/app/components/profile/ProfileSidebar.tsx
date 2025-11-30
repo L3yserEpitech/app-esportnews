@@ -18,7 +18,7 @@ export default function ProfileSidebar({ activeSection, onSectionChange }: Profi
 
   const menuItems = [
     { id: 'profile' as SidebarSection, label: t('profile.sidebar.profil'), icon: User },
-    // { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
+    { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
     { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
     { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
     { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },

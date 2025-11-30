@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 
+	"github.com/esportnews/backend/internal/database"
+	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 )
 
@@ -16,6 +19,19 @@ type TeamHandler struct {
 	BaseHandler
 	pandaService *services.PandaScoreService
 	authService  *services.AuthService
+	gormDB       interface{} // Can be *gorm.DB or *database.Database
+}
+
+// getDB extracts the *gorm.DB from the interface
+func (h *TeamHandler) getDB() *gorm.DB {
+	switch v := h.gormDB.(type) {
+	case *gorm.DB:
+		return v
+	case *database.Database:
+		return v.DB // Access the embedded *gorm.DB
+	default:
+		panic("gormDB is not a valid *gorm.DB or *database.Database instance")
+	}
 }
 
 func (h *TeamHandler) RegisterRoutes(g RouterGroup) {
@@ -81,22 +97,21 @@ func (h *TeamHandler) GetFavoriteTeamIDs(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var teamIDs []int64
-	// Use COALESCE to handle NULL arrays - return empty array if NULL
-	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
-	if err != nil {
-		fmt.Printf("[GetFavoriteTeamIDs] Error for userID %d: %v\n", userID, err)
-		// If user doesn't exist, return empty array
-		if err.Error() == "no rows in result set" {
+	var user models.User
+	if err := h.getDB().WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
 			fmt.Printf("[GetFavoriteTeamIDs] User %d not found, returning empty array\n", userID)
 			return c.JSON(http.StatusOK, []int64{})
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch favorite teams: "+err.Error())
 	}
 
-	fmt.Printf("[GetFavoriteTeamIDs] Returning %d team IDs for user %d\n", len(teamIDs), userID)
-	// Return array directly, not wrapped in object
-	return c.JSON(http.StatusOK, teamIDs)
+	if user.FavoriteTeams == nil {
+		user.FavoriteTeams = []int64{}
+	}
+
+	fmt.Printf("[GetFavoriteTeamIDs] Returning %d team IDs for user %d\n", len(user.FavoriteTeams), userID)
+	return c.JSON(http.StatusOK, user.FavoriteTeams)
 }
 
 func (h *TeamHandler) GetFavoriteTeams(c echo.Context) error {
@@ -138,24 +153,26 @@ func (h *TeamHandler) AddFavoriteTeam(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewTeamService(h.DB)
+	service := services.NewTeamService(h.gormDB)
 	if err := service.AddFavoriteTeam(ctx, userID, teamID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Fetch updated favorite teams list
-	var teamIDs []int64
-	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
-	if err != nil {
+	var user models.User
+	if err := h.getDB().WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		fmt.Printf("[AddFavoriteTeam] Error fetching updated teams for userID %d: %v\n", userID, err)
-		// If user doesn't exist, return empty array (shouldn't happen but handle gracefully)
-		if err.Error() == "no rows in result set" {
+		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": []int64{}})
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": teamIDs})
+	if user.FavoriteTeams == nil {
+		user.FavoriteTeams = []int64{}
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": user.FavoriteTeams})
 }
 
 func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
@@ -172,24 +189,26 @@ func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	service := services.NewTeamService(h.DB)
+	service := services.NewTeamService(h.gormDB)
 	if err := service.RemoveFavoriteTeam(ctx, userID, teamID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Fetch updated favorite teams list
-	var teamIDs []int64
-	err = h.DB.QueryRow(ctx, "SELECT COALESCE(favorite_teams, ARRAY[]::bigint[]) FROM public.users WHERE id = $1", userID).Scan(&teamIDs)
-	if err != nil {
+	var user models.User
+	if err := h.getDB().WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		fmt.Printf("[RemoveFavoriteTeam] Error fetching updated teams for userID %d: %v\n", userID, err)
-		// If user doesn't exist, return empty array (shouldn't happen but handle gracefully)
-		if err.Error() == "no rows in result set" {
+		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": []int64{}})
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated favorite teams: "+err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": teamIDs})
+	if user.FavoriteTeams == nil {
+		user.FavoriteTeams = []int64{}
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": user.FavoriteTeams})
 }
 
 // Helper to extract user ID
