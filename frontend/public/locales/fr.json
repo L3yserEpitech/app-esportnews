@@ -167,7 +167,22 @@
     "profile": {
       "parametres": "Paramètres",
       "gerez_profil_preferences": "Gérez votre profil et vos préférences",
-      "chargement": "Chargement..."
+      "chargement": "Chargement...",
+      "subscription": "Abonnement",
+      "subscription_status": "Statut de l'abonnement",
+      "not_premium": "Non abonné",
+      "premium_active": "Abonnement actif",
+      "next_billing": "Prochaine facturation",
+      "subscribe": "S'abonner",
+      "manage_subscription": "Gérer mon abonnement",
+      "why_premium": "Pourquoi passer Premium ?",
+      "benefit_1": "Sans publicités sur mobile",
+      "benefit_2": "Accès au contenu prioritaire",
+      "benefit_3": "Highlights de matchs exclusifs",
+      "benefit_4": "Statistiques & analyses avancées",
+      "price_per_month": "€0.99/mois",
+      "subscribe_magazine": "S'abonner au magazine",
+      "magazine_description": "Restez informé avec notre magazine esport news"
     }
   },
   "profile": {
@@ -249,10 +264,32 @@
       "securite": "Sécurité",
       "preferences": "Préférences",
       "notifications": "Notifications",
+      "subscription": "Abonnement",
       "deconnexion": "Déconnexion"
+    },
+    "subscription": {
+      "abonnement": "Abonnement",
+      "plan_premium": "Plan Premium",
+      "prix_mensuel": "€0.99/mois",
+      "pas_premium": "Non abonné",
+      "premium_actif": "Abonnement actif",
+      "prochaine_facturation": "Prochaine facturation",
+      "sabonner": "S'abonner",
+      "gerer_abonnement": "Gérer mon abonnement",
+      "avantages": "Avantages",
+      "sans_publicites": "Sans publicités sur mobile",
+      "contenu_exclusif": "Contenu exclusif",
+      "support_prioritaire": "Support prioritaire",
+      "statut_abonnement": "Statut de l'abonnement",
+      "active": "Active",
+      "inactive": "Inactive",
+      "erreur_chargement": "Erreur lors du chargement de l'abonnement",
+      "erreur_checkout": "Erreur lors de la création de la session de paiement"
     }
   },
   "common": {
+    "plan": "Plan",
+    "price": "Prix",
     "live": {
       "aucun_match_direct": "Aucun match en direct",
       "aucun_match_moment": "Aucun match en cours pour le moment !",

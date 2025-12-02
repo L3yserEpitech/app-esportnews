@@ -166,7 +166,22 @@
     "profile": {
       "parametres": "Settings",
       "gerez_profil_preferences": "Manage your profile and preferences",
-      "chargement": "Loading..."
+      "chargement": "Loading...",
+      "subscription": "Subscription",
+      "subscription_status": "Subscription status",
+      "not_premium": "Not subscribed",
+      "premium_active": "Active subscription",
+      "next_billing": "Next billing",
+      "subscribe": "Subscribe",
+      "manage_subscription": "Manage my subscription",
+      "why_premium": "Why go Premium?",
+      "benefit_1": "Ad-free experience on mobile",
+      "benefit_2": "Priority content access",
+      "benefit_3": "Exclusive match highlights",
+      "benefit_4": "Advanced statistics & analysis",
+      "price_per_month": "€0.99/month",
+      "subscribe_magazine": "Subscribe to the magazine",
+      "magazine_description": "Stay informed with our esport news magazine"
     }
   },
   "profile": {
@@ -248,10 +263,33 @@
       "securite": "Security",
       "preferences": "Preferences",
       "notifications": "Notifications",
+      "subscription": "Subscription",
       "deconnexion": "Sign out"
+    },
+    "subscription": {
+      "abonnement": "Subscription",
+      "plan_premium": "Premium Plan",
+      "prix_mensuel": "€0.99/month",
+      "pas_premium": "Not subscribed",
+      "premium_actif": "Active subscription",
+      "prochaine_facturation": "Next billing",
+      "sabonner": "Subscribe",
+      "gerer_abonnement": "Manage my subscription",
+      "avantages": "Benefits",
+      "sans_publicites": "Ad-free on mobile",
+      "contenu_exclusif": "Exclusive content",
+      "support_prioritaire": "Priority support",
+      "statut_abonnement": "Subscription status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "erreur_chargement": "Error loading subscription",
+      "erreur_checkout": "Error creating payment session"
     }
   },
   "common": {
+    "plan": "Plan",
+    "price": "Price",
+    "loading": "Loading",
     "live": {
       "aucun_match_direct": "No live matches",
       "aucun_match_moment": "No matches right now!",

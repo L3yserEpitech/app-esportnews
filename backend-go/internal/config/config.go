@@ -34,6 +34,15 @@ type Config struct {
 	// PandaScore API
 	PandaScoreAPIKey string
 
+	// Stripe
+	StripeSecretKey   string
+	StripePriceID     string
+	StripeWebhookSecret string
+
+	// Resend Email
+	ResendAPIKey string
+	EmailFrom    string
+
 	// App
 	MaxConnections int
 }
@@ -49,6 +58,11 @@ func LoadConfig() *Config {
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
 		PandaScoreAPIKey: getEnv("PANDASCORE_API_KEY", ""),
+		StripeSecretKey:  getEnv("STRIPE_SECRET_KEY", ""),
+		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
+		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
+		EmailFrom:        getEnv("EMAIL_FROM", "noreply@resend.dev"),
 		MaxConnections:   25,
 	}
 

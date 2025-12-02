@@ -27,6 +27,15 @@ type User struct {
 	NotifArticles *bool         `json:"notif_articles" gorm:"column:notif_articles"`
 	NotifNews     *bool         `json:"notif_news" gorm:"column:notif_news"`
 	NotifMatches  *bool         `json:"notif_matchs" gorm:"column:notif_matchs"`
+	Premium                         *bool      `json:"premium" gorm:"default:false"`
+	StripeCustomerID               *string    `json:"stripe_customer_id" gorm:"uniqueIndex"`
+	StripeSubscriptionID           *string    `json:"stripe_subscription_id" gorm:"uniqueIndex"`
+	SubscriptionStatus             *string    `json:"subscription_status"`
+	SubscriptionCreatedAt          *time.Time `json:"subscription_created_at"`
+	SubscriptionUpdatedAt          *time.Time `json:"subscription_updated_at"`
+	SubscriptionCurrentPeriodStart *time.Time `json:"subscription_current_period_start"`
+	SubscriptionCurrentPeriodEnd   *time.Time `json:"subscription_current_period_end"`
+	SubscriptionCanceledAt         *time.Time `json:"subscription_canceled_at"`
 }
 
 func (a Int64Array) MarshalJSON() ([]byte, error) {

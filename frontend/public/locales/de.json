@@ -166,7 +166,22 @@
     "profile": {
       "parametres": "Einstellungen",
       "gerez_profil_preferences": "Verwalten Sie Ihr Profil und Ihre Voreinstellungen",
-      "chargement": "Lädt..."
+      "chargement": "Lädt...",
+      "subscription": "Abonnement",
+      "subscription_status": "Abonnementstatus",
+      "not_premium": "Nicht abonniert",
+      "premium_active": "Aktives Abonnement",
+      "next_billing": "Nächste Abrechnung",
+      "subscribe": "Abonnieren",
+      "manage_subscription": "Mein Abonnement verwalten",
+      "why_premium": "Warum Premium?",
+      "benefit_1": "Werbefreies Erlebnis auf Mobilgeräten",
+      "benefit_2": "Prioritätszugriff auf Inhalte",
+      "benefit_3": "Exklusive Match-Highlights",
+      "benefit_4": "Erweiterte Statistiken & Analysen",
+      "price_per_month": "€0.99/Monat",
+      "subscribe_magazine": "Zeitschrift abonnieren",
+      "magazine_description": "Bleiben Sie mit unserem esport news Magazin informiert"
     }
   },
   "profile": {
@@ -248,10 +263,33 @@
       "securite": "Sicherheit",
       "preferences": "Voreinstellungen",
       "notifications": "Benachrichtigungen",
+      "subscription": "Abonnement",
       "deconnexion": "Abmelden"
+    },
+    "subscription": {
+      "abonnement": "Abonnement",
+      "plan_premium": "Premium-Plan",
+      "prix_mensuel": "€0.99/Monat",
+      "pas_premium": "Nicht abonniert",
+      "premium_actif": "Aktives Abonnement",
+      "prochaine_facturation": "Nächste Abrechnung",
+      "sabonner": "Abonnieren",
+      "gerer_abonnement": "Mein Abonnement verwalten",
+      "avantages": "Vorteile",
+      "sans_publicites": "Werbefrei auf Mobilgeräten",
+      "contenu_exclusif": "Exklusiver Inhalt",
+      "support_prioritaire": "Prioritärer Support",
+      "statut_abonnement": "Abonnementstatus",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "erreur_chargement": "Fehler beim Laden des Abonnements",
+      "erreur_checkout": "Fehler beim Erstellen der Zahlungssitzung"
     }
   },
   "common": {
+    "plan": "Plan",
+    "price": "Preis",
+    "loading": "Lädt",
     "live": {
       "aucun_match_direct": "Keine Live-Spiele",
       "aucun_match_moment": "Gerade keine Spiele!",
