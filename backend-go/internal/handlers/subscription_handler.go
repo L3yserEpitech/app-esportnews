@@ -20,6 +20,7 @@ type SubscriptionHandler struct {
 	authService   *services.AuthService
 	logger        *logrus.Logger
 	gormDB        *gorm.DB
+	frontendURL   string
 }
 
 type CheckoutSessionResponse struct {
@@ -43,12 +44,14 @@ func NewSubscriptionHandler(
 	authService *services.AuthService,
 	logger *logrus.Logger,
 	gormDB *database.Database,
+	frontendURL string,
 ) *SubscriptionHandler {
 	return &SubscriptionHandler{
 		stripeService: stripeService,
 		authService:   authService,
 		logger:        logger,
 		gormDB:        gormDB.DB,
+		frontendURL:   frontendURL,
 	}
 }
 
@@ -180,7 +183,7 @@ func (h *SubscriptionHandler) GetCustomerPortalURL(c echo.Context) error {
 	// Get return URL from query parameter (default to profile page)
 	returnURL := c.QueryParam("return_url")
 	if returnURL == "" {
-		returnURL = "http://localhost:3000/profile?section=subscription"
+		returnURL = h.frontendURL + "/profile?section=subscription"
 	}
 
 	// Create billing portal session

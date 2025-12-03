@@ -136,8 +136,6 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c echo.Context, ct
 	}).Info("User marked as premium")
 
 	// Send confirmation email asynchronously
-	// TODO: Enable email sending once Resend is properly configured
-	/*
 	go func() {
 		// Calculate next billing date (approximate - 30 days from now)
 		nextBillingDate := time.Now().AddDate(0, 1, 0)
@@ -147,7 +145,6 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c echo.Context, ct
 			h.logger.WithField("user_id", user.ID).Info("Confirmation email sent")
 		}
 	}()
-	*/
 
 	return c.JSON(http.StatusOK, map[string]string{"received": "true"})
 }
@@ -227,8 +224,6 @@ func (h *StripeWebhookHandler) handleSubscriptionDeleted(c echo.Context, ctx con
 	}).Info("User subscription cancelled")
 
 	// Send cancellation email asynchronously
-	// TODO: Enable email sending once Resend is properly configured
-	/*
 	go func() {
 		if err := h.emailService.SendSubscriptionCancelled(context.Background(), user.Email, user.Name); err != nil {
 			h.logger.WithError(err).WithField("user_id", user.ID).Error("Failed to send cancellation email")
@@ -236,7 +231,6 @@ func (h *StripeWebhookHandler) handleSubscriptionDeleted(c echo.Context, ctx con
 			h.logger.WithField("user_id", user.ID).Info("Cancellation email sent")
 		}
 	}()
-	*/
 
 	return c.JSON(http.StatusOK, map[string]string{"received": "true"})
 }

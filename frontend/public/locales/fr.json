@@ -290,6 +290,7 @@
   "common": {
     "plan": "Plan",
     "price": "Prix",
+    "loading": "Chargement...",
     "live": {
       "aucun_match_direct": "Aucun match en direct",
       "aucun_match_moment": "Aucun match en cours pour le moment !",
