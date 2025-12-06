@@ -13,6 +13,11 @@ import (
 
 type ArticleHandler struct {
 	BaseHandler
+	service *services.ArticleService
+}
+
+func NewArticleHandlerWithService(service *services.ArticleService) *ArticleHandler {
+	return &ArticleHandler{service: service}
 }
 
 func (h *ArticleHandler) RegisterRoutes(g RouterGroup) {
@@ -39,8 +44,7 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 		}
 	}
 
-	service := services.NewArticleService(h.DB, h.Cache)
-	articles, err := service.GetArticles(ctx, limit, offset)
+	articles, err := h.service.GetArticles(ctx, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -54,8 +58,7 @@ func (h *ArticleHandler) GetArticle(c echo.Context) error {
 
 	slug := c.Param("slug")
 
-	service := services.NewArticleService(h.DB, h.Cache)
-	article, err := service.GetArticleBySlug(ctx, slug)
+	article, err := h.service.GetArticleBySlug(ctx, slug)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
@@ -76,8 +79,7 @@ func (h *ArticleHandler) GetSimilarArticles(c echo.Context) error {
 		}
 	}
 
-	service := services.NewArticleService(h.DB, h.Cache)
-	articles, err := service.GetSimilarArticles(ctx, slug, limit)
+	articles, err := h.service.GetSimilarArticles(ctx, slug, limit)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

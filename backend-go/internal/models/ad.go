@@ -11,3 +11,8 @@ type Ad struct {
 	URL          *string   `json:"url"`
 	RedirectLink *string   `json:"redirect_link"`
 }
+
+// TableName specifies the table name for Ad
+func (Ad) TableName() string {
+	return "ads"
+}

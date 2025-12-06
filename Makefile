@@ -47,5 +47,43 @@ install-backend: ## Install backend dependencies
 status: ## Show status of services
 	docker-compose ps
 
-start:
-	docker compose down && docker compose build && docker compose up
+start: ## Full rebuild and start
+	docker compose down && docker compose up --build
+
+seed: ## Import articles only (47 articles)
+	@echo "📦 Importing articles..."
+	docker-compose exec -T backend ./seed --data=initial_data/articles_rows.json
+	@echo "✅ Articles imported!"
+
+reset-db: ## Reset database volumes completely
+	@echo "🗑️  Removing all volumes..."
+	docker-compose down --volumes
+	@echo "✅ Volumes removed!"
+
+feed-all: ## Import all data (users, games, ads, articles) - requires containers to be running
+	@echo "🔄 Starting data import..."
+	@echo ""
+	@echo "1️⃣  Flushing Redis cache..."
+	docker-compose exec -T redis redis-cli FLUSHALL
+	@echo ""
+	@echo "2️⃣  Importing 47 articles..."
+	docker-compose exec -T backend ./seed --data=initial_data/articles_rows.json
+	@echo ""
+	@echo "✅ All done! Data imported:"
+	@echo "   - Users: imported via migration 00002_users.sql"
+	@echo "   - Games: imported via migration 00003_games.sql (10 games)"
+	@echo "   - Ads: imported via migration 00004_ads.sql (2 ads)"
+	@echo "   - Articles: imported via seed (47 articles)"
+	@echo ""
+	@echo "📊 Verifying data..."
+	@echo -n "   Users: "
+	@docker-compose exec -T postgres psql -U postgres -d esportnews -t -c "SELECT COUNT(*) FROM users;" | xargs
+	@echo -n "   Games: "
+	@docker-compose exec -T postgres psql -U postgres -d esportnews -t -c "SELECT COUNT(*) FROM games;" | xargs
+	@echo -n "   Ads: "
+	@docker-compose exec -T postgres psql -U postgres -d esportnews -t -c "SELECT COUNT(*) FROM ads;" | xargs
+	@echo -n "   Articles: "
+	@docker-compose exec -T postgres psql -U postgres -d esportnews -t -c "SELECT COUNT(*) FROM articles;" | xargs
+	@echo ""
+	@echo "🚀 Backend ready at http://localhost:4000"
+	@echo "🎨 Frontend ready at http://localhost:3002"

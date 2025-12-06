@@ -9,11 +9,16 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/esportnews/backend/internal/cache"
-	"github.com/esportnews/backend/internal/models"
+	"github.com/esportnews/backend/internal/services"
 )
 
 type AdHandler struct {
 	BaseHandler
+	service *services.AdService
+}
+
+func NewAdHandlerWithService(service *services.AdService) *AdHandler {
+	return &AdHandler{service: service}
 }
 
 func (h *AdHandler) RegisterRoutes(g RouterGroup) {
@@ -25,44 +30,24 @@ func (h *AdHandler) ListAds(c echo.Context) error {
 	defer cancel()
 
 	// Try cache
-	cached, err := h.Cache.Get(ctx, cache.CacheAds)
+	cached, err := h.service.Cache.Get(ctx, cache.CacheAds)
 	if err == nil {
-		var ads []*models.Ad
+		var ads interface{}
 		if err := json.Unmarshal([]byte(cached), &ads); err == nil {
 			return c.JSON(http.StatusOK, ads)
 		}
 	}
 
-	// Query database
-	rows, err := h.DB.Query(ctx, "SELECT id, created_at, title, position, type, url, redirect_link FROM public.ads ORDER BY position ASC")
+	// Fetch from database using service
+	ads, err := h.service.GetAllAds(ctx)
 	if err != nil {
+		c.Logger().Errorf("Failed to fetch ads: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch ads")
-	}
-	defer rows.Close()
-
-	var ads []*models.Ad
-	for rows.Next() {
-		var ad models.Ad
-		var title, adType, url, redirectLink string
-		var position int16
-
-		if err := rows.Scan(&ad.ID, &ad.CreatedAt, &title, &position, &adType, &url, &redirectLink); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to scan ad")
-		}
-
-		// Convert to pointers
-		ad.Title = &title
-		ad.Position = &position
-		ad.Type = &adType
-		ad.URL = &url
-		ad.RedirectLink = &redirectLink
-
-		ads = append(ads, &ad)
 	}
 
 	// Cache for 1 hour
 	if data, err := json.Marshal(ads); err == nil {
-		h.Cache.Set(ctx, cache.CacheAds, string(data), 1*time.Hour)
+		h.service.Cache.Set(ctx, cache.CacheAds, string(data), 1*time.Hour)
 	}
 
 	return c.JSON(http.StatusOK, ads)

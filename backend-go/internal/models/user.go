@@ -38,6 +38,11 @@ type User struct {
 	SubscriptionCanceledAt         *time.Time `json:"subscription_canceled_at"`
 }
 
+// TableName specifies the table name for User
+func (User) TableName() string {
+	return "users"
+}
+
 func (a Int64Array) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]int64(a))
 }

@@ -15,5 +15,6 @@ INSERT INTO "public"."users" ("id", "created_at", "name", "email", "password", "
 ('18', '2025-11-03 19:20:00.47921+00', 'Anatole.cp', 'anatole.collin.pitel@gmail.com', '$2b$10$yp8HDhClaT5RMLm/REvepupEQvohfhbnWDtUNrmDVITuj7o7w/UbO', null, false, null, false, false, false, null),
 ('19', '2025-11-03 20:47:01.786456+00', 'Ewen Messé ', 'ewenmesse18@gmail.com', '$2b$10$leZJV1wrLWD/xZE6tjpENOQ7Z6DcwJFjJBhw4Slwl6PXG.JeblV2m', null, false, null, false, false, false, null),
 ('20', '2025-11-14 14:41:43.70219+00', 'Gauthier delalandre', 'gauthier.delalandre@gmail.com', '$2b$10$kqrWsENl2JtX6boqsSa.u.ZOMegE48gLtGpVUdb1ZRL4ghXZRX1Y6', null, false, null, false, false, false, null),
-('21', '2025-11-14 15:14:54.121333+00', 'Enzo Oudart', 'enzo.oudart59@gmail.com', '$2b$10$jmLfngbNKpdQ3uoh2V1AjeyEQME7y92WyjCyBW4s0U8i85PKh2XUi', null, false, null, false, false, false, null)
+('21', '2025-11-14 15:14:54.121333+00', 'Enzo Oudart', 'enzo.oudart59@gmail.com', '$2b$10$jmLfngbNKpdQ3uoh2V1AjeyEQME7y92WyjCyBW4s0U8i85PKh2XUi', null, false, null, false, false, false, null),
+('22', '2025-12-05 12:00:00.000000+00', 'test', 'test@gmail.com', '$2a$12$yB105R.KiQTWv/QHY7rveOB4TWafnp.DRGv3rZWwLfjC5rlATSV6K', null, false, null, false, false, false, null)
 ON CONFLICT (email) DO NOTHING;
