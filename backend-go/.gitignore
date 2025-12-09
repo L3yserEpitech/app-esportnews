@@ -1,11 +1,13 @@
-# Binaries
+# Binaries (at root level only)
 *.exe
 *.exe~
 *.dll
 *.so
 *.so.*
 *.dylib
-server
+/server
+/seed
+/main
 
 # Dependencies
 vendor/
