@@ -17,7 +17,7 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-esportnews} -d ${POSTGRES_DB:-esportnews}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-esportnews} -d ${POSTGRES_DB:-esportnews}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -83,7 +83,7 @@ services:
       - esportnews
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:4000/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -121,6 +121,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
 
 networks:
   esportnews:
