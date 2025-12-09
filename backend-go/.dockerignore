@@ -1,12 +1,12 @@
-# Binaries
+# Binaries (at root level only)
 *.exe
 *.dll
 *.so
 *.dylib
-server
-seed
-main
-bin/
+/server
+/seed
+/main
+/bin/
 
 # Test binaries
 *.test
