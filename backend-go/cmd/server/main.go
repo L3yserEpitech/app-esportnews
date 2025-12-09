@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +19,19 @@ import (
 	mw "github.com/esportnews/backend/internal/middleware"
 	"github.com/esportnews/backend/internal/services"
 )
+
+// parseCSV splits a comma-separated string into a slice
+func parseCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
 
 func main() {
 	// Load environment variables
@@ -54,8 +68,21 @@ func main() {
 	}))
 	e.Use(mw.LoggingMiddleware(logger))
 	e.Use(mw.ErrorHandlerMiddleware())
+	// Parse CORS origins from env var (comma-separated)
+	corsOrigins := []string{"http://localhost:3000", "http://localhost:3002", "http://127.0.0.1:3002", "http://frontend.esportnews.orb.local"}
+	if cfg.FrontendURL != "" {
+		corsOrigins = append(corsOrigins, cfg.FrontendURL)
+	}
+	// Add CORS_ORIGINS from env if specified
+	if cfg.CORSOrigins != "" {
+		// Parse comma-separated list
+		for _, origin := range parseCSV(cfg.CORSOrigins) {
+			corsOrigins = append(corsOrigins, origin)
+		}
+	}
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3002", "http://127.0.0.1:3002", "http://frontend.esportnews.orb.local", cfg.FrontendURL},
+		AllowOrigins:     corsOrigins,
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},
 		AllowCredentials: true, // Requis pour credentials: 'include' côté frontend

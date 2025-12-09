@@ -31,6 +31,7 @@ type Config struct {
 
 	// Frontend
 	FrontendURL string
+	CORSOrigins string
 
 	// PandaScore API
 	PandaScoreAPIKey string
@@ -68,6 +69,7 @@ func LoadConfig() *Config {
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
+		CORSOrigins:      getEnv("CORS_ORIGINS", ""),
 		PandaScoreAPIKey: getEnv("PANDASCORE_API_KEY", ""),
 		StripeSecretKey:  getEnv("STRIPE_SECRET_KEY", ""),
 		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
