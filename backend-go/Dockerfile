@@ -16,10 +16,14 @@ RUN go mod download
 COPY . .
 
 # Build binary (static compilation, no CGO needed)
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server && \
+    ls -la /build/server && \
+    file /build/server
 
 # Build seed binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o seed ./cmd/seed
+RUN CGO_ENABLED=0 GOOS=linux go build -o seed ./cmd/seed && \
+    ls -la /build/seed && \
+    file /build/seed
 
 # Runtime stage
 FROM alpine:latest
@@ -32,6 +36,12 @@ RUN apk add --no-cache ca-certificates postgresql-client
 # Copy binaries from builder
 COPY --from=builder /build/server .
 COPY --from=builder /build/seed .
+
+# Verify binaries are present
+RUN ls -la /app/ && \
+    test -f /app/server && \
+    test -f /app/seed && \
+    chmod +x /app/server /app/seed
 
 # Copy migrations
 COPY migrations ./migrations
