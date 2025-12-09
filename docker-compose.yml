@@ -1,11 +1,13 @@
 services:
-  postgres:
+  db:
     image: postgres:15-alpine
     container_name: esportnews-db
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: esportnews
+      POSTGRES_USER: ${POSTGRES_USER:-esportnews}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-esportnews}
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +17,7 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d esportnews" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-esportnews} -d ${POSTGRES_DB:-esportnews}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,7 +33,7 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,18 +44,38 @@ services:
       context: ./backend-go
       dockerfile: Dockerfile
     container_name: esportnews-backend
+    env_file:
+      - .env
     ports:
       - "4000:4000"
     environment:
-      - PORT=4000
-      - ENV=development
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/esportnews
+      - PORT=${PORT:-4000}
+      - ENV=${ENV:-production}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-esportnews}:${POSTGRES_PASSWORD:-secret}@db:5432/${POSTGRES_DB:-esportnews}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-jz0t+KB0qyBF/hsv4r0MCdEMYJGSfdFxpJ0V5usLuu8=}
-      - PANDASCORE_API_KEY=${PANDASCORE_API_KEY:-rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk}
-      - FRONTEND_URL=http://localhost:3002
+      - JWT_SECRET=${JWT_SECRET}
+      - PANDASCORE_API_KEY=${PANDASCORE_API_KEY}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3002}
+      # Stripe
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_SECRET_KEY_LIVE=${STRIPE_SECRET_KEY_LIVE}
+      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      # Email
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@resend.dev}
+      # Cloudflare R2
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+      - CLOUDFLARE_R2_ENDPOINT=${CLOUDFLARE_R2_ENDPOINT}
+      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
+      - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
+      - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_R2_PUBLIC_URL=${CLOUDFLARE_R2_PUBLIC_URL}
+      # Upload
+      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-524288000}
+      - UPLOAD_TIMEOUT=${UPLOAD_TIMEOUT:-600}
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -61,7 +83,7 @@ services:
       - esportnews
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:4000/health" ]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -70,13 +92,26 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://backend:4000}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:4000/api}
+        - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: esportnews-frontend
+    env_file:
+      - .env
     ports:
       - "3002:3002"
     environment:
       - NODE_ENV=production
       - PORT=3002
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://backend:4000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:4000/api}
+      - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
     depends_on:
       - backend
     networks:
@@ -86,7 +121,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-
 
 networks:
   esportnews:
