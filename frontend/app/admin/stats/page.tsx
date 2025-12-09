@@ -23,6 +23,12 @@ import { fr } from "date-fns/locale";
 
 const COLORS = ["#F22E62", "#182859", "#00C49F", "#FFBB28", "#8884D8", "#FF8042"];
 
+interface CategoryData {
+  name: string;
+  count: number;
+  views: number;
+}
+
 export default function StatsPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +76,7 @@ export default function StatsPage() {
     return acc;
   }, {});
 
-  const categoryData = Object.values(categoryStats);
+  const categoryData = Object.values(categoryStats) as CategoryData[];
 
   // Articles par auteur
   const authorStats = articles.reduce((acc: any, article) => {
