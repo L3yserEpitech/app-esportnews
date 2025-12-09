@@ -41,8 +41,10 @@ RUN ls -la /app/ && \
     test -f /app/seed && \
     chmod +x /app/server /app/seed
 
-# Copy migrations
+# Copy migrations and migration script
 COPY migrations ./migrations
+COPY run-migrations.sh ./run-migrations.sh
+RUN chmod +x ./run-migrations.sh
 
 # Copy initial data for seeding
 COPY initial_data ./initial_data
