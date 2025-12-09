@@ -91,14 +91,14 @@ export default function NewArticlePage() {
     <div>
       <div className="mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="text-white hover:text-white hover:bg-[#182859]">
             <Link href="/admin/articles">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">Nouvel Article</h1>
-            <p className="mt-2 text-sm text-gray-700">
+            <h1 className="text-3xl font-bold text-white">Nouvel Article</h1>
+            <p className="mt-2 text-sm text-gray-400">
               Créer un nouvel article pour votre site
             </p>
           </div>
@@ -114,11 +114,11 @@ export default function NewArticlePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contenu Principal</CardTitle>
+              <CardTitle className="text-white">Contenu Principal</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 ">
               <div>
-                <Label htmlFor="title">Titre *</Label>
+                <Label htmlFor="title" className="text-gray-300 mb-2">Titre *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -126,11 +126,12 @@ export default function NewArticlePage() {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   placeholder="Titre de l'article"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="subtitle">Sous-titre</Label>
+                <Label htmlFor="subtitle" className="text-gray-300 mb-2">Sous-titre</Label>
                 <Input
                   id="subtitle"
                   value={formData.subtitle}
@@ -138,11 +139,12 @@ export default function NewArticlePage() {
                     setFormData({ ...formData, subtitle: e.target.value })
                   }
                   placeholder="Sous-titre (optionnel)"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="description">Description SEO</Label>
+                <Label htmlFor="description" className="text-gray-300 mb-2">Description SEO</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -151,11 +153,12 @@ export default function NewArticlePage() {
                   }
                   placeholder="Description pour le référencement"
                   rows={3}
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label>Contenu de l'article *</Label>
+                <Label className="text-gray-300 mb-2">Contenu de l'article *</Label>
                 <TiptapEditor
                   content={formData.article_content}
                   onChange={(content) =>
@@ -172,11 +175,11 @@ export default function NewArticlePage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Métadonnées</CardTitle>
+              <CardTitle className="text-white">Métadonnées</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div>
-                <Label htmlFor="author">Auteur</Label>
+                <Label htmlFor="author" className="text-gray-300 mb-2">Auteur</Label>
                 <Input
                   id="author"
                   value={formData.author}
@@ -184,11 +187,12 @@ export default function NewArticlePage() {
                     setFormData({ ...formData, author: e.target.value })
                   }
                   placeholder="Nom de l'auteur"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">Catégorie</Label>
+                <Label htmlFor="category" className="text-gray-300 mb-2">Catégorie</Label>
                 <Input
                   id="category"
                   value={formData.category}
@@ -196,11 +200,12 @@ export default function NewArticlePage() {
                     setFormData({ ...formData, category: e.target.value })
                   }
                   placeholder="Interview, News, Guide..."
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="credit">Crédit / Source</Label>
+                <Label htmlFor="credit" className="text-gray-300 mb-2">Crédit / Source</Label>
                 <Input
                   id="credit"
                   value={formData.credit}
@@ -208,11 +213,12 @@ export default function NewArticlePage() {
                     setFormData({ ...formData, credit: e.target.value })
                   }
                   placeholder="© Studio X, VCT EMEA..."
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="tags">Tags</Label>
+                <Label htmlFor="tags" className="text-gray-300 mb-2">Tags</Label>
                 <div className="flex gap-2">
                   <Input
                     id="tags"
@@ -220,6 +226,7 @@ export default function NewArticlePage() {
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
                     placeholder="Ajouter un tag"
+                    className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                   />
                   <Button type="button" onClick={addTag} size="sm">
                     Ajouter
@@ -227,11 +234,11 @@ export default function NewArticlePage() {
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">
+                    <Badge key={tag} variant="secondary" className="bg-[#182859] text-white border-[#182859]">
                       {tag}
                       <button
                         onClick={() => removeTag(tag)}
-                        className="ml-1 hover:text-red-600"
+                        className="ml-1 hover:text-[#F22E62]"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -244,11 +251,11 @@ export default function NewArticlePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Image de couverture</CardTitle>
+              <CardTitle className="text-white">Image de couverture</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {formData.featuredImage && (
-                <div className="relative aspect-video rounded-lg overflow-hidden">
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-[#182859]">
                   <img
                     src={formData.featuredImage}
                     alt="Cover"
@@ -261,7 +268,7 @@ export default function NewArticlePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full border-[#182859] text-white hover:bg-[#182859] hover:text-white"
                     disabled={uploading}
                     onClick={() => document.getElementById("cover-upload")?.click()}
                   >

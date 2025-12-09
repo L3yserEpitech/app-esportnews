@@ -139,7 +139,7 @@ export default function AdminDashboard() {
                       </span>
                       <div>
                         <Link
-                          href={`/admin/articles/${article.id}`}
+                          href={`/admin/article/${article.id}`}
                           className="font-medium text-white hover:text-[#F22E62]"
                         >
                           {article.title}
