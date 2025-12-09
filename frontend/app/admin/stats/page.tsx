@@ -27,6 +27,7 @@ interface CategoryData {
   name: string;
   count: number;
   views: number;
+  [key: string]: string | number;  // Index signature pour recharts
 }
 
 export default function StatsPage() {
