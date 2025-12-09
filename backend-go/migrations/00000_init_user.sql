@@ -1,26 +1,12 @@
--- Create esportnews user and database if they don't exist
+-- Grant permissions to the user created by POSTGRES_USER env var
 -- This script runs once when PostgreSQL initializes
+-- Note: User is already created by Docker via POSTGRES_USER environment variable
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'esportnews') THEN
-    CREATE ROLE esportnews WITH LOGIN PASSWORD 'secret';
-    ALTER ROLE esportnews CREATEDB;
-  END IF;
-END $$;
+-- PostgreSQL 15+ requires explicit schema permissions for non-superuser
+-- Grant permissions to PUBLIC (all users including the one created by POSTGRES_USER)
+GRANT ALL ON SCHEMA public TO PUBLIC;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO PUBLIC;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO PUBLIC;
 
--- Grant privileges on database
-GRANT ALL PRIVILEGES ON DATABASE esportnews TO esportnews;
-
--- PostgreSQL 15+ requires explicit schema permissions
-GRANT ALL ON SCHEMA public TO esportnews;
-
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO esportnews;
-
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO esportnews;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL ON TABLES TO esportnews;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL ON SEQUENCES TO esportnews;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO PUBLIC;
