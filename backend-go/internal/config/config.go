@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,6 +46,16 @@ type Config struct {
 
 	// App
 	MaxConnections int
+
+	// Cloudflare R2
+	R2AccountID        string
+	R2AccessKeyID      string
+	R2SecretAccessKey  string
+	R2BucketName       string
+	R2Endpoint         string
+	R2PublicURL        string
+	MaxUploadSize      int64
+	UploadTimeout      time.Duration
 }
 
 func LoadConfig() *Config {
@@ -64,9 +75,19 @@ func LoadConfig() *Config {
 		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
 		EmailFrom:        getEnv("EMAIL_FROM", "noreply@resend.dev"),
 		MaxConnections:   25,
+
+		// Cloudflare R2
+		R2AccountID:       getEnv("CLOUDFLARE_ACCOUNT_ID", ""),
+		R2AccessKeyID:     getEnv("CLOUDFLARE_R2_ACCESS_KEY_ID", ""),
+		R2SecretAccessKey: getEnv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", ""),
+		R2BucketName:      getEnv("CLOUDFLARE_R2_BUCKET_NAME", "esportnews-bucket"),
+		R2Endpoint:        getEnv("CLOUDFLARE_R2_ENDPOINT", ""),
+		R2PublicURL:       getEnv("CLOUDFLARE_R2_PUBLIC_URL", ""),
+		MaxUploadSize:     getEnvInt64("MAX_UPLOAD_SIZE", 524288000), // 500MB default
 	}
 
 	cfg.JWTExpiration = 7 * 24 * time.Hour
+	cfg.UploadTimeout = time.Duration(getEnvInt("UPLOAD_TIMEOUT", 600)) * time.Second // 10 minutes default
 
 	return cfg
 }
@@ -107,6 +128,24 @@ func InitGORM(cfg *Config, log *logrus.Logger) (*database.Database, error) {
 func getEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return defaultVal
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultVal
+}
+
+func getEnvInt64(key string, defaultVal int64) int64 {
+	if value, exists := os.LookupEnv(key); exists {
+		if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return intVal
+		}
 	}
 	return defaultVal
 }

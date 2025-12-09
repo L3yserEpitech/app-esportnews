@@ -10,15 +10,17 @@ import (
 type JWTClaims struct {
 	UserID int64  `json:"user_id"`
 	Email  string `json:"email"`
+	Admin  bool   `json:"admin"`
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID int64, email string, secret string, expiration time.Duration) (string, string, error) {
+func GenerateJWT(userID int64, email string, admin bool, secret string, expiration time.Duration) (string, string, error) {
 	tokenID := uuid.New().String()
-	
+
 	claims := &JWTClaims{
 		UserID: userID,
 		Email:  email,
+		Admin:  admin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        tokenID,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),

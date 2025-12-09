@@ -26,6 +26,7 @@ type Article struct {
 	Description    *string        `json:"description"`
 	ContentBlack   *string        `json:"content_black"`
 	ContentWhite   *string        `json:"content_white"`
+	ArticleContent *string        `json:"article_content" gorm:"column:article_content"` // Contenu HTML brut
 	FeaturedImage  *string        `json:"featuredImage" gorm:"column:featuredImage"`
 	VideoURL       *string        `json:"videoUrl" gorm:"column:videoUrl"`
 	VideoType      *string        `json:"videoType" gorm:"column:videoType"`
@@ -138,4 +139,34 @@ func (a *StringArray) parsePostgresArray(str string) error {
 type ArticleWithMetadata struct {
 	*Article
 	Similar []*Article `json:"similar"`
+}
+
+// CreateArticleInput is the input for creating a new article
+type CreateArticleInput struct {
+	Title          string   `json:"title" validate:"required"`
+	Subtitle       *string  `json:"subtitle"`
+	Author         string   `json:"author"`
+	ArticleContent string   `json:"article_content" validate:"required"` // Contenu HTML brut
+	Category       *string  `json:"category"`
+	Tags           []string `json:"tags"`
+	Description    *string  `json:"description"`
+	FeaturedImage  *string  `json:"featuredImage"`
+	VideoURL       *string  `json:"videoUrl"`
+	VideoType      *string  `json:"videoType"`
+	Credit         *string  `json:"credit"`
+}
+
+// UpdateArticleInput is the input for updating an existing article
+type UpdateArticleInput struct {
+	Title          *string  `json:"title"`
+	Subtitle       *string  `json:"subtitle"`
+	Author         *string  `json:"author"`
+	ArticleContent *string  `json:"article_content"`
+	Category       *string  `json:"category"`
+	Tags           []string `json:"tags"`
+	Description    *string  `json:"description"`
+	FeaturedImage  *string  `json:"featuredImage"`
+	VideoURL       *string  `json:"videoUrl"`
+	VideoType      *string  `json:"videoType"`
+	Credit         *string  `json:"credit"`
 }

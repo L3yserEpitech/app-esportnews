@@ -12,6 +12,7 @@ import (
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
+	"github.com/esportnews/backend/internal/utils"
 )
 
 type ArticleService struct {
@@ -222,4 +223,214 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 	}
 
 	return articles, nil
+}
+
+// --- ADMIN METHODS ---
+
+// CreateArticle creates a new article with auto-generation of slug, content variants, etc.
+func (s *ArticleService) CreateArticle(ctx context.Context, input *models.CreateArticleInput) (*models.Article, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM not initialized")
+	}
+
+	// Auto-generate slug
+	slug := generateSlug(input.Title, 80, 10)
+
+	// Auto-generate content variants
+	contentWhite := generateContentWhite(input.ArticleContent)
+	contentBlack := generateContentBlack(input.ArticleContent)
+
+	// Create article
+	article := &models.Article{
+		Title:          &input.Title,
+		Subtitle:       input.Subtitle,
+		Author:         &input.Author,
+		ArticleContent: &input.ArticleContent,
+		ContentWhite:   &contentWhite,
+		ContentBlack:   &contentBlack,
+		Category:       input.Category,
+		Tags:           models.StringArray(input.Tags),
+		Description:    input.Description,
+		FeaturedImage:  input.FeaturedImage,
+		VideoURL:       input.VideoURL,
+		VideoType:      input.VideoType,
+		Credit:         input.Credit,
+		Slug:           &slug,
+		Views:          0,
+	}
+
+	if err := s.gormDB.WithContext(ctx).Create(article).Error; err != nil {
+		return nil, fmt.Errorf("failed to create article: %w", err)
+	}
+
+	return article, nil
+}
+
+// UpdateArticle updates an existing article
+func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *models.UpdateArticleInput) (*models.Article, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM not initialized")
+	}
+
+	// Find existing article
+	var article models.Article
+	if err := s.gormDB.WithContext(ctx).First(&article, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("article not found")
+		}
+		return nil, fmt.Errorf("failed to query article: %w", err)
+	}
+
+	// Build updates map
+	updates := make(map[string]interface{})
+
+	if input.Title != nil {
+		updates["title"] = *input.Title
+		// Regenerate slug if title changed
+		slug := generateSlug(*input.Title, 80, 10)
+		updates["slug"] = slug
+	}
+	if input.Subtitle != nil {
+		updates["subtitle"] = *input.Subtitle
+	}
+	if input.Author != nil {
+		updates["author"] = *input.Author
+	}
+	if input.ArticleContent != nil {
+		updates["article_content"] = *input.ArticleContent
+		// Regenerate content variants
+		updates["content_white"] = generateContentWhite(*input.ArticleContent)
+		updates["content_black"] = generateContentBlack(*input.ArticleContent)
+	}
+	if input.Category != nil {
+		updates["category"] = *input.Category
+	}
+	if input.Tags != nil {
+		updates["tags"] = models.StringArray(input.Tags)
+	}
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+	if input.FeaturedImage != nil {
+		updates["featuredImage"] = *input.FeaturedImage
+	}
+	if input.VideoURL != nil {
+		updates["videoUrl"] = *input.VideoURL
+	}
+	if input.VideoType != nil {
+		updates["videoType"] = *input.VideoType
+	}
+	if input.Credit != nil {
+		updates["credit"] = *input.Credit
+	}
+
+	// Apply updates
+	if err := s.gormDB.WithContext(ctx).Model(&article).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("failed to update article: %w", err)
+	}
+
+	// Fetch updated article
+	if err := s.gormDB.WithContext(ctx).First(&article, id).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch updated article: %w", err)
+	}
+
+	// Clear cache
+	if article.Slug != nil {
+		s.cache.Del(ctx, cache.ArticleKey(*article.Slug))
+		s.cache.Del(ctx, cache.ArticleSimilarKey(*article.Slug))
+	}
+
+	return &article, nil
+}
+
+// DeleteArticle deletes an article by ID
+func (s *ArticleService) DeleteArticle(ctx context.Context, id int64) error {
+	if s.gormDB == nil {
+		return fmt.Errorf("GORM not initialized")
+	}
+
+	// Find article first to get slug for cache clearing
+	var article models.Article
+	if err := s.gormDB.WithContext(ctx).First(&article, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("article not found")
+		}
+		return fmt.Errorf("failed to query article: %w", err)
+	}
+
+	// Delete article
+	if err := s.gormDB.WithContext(ctx).Delete(&models.Article{}, id).Error; err != nil {
+		return fmt.Errorf("failed to delete article: %w", err)
+	}
+
+	// Clear cache
+	if article.Slug != nil {
+		s.cache.Del(ctx, cache.ArticleKey(*article.Slug))
+		s.cache.Del(ctx, cache.ArticleSimilarKey(*article.Slug))
+	}
+
+	return nil
+}
+
+// GetArticleByID retrieves an article by ID (for admin editing)
+func (s *ArticleService) GetArticleByID(ctx context.Context, id int64) (*models.Article, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM not initialized")
+	}
+
+	var article models.Article
+	if err := s.gormDB.WithContext(ctx).First(&article, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("article not found")
+		}
+		return nil, fmt.Errorf("failed to query article: %w", err)
+	}
+
+	return &article, nil
+}
+
+// GetAllArticles retrieves all articles (for admin list)
+func (s *ArticleService) GetAllArticles(ctx context.Context) ([]*models.Article, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM not initialized")
+	}
+
+	var articles []*models.Article
+	if err := s.gormDB.WithContext(ctx).
+		Order("created_at DESC").
+		Find(&articles).Error; err != nil {
+		return nil, fmt.Errorf("failed to query articles: %w", err)
+	}
+
+	return articles, nil
+}
+
+// IncrementViews increments the view count for an article
+func (s *ArticleService) IncrementViews(ctx context.Context, slug string) error {
+	if s.gormDB == nil {
+		return fmt.Errorf("GORM not initialized")
+	}
+
+	if err := s.gormDB.WithContext(ctx).
+		Model(&models.Article{}).
+		Where("slug = ?", slug).
+		Update("views", gorm.Expr("views + ?", 1)).Error; err != nil {
+		return fmt.Errorf("failed to increment views: %w", err)
+	}
+
+	return nil
+}
+
+// Helper functions
+
+func generateSlug(title string, maxChars, maxWords int) string {
+	return utils.GenerateSlug(title, maxChars, maxWords)
+}
+
+func generateContentWhite(content string) string {
+	return utils.GenerateContentWhite(content)
+}
+
+func generateContentBlack(content string) string {
+	return utils.GenerateContentBlack(content)
 }

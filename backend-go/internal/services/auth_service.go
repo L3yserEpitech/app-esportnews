@@ -126,7 +126,7 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 // LoginAfterSignup generates tokens for a newly created user (used after signup)
 func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (*models.AuthResponse, error) {
 	// Generate JWT access token (7 days)
-	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 7*24*time.Hour)
+	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 7*24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -137,7 +137,7 @@ func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (
 	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
 
 	// Generate refresh token (14 days)
-	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 14*24*time.Hour)
+	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 14*24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -166,7 +166,7 @@ func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*mod
 	}
 
 	// Generate JWT access token (7 days)
-	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 7*24*time.Hour)
+	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 7*24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -177,7 +177,7 @@ func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*mod
 	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
 
 	// Generate refresh token (14 days)
-	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, s.JWTSecret, 14*24*time.Hour)
+	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 14*24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -210,7 +210,7 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, userID int64, refr
 	}
 
 	// Generate new access token
-	newAccessToken, tokenID, err := utils.GenerateJWT(userID, claims.Email, s.JWTSecret, 7*24*time.Hour)
+	newAccessToken, tokenID, err := utils.GenerateJWT(userID, claims.Email, claims.Admin, s.JWTSecret, 7*24*time.Hour)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate new token: %w", err)
 	}

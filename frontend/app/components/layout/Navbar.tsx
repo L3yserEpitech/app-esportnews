@@ -142,6 +142,16 @@ const Navbar: React.FC<NavbarProps> = ({
 
           {/* Authentication Section */}
           <div className="hidden md:flex items-center space-x-2">
+            {/* Admin Button - visible only for admins */}
+            {isAuthenticated && user?.admin && (
+              <Link
+                href="/admin"
+                className="px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-400 rounded-lg hover:from-purple-600/90 hover:to-purple-400/90 transition-all duration-300"
+              >
+                Admin
+              </Link>
+            )}
+
             {/* Settings Button */}
             <div className="relative">
               <button
