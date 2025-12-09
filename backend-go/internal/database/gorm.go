@@ -79,6 +79,7 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 		&models.Article{},
 		&models.Ad{},
 		&models.Notification{},
+		&models.PageView{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}

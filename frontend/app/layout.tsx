@@ -6,6 +6,7 @@ import { GameProvider } from "./contexts/GameContext";
 import ClientLayout from "./components/layout/ClientLayout";
 import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
+import { PageViewTracker } from "./components/PageViewTracker";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -64,6 +65,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <GameProvider>
+            <PageViewTracker />
             <ClientLayout>
               {children}
               <Analytics />

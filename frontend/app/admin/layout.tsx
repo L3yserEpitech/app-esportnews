@@ -10,6 +10,7 @@ import {
   Image,
   LogOut,
   Menu,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Articles", href: "/admin/articles", icon: FileText },
   { name: "Statistiques", href: "/admin/stats", icon: BarChart3 },
+  { name: "Analytics", href: "/admin/analytics", icon: Activity },
   { name: "Médias", href: "/admin/media", icon: Image },
 ];
 
