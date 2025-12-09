@@ -22,7 +22,7 @@ export default function ProfileNavDropdown({ activeSection, onSectionChange }: P
     { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
     // { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
     { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },
-    { id: 'subscription' as SidebarSection, label: t('profile.sidebar.subscription'), icon: CreditCard },
+    // { id: 'subscription' as SidebarSection, label: t('profile.sidebar.subscription'), icon: CreditCard },
   ];
 
   const activeItem = menuItems.find(item => item.id === activeSection);
