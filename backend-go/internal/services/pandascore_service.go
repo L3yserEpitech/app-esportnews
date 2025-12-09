@@ -26,6 +26,28 @@ func NewPandaScoreService(apiKey string, redisCache *cache.RedisCache) *PandaSco
 	}
 }
 
+// mapAcronymToSlug converts our internal game acronyms to PandaScore videogame slugs
+func (s *PandaScoreService) mapAcronymToSlug(acronym string) string {
+	mapping := map[string]string{
+		"csgo":          "cs-go",
+		"valorant":      "valorant",
+		"lol":           "league-of-legends",
+		"dota2":         "dota-2",
+		"rl":            "rl",
+		"codmw":         "cod-mw",
+		"r6siege":       "r6-siege",
+		"ow":            "overwatch",
+		"fifa":          "fifa",
+		"lol-wild-rift": "wild-rift",
+	}
+
+	if slug, ok := mapping[acronym]; ok {
+		return slug
+	}
+	// Fallback: return acronym as-is if not found in mapping
+	return acronym
+}
+
 // makePandaRequest makes an HTTP request to PandaScore API with cache support
 func (s *PandaScoreService) makePandaRequest(ctx context.Context, endpoint string, cacheKey string, bodyParams map[string]string) ([]byte, error) {
 	// Try cache first (5 min TTL)
@@ -161,43 +183,51 @@ func (s *PandaScoreService) GetTournamentsAllGames(ctx context.Context, status s
 }
 
 // GetTournamentsByDate retrieves tournaments within a date range
+// It fetches running and upcoming tournaments, then filters by the specific date
 func (s *PandaScoreService) GetTournamentsByDate(ctx context.Context, date string, game *string) ([]models.Tournament, error) {
-	// Parse date for range
-	parsedDate, err := time.Parse("2006-01-02", date)
+	// Parse target date
+	targetDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		return nil, fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
 	}
 
-	dateStart := parsedDate.Format("2006-01-02T") + "00:00:00Z"
-	dateEnd := parsedDate.Format("2006-01-02T") + "23:59:59Z"
+	// Date range for filtering (start of day to end of day)
+	dateStart := targetDate
+	dateEnd := targetDate.Add(24 * time.Hour)
 
-	// Build endpoint - use global tournaments endpoint with filters
-	endpoint := "/tournaments"
-
-	// Build body params with properly escaped range
-	bodyParams := map[string]string{
-		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
-		"sort":            "-begin_at",
-		"page[size]":      "100",
-	}
-
-	// Add game filter if provided
+	// Fetch tournaments based on whether a game is specified
+	var allTournaments []models.Tournament
 	if game != nil && *game != "" {
-		bodyParams["filter[videogame_title]"] = *game
+		// Fetch game-specific running + upcoming tournaments
+		running, _ := s.GetTournamentsForGame(ctx, *game, "running")
+		upcoming, _ := s.GetTournamentsForGame(ctx, *game, "upcoming")
+		allTournaments = append(running, upcoming...)
+	} else {
+		// Fetch all games running + upcoming tournaments
+		running, _ := s.GetTournamentsAllGames(ctx, "running")
+		upcoming, _ := s.GetTournamentsAllGames(ctx, "upcoming")
+		allTournaments = append(running, upcoming...)
 	}
 
-	cacheKey := cache.PandaScoreTournamentsByDateKey(date, game)
-	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, bodyParams)
-	if err != nil {
-		return nil, err
+	// Filter tournaments that occur on the target date
+	var filtered []models.Tournament
+	for _, tournament := range allTournaments {
+		if tournament.BeginAt != nil {
+			beginAt := *tournament.BeginAt
+			// Check if tournament begins on the target date OR is ongoing during that date
+			if (beginAt.After(dateStart) || beginAt.Equal(dateStart)) && beginAt.Before(dateEnd) {
+				filtered = append(filtered, tournament)
+			} else if tournament.EndAt != nil {
+				endAt := *tournament.EndAt
+				// Check if the date falls within the tournament's duration
+				if beginAt.Before(dateStart) && endAt.After(dateStart) {
+					filtered = append(filtered, tournament)
+				}
+			}
+		}
 	}
 
-	var tournaments []models.Tournament
-	if err := json.Unmarshal(data, &tournaments); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tournaments: %w", err)
-	}
-
-	return tournaments, nil
+	return filtered, nil
 }
 
 // GetFilteredTournaments retrieves tournaments with multiple filters
@@ -338,7 +368,7 @@ func (s *PandaScoreService) GetMatch(ctx context.Context, id string) (*models.Pa
 
 // GetMatchesByDate retrieves matches within a date range
 func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, game *string) ([]models.PandaMatch, error) {
-	// Parse date for range
+	// Parse target date
 	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		return nil, fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
@@ -347,19 +377,21 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 	dateStart := parsedDate.Format("2006-01-02T") + "00:00:00Z"
 	dateEnd := parsedDate.Format("2006-01-02T") + "23:59:59Z"
 
-	// Build endpoint - use global matches endpoint
+	// Use global /matches endpoint with date range filter
+	// This works for both "all games" and specific games
 	endpoint := "/matches"
 
-	// Build body params with properly escaped range
+	// Build query params
 	bodyParams := map[string]string{
 		"range[begin_at]": fmt.Sprintf("%s,%s", dateStart, dateEnd),
 		"per_page":        "100",
 		"sort":            "-begin_at",
 	}
 
-	// Add game filter if provided
+	// Add game filter if provided (using slug)
 	if game != nil && *game != "" {
-		bodyParams["filter[videogame_title]"] = *game
+		slug := s.mapAcronymToSlug(*game)
+		bodyParams["filter[videogame]"] = slug
 	}
 
 	cacheKey := cache.PandaScoreMatchesByDateKey(date, game)
@@ -368,12 +400,12 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 		return nil, err
 	}
 
-	// First check if response is empty or null
+	// Handle empty response
 	if len(data) == 0 || string(data) == "null" {
 		return []models.PandaMatch{}, nil
 	}
 
-	// Try to unmarshal as array first
+	// Try to unmarshal as array
 	var matches []models.PandaMatch
 	if err := json.Unmarshal(data, &matches); err == nil {
 		return matches, nil
@@ -382,13 +414,10 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 	// If array parsing fails, try as an object (for paginated responses)
 	var respObj map[string]interface{}
 	if err := json.Unmarshal(data, &respObj); err == nil {
-		// Try to find the data in common keys
 		for _, key := range []string{"data", "matches", "results", "items"} {
 			if val, ok := respObj[key]; ok {
-				// Try to unmarshal this field as matches
-				if matchData, err := json.Marshal(val); err == nil {
-					var matches []models.PandaMatch
-					if err := json.Unmarshal(matchData, &matches); err == nil {
+				if matchesJSON, err := json.Marshal(val); err == nil {
+					if err := json.Unmarshal(matchesJSON, &matches); err == nil {
 						return matches, nil
 					}
 				}
@@ -396,14 +425,7 @@ func (s *PandaScoreService) GetMatchesByDate(ctx context.Context, date string, g
 		}
 	}
 
-	// If we get here, log the response for debugging
-	truncated := data
-	if len(data) > 1000 {
-		truncated = data[:1000]
-	}
-	fmt.Printf("[GetMatchesByDate] Failed to parse response\n[GetMatchesByDate] Raw response: %s\n", string(truncated))
-
-	return nil, fmt.Errorf("failed to unmarshal matches: unsupported response format")
+	return nil, fmt.Errorf("failed to parse matches response")
 }
 
 // ============ TEAM ENDPOINTS ============

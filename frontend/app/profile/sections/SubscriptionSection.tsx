@@ -198,8 +198,6 @@ export default function SubscriptionSection() {
           <ul className="space-y-2 text-sm">
             <li>✓ {t('pages.profile.benefit_1')}</li>
             <li>✓ {t('pages.profile.benefit_2')}</li>
-            <li>✓ {t('pages.profile.benefit_3')}</li>
-            <li>✓ {t('pages.profile.benefit_4')}</li>
           </ul>
         </div>
       )}

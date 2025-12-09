@@ -86,3 +86,70 @@ func (s *AdService) GetAllAds(ctx context.Context) ([]*models.Ad, error) {
 
 	return ads, nil
 }
+
+// GetAdByID retrieves a single ad by ID
+func (s *AdService) GetAdByID(ctx context.Context, id int64) (*models.Ad, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM database connection is nil")
+	}
+
+	var ad models.Ad
+	if err := s.gormDB.WithContext(ctx).First(&ad, id).Error; err != nil {
+		return nil, fmt.Errorf("failed to find ad: %w", err)
+	}
+
+	return &ad, nil
+}
+
+// CreateAd creates a new ad
+func (s *AdService) CreateAd(ctx context.Context, ad *models.Ad) error {
+	if s.gormDB == nil {
+		return fmt.Errorf("GORM database connection is nil")
+	}
+
+	if err := s.gormDB.WithContext(ctx).Create(ad).Error; err != nil {
+		return fmt.Errorf("failed to create ad: %w", err)
+	}
+
+	// Invalidate cache
+	s.Cache.Del(ctx, cache.CacheAds)
+
+	return nil
+}
+
+// UpdateAd updates an existing ad
+func (s *AdService) UpdateAd(ctx context.Context, id int64, updates map[string]interface{}) (*models.Ad, error) {
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("GORM database connection is nil")
+	}
+
+	var ad models.Ad
+	if err := s.gormDB.WithContext(ctx).First(&ad, id).Error; err != nil {
+		return nil, fmt.Errorf("failed to find ad: %w", err)
+	}
+
+	if err := s.gormDB.WithContext(ctx).Model(&ad).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("failed to update ad: %w", err)
+	}
+
+	// Invalidate cache
+	s.Cache.Del(ctx, cache.CacheAds)
+
+	return &ad, nil
+}
+
+// DeleteAd deletes an ad by ID
+func (s *AdService) DeleteAd(ctx context.Context, id int64) error {
+	if s.gormDB == nil {
+		return fmt.Errorf("GORM database connection is nil")
+	}
+
+	if err := s.gormDB.WithContext(ctx).Delete(&models.Ad{}, id).Error; err != nil {
+		return fmt.Errorf("failed to delete ad: %w", err)
+	}
+
+	// Invalidate cache
+	s.Cache.Del(ctx, cache.CacheAds)
+
+	return nil
+}

@@ -52,6 +52,32 @@ export interface UpdateArticleInput {
   credit?: string;
 }
 
+export interface Ad {
+  id: number;
+  created_at: string;
+  title: string;
+  position: number;
+  type: string;
+  url: string;
+  redirect_link: string;
+}
+
+export interface CreateAdInput {
+  title: string;
+  position: number;
+  type: string;
+  url: string;
+  redirect_link: string;
+}
+
+export interface UpdateAdInput {
+  title?: string;
+  position?: number;
+  type?: string;
+  url?: string;
+  redirect_link?: string;
+}
+
 class AdminService {
   private getAuthHeaders() {
     const token = localStorage.getItem('authToken');
@@ -140,6 +166,54 @@ class AdminService {
       .slice(0, 5);
 
     return { total, totalViews, avgViews, topArticles };
+  }
+
+  // Ads
+  async getAllAds(): Promise<Ad[]> {
+    const response = await axios.get(`${API_URL}/admin/ads`, {
+      headers: this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async getAdById(id: number): Promise<Ad> {
+    const response = await axios.get(`${API_URL}/admin/ads/${id}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async createAd(input: CreateAdInput): Promise<Ad> {
+    const response = await axios.post(`${API_URL}/admin/ads`, input, {
+      headers: this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async updateAd(id: number, input: UpdateAdInput): Promise<Ad> {
+    const response = await axios.put(`${API_URL}/admin/ads/${id}`, input, {
+      headers: this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async deleteAd(id: number): Promise<void> {
+    await axios.delete(`${API_URL}/admin/ads/${id}`, {
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  async uploadAdImage(file: File): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await axios.post(`${API_URL}/admin/ads/upload`, formData, {
+      headers: {
+        ...this.getAuthHeaders(),
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   }
 }
 

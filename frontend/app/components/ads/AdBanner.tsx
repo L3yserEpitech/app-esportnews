@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Advertisement } from '../../types';
 import Card from '../ui/Card';
 
@@ -16,18 +17,14 @@ const AdBanner: React.FC<AdBannerProps> = ({
   isSubscribed = false,
   className = ''
 }) => {
-  const [isVisible, setIsVisible] = useState(false);
+  // Déterminer la visibilité initiale directement
+  const shouldBeVisible = !isSubscribed && !!ad.url && !!ad.redirect_link;
   const [hasError, setHasError] = useState(false);
 
+  // Réinitialiser hasError quand l'URL de la pub change
   useEffect(() => {
-    // Ne pas afficher les pubs pour les abonnés
-    if (isSubscribed || !ad.url || !ad.redirect_link) {
-      setIsVisible(false);
-      return;
-    }
-
-    setIsVisible(true);
-  }, [isSubscribed, ad.url, ad.redirect_link]);
+    setHasError(false);
+  }, [ad.url, ad.id]);
 
   const handleClick = () => {
     if (ad.redirect_link) {
@@ -36,11 +33,12 @@ const AdBanner: React.FC<AdBannerProps> = ({
     }
   };
 
-  const handleImageError = () => {
+  const handleImageError = (e: any) => {
+    console.error('[AdBanner] Image load error for ad:', ad.id, 'URL:', ad.url, 'Error:', e);
     setHasError(true);
   };
 
-  if (!isVisible || hasError) {
+  if (!shouldBeVisible || hasError) {
     return null;
   }
 
@@ -77,19 +75,23 @@ const AdBanner: React.FC<AdBannerProps> = ({
             </div>
           </video>
         ) : (
-          <img
-            src={ad.url || undefined}
-            alt={ad.title || 'Publicité'}
-            className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
-            onError={handleImageError}
-            loading="lazy"
-          />
+          <div className="relative w-full" style={{ minHeight: '400px' }}>
+            <Image
+              src={ad.url || ''}
+              alt={ad.title || 'Publicité'}
+              fill
+              className="object-cover transition-all duration-300 group-hover:brightness-75"
+              onError={handleImageError}
+              loading="lazy"
+              sizes="300px"
+            />
+          </div>
         )}
 
         {/* Overlay avec effet de slide depuis le bas */}
         <div className="absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
           <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
-            <h3 className="text-text-inverse text-sm font-semibold mb-1">
+            <h3 className="text-white text-sm font-semibold mb-1">
               {ad.title || 'Publicité'}
             </h3>
             <span className="text-xs text-accent font-medium">Publicité</span>

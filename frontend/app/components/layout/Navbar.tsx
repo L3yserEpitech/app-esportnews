@@ -145,7 +145,7 @@ const Navbar: React.FC<NavbarProps> = ({
             {/* Admin Button - visible only for admins */}
             {isAuthenticated && user?.admin && (
               <Link
-                href="/admin"
+                href="/admin/stats"
                 className="px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-400 rounded-lg hover:from-purple-600/90 hover:to-purple-400/90 transition-all duration-300"
               >
                 Admin

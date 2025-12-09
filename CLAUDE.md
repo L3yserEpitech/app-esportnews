@@ -361,5 +361,123 @@ create table public.notifications (
   constraint notifications_pkey primary key (id)
 ) TABLESPACE pg_default;
 
+## 13) Panel Admin — Gestion des Publicités
+
+* **Accès** : `/admin/ads` (authentification JWT requise)
+* **Navigation** : Section "Publicité" dans le menu admin (remplace "Médias")
+
+### Fonctionnalités CRUD
+
+1. **Liste des publicités** (`/admin/ads`)
+   - Affiche toutes les publicités avec preview image
+   - Compteur "X/3" pour limiter les emplacements
+   - Colonnes : Position, Aperçu, Titre, Type, Lien, Actions
+   - Actions : Éditer, Supprimer (avec confirmation)
+   - Tri automatique par position (1 → 3)
+
+2. **Créer une publicité** (`/admin/ads/new`)
+   - Champs requis :
+     - **Titre** : nom de la publicité
+     - **Position** : 1, 2 ou 3 (maximum 3 emplacements)
+     - **Type** : image ou video
+     - **URL** : lien vers l'image/vidéo (upload vers R2 ou URL externe)
+     - **Lien de redirection** : URL de destination au clic
+   - Upload d'image :
+     - Stockage : Cloudflare R2 (`ads/images/`)
+     - Preview en temps réel après upload
+     - Formats supportés : JPG, PNG, WebP
+   - Validation frontend + backend
+
+3. **Modifier une publicité** (`/admin/ads/[id]/edit`)
+   - Formulaire pré-rempli avec données existantes
+   - Possibilité de changer l'image (nouvel upload)
+   - Cache invalidé automatiquement après modification
+
+4. **Supprimer une publicité**
+   - Dialogue de confirmation avant suppression
+   - Suppression définitive (pas de soft-delete)
+   - Cache invalidé automatiquement
+
+### API Endpoints Admin
+
+| Endpoint | Méthode | Description | Auth |
+|----------|---------|-------------|------|
+| `/admin/ads` | GET | Liste toutes les pubs | JWT Admin |
+| `/admin/ads` | POST | Créer une pub | JWT Admin |
+| `/admin/ads/:id` | GET | Détails d'une pub | JWT Admin |
+| `/admin/ads/:id` | PUT | Modifier une pub | JWT Admin |
+| `/admin/ads/:id` | DELETE | Supprimer une pub | JWT Admin |
+| `/admin/ads/upload` | POST | Upload image vers R2 | JWT Admin |
+
+### Affichage Frontend
+
+* **Composants** :
+  - `AdBanner` : affiche une publicité individuelle
+  - `AdColumn` : colonne droite contenant jusqu'à 3 pubs (desktop uniquement)
+  - `AdSkeleton` : loading state pendant le chargement
+
+* **Comportement** :
+  - Images chargées via Next.js `<Image>` (optimisation automatique + gestion CORS)
+  - Hover effect : overlay avec titre + badge "Publicité"
+  - Clic : ouvre `redirect_link` dans nouvel onglet (`_blank`, `noopener,noreferrer`)
+  - Visible uniquement pour utilisateurs non-abonnés (sauf desktop où tous voient les pubs)
+  - Cache Redis 1h, invalidé à chaque modification
+
+* **Gestion d'erreurs** :
+  - Si image échoue au chargement → pub masquée automatiquement
+  - Reset automatique de l'état d'erreur si l'URL change
+  - Logs console pour debugging (à retirer en production)
+
+### Stockage & CDN
+
+* **Cloudflare R2** :
+  - Bucket configuré avec permissions publiques
+  - Path : `ads/images/`
+  - Nommage : `{timestamp}-{random}.{ext}`
+  - URL publique : `https://pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev/ads/images/{filename}`
+
+* **CORS R2** (si nécessaire pour balises `<img>` standard) :
+  ```json
+  {
+    "AllowedOrigins": ["http://localhost:3002", "*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+  ```
+  Note : Next.js `<Image>` gère CORS via proxy interne, donc pas besoin de CORS sur R2 si on utilise `<Image>`
+
+### Validation & Contraintes
+
+* **Backend (Go)** :
+  - Position : entre 1 et 3 (validation stricte)
+  - Type : `image` ou `video` uniquement
+  - URL et redirect_link : requis, non-vides
+  - Timeout upload : 10 minutes max
+
+* **Frontend (React)** :
+  - Formulaire contrôlé avec validation en temps réel
+  - Preview image obligatoire avant soumission
+  - Gestion loading states (skeleton, spinners)
+  - Messages d'erreur utilisateur clairs
+
+* **Cache** :
+  - Endpoint public `/api/ads` : cache Redis 1h
+  - Invalidation automatique après CREATE/UPDATE/DELETE
+  - Timestamp query param `?t={timestamp}` pour éviter cache navigateur
+
+### Notes Techniques
+
+* **Next.js Image vs `<img>`** :
+  - ✅ Utiliser `<Image>` de Next.js pour éviter problèmes CORS
+  - ✅ Optimisation automatique (WebP, responsive)
+  - ❌ Ne pas utiliser `<img>` standard avec URLs R2 (bloqué par CORS)
+
+* **React State Management** :
+  - `useState` pour hasError, loading states
+  - `useEffect` pour reset hasError quand ad.url change
+  - `useMemo` pour filtrage/tri des pubs
+  - `useCallback` pour handlers (optimisation)
+
 - Demander dans le chat les endpoints des api quand il y'a besoin.
 - Ne jamais mettre de données fictive SAUF si je te le dis.

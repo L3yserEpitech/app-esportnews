@@ -122,7 +122,7 @@ export default function CalendrierPage() {
   }, [selectedGameData, t]);
 
   const currentData = useMemo(() => {
-    return viewMode === 'tournaments' ? tournaments : matches;
+    return viewMode === 'tournaments' ? (tournaments || []) : (matches || []);
   }, [viewMode, tournaments, matches]);
 
   const currentDataLabel = useMemo(() => {

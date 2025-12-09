@@ -20,14 +20,16 @@ const AdColumn: React.FC<AdColumnProps> = ({
   className = ''
 }) => {
   const t = useTranslations();
+
   // Filtrer les pubs valides et les trier par position
-  const activeAds = useMemo(() =>
-    (ads || [])
+  const activeAds = useMemo(() => {
+    const filtered = (ads || [])
       .filter(ad => ad.url && ad.redirect_link)
       .sort((a, b) => (a.position || 0) - (b.position || 0))
-      .slice(0, 3), // Maximum 3 emplacements comme spécifié dans CLAUDE.md
-    [ads]
-  );
+      .slice(0, 3); // Maximum 3 emplacements comme spécifié dans CLAUDE.md
+
+    return filtered;
+  }, [ads]);
 
   // Calculer l'espacement dynamique selon le nombre de pubs
   const getSpacingClass = useMemo(() => {
@@ -65,15 +67,21 @@ const AdColumn: React.FC<AdColumnProps> = ({
             <AdSkeleton key={`ad-skeleton-${index}`} className="w-full flex-shrink-0" />
           ))
         ) : (
-          activeAds.map((ad, index) => (
-            <AdBanner
-              key={ad.id}
-              ad={ad}
-              position={index + 1}
-              isSubscribed={isSubscribed}
-              className="w-full flex-shrink-0"
-            />
-          ))
+          <>
+            {console.log('[AdColumn] Rendering', activeAds.length, 'ad banners')}
+            {activeAds.map((ad, index) => {
+              console.log('[AdColumn] Rendering ad banner for:', ad);
+              return (
+                <AdBanner
+                  key={ad.id}
+                  ad={ad}
+                  position={index + 1}
+                  isSubscribed={isSubscribed}
+                  className="w-full flex-shrink-0"
+                />
+              );
+            })}
+          </>
         )}
 
         {/* Message d'abonnement si moins de 3 pubs et pas en loading */}

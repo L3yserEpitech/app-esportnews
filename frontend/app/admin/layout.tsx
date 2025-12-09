@@ -7,10 +7,10 @@ import {
   LayoutDashboard,
   FileText,
   BarChart3,
-  Image,
   LogOut,
   Menu,
   Activity,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,11 +21,10 @@ import {
 import { useAuth } from "@/app/contexts/AuthContext";
 
 const navigation = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Articles", href: "/admin/articles", icon: FileText },
   { name: "Statistiques", href: "/admin/stats", icon: BarChart3 },
+  { name: "Articles", href: "/admin/articles", icon: FileText },
   { name: "Analytics", href: "/admin/analytics", icon: Activity },
-  { name: "Médias", href: "/admin/media", icon: Image },
+  { name: "Publicité", href: "/admin/ads", icon: Monitor },
 ];
 
 export default function AdminLayout({
@@ -65,7 +64,7 @@ export default function AdminLayout({
           </div>
           <nav className="mt-8 flex-1 px-2 space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+              const isActive = pathname === item.href || (item.href !== "/admin/stats" && pathname?.startsWith(item.href));
               return (
                 <Link
                   key={item.name}
@@ -125,7 +124,7 @@ export default function AdminLayout({
                 </div>
                 <nav className="mt-8 flex-1 px-2 space-y-1">
                   {navigation.map((item) => {
-                    const isActive = pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+                    const isActive = pathname === item.href || (item.href !== "/admin/stats" && pathname?.startsWith(item.href));
                     return (
                       <Link
                         key={item.name}

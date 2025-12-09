@@ -134,7 +134,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
             </a>
             {user.admin && (
               <a
-                href="/admin"
+                href="/admin/stats"
                 className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 Administration
