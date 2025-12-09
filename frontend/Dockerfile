@@ -2,11 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy only package files first (for better caching)
 COPY package.json pnpm-lock.yaml* ./
 
-RUN npm install -g pnpm && pnpm install
+# Install dependencies
+RUN pnpm install
 
-COPY . .
+# Don't copy source files - they'll be mounted via volume
+# This allows hot reload to work properly
 
 EXPOSE 3002
 

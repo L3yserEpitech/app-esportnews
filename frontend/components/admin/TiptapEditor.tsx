@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import TextAlign from "@tiptap/extension-text-align";
+import { Node } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -18,9 +20,23 @@ import {
   Image as ImageIcon,
   Heading2,
   Heading3,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Video as VideoIcon,
 } from "lucide-react";
 import { adminService } from "@/lib/adminService";
 import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface TiptapEditorProps {
   content: string;
@@ -28,8 +44,69 @@ interface TiptapEditorProps {
   placeholder?: string;
 }
 
+// Custom Video Node Extension
+const CustomVideo = Node.create({
+  name: 'customVideo',
+  group: 'block',
+  atom: true,
+
+  addAttributes() {
+    return {
+      src: {
+        default: null,
+      },
+      muted: {
+        default: false,
+      },
+      autoplay: {
+        default: false,
+      },
+      loop: {
+        default: false,
+      },
+      controls: {
+        default: true,
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'video[src]',
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['video', {
+      ...HTMLAttributes,
+      class: 'max-w-full h-auto rounded-lg my-4',
+    }];
+  },
+
+  addCommands() {
+    return {
+      setVideo: (options: { src: string; muted?: boolean; autoplay?: boolean; loop?: boolean; controls?: boolean }) => ({ commands }: any) => {
+        return commands.insertContent({
+          type: this.name,
+          attrs: options,
+        });
+      },
+    } as any;
+  },
+});
+
 export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorProps) {
   const [uploading, setUploading] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [videoOptions, setVideoOptions] = useState({
+    muted: false,
+    autoplay: false,
+    loop: false,
+    controls: true,
+  });
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -45,6 +122,11 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
         HTMLAttributes: {
           class: "max-w-full h-auto rounded-lg my-4",
         },
+      }),
+      CustomVideo,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
       }),
       Placeholder.configure({
         placeholder: placeholder || "Commencez à écrire...",
@@ -94,6 +176,51 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
     input.click();
   };
 
+  const addVideo = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "video/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+      try {
+        const { url } = await adminService.uploadContentImage(file); // Réutilise la même fonction d'upload
+        setUploadedVideoUrl(url);
+        setVideoDialogOpen(true);
+      } catch (error) {
+        console.error("Error uploading video:", error);
+        alert("Erreur lors de l'upload de la vidéo");
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
+  };
+
+  const insertVideo = () => {
+    if (!uploadedVideoUrl) return;
+
+    editor.chain().focus().setVideo({
+      src: uploadedVideoUrl,
+      muted: videoOptions.muted,
+      autoplay: videoOptions.autoplay,
+      loop: videoOptions.loop,
+      controls: videoOptions.controls,
+    }).run();
+
+    // Reset state
+    setVideoDialogOpen(false);
+    setUploadedVideoUrl(null);
+    setVideoOptions({
+      muted: false,
+      autoplay: false,
+      loop: false,
+      controls: true,
+    });
+  };
+
   return (
     <div className="border border-[#182859] rounded-lg bg-[#060B13]">
       {/* Toolbar */}
@@ -116,6 +243,48 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
           className={editor.isActive("heading", { level: 3 }) ? "bg-[#182859] text-white" : "text-gray-300 hover:text-white hover:bg-[#182859]/50"}
         >
           <Heading3 className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-[#182859] mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          className={editor.isActive({ textAlign: 'left' }) ? "bg-[#182859] text-white" : "text-gray-300 hover:text-white hover:bg-[#182859]/50"}
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          className={editor.isActive({ textAlign: 'center' }) ? "bg-[#182859] text-white" : "text-gray-300 hover:text-white hover:bg-[#182859]/50"}
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          className={editor.isActive({ textAlign: 'right' }) ? "bg-[#182859] text-white" : "text-gray-300 hover:text-white hover:bg-[#182859]/50"}
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+          className={editor.isActive({ textAlign: 'justify' }) ? "bg-[#182859] text-white" : "text-gray-300 hover:text-white hover:bg-[#182859]/50"}
+        >
+          <AlignJustify className="h-4 w-4" />
         </Button>
 
         <div className="w-px h-6 bg-[#182859] mx-1" />
@@ -195,6 +364,17 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
           <ImageIcon className="h-4 w-4" />
         </Button>
 
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={addVideo}
+          disabled={uploading}
+          className="text-gray-300 hover:text-white hover:bg-[#182859]/50"
+        >
+          <VideoIcon className="h-4 w-4" />
+        </Button>
+
         <div className="w-px h-6 bg-[#182859] mx-1" />
 
         <Button
@@ -222,6 +402,90 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
 
       {/* Editor Content */}
       <EditorContent editor={editor} />
+
+      {/* Video Configuration Dialog */}
+      <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
+        <DialogContent className="bg-[#091626] border-[#182859]">
+          <DialogHeader>
+            <DialogTitle className="text-white">Configuration de la vidéo</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {uploadedVideoUrl && (
+              <div className="relative aspect-video rounded-lg overflow-hidden border border-[#182859] mb-4">
+                <video
+                  src={uploadedVideoUrl}
+                  className="w-full h-full"
+                  controls={videoOptions.controls}
+                  muted={videoOptions.muted}
+                  autoPlay={videoOptions.autoplay}
+                  loop={videoOptions.loop}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="muted" className="text-gray-300">Muet</Label>
+              <Switch
+                id="muted"
+                checked={videoOptions.muted}
+                onCheckedChange={(checked) =>
+                  setVideoOptions({ ...videoOptions, muted: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="autoplay" className="text-gray-300">Lecture automatique</Label>
+              <Switch
+                id="autoplay"
+                checked={videoOptions.autoplay}
+                onCheckedChange={(checked) =>
+                  setVideoOptions({ ...videoOptions, autoplay: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="loop" className="text-gray-300">En boucle</Label>
+              <Switch
+                id="loop"
+                checked={videoOptions.loop}
+                onCheckedChange={(checked) =>
+                  setVideoOptions({ ...videoOptions, loop: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="controls" className="text-gray-300">Afficher les contrôles</Label>
+              <Switch
+                id="controls"
+                checked={videoOptions.controls}
+                onCheckedChange={(checked) =>
+                  setVideoOptions({ ...videoOptions, controls: checked })
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVideoDialogOpen(false)}
+              className="border-[#182859] text-white hover:bg-[#182859]"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={insertVideo}
+              className="bg-[#F22E62] hover:bg-[#F22E62]/80"
+            >
+              Insérer la vidéo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

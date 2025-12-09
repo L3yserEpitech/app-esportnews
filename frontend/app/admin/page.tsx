@@ -150,53 +150,15 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
+                  <div className="flex items-center">
+                    <div className="text-right pl-10">
                       <p className="font-medium text-white">{article.views} vues</p>
                       <p className="text-sm text-gray-400">{article.category}</p>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/admin/articles/${article.id}/edit`}>
-                        Modifier
-                      </Link>
-                    </Button>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-white">Actions Rapides</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button className="w-full" asChild>
-              <Link href="/admin/articles/new">
-                <FileText className="mr-2 h-4 w-4" />
-                Nouvel Article
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full" asChild>
-              <Link href="/admin/articles">
-                Voir tous les articles
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-white">Activité Récente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-400">
-              Dernière connexion : {new Date().toLocaleString()}
-            </p>
           </CardContent>
         </Card>
       </div>

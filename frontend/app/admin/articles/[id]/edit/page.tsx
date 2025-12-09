@@ -13,6 +13,13 @@ import { ArrowLeft, Save, Upload } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function EditArticlePage() {
   const router = useRouter();
@@ -95,7 +102,24 @@ export default function EditArticlePage() {
 
     setSaving(true);
     try {
-      await adminService.updateArticle(articleId, formData);
+      // Filter out empty optional fields
+      const cleanedData: any = {
+        title: formData.title,
+        article_content: formData.article_content,
+      };
+
+      // Only add optional fields if they have values
+      if (formData.author?.trim()) cleanedData.author = formData.author;
+      if (formData.subtitle?.trim()) cleanedData.subtitle = formData.subtitle;
+      if (formData.category?.trim()) cleanedData.category = formData.category;
+      if (formData.description?.trim()) cleanedData.description = formData.description;
+      if (formData.featuredImage?.trim()) cleanedData.featuredImage = formData.featuredImage;
+      if (formData.credit?.trim()) cleanedData.credit = formData.credit;
+      if (formData.tags.length > 0) cleanedData.tags = formData.tags;
+
+      // Don't send videoUrl/videoType if empty (backend constraint)
+
+      await adminService.updateArticle(articleId, cleanedData);
       alert("Article mis à jour avec succès !");
       router.push("/admin/articles");
     } catch (error) {
@@ -126,7 +150,7 @@ export default function EditArticlePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F22E62]" />
       </div>
     );
   }
@@ -135,14 +159,14 @@ export default function EditArticlePage() {
     <div>
       <div className="mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="text-white hover:text-white hover:bg-[#182859]">
             <Link href="/admin/articles">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">Modifier l'article</h1>
-            <p className="mt-2 text-sm text-gray-700">
+            <h1 className="text-3xl font-bold text-white">Modifier l'article</h1>
+            <p className="mt-2 text-sm text-gray-400">
               ID: {articleId} • {article?.views || 0} vues
             </p>
           </div>
@@ -158,11 +182,11 @@ export default function EditArticlePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contenu Principal</CardTitle>
+              <CardTitle className="text-white">Contenu Principal</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div>
-                <Label htmlFor="title">Titre *</Label>
+                <Label htmlFor="title" className="text-gray-300 mb-2">Titre *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -170,11 +194,12 @@ export default function EditArticlePage() {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   placeholder="Titre de l'article"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="subtitle">Sous-titre</Label>
+                <Label htmlFor="subtitle" className="text-gray-300 mb-2">Sous-titre</Label>
                 <Input
                   id="subtitle"
                   value={formData.subtitle}
@@ -182,11 +207,12 @@ export default function EditArticlePage() {
                     setFormData({ ...formData, subtitle: e.target.value })
                   }
                   placeholder="Sous-titre (optionnel)"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="description">Description SEO</Label>
+                <Label htmlFor="description" className="text-gray-300 mb-2">Description SEO</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -195,11 +221,12 @@ export default function EditArticlePage() {
                   }
                   placeholder="Description pour le référencement"
                   rows={3}
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label>Contenu de l'article *</Label>
+                <Label className="text-gray-300 mb-2">Contenu de l'article *</Label>
                 <TiptapEditor
                   content={formData.article_content}
                   onChange={(content) =>
@@ -216,11 +243,11 @@ export default function EditArticlePage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Métadonnées</CardTitle>
+              <CardTitle className="text-white">Métadonnées</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div>
-                <Label htmlFor="author">Auteur</Label>
+                <Label htmlFor="author" className="text-gray-300 mb-2">Auteur</Label>
                 <Input
                   id="author"
                   value={formData.author}
@@ -228,23 +255,37 @@ export default function EditArticlePage() {
                     setFormData({ ...formData, author: e.target.value })
                   }
                   placeholder="Nom de l'auteur"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">Catégorie</Label>
-                <Input
-                  id="category"
+                <Label htmlFor="category" className="text-gray-300 mb-2">Catégorie</Label>
+                <Select
                   value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
                   }
-                  placeholder="Interview, News, Guide..."
-                />
+                >
+                  <SelectTrigger className="w-full bg-[#060B13] border-[#182859] text-white">
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#091626] border-[#182859]">
+                    <SelectItem value="Portrait" className="text-white hover:bg-[#182859]">Portrait</SelectItem>
+                    <SelectItem value="Guide" className="text-white hover:bg-[#182859]">Guide</SelectItem>
+                    <SelectItem value="Test produit" className="text-white hover:bg-[#182859]">Test produit</SelectItem>
+                    <SelectItem value="Analyse" className="text-white hover:bg-[#182859]">Analyse</SelectItem>
+                    <SelectItem value="Compétition" className="text-white hover:bg-[#182859]">Compétition</SelectItem>
+                    <SelectItem value="Enquête" className="text-white hover:bg-[#182859]">Enquête</SelectItem>
+                    <SelectItem value="Gaming" className="text-white hover:bg-[#182859]">Gaming</SelectItem>
+                    <SelectItem value="Actus" className="text-white hover:bg-[#182859]">Actus</SelectItem>
+                    <SelectItem value="Interview" className="text-white hover:bg-[#182859]">Interview</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
-                <Label htmlFor="credit">Crédit / Source</Label>
+                <Label htmlFor="credit" className="text-gray-300 mb-2">Crédit / Source</Label>
                 <Input
                   id="credit"
                   value={formData.credit}
@@ -252,11 +293,12 @@ export default function EditArticlePage() {
                     setFormData({ ...formData, credit: e.target.value })
                   }
                   placeholder="© Studio X, VCT EMEA..."
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="tags">Tags</Label>
+                <Label htmlFor="tags" className="text-gray-300 mb-2">Tags</Label>
                 <div className="flex gap-2">
                   <Input
                     id="tags"
@@ -264,6 +306,7 @@ export default function EditArticlePage() {
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
                     placeholder="Ajouter un tag"
+                    className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                   />
                   <Button type="button" onClick={addTag} size="sm">
                     Ajouter
@@ -271,11 +314,11 @@ export default function EditArticlePage() {
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">
+                    <Badge key={tag} variant="secondary" className="bg-[#182859] text-white border-[#182859]">
                       {tag}
                       <button
                         onClick={() => removeTag(tag)}
-                        className="ml-1 hover:text-red-600"
+                        className="ml-1 hover:text-[#F22E62]"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -288,11 +331,11 @@ export default function EditArticlePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Image de couverture</CardTitle>
+              <CardTitle className="text-white">Image de couverture</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {formData.featuredImage && (
-                <div className="relative aspect-video rounded-lg overflow-hidden">
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-[#182859]">
                   <img
                     src={formData.featuredImage}
                     alt="Cover"
@@ -305,7 +348,7 @@ export default function EditArticlePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full border-[#182859] text-white hover:bg-[#182859] hover:text-white"
                     disabled={uploading}
                     onClick={() => document.getElementById("cover-upload")?.click()}
                   >

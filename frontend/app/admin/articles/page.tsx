@@ -137,7 +137,7 @@ export default function ArticlesListPage() {
               <TableRow key={article.id} className="border-[#182859] hover:bg-[#182859]/20">
                 <TableCell className="font-medium text-white">
                   <Link
-                    href={`/articles/${article.slug}`}
+                    href={`/article/${article.slug}`}
                     className="hover:text-[#F22E62] flex items-center gap-2"
                     target="_blank"
                   >
