@@ -106,13 +106,11 @@ export default function HomePage() {
       setIsLoadingNews(true);
       const allArticles = await articleService.getAllArticles();
 
-      const actualiteArticles = allArticles;
-
-      // Le premier article est l'article en vedette
-      if (actualiteArticles.length > 0) {
-        setFeaturedNews(actualiteArticles[0]);
-        // Maximum 3 articles pour la deuxième colonne
-        setNewsList(actualiteArticles.slice(1, 4));
+      if (allArticles.length > 0) {
+        // Article en vedette : le plus récent
+        setFeaturedNews(allArticles[0]);
+        // Les 6 articles suivants (ordre décroissant par date)
+        setNewsList(allArticles.slice(1, 7));
       }
     } catch (error) {
       console.error('Erreur lors du chargement des articles:', error);

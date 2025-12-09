@@ -78,16 +78,23 @@ const NewsSection: React.FC<NewsSectionProps> = ({
 
       {/* Liste des actualités */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {memoizedNewsList.map((news) => (
-          <ArticleCard
-            key={news.id}
-            article={news}
-            onClick={handleNewsClick}
-          />
-        ))}
+        {isLoading ? (
+          // Afficher 6 skeletons pendant le chargement (2 rangées × 3 colonnes)
+          Array.from({ length: 6 }).map((_, index) => (
+            <NewsSkeleton key={`skeleton-${index}`} variant="list" />
+          ))
+        ) : (
+          memoizedNewsList.map((news) => (
+            <ArticleCard
+              key={news.id}
+              article={news}
+              onClick={handleNewsClick}
+            />
+          ))
+        )}
       </div>
 
-      {!hasNews && (
+      {!isLoading && !hasNews && (
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg mb-2">
             {t('pages.home.news.no_news')}

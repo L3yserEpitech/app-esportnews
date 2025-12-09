@@ -6,7 +6,6 @@ INSERT INTO "public"."users" ("id", "created_at", "name", "email", "password", "
 ('4', '2025-10-09 05:11:43.705096+00', 'admin', 'root@gmail.com', '$2b$10$AvX0xU2oyACsJJnba26nT.bq9gFvCEEIzpmIX4SxVJY3mA7lUHf1S', 'https://olybccviffjiqjmnsysn.supabase.co/storage/v1/object/public/profilePictureUsers/avatars/4-1760815214247.ico', true, ARRAY[129919,3318,137296,128796], false, false, true, true),
 ('10', '2025-10-19 19:18:26.616518+00', 'Kenan Altarac ', 'altakenan@hotmail.fr', '$2b$10$09ASaERgM7.HQqDtuP/fAOv4SBZr6JIixblIleCKxCzCPUwkmbQNa', null, true, ARRAY[115,3455,134452,134213,128268,129570,126061], true, true, true, true),
 ('11', '2025-10-20 10:59:05.910712+00', 'Samuel COHEN', 'samuel@esportnews.fr', '$2b$10$odZ7djb.jCFDMSyNbiv7B.cOVUb57I9ih2DTWSDcdcFRNP0iCE.dW', null, true, null, false, false, false, null),
-('12', '2025-10-20 12:15:21.325941+00', 'newadmin', 'newadmin@gmail.com', '$2b$10$kAtFpaNokqEZiVqX0EREhO/WqSJ3XUadviPqkc7.6qYJtcF8Ur.m2', null, true, null, false, false, false, null),
 ('13', '2025-10-20 13:16:23.2859+00', 'BERRO95', 'berat.al@outlook.fr', '$2b$10$X9Htt0UzVtTW32YqxztPOuSARhnwWEp7DfyfchSCIVlOrEM1xkQs.', null, false, ARRAY[3455], false, false, false, null),
 ('14', '2025-10-21 16:26:02.661578+00', 'Maëla ', 'maela@parnasse-edition.com', '$2b$10$25GH6frXZQqxdIk4twuA1eUdA.gwQh927L/VlxgMY2AsBp/kOwdSy', null, false, ARRAY[133115,134213,134452,135374,137296,115], false, false, false, null),
 ('15', '2025-10-30 08:33:19.105587+00', 'Aristide Benyayer', 'aristide.bc@gmail.com', '$2b$10$joTUlQzbjmZkpnFKcB7we.rsZKv4AyT.issQ5mGWg34EcupgDDZhO', null, false, ARRAY[130384,1449], false, false, false, null),
@@ -16,5 +15,4 @@ INSERT INTO "public"."users" ("id", "created_at", "name", "email", "password", "
 ('19', '2025-11-03 20:47:01.786456+00', 'Ewen Messé ', 'ewenmesse18@gmail.com', '$2b$10$leZJV1wrLWD/xZE6tjpENOQ7Z6DcwJFjJBhw4Slwl6PXG.JeblV2m', null, false, null, false, false, false, null),
 ('20', '2025-11-14 14:41:43.70219+00', 'Gauthier delalandre', 'gauthier.delalandre@gmail.com', '$2b$10$kqrWsENl2JtX6boqsSa.u.ZOMegE48gLtGpVUdb1ZRL4ghXZRX1Y6', null, false, null, false, false, false, null),
 ('21', '2025-11-14 15:14:54.121333+00', 'Enzo Oudart', 'enzo.oudart59@gmail.com', '$2b$10$jmLfngbNKpdQ3uoh2V1AjeyEQME7y92WyjCyBW4s0U8i85PKh2XUi', null, false, null, false, false, false, null),
-('22', '2025-12-05 12:00:00.000000+00', 'test', 'test@gmail.com', '$2a$12$yB105R.KiQTWv/QHY7rveOB4TWafnp.DRGv3rZWwLfjC5rlATSV6K', null, false, null, false, false, false, null)
 ON CONFLICT (email) DO NOTHING;
