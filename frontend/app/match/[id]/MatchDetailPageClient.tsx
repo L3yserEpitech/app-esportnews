@@ -65,7 +65,9 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
         // Charger les détails des deux équipes si disponibles
         if (data.opponents && data.opponents.length === 2) {
           try {
-            const teamIds = data.opponents.map(o => o.opponent.id);
+            const teamIds = data.opponents
+              .filter(o => o.opponent)
+              .map(o => o.opponent!.id);
             console.log('Loading teams with IDs:', teamIds);
 
             const teams = await teamService.getTeamsByIds(teamIds);
@@ -165,14 +167,14 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
       <SportsEventSchema
         name={`${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`}
         description={`${match.videogame?.name || 'Esport'} - ${match.league?.name || ''}`}
-        startDate={match.begin_at}
+        startDate={match.begin_at || new Date().toISOString()}
         endDate={match.end_at || undefined}
         url={matchUrl}
         location={match.tournament?.region || undefined}
         image={homeTeam?.image_url || undefined}
         teams={[
-          ...(homeTeam ? [{ name: homeTeam.name, logo: homeTeam.image_url }] : []),
-          ...(awayTeam ? [{ name: awayTeam.name, logo: awayTeam.image_url }] : []),
+          ...(homeTeam ? [{ name: homeTeam.name, logo: homeTeam.image_url || undefined }] : []),
+          ...(awayTeam ? [{ name: awayTeam.name, logo: awayTeam.image_url || undefined }] : []),
         ]}
       />
       <BreadcrumbSchema items={breadcrumbs} />
@@ -211,8 +213,8 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
                     {/* Date/Heure */}
                     <div className="bg-bg-secondary rounded-lg p-3 border border-border-primary">
                       <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('info_date')}</p>
-                      <p className="text-white font-semibold text-sm">{formatDate(match.begin_at)}</p>
-                      <p className="text-text-muted text-xs">{formatTime(match.begin_at)}</p>
+                      <p className="text-white font-semibold text-sm">{match.begin_at ? formatDate(match.begin_at) : '-'}</p>
+                      <p className="text-text-muted text-xs">{match.begin_at ? formatTime(match.begin_at) : '-'}</p>
                     </div>
                   </div>
 
@@ -323,7 +325,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
 
                 <div className="space-y-3">
                   {match.games.map((game) => {
-                    const gameWinner = game.winner?.id ? match.opponents?.find(o => o.opponent.id === game.winner?.id)?.opponent : null;
+                    const gameWinner = game.winner?.id ? match.opponents?.find(o => o.opponent?.id === game.winner?.id)?.opponent : null;
                     return (
                       <Card key={game.id} variant="outlined" className="p-4 bg-bg-secondary border border-border-primary">
                         <div className="flex items-center justify-between gap-4">

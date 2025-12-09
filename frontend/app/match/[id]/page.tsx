@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
     const homeTeam = match.opponents?.[0]?.opponent;
     const awayTeam = match.opponents?.[1]?.opponent;
     const title = `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'} | ${match.videogame?.name || 'Esport'}`;
-    const description = `${title} - ${match.league?.name || ''} - ${new Date(match.begin_at).toLocaleDateString('fr-FR')}`;
+    const description = `${title} - ${match.league?.name || ''} - ${match.begin_at ? new Date(match.begin_at).toLocaleDateString('fr-FR') : ''}`;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
     const matchUrl = `${siteUrl}/match/${id}`;
 

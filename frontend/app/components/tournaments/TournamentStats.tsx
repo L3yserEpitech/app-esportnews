@@ -217,11 +217,11 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Informations du tournoi */}
           <div className="relative">
-            <div className={`absolute inset-0 bg-gradient-to-br ${getTierBgColor(tournament.tier)} rounded-2xl blur-xl`}></div>
+            <div className={`absolute inset-0 bg-gradient-to-br ${getTierBgColor(tournament.tier || '')} rounded-2xl blur-xl`}></div>
             <div className="relative bg-[#060B13]/50 border border-[#182859]/50 rounded-2xl p-6 backdrop-blur-sm">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 bg-gradient-to-br ${getTierGradient(tournament.tier)} rounded-lg flex items-center justify-center shadow-lg ${getTierShadow(tournament.tier)}`}>
+                  <div className={`w-10 h-10 bg-gradient-to-br ${getTierGradient(tournament.tier || '')} rounded-lg flex items-center justify-center shadow-lg ${getTierShadow(tournament.tier || '')}`}>
                     <Info className="w-5 h-5 text-white" />
                   </div>
                   <h3 className="text-lg font-bold text-white">Informations</h3>
@@ -237,13 +237,13 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Tier</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getTierColor(tournament.tier)}`}>
-                      {tournament.tier.toUpperCase()}
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getTierColor(tournament.tier || '')}`}>
+                      {(tournament.tier || '-').toUpperCase()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Jeu</span>
-                    <span className="text-white font-medium">{tournament.videogame.name}</span>
+                    <span className="text-white font-medium">{tournament.videogame?.name || '-'}</span>
                   </div>
                   {tournament.prizepool && (
                     <div className="flex justify-between items-center pt-2 border-t border-[#182859]/30">

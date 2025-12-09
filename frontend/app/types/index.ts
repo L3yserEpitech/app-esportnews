@@ -184,6 +184,11 @@ export interface UserPreferences {
 }
 
 // Tournament types (PandaScore) - Go Backend Compatible
+export interface PandaRoster {
+  team?: PandaTeam;
+  players?: PandaPlayer[];
+}
+
 export interface PandaTournament {
   id: number;
   name: string;
@@ -200,6 +205,13 @@ export interface PandaTournament {
   league?: PandaLeague;
   teams?: PandaTeam[];
   matches?: PandaMatch[];
+  expected_roster?: PandaRoster[];
+  winner_id?: number | null;
+}
+
+export interface PandaMatchResult {
+  team_id: number;
+  score: number;
 }
 
 export interface PandaMatch {
@@ -215,6 +227,20 @@ export interface PandaMatch {
   number_of_games?: number | null;
   tournament?: PandaTournament;
   opponents?: PandaOpponent[];
+  results?: PandaMatchResult[];
+  league?: PandaLeague;
+  serie?: PandaSerie;
+  streams_list?: PandaStream[];
+  games?: PandaGame[];
+  winner_id?: number | null;
+  winner?: { id: number; type: string; acronym?: string | null; name?: string | null } | null;
+  rescheduled?: boolean;
+  live?: {
+    supported?: boolean;
+    url?: string | null;
+    opens_at?: string | null;
+  };
+  videogame?: PandaVideogame;
 }
 
 export interface PandaStream {
@@ -229,8 +255,10 @@ export interface PandaTeam {
   id: number;
   name: string;
   slug: string;
+  acronym?: string | null;
   image_url?: string | null;
   players?: PandaPlayer[];
+  location?: string | null;
 }
 
 export interface PandaSerie {
@@ -280,6 +308,10 @@ export interface PandaPlayer {
   name: string;
   role?: string | null;
   image_url?: string | null;
+  active?: boolean;
+  first_name?: string | null;
+  last_name?: string | null;
+  nationality?: string | null;
 }
 
 // Nouveaux types pour les matchs étendus
@@ -287,6 +319,7 @@ export interface PandaOpponent {
   id: number;
   type: string;
   team?: PandaTeam;
+  opponent?: PandaTeam;
 }
 
 export interface PandaResult {

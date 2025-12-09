@@ -137,7 +137,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
 
         {/* Dates */}
         <div className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          <div>{t('pages.home.tournaments.begin_label')} {formatDate(tournament.begin_at)}</div>
+          <div>{t('pages.home.tournaments.begin_label')} {tournament.begin_at ? formatDate(tournament.begin_at) : '-'}</div>
           {tournament.end_at && (
             <div>{t('pages.home.tournaments.end_label')} {formatDate(tournament.end_at)}</div>
           )}

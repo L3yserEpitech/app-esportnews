@@ -93,9 +93,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
         onClick={handleClick}
       >
         <div className="flex items-center justify-between mb-3">
-          {getStatusBadge(match.status)}
+          {getStatusBadge(match.status || 'unknown')}
           <span className="text-xs text-gray-400">
-            {formatTime(match.begin_at)}
+            {match.begin_at ? formatTime(match.begin_at) : '-'}
           </span>
         </div>
         <h4 className="text-lg font-bold text-white line-clamp-2 mb-3">
@@ -105,7 +105,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
           <span className="bg-gray-700 px-2 py-1 rounded">
             {match.match_type}
           </span>
-          {match.number_of_games > 0 && (
+          {match.number_of_games && match.number_of_games > 0 && (
             <span>BO{match.number_of_games}</span>
           )}
         </div>
@@ -132,9 +132,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
       {/* Header */}
       <div className="relative flex items-center justify-between mb-4 md:mb-6">
-        {getStatusBadge(match.status)}
+        {getStatusBadge(match.status || 'unknown')}
         <div className="text-xs md:text-sm text-gray-400 font-mono">
-          {formatTime(match.begin_at)}
+          {match.begin_at ? formatTime(match.begin_at) : '-'}
         </div>
       </div>
 
@@ -229,7 +229,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs md:text-sm text-gray-400 font-medium">
-              {match.match_type} {match.number_of_games > 0 ? `(BO${match.number_of_games})` : ''}
+              {match.match_type} {match.number_of_games && match.number_of_games > 0 ? `(BO${match.number_of_games})` : ''}
             </span>
           </div>
           <div className="flex items-center gap-2">

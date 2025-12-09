@@ -1,8 +1,12 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useGame } from '../contexts/GameContext';
 
-export default function TestSyncPage() {
+// Prevent static generation for this test page
+export const dynamic = 'force-dynamic';
+
+function TestSyncContent() {
   const { games, selectedGame, setSelectedGame, getSelectedGameData } = useGame();
   const selectedGameData = getSelectedGameData();
 
@@ -75,5 +79,13 @@ export default function TestSyncPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TestSyncPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 pt-24 flex items-center justify-center text-white">Chargement...</div>}>
+      <TestSyncContent />
+    </Suspense>
   );
 }

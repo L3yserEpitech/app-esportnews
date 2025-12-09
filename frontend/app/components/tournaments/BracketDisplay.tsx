@@ -126,8 +126,8 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                   {phaseMatches.map(match => {
                     const opponent1 = match.opponents?.[0];
                     const opponent2 = match.opponents?.[1];
-                    const result1 = match.results?.find(r => r.team_id === opponent1?.opponent.id);
-                    const result2 = match.results?.find(r => r.team_id === opponent2?.opponent.id);
+                    const result1 = match.results?.find(r => r.team_id === opponent1?.opponent?.id);
+                    const result2 = match.results?.find(r => r.team_id === opponent2?.opponent?.id);
                     const winner = match.winner_id;
 
                     return (
@@ -136,15 +136,15 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                           {/* Header avec statut et infos */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(match.status)}`}>
-                                {getStatusText(match.status)}
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(match.status || 'unknown')}`}>
+                                {getStatusText(match.status || 'unknown')}
                               </span>
-                              {match.rescheduled && (
+                              {(match as { rescheduled?: boolean }).rescheduled && (
                                 <span className="text-xs text-yellow-400 font-medium">📋 Reporté</span>
                               )}
                             </div>
                             <div className="text-xs text-gray-400">
-                              {formatMatchTime(match.begin_at)}
+                              {match.begin_at ? formatMatchTime(match.begin_at) : '-'}
                             </div>
                           </div>
 
@@ -155,7 +155,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
 
                           {/* Équipes avec design amélioré */}
                           <div className="space-y-3">
-                            {opponent1 && (
+                            {opponent1?.opponent && (
                               <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                                 winner === opponent1.opponent.id 
                                   ? 'bg-green-500/10 border border-green-500/30' 
@@ -208,7 +208,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                               </div>
                             )}
 
-                            {opponent2 && (
+                            {opponent2?.opponent && (
                               <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                                 winner === opponent2.opponent.id 
                                   ? 'bg-green-500/10 border border-green-500/30' 
@@ -266,7 +266,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                           <div className="pt-2 border-t border-gray-700 text-xs text-gray-400">
                             <div className="flex justify-between">
                               <span>
-                                <span className="text-pink-400 font-semibold">{match.number_of_games}</span> match{match.number_of_games > 1 ? 's' : ''}
+                                <span className="text-pink-400 font-semibold">{match.number_of_games || 0}</span> match{(match.number_of_games || 0) > 1 ? 's' : ''}
                               </span>
                               {match.end_at && (
                                 <span>Fin: {new Date(match.end_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>

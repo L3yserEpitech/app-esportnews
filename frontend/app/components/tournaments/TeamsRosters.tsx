@@ -56,12 +56,13 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
 
       {/* Teams Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {rosters.map(roster => {
-          const isExpanded = expandedTeam === roster.team.id;
+        {rosters.filter(roster => roster.team).map(roster => {
+          const team = roster.team!;
+          const isExpanded = expandedTeam === team.id;
           const activePlayers = (roster.players || []).filter(p => p.active).length;
 
           return (
-            <div key={roster.team.id} className="group">
+            <div key={team.id} className="group">
               {/* Card background glow */}
               <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/10 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
 
@@ -70,16 +71,16 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
 
                 {/* Team Header */}
                 <button
-                  onClick={() => setExpandedTeam(isExpanded ? null : roster.team.id)}
+                  onClick={() => setExpandedTeam(isExpanded ? null : team.id)}
                   className="p-4 border-b border-border-primary hover:bg-bg-hover transition-colors"
                 >
                   <div className="flex items-center gap-4">
                     {/* Team Logo */}
                     <div className="w-16 h-16 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center flex-shrink-0 overflow-hidden group-hover:border-[#F44576]/40 transition-colors">
-                      {roster.team.image_url ? (
+                      {team.image_url ? (
                         <img
-                          src={roster.team.image_url}
-                          alt={roster.team.name}
+                          src={team.image_url}
+                          alt={team.name}
                           className="w-full h-full object-contain p-1"
                           loading="lazy"
                         />
@@ -91,18 +92,18 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                     {/* Team Info */}
                     <div className="flex-1 text-left">
                       <h3 className="text-lg font-bold text-text-primary group-hover:text-[#F44576] transition-colors">
-                        {roster.team.name}
+                        {team.name}
                       </h3>
-                      {roster.team.acronym && (
+                      {team.acronym && (
                         <p className="text-sm text-text-accent font-semibold">
-                          {roster.team.acronym}
+                          {team.acronym}
                         </p>
                       )}
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                        {roster.team.location && (
+                        {team.location && (
                           <>
                             <MapPin className="w-3 h-3 text-text-accent" />
-                            <span>{roster.team.location}</span>
+                            <span>{team.location}</span>
                           </>
                         )}
                         <span className="text-text-muted">•</span>

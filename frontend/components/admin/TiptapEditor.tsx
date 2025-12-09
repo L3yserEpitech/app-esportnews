@@ -202,7 +202,7 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
   const insertVideo = () => {
     if (!uploadedVideoUrl) return;
 
-    editor.chain().focus().setVideo({
+    (editor.chain().focus() as unknown as { setVideo: (options: { src: string; muted: boolean; autoplay: boolean; loop: boolean; controls: boolean }) => { run: () => void } }).setVideo({
       src: uploadedVideoUrl,
       muted: videoOptions.muted,
       autoplay: videoOptions.autoplay,

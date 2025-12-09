@@ -151,9 +151,9 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Calendar className="w-3.5 h-3.5 text-[#F44576]" />
-              <span className="font-medium">{formatDate(match.begin_at)}</span>
+              <span className="font-medium">{match.begin_at ? formatDate(match.begin_at) : '-'}</span>
               <span className="text-gray-600">•</span>
-              <span>{formatTime(match.begin_at)}</span>
+              <span>{match.begin_at ? formatTime(match.begin_at) : '-'}</span>
             </div>
           </div>
         </div>

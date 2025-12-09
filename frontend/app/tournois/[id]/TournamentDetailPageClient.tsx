@@ -179,7 +179,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   };
 
   const getTournamentStatus = () => {
-    if (!tournament) return null;
+    if (!tournament || !tournament.begin_at) return null;
     const now = new Date();
     const begin = new Date(tournament.begin_at);
     const end = new Date(tournament.end_at || tournament.begin_at);
@@ -232,10 +232,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
       <TournamentSchema
         name={tournament.name}
         description={`Tournoi ${tournament.name} - ${tournament.league?.name || 'Esport'}`}
-        startDate={tournament.begin_at}
+        startDate={tournament.begin_at || undefined}
         endDate={tournament.end_at || undefined}
         url={tournamentUrl}
-        location={tournament.region}
+        location={tournament.region || undefined}
         prizeMoney={tournament.prizepool || undefined}
         teams={tournament.teams?.length}
       />
@@ -268,8 +268,8 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
           <div className="space-y-4">
             {/* Badges */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${getTierColor(tournament.tier)}`}>
-                {t('tier_label')} {tournament.tier.toUpperCase()}
+              <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${getTierColor(tournament.tier || '')}`}>
+                {t('tier_label')} {(tournament.tier || '-').toUpperCase()}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === t('status_running') ? 'bg-red-500/20 text-red-400' :
                 status === t('status_upcoming') ? 'bg-orange-500/20 text-orange-400' :
@@ -296,7 +296,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
               )}
               <p className="text-white flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-white" />
-                {formatDate(tournament.begin_at)} - {formatDate(tournament.end_at || tournament.begin_at)}
+                {tournament.begin_at ? formatDate(tournament.begin_at) : '-'} - {tournament.end_at ? formatDate(tournament.end_at) : (tournament.begin_at ? formatDate(tournament.begin_at) : '-')}
               </p>
             </div>
           </div>

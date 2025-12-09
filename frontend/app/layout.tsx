@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -65,7 +66,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <GameProvider>
-            <PageViewTracker />
+            <Suspense fallback={null}>
+              <PageViewTracker />
+            </Suspense>
             <ClientLayout>
               {children}
               <Analytics />
