@@ -1,1 +1,28 @@
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Go binaries
+backend-go/main
+backend-go/server
+backend-go/seed
+backend-go/bin/
+backend-go/cmd/server/main
+backend-go/cmd/seed/main
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.next/
+dist/
+build/
