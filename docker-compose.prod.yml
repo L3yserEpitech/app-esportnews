@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # PostgreSQL Database - Production
   postgres:
@@ -121,7 +119,7 @@ services:
 
   # Nginx Reverse Proxy - Production
   nginx:
-    image: nginx:latest-alpine
+    image: nginx:stable-alpine
     container_name: esportnews-nginx-prod
     ports:
       - "80:80"
