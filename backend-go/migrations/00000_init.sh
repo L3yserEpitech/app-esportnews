@@ -10,7 +10,16 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         ALTER ROLE esportnews CREATEDB;
       END IF;
     END \$\$;
+    
+    -- Grant privileges on database
     GRANT ALL PRIVILEGES ON DATABASE $POSTGRES_DB TO esportnews;
+    
+    -- PostgreSQL 15+ requires explicit schema permissions
+    GRANT ALL ON SCHEMA public TO esportnews;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO esportnews;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO esportnews;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO esportnews;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO esportnews;
 EOSQL
 
 echo "✅ User 'esportnews' created successfully and granted privileges on $POSTGRES_DB"
