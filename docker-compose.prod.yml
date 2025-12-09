@@ -14,7 +14,7 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
       - ./backend-go/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-esportnews}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d esportnews"]
       interval: 10s
       timeout: 5s
       retries: 5
