@@ -4,20 +4,20 @@ services:
     image: postgres:15-alpine
     container_name: esportnews-db-prod
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-esportnews}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: esportnews
       POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
-      - ./backend-go/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d esportnews"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - esportnews
     restart: unless-stopped
