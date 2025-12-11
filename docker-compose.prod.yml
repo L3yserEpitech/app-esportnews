@@ -70,6 +70,7 @@ services:
       - "traefik.http.routers.esportnews-backend.entrypoints=websecure"
       - "traefik.http.routers.esportnews-backend.tls=true"
       - "traefik.http.routers.esportnews-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.esportnews-backend.priority=10"
       - "traefik.http.services.esportnews-backend.loadbalancer.server.port=4000"
       - "traefik.docker.network=dokploy-network"
     environment:
