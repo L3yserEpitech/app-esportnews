@@ -71,6 +71,7 @@ services:
       - "traefik.http.routers.esportnews-backend.tls=true"
       - "traefik.http.routers.esportnews-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.esportnews-backend.loadbalancer.server.port=4000"
+      - "traefik.docker.network=dokploy-network"
     environment:
       # Environment
       ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -114,6 +115,7 @@ services:
       start_period: 40s
     networks:
       - esportnews
+      - dokploy-network
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -141,6 +143,7 @@ services:
       - "traefik.http.routers.esportnews-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.esportnews-frontend.priority=1"
       - "traefik.http.services.esportnews-frontend.loadbalancer.server.port=3002"
+      - "traefik.docker.network=dokploy-network"
     environment:
       - NODE_ENV=production
       - PORT=3002
@@ -156,6 +159,7 @@ services:
       - backend
     networks:
       - esportnews
+      - dokploy-network
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -172,3 +176,5 @@ volumes:
 networks:
   esportnews:
     driver: bridge
+  dokploy-network:
+    external: true
