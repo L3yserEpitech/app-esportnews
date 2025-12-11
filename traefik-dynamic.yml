@@ -1,0 +1,37 @@
+# Configuration dynamique Traefik pour esportnews.fr
+# À placer dans /etc/dokploy/traefik/dynamic/esportnews.yml sur le VPS
+
+http:
+  routers:
+    # Router Backend API (priorité haute)
+    esportnews-backend:
+      rule: "Host(`www.esportnews.fr`) && PathPrefix(`/api`)"
+      entryPoints:
+        - websecure
+      service: esportnews-backend-service
+      priority: 10
+      tls:
+        certResolver: letsencrypt
+
+    # Router Frontend (priorité basse, catch-all)
+    esportnews-frontend:
+      rule: "Host(`www.esportnews.fr`)"
+      entryPoints:
+        - websecure
+      service: esportnews-frontend-service
+      priority: 1
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    # Service Backend
+    esportnews-backend-service:
+      loadBalancer:
+        servers:
+          - url: "http://esportnews-backend-prod:4000"
+
+    # Service Frontend
+    esportnews-frontend-service:
+      loadBalancer:
+        servers:
+          - url: "http://esportnews-frontend-prod:3002"
