@@ -63,20 +63,15 @@ services:
     labels:
       - "traefik.enable=true"
       # ROUTING : /api va ici (Accepte www et non-www)
-      - "traefik.http.routers.esportnews-backend.rule=(Host(`esportnews.fr`) || Host(`www.esportnews.fr`)) && PathPrefix(`/api`)"
+      # 🔧 IMPORTANT : On route TOUTES les méthodes (GET, POST, OPTIONS, etc.) vers le backend
+      - "traefik.http.routers.esportnews-backend.rule=(Host(`esportnews.fr`) || Host(`www.esportnews.fr`)) && (PathPrefix(`/api`) || PathPrefix(`/health`))"
       - "traefik.http.routers.esportnews-backend.entrypoints=websecure"
       - "traefik.http.routers.esportnews-backend.tls=true"
       - "traefik.http.routers.esportnews-backend.tls.certresolver=letsencrypt"
-      # 🚨 PRIORITÉ HAUTE
+      # 🚨 PRIORITÉ HAUTE (plus haute que le frontend)
       - "traefik.http.routers.esportnews-backend.priority=100"
       - "traefik.http.services.esportnews-backend.loadbalancer.server.port=4000"
-      # 🔧 CORS : Ajouter middleware pour headers CORS
-      - "traefik.http.middlewares.esportnews-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,PATCH,OPTIONS"
-      - "traefik.http.middlewares.esportnews-cors.headers.accesscontrolalloworiginlist=https://www.esportnews.fr,https://esportnews.fr"
-      - "traefik.http.middlewares.esportnews-cors.headers.accesscontrolallowcredentials=true"
-      - "traefik.http.middlewares.esportnews-cors.headers.accesscontrolallowheaders=Origin,Content-Type,Accept,Authorization"
-      - "traefik.http.middlewares.esportnews-cors.headers.accesscontrolmaxage=3600"
-      - "traefik.http.routers.esportnews-backend.middlewares=esportnews-cors@docker"
+      # ⚠️ Pas de middleware CORS dans Traefik - le backend Go gère tout
       - "traefik.docker.network=dokploy-network"
     environment:
       # On utilise les variables du .env (${VAR})

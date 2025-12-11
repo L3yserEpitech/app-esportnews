@@ -99,6 +99,12 @@ func main() {
 	// API Routes
 	apiGroup := e.Group("/api")
 
+	// 🔧 CORS Preflight: répondre explicitement aux requêtes OPTIONS
+	// Echo CORS middleware ajoute les headers, mais ne répond pas automatiquement
+	apiGroup.OPTIONS("/*", func(c echo.Context) error {
+		return c.NoContent(204) // No Content avec headers CORS du middleware
+	})
+
 	// Initialize services
 	gameService := services.NewGameServiceWithGORM(gormDB, redisClient)
 	authService := services.NewAuthServiceWithGORM(gormDB, redisClient, cfg.JWTSecret)
