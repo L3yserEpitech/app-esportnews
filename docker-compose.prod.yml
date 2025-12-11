@@ -4,12 +4,10 @@ services:
     image: postgres:15-alpine
     container_name: esportnews-db-prod
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: esportnews
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     command: postgres -c shared_buffers=256MB -c max_connections=200
-    # SECURITÉ : Ports retirés pour ne pas exposer la BDD à internet. 
-    # Le backend communique via le réseau "esportnews".
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +29,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: esportnews-cache-prod
-    # SECURITÉ : Ports retirés.
     command: >
       redis-server
       --maxmemory 256mb
@@ -65,29 +62,30 @@ services:
     container_name: esportnews-backend-prod
     labels:
       - "traefik.enable=true"
-      # AJOUT : On accepte le domaine nu (|| signifie OU)
+      # ROUTING : /api va ici (Accepte www et non-www)
       - "traefik.http.routers.esportnews-backend.rule=(Host(`esportnews.fr`) || Host(`www.esportnews.fr`)) && PathPrefix(`/api`)"
       - "traefik.http.routers.esportnews-backend.entrypoints=websecure"
       - "traefik.http.routers.esportnews-backend.tls=true"
       - "traefik.http.routers.esportnews-backend.tls.certresolver=letsencrypt"
+      # 🚨 PRIORITÉ HAUTE
       - "traefik.http.routers.esportnews-backend.priority=100"
       - "traefik.http.services.esportnews-backend.loadbalancer.server.port=4000"
       - "traefik.docker.network=dokploy-network"
     environment:
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      # Connexion interne à la BDD via le nom du service "postgres"
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-esportnews}?sslmode=disable
-      REDIS_URL: redis://redis:6379/0
+      # On utilise les variables du .env (${VAR})
+      ENVIRONMENT: ${ENVIRONMENT}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
       PANDASCORE_API_KEY: ${PANDASCORE_API_KEY}
-      SPORTDEVS_API_KEY: ${SPORTDEVS_API_KEY:-}
+      SPORTDEVS_API_KEY: ${SPORTDEVS_API_KEY}
       SERVER_PORT: 4000
       SERVER_HOST: 0.0.0.0
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      CACHE_TTL: ${CACHE_TTL:-3600}
-      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-50}
-      # CORS : Idéalement restreindre au domaine frontend en prod
-      CORS_ORIGINS: "https://www.esportnews.fr"
+      LOG_LEVEL: ${LOG_LEVEL}
+      CACHE_TTL: ${CACHE_TTL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      # CORS : On utilise la variable du .env ou on met le domaine par défaut
+      CORS_ORIGINS: ${CORS_ORIGINS}
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,35 +113,35 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Build-time variables
-        - NEXT_PUBLIC_BACKEND_URL=http://backend:4000
-        # IMPORTANT : L'API URL publique doit être https, pas interne docker
-        - NEXT_PUBLIC_API_URL=https://www.esportnews.fr/api
+        # Build-time : On injecte les valeurs du .env
+        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: esportnews-frontend-prod
     labels:
       - "traefik.enable=true"
-      # AJOUT : On accepte le domaine nu
+      # ROUTING : Catch-all pour le reste (Accepte www et non-www)
       - "traefik.http.routers.esportnews-frontend.rule=Host(`esportnews.fr`) || Host(`www.esportnews.fr`)"
       - "traefik.http.routers.esportnews-frontend.entrypoints=websecure"
       - "traefik.http.routers.esportnews-frontend.tls=true"
       - "traefik.http.routers.esportnews-frontend.tls.certresolver=letsencrypt"
+      # 🚨 PRIORITÉ BASSE
       - "traefik.http.routers.esportnews-frontend.priority=1"
       - "traefik.http.services.esportnews-frontend.loadbalancer.server.port=3002"
       - "traefik.docker.network=dokploy-network"
     environment:
       - NODE_ENV=production
       - PORT=3002
-      # URL interne pour le SSR (Server Side Rendering)
-      - NEXT_PUBLIC_BACKEND_URL=http://backend:4000
-      # URL publique pour le navigateur (Client Side Fetching)
-      - NEXT_PUBLIC_API_URL=https://www.esportnews.fr/api
+      # Runtime : On laisse le .env décider (plus de http://backend:4000 en dur)
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL} 
     depends_on:
       - backend
     networks:
