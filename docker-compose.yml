@@ -1,13 +1,13 @@
 services:
-  db:
+  # PostgreSQL Database - Development
+  postgres:
     image: postgres:15-alpine
-    container_name: esportnews-db
-    env_file:
-      - .env
+    container_name: esportnews-db-dev
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-esportnews}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-      POSTGRES_DB: ${POSTGRES_DB:-esportnews}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command: postgres -c shared_buffers=256MB -c max_connections=200
     ports:
       - "5432:5432"
     volumes:
@@ -17,15 +17,31 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-esportnews} -d ${POSTGRES_DB:-esportnews}" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d esportnews"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # Redis Cache - Development
   redis:
     image: redis:7-alpine
-    container_name: esportnews-cache
+    container_name: esportnews-cache-dev
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --appendonly yes
+      --appendfsync everysec
     ports:
       - "6379:6379"
     volumes:
@@ -33,49 +49,64 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # Go Backend - Development
   backend:
     build:
       context: ./backend-go
       dockerfile: Dockerfile
-    container_name: esportnews-backend
-    env_file:
-      - .env
+    container_name: esportnews-backend-dev
     ports:
       - "4000:4000"
     environment:
-      - PORT=${PORT:-4000}
-      - ENV=${ENV:-production}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-esportnews}:${POSTGRES_PASSWORD:-secret}@db:5432/${POSTGRES_DB:-esportnews}
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - PANDASCORE_API_KEY=${PANDASCORE_API_KEY}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3002}
+      # Server config
+      ENVIRONMENT: ${ENVIRONMENT}
+      SERVER_PORT: 4000
+      SERVER_HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL}
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      # Redis
+      REDIS_URL: ${REDIS_URL}
+      CACHE_TTL: ${CACHE_TTL}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      # External APIs
+      PANDASCORE_API_KEY: ${PANDASCORE_API_KEY}
+      SPORTDEVS_API_KEY: ${SPORTDEVS_API_KEY}
       # Stripe
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_SECRET_KEY_LIVE=${STRIPE_SECRET_KEY_LIVE}
-      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      # Email
-      - RESEND_API_KEY=${RESEND_API_KEY}
-      - EMAIL_FROM=${EMAIL_FROM:-noreply@resend.dev}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_SECRET_KEY_LIVE: ${STRIPE_SECRET_KEY_LIVE}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      # Email (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
       # Cloudflare R2
-      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
-      - CLOUDFLARE_R2_ENDPOINT=${CLOUDFLARE_R2_ENDPOINT}
-      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
-      - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
-      - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
-      - CLOUDFLARE_R2_PUBLIC_URL=${CLOUDFLARE_R2_PUBLIC_URL}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+      CLOUDFLARE_R2_ACCESS_KEY_ID: ${CLOUDFLARE_R2_ACCESS_KEY_ID}
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
+      CLOUDFLARE_R2_PUBLIC_URL: ${CLOUDFLARE_R2_PUBLIC_URL}
       # Upload
-      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-524288000}
-      - UPLOAD_TIMEOUT=${UPLOAD_TIMEOUT:-600}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE}
+      UPLOAD_TIMEOUT: ${UPLOAD_TIMEOUT}
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS}
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -83,45 +114,59 @@ services:
       - esportnews
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:4000/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # Next.js Frontend - Development
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://backend:4000}
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:4000/api}
+        # Build-time variables
+        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    container_name: esportnews-frontend
-    env_file:
-      - .env
+    container_name: esportnews-frontend-dev
     ports:
       - "3002:3002"
     environment:
       - NODE_ENV=production
       - PORT=3002
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://backend:4000}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:4000/api}
+      # Runtime variables
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
     depends_on:
       - backend
     networks:
       - esportnews
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
-
+    driver: local
 
 networks:
   esportnews:
