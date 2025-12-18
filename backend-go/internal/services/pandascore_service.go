@@ -125,6 +125,7 @@ func (s *PandaScoreService) GetTournament(ctx context.Context, id string) (*mode
 
 // GetTournamentsForGame retrieves tournaments for a specific game and status
 // Uses game-specific endpoint format: /{game}/tournaments/{status}
+// PandaScore uses the game acronym directly in the URL (e.g., /lol/tournaments, /codmw/tournaments)
 func (s *PandaScoreService) GetTournamentsForGame(ctx context.Context, game string, status string) ([]models.Tournament, error) {
 	var endpoint string
 	switch status {

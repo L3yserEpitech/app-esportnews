@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -146,11 +147,12 @@ func (h *TournamentHandler) ListAllTournaments(c echo.Context) error {
 	return c.JSON(http.StatusOK, tournaments)
 }
 
-// ListAllUpcomingTournaments retrieves all upcoming tournaments
+// ListAllUpcomingTournaments retrieves all upcoming tournaments (optionally filtered by game)
 func (h *TournamentHandler) ListAllUpcomingTournaments(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	game := c.QueryParam("game")
 	limitParam := c.QueryParam("limit")
 	offsetParam := c.QueryParam("offset")
 	sortParam := c.QueryParam("sort")
@@ -173,12 +175,21 @@ func (h *TournamentHandler) ListAllUpcomingTournaments(c echo.Context) error {
 		}
 	}
 
-	tournaments, err := h.pandaService.GetTournamentsAllGames(ctx, "upcoming")
+	var tournaments []models.Tournament
+	var err error
+
+	// If game is provided, fetch for specific game
+	if game != "" {
+		tournaments, err = h.pandaService.GetTournamentsForGame(ctx, game, "upcoming")
+	} else {
+		tournaments, err = h.pandaService.GetTournamentsAllGames(ctx, "upcoming")
+	}
+
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournaments: "+err.Error())
 	}
 
-	// Apply sorting if specified
+	// Apply sorting
 	h.sortTournaments(tournaments, sortParam)
 
 	// Apply pagination to results
@@ -194,14 +205,17 @@ func (h *TournamentHandler) ListAllUpcomingTournaments(c echo.Context) error {
 	return c.JSON(http.StatusOK, tournaments[offset:end])
 }
 
-// ListAllFinishedTournaments retrieves all finished tournaments
+// ListAllFinishedTournaments retrieves all finished tournaments (optionally filtered by game)
 func (h *TournamentHandler) ListAllFinishedTournaments(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	game := c.QueryParam("game")
 	limitParam := c.QueryParam("limit")
 	offsetParam := c.QueryParam("offset")
 	sortParam := c.QueryParam("sort")
+
+	fmt.Printf("[ListAllFinishedTournaments] Query params - game: '%s', limit: '%s', offset: '%s', sort: '%s'\n", game, limitParam, offsetParam, sortParam)
 
 	// Default pagination values
 	limit := 20
@@ -221,12 +235,21 @@ func (h *TournamentHandler) ListAllFinishedTournaments(c echo.Context) error {
 		}
 	}
 
-	tournaments, err := h.pandaService.GetTournamentsAllGames(ctx, "finished")
+	var tournaments []models.Tournament
+	var err error
+
+	// If game is provided, fetch for specific game
+	if game != "" {
+		tournaments, err = h.pandaService.GetTournamentsForGame(ctx, game, "finished")
+	} else {
+		tournaments, err = h.pandaService.GetTournamentsAllGames(ctx, "finished")
+	}
+
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournaments: "+err.Error())
 	}
 
-	// Apply sorting if specified
+	// Apply sorting
 	h.sortTournaments(tournaments, sortParam)
 
 	// Apply pagination to results
