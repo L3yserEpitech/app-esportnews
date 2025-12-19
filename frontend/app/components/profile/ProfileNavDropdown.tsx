@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { User, Shield, Heart, Bell, Settings, ChevronDown, CreditCard } from 'lucide-react';
+import { User, Shield, Bell, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'notifications' | 'subscription';
@@ -18,7 +18,7 @@ export default function ProfileNavDropdown({ activeSection, onSectionChange }: P
 
   const menuItems = [
     { id: 'profile' as SidebarSection, label: t('profile.sidebar.profil'), icon: User },
-    { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
+    // { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
     { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
     // { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
     { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },

@@ -1,9 +1,8 @@
 'use client';
 
-import { User, Shield, Heart, Bell, Settings, LogOut, CreditCard } from 'lucide-react';
+import { User, Shield, Bell, LogOut } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { authService } from '@/app/services/authService';
-import { useRouter } from 'next/navigation';
 
 type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'notifications' | 'subscription';
 
@@ -14,11 +13,10 @@ interface ProfileSidebarProps {
 
 export default function ProfileSidebar({ activeSection, onSectionChange }: ProfileSidebarProps) {
   const t = useTranslations();
-  const router = useRouter();
 
   const menuItems = [
     { id: 'profile' as SidebarSection, label: t('profile.sidebar.profil'), icon: User },
-    { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
+    // { id: 'favorite-teams' as SidebarSection, label: t('profile.sidebar.equipes'), icon: Heart },
     { id: 'security' as SidebarSection, label: t('profile.sidebar.securite'), icon: Shield },
     // { id: 'preferences' as SidebarSection, label: t('profile.sidebar.preferences'), icon: Settings },
     { id: 'notifications' as SidebarSection, label: t('profile.sidebar.notifications'), icon: Bell },
