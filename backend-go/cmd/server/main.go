@@ -81,8 +81,21 @@ func main() {
 		}
 	}
 
+	// Build a set for fast lookup
+	corsOriginsSet := make(map[string]bool)
+	for _, o := range corsOrigins {
+		corsOriginsSet[o] = true
+	}
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     corsOrigins,
+		AllowOriginFunc: func(origin string) (bool, error) {
+			// Allow requests without Origin header (mobile apps, curl, etc.)
+			if origin == "" {
+				return true, nil
+			}
+			// Allow listed origins (web browsers)
+			return corsOriginsSet[origin], nil
+		},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},
 		AllowCredentials: true, // Requis pour credentials: 'include' côté frontend

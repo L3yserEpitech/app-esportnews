@@ -31,6 +31,8 @@ export const COLORS = {
 
   // UI elements
   border: '#1F2937',
+  borderPrimary: '#1F2937',
+  borderSecondary: '#374151',
   divider: '#374151',
   overlay: 'rgba(0, 0, 0, 0.6)',
 
