@@ -119,33 +119,29 @@ export default function HomeScreen() {
         </View>
 
         {/* Tournaments Section */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="Tournois en cours" 
-            onViewAll={() => router.push('/(tabs)/tournaments')}
-          />
-          {isLoadingHome && tournaments.length === 0 ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            </View>
-          ) : tournaments.length > 0 ? (
-            <View style={styles.verticalList}>
-              {tournaments.slice(0, 3).map((tournament) => (
-                <TournamentCard
-                  key={tournament.id}
-                  tournament={tournament}
-                  onPress={() => router.push(`/tournament/${tournament.id}`)}
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                Aucun tournoi en cours pour le moment.
-              </Text>
-            </View>
-          )}
-        </View>
+        {(isLoadingHome || tournaments.length > 0) && (
+          <View style={styles.section}>
+            <SectionHeader 
+              title="Tournois en cours" 
+              onViewAll={() => router.push('/(tabs)/tournaments')}
+            />
+            {isLoadingHome && tournaments.length === 0 ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : (
+              <View style={styles.verticalList}>
+                {tournaments.slice(0, 3).map((tournament) => (
+                  <TournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    onPress={() => router.push(`/tournament/${tournament.id}`)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Bottom Spacing for TabBar */}
         <View style={{ height: 100 }} />
