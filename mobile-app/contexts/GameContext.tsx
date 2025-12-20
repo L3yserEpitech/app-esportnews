@@ -35,13 +35,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           if (savedGame) {
             setSelectedGameState(savedGame);
           }
-        } else {
-          // Default to first game if no selection saved
-          if (gamesData.length > 0) {
-            setSelectedGameState(gamesData[0]);
-            await AsyncStorage.setItem(SELECTED_GAME_KEY, gamesData[0].acronym);
-          }
         }
+        // If no saved selection, default state remains null as initialized
       } catch (error) {
         console.error('GameContext.initGames error:', error);
       } finally {
@@ -59,6 +54,14 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem(SELECTED_GAME_KEY, game.acronym);
     } else {
       await AsyncStorage.removeItem(SELECTED_GAME_KEY);
+    }
+  };
+
+  const handleGameSelect = (game: Game) => {
+    if (selectedGame?.id === game.id) {
+      setSelectedGame(null);
+    } else {
+      setSelectedGame(game);
     }
   };
 

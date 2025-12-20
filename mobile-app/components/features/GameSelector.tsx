@@ -19,7 +19,7 @@ import { spacing, borderRadius } from '@/constants/theme';
 const { width } = Dimensions.get('window');
 const GAME_CARD_WIDTH = 98;
 const GAME_CARD_HEIGHT = 128;
-const GAME_CARD_SPACING = 10;
+const GAME_CARD_SPACING = 6;
 
 export const GameSelector = () => {
   const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
@@ -40,7 +40,11 @@ export const GameSelector = () => {
   }, [selectedGame, games.length]);
 
   const handleGameSelect = (game: Game) => {
-    setSelectedGame(game);
+    if (selectedGame?.id === game.id) {
+      setSelectedGame(null);
+    } else {
+      setSelectedGame(game);
+    }
   };
 
   const renderGameCard = ({ item }: { item: Game }) => {
@@ -228,7 +232,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   cardWrapper: {
-    paddingVertical: 4,
+    paddingVertical: 0,
   },
   gameCard: {
     width: GAME_CARD_WIDTH,
