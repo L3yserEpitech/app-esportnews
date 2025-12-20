@@ -62,41 +62,37 @@ export default function HomeScreen() {
         }
       >
         {/* Live Section */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="En Direct" 
-            showLiveBadge 
-            onViewAll={() => router.push('/(tabs)/live')}
-          />
-          
-          {isLoadingLive && liveMatches.length === 0 ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            </View>
-          ) : liveMatches.length > 0 ? (
-            <FlatList
-              horizontal
-              data={liveMatches}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <LiveMatchCard 
-                  match={item} 
-                  onPress={() => router.push(`/match/${item.id}`)}
-                />
-              )}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              snapToInterval={280 + spacing.md} // Adjust based on card width
-              decelerationRate="fast"
+        {(isLoadingLive || liveMatches.length > 0) && (
+          <View style={styles.section}>
+            <SectionHeader 
+              title="En Direct" 
+              showLiveBadge 
+              onViewAll={() => router.push('/(tabs)/live')}
             />
-          ) : (
-            <View style={styles.emptyBox}>
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                Aucun match en direct pour le moment.
-              </Text>
-            </View>
-          )}
-        </View>
+            
+            {isLoadingLive && liveMatches.length === 0 ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : (
+              <FlatList
+                horizontal
+                data={liveMatches}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <LiveMatchCard 
+                    match={item} 
+                    onPress={() => router.push(`/match/${item.id}`)}
+                  />
+                )}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                snapToInterval={280 + spacing.md} // Adjust based on card width
+                decelerationRate="fast"
+              />
+            )}
+          </View>
+        )}
 
         {/* News Section */}
         <View style={styles.section}>
