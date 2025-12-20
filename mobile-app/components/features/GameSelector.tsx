@@ -17,8 +17,8 @@ import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
-const GAME_CARD_WIDTH = 98;
-const GAME_CARD_HEIGHT = 128;
+const GAME_CARD_WIDTH = 149;
+const GAME_CARD_HEIGHT = 195;
 const GAME_CARD_SPACING = 6;
 
 export const GameSelector = () => {
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   cardWrapper: {
-    paddingVertical: 0,
+    paddingVertical: 1,
   },
   gameCard: {
     width: GAME_CARD_WIDTH,
@@ -270,41 +270,41 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: 10,
+    right: 10,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
     zIndex: 20,
   },
   nameLabelContainer: {
     position: 'absolute',
-    bottom: 6,
+    bottom: 10,
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 10,
   },
   nameLabel: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     width: '100%',
   },
   nameLabelSelected: {
     backgroundColor: 'rgba(242, 46, 98, 0.2)',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     transform: [{ scale: 1.05 }],
   },
   gameName: {
-    fontSize: 9,
+    fontSize: 14,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
