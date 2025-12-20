@@ -222,10 +222,7 @@ const GameCardSkeleton = () => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.background,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: spacing.sm,
   },
   listContent: {
     paddingHorizontal: spacing.lg,

@@ -46,9 +46,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Game Selector - Sticky Header */}
-      <GameSelector />
-
       <ScrollView 
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
