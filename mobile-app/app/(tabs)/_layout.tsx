@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, Text, IconButton } from 'react-native-paper';
-import { Platform, View, StyleSheet, Animated } from 'react-native';
+import { Platform, View, StyleSheet, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameSelector } from '@/components/features';
 import React, { useState, useRef } from 'react';
@@ -15,22 +15,27 @@ export default function TabsLayout() {
     const toValue = isGameSelectorOpen ? 0 : 1;
     setIsGameSelectorOpen(!isGameSelectorOpen);
     
-    Animated.spring(animation, {
+    Animated.timing(animation, {
       toValue,
-      useNativeDriver: false,
-      friction: 8,
-      tension: 40
+      duration: 350,
+      easing: Easing.bezier(0.33, 1, 0.68, 1), // Standard 'easeOut'
+      useNativeDriver: false, // Height requires false
     }).start();
   };
 
   const headerHeight = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 240], // More space for scale + shadow
+    outputRange: [0, 230], // Fixed height for selector
   });
 
   const headerOpacity = animation.interpolate({
-    inputRange: [0, 0.4, 1],
+    inputRange: [0, 0.3, 1],
     outputRange: [0, 0, 1],
+  });
+
+  const internalTranslateY = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-20, 0],
   });
 
   return (
@@ -73,7 +78,7 @@ export default function TabsLayout() {
               ),
               headerTitle: 'Esport News',
               header: ({ options }) => (
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                   <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -83,10 +88,13 @@ export default function TabsLayout() {
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
                       size={24}
                       onPress={toggleGameSelector}
+                      style={styles.gamepadButton}
                     />
                   </View>
-                  <Animated.View style={{ height: headerHeight, opacity: headerOpacity }}>
-                    <GameSelector />
+                  <Animated.View style={[styles.animWrapper, { height: headerHeight, opacity: headerOpacity }]}>
+                    <Animated.View style={{ transform: [{ translateY: internalTranslateY }] }}>
+                      <GameSelector />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               )
@@ -97,7 +105,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Matchs en Direct',
               header: ({ options }) => (
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -107,10 +115,13 @@ export default function TabsLayout() {
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
                       size={24}
                       onPress={toggleGameSelector}
+                      style={styles.gamepadButton}
                     />
                   </View>
-                  <Animated.View style={{ height: headerHeight, opacity: headerOpacity }}>
-                    <GameSelector />
+                  <Animated.View style={[styles.animWrapper, { height: headerHeight, opacity: headerOpacity }]}>
+                    <Animated.View style={{ transform: [{ translateY: internalTranslateY }] }}>
+                      <GameSelector />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               ),
@@ -118,7 +129,6 @@ export default function TabsLayout() {
               tabBarIcon: ({ color, size }) => (
                 <MaterialCommunityIcons name="access-point" size={size} color={color} />
               ),
-              tabBarBadge: undefined,
             }}
           />
           <Tabs.Screen
@@ -126,7 +136,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Tournois',
               header: ({ options }) => (
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -136,10 +146,13 @@ export default function TabsLayout() {
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
                       size={24}
                       onPress={toggleGameSelector}
+                      style={styles.gamepadButton}
                     />
                   </View>
-                  <Animated.View style={{ height: headerHeight, opacity: headerOpacity }}>
-                    <GameSelector />
+                  <Animated.View style={[styles.animWrapper, { height: headerHeight, opacity: headerOpacity }]}>
+                    <Animated.View style={{ transform: [{ translateY: internalTranslateY }] }}>
+                      <GameSelector />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               ),
@@ -154,7 +167,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Calendrier des Matchs',
               header: ({ options }) => (
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -164,10 +177,13 @@ export default function TabsLayout() {
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
                       size={24}
                       onPress={toggleGameSelector}
+                      style={styles.gamepadButton}
                     />
                   </View>
-                  <Animated.View style={{ height: headerHeight, opacity: headerOpacity }}>
-                    <GameSelector />
+                  <Animated.View style={[styles.animWrapper, { height: headerHeight, opacity: headerOpacity }]}>
+                    <Animated.View style={{ transform: [{ translateY: internalTranslateY }] }}>
+                      <GameSelector />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               ),
@@ -182,7 +198,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Mon Profil',
               header: ({ options }) => (
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -192,10 +208,13 @@ export default function TabsLayout() {
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
                       size={24}
                       onPress={toggleGameSelector}
+                      style={styles.gamepadButton}
                     />
                   </View>
-                  <Animated.View style={{ height: headerHeight, opacity: headerOpacity }}>
-                    <GameSelector />
+                  <Animated.View style={[styles.animWrapper, { height: headerHeight, opacity: headerOpacity }]}>
+                    <Animated.View style={{ transform: [{ translateY: internalTranslateY }] }}>
+                      <GameSelector />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               ),
@@ -214,6 +233,8 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#060B13',
+  },
+  headerActiveContainer: {
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },
@@ -233,5 +254,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.5,
+  },
+  animWrapper: {
+    overflow: 'hidden',
+    backgroundColor: '#060B13',
+  },
+  gamepadButton: {
+    margin: 0,
   }
 });
