@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Linking, Alert, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Linking, Alert, Dimensions, Animated } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,26 +17,24 @@ interface LiveMatchCardProps {
 }
 
 export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress }) => {
-  const pulseOpacity = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const animation = Animated.loop(
+    Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseOpacity, {
-          toValue: 0.4,
+        Animated.timing(pulseAnim, {
+          toValue: 0.6,
           duration: 1000,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseOpacity, {
+        Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           useNativeDriver: true,
         }),
       ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulseOpacity]);
+    ).start();
+  }, []);
 
   const team1 = match.opponents?.[0]?.opponent;
   const team2 = match.opponents?.[1]?.opponent;
@@ -50,110 +48,86 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress }) 
       return;
     }
     try {
-      const canOpen = await Linking.canOpenURL(streamLink);
-      if (canOpen) {
+      if (await Linking.canOpenURL(streamLink)) {
         await Linking.openURL(streamLink);
-      } else {
-        Alert.alert('Erreur', 'Impossible d\'ouvrir le lien de stream.');
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ouverture du stream.');
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le stream.');
     }
   };
 
   return (
-    <Pressable onPress={onPress || handleStreamPress} style={styles.pressable}>
-      {({ pressed }) => (
-        <Surface style={[styles.card, pressed && styles.cardPressed]} elevation={4}>
-          <LinearGradient
-            colors={[COLORS.surfaceVariant, COLORS.surface]}
-            style={styles.backgroundGradient}
-          />
-          
-          <View style={styles.header}>
-            <View style={styles.gameTag}>
-              <Text variant="labelSmall" style={styles.gameText}>
-                {match.videogame?.name || 'Live'}
-              </Text>
-            </View>
-            <Animated.View style={{ opacity: pulseOpacity }}>
-              <Badge label="LIVE" variant="live" />
-            </Animated.View>
-          </View>
-
-          <View style={styles.teamsRow}>
-            {/* Team 1 */}
-            <View style={styles.teamSide}>
-              <Image
-                source={{ uri: team1?.image_url }}
-                style={styles.teamLogo}
-                contentFit="contain"
-                transition={200}
-              />
-              <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
-                {team1?.acronym || team1?.name || 'T1'}
-              </Text>
-            </View>
-
-            {/* Score Center */}
-            <View style={styles.scoreCenter}>
-              <View style={styles.scoreBox}>
-                <Text variant="displaySmall" style={styles.scoreText}>
-                  {score1 ?? 0}
-                </Text>
-                <Text variant="titleMedium" style={styles.vsText}>:</Text>
-                <Text variant="displaySmall" style={styles.scoreText}>
-                  {score2 ?? 0}
-                </Text>
-              </View>
-              <Text variant="labelSmall" style={styles.tournamentName} numberOfLines={1}>
-                {match.tournament?.name || 'Tournament'}
-              </Text>
-            </View>
-
-            {/* Team 2 */}
-            <View style={styles.teamSide}>
-              <Image
-                source={{ uri: team2?.image_url }}
-                style={styles.teamLogo}
-                contentFit="contain"
-                transition={200}
-              />
-              <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
-                {team2?.acronym || team2?.name || 'T2'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.footer}>
-            <View style={styles.line} />
-            <Text variant="labelSmall" style={styles.watchPrompt}>
-              {streamLink ? 'タップしてストリームを見る' : 'スコアの更新中'}
+    <Pressable onPress={onPress || handleStreamPress} style={({ pressed }) => [
+      styles.container,
+      pressed && styles.pressed
+    ]}>
+      <Surface style={styles.card} elevation={2}>
+        <LinearGradient
+          colors={[COLORS.surfaceVariant, COLORS.surface]}
+          style={styles.backgroundGradient}
+        />
+        
+        <View style={styles.header}>
+          <View style={styles.gameTag}>
+            <Text variant="labelSmall" style={styles.gameText}>
+              {match.videogame?.name || 'Live'}
             </Text>
-            <View style={styles.line} />
           </View>
-        </Surface>
-      )}
+          <Animated.View style={{ opacity: pulseAnim }}>
+            <Badge label="LIVE" variant="live" />
+          </Animated.View>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.team}>
+            <Image source={{ uri: team1?.image_url }} style={styles.logo} contentFit="contain" />
+            <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
+              {team1?.acronym || team1?.name || 'T1'}
+            </Text>
+          </View>
+
+          <View style={styles.scoreContainer}>
+            <View style={styles.scoreRow}>
+              <Text variant="displaySmall" style={styles.scoreText}>{score1 ?? 0}</Text>
+              <Text variant="titleMedium" style={styles.vsText}>-</Text>
+              <Text variant="displaySmall" style={styles.scoreText}>{score2 ?? 0}</Text>
+            </View>
+            <Text variant="labelSmall" style={styles.tournament} numberOfLines={1}>
+              {match.tournament?.name}
+            </Text>
+          </View>
+
+          <View style={styles.team}>
+            <Image source={{ uri: team2?.image_url }} style={styles.logo} contentFit="contain" />
+            <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
+              {team2?.acronym || team2?.name || 'T2'}
+            </Text>
+          </View>
+        </View>
+      </Surface>
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  pressable: {
+  container: {
     marginRight: spacing.md,
     marginVertical: spacing.sm,
   },
+  pressed: {
+    transform: [{ scale: 0.98 }],
+  },
   card: {
     width: CARD_WIDTH,
+    minHeight: 170,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  cardPressed: {
-    transform: [{ scale: 0.98 }],
   },
   backgroundGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -163,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   gameTag: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -175,69 +149,49 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '700',
     textTransform: 'uppercase',
+    fontSize: 10,
   },
-  teamsRow: {
+  content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  teamSide: {
+  team: {
     flex: 1,
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  teamLogo: {
+  logo: {
     width: 60,
     height: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 30,
   },
   teamName: {
     color: COLORS.text,
     fontWeight: '700',
     textAlign: 'center',
   },
-  scoreCenter: {
+  scoreContainer: {
     flex: 1.5,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  scoreBox: {
+  scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   scoreText: {
     color: COLORS.text,
     fontWeight: '900',
-    fontSize: 32,
   },
   vsText: {
     color: COLORS.primary,
     fontWeight: '900',
-    opacity: 0.8,
+    opacity: 0.6,
   },
-  tournamentName: {
+  tournament: {
     color: COLORS.textSecondary,
-    marginTop: spacing.xs,
     fontSize: 10,
+    marginTop: 4,
     textAlign: 'center',
   },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  watchPrompt: {
-    color: COLORS.textMuted,
-    fontSize: 9,
-    fontStyle: 'italic',
-  },
 });
-
