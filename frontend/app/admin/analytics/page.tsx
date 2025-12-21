@@ -48,6 +48,28 @@ const AGE_COLORS = ["#F22E62", "#182859", "#00C49F", "#FF8042", "#FFBB28"];
 
 type Tab = "visitors" | "registrations" | "combined" | "ages";
 
+// Composant personnalisé pour le tooltip du camembert
+const CustomPieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div
+        style={{
+          backgroundColor: '#182859',
+          border: '2px solid #F22E62',
+          borderRadius: '8px',
+          padding: '10px',
+          color: '#ffffff',
+        }}
+      >
+        <p style={{ margin: 0, color: '#ffffff', fontWeight: 'bold' }}>
+          {`${payload[0].name}: ${payload[0].value}`}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("visitors");
   const [timeline, setTimeline] = useState<Timeline>("24h");
@@ -628,13 +650,7 @@ export default function AnalyticsPage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1a1a1a',
-                      border: '1px solid #333',
-                      borderRadius: '8px',
-                    }}
-                  />
+                  <Tooltip content={<CustomPieTooltip />} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
