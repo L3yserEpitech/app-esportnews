@@ -4,3 +4,4 @@ export * from './HomeHeader';
 export * from './SectionHeader';
 export * from './ArticleCard';
 export * from './TournamentCard';
+export * from './MatchCard';

@@ -1,42 +1,217 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { useState } from 'react';
-import { Text } from 'react-native-paper';
-import { Card } from '@/components/ui';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { DatePickerModal } from 'react-native-paper-dates';
+import { Button, Chip } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MatchCard } from '@/components/features';
+import { useMatches, useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
-import { spacing } from '@/constants/theme';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function CalendarScreen() {
+  const router = useRouter();
+  const { games } = useGame();
+
+  // Date picker state
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // Game filter state
+  const [filterGame, setFilterGame] = useState<string | null>(null);
+
+  // Fetch matches for selected date
+  const { matches, isLoading, isRefreshing, error, refetch } = useMatches({
+    date: selectedDate,
+    gameFilter: filterGame,
+  });
+
+  // Handle date selection
+  const onConfirmDate = (params: any) => {
+    // DatePickerModal passes { date: Date } for single mode
+    if (params.date) {
+      setSelectedDate(params.date);
+    }
+    setIsDatePickerOpen(false);
+  };
+
+  // Handle date picker dismiss
+  const onDismissDate = () => {
+    setIsDatePickerOpen(false);
+  };
+
+  // Handle game filter toggle
+  const handleGameFilterToggle = (acronym: string) => {
+    setFilterGame((prev) => (prev === acronym ? null : acronym));
+  };
+
+  // Handle match press
+  const handleMatchPress = (matchId: number) => {
+    router.push(`/match/${matchId}`);
+  };
+
+  // Render header
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      {/* Title */}
+      <View style={styles.titleSection}>
+        <MaterialCommunityIcons
+          name="calendar-month"
+          size={28}
+          color={COLORS.accent}
+        />
+        <Text style={styles.title}>Calendrier</Text>
+      </View>
+
+      {/* Date selector button */}
+      <Button
+        mode="outlined"
+        onPress={() => setIsDatePickerOpen(true)}
+        icon="calendar"
+        style={styles.dateButton}
+        contentStyle={styles.dateButtonContent}
+        labelStyle={styles.dateButtonLabel}
+      >
+        {format(selectedDate, 'dd MMMM yyyy', { locale: fr })}
+      </Button>
+
+      {/* Game filters */}
+      <View style={styles.filtersSection}>
+        <Text style={styles.filtersLabel}>Filtrer par jeu :</Text>
+        <FlatList
+          data={games}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <Chip
+              mode={filterGame === item.acronym ? 'flat' : 'outlined'}
+              selected={filterGame === item.acronym}
+              onPress={() => handleGameFilterToggle(item.acronym)}
+              style={styles.filterChip}
+              textStyle={
+                filterGame === item.acronym
+                  ? styles.filterChipTextSelected
+                  : styles.filterChipText
+              }
+            >
+              {item.name}
+            </Chip>
+          )}
+          contentContainerStyle={styles.filtersContent}
+          ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
+        />
+      </View>
+
+      {/* Results count */}
+      <View style={styles.countSection}>
+        <Text style={styles.countText}>
+          {matches.length} match{matches.length !== 1 ? 's' : ''}
+          {filterGame && ` · ${games.find((g) => g.acronym === filterGame)?.name}`}
+        </Text>
+      </View>
+    </View>
+  );
+
+  // Render empty state
+  const renderEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.emptyText}>Chargement des matchs...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={48}
+            color={COLORS.error}
+          />
+          <Text style={styles.emptyTitle}>Erreur</Text>
+          <Text style={styles.emptyText}>{error}</Text>
+          <Button
+            mode="contained"
+            onPress={refetch}
+            style={styles.retryButton}
+          >
+            Réessayer
+          </Button>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialCommunityIcons
+          name="calendar-blank"
+          size={64}
+          color={COLORS.textMuted}
+        />
+        <Text style={styles.emptyTitle}>Aucun match</Text>
+        <Text style={styles.emptyText}>
+          {filterGame
+            ? `Aucun match ${games.find((g) => g.acronym === filterGame)?.name} ce jour-là.`
+            : 'Aucun match prévu pour cette date.'}
+        </Text>
+        <Text style={styles.emptyHint}>
+          Essayez de sélectionner une autre date ou de changer de jeu.
+        </Text>
+      </View>
+    );
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text variant="titleLarge" style={styles.title}>
-        Calendrier des Matchs
-      </Text>
-      <Text variant="bodyMedium" style={styles.subtitle}>
-        Sélectionnez une date pour voir les matchs prévus
-      </Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={matches}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <MatchCard
+            match={item}
+            onPress={() => handleMatchPress(item.id)}
+          />
+        )}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refetch}
+            tintColor={COLORS.accent}
+            colors={[COLORS.accent]}
+          />
+        }
+      />
 
-      <Card variant="outlined" padding="lg" style={styles.placeholder}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.placeholderTitle}>
-            📅 Calendar Component
-          </Text>
-          <Text variant="bodyMedium" style={styles.placeholderText}>
-            - Installer react-native-paper-dates{'\n'}
-            - Date picker avec dots{'\n'}
-              (marqueurs sur dates avec matchs){'\n'}
-            - Fetch matchs: POST /api/matches/by-date{'\n'}
-            - Liste des matchs du jour sélectionné{'\n'}
-            - Filtre par jeu{'\n\n'}
-            À implémenter au Palier 10
-          </Text>
-          <Text variant="bodySmall" style={styles.currentDate}>
-            Date sélectionnée: {selectedDate.toLocaleDateString('fr-FR')}
-          </Text>
-        </Card.Content>
-      </Card>
-    </ScrollView>
+      {/* Date picker modal */}
+      <DatePickerModal
+        locale="fr"
+        mode="single"
+        visible={isDatePickerOpen}
+        onDismiss={onDismissDate}
+        date={selectedDate}
+        onConfirm={onConfirmDate}
+        validRange={{
+          startDate: new Date(2020, 0, 1),
+          endDate: new Date(2030, 11, 31),
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -45,32 +220,93 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
+  listContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+  },
+  headerContainer: {
+    marginBottom: 16,
+  },
+  titleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
   },
   title: {
-    color: COLORS.text,
-    marginBottom: spacing.xs,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
   },
-  subtitle: {
+  dateButton: {
+    marginBottom: 16,
+    borderColor: COLORS.borderPrimary,
+  },
+  dateButtonContent: {
+    height: 48,
+  },
+  dateButtonLabel: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
+  filtersSection: {
+    marginBottom: 16,
+  },
+  filtersLabel: {
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textSecondary,
-    marginBottom: spacing.xl,
+    marginBottom: 8,
   },
-  placeholder: {
-    marginTop: spacing.lg,
+  filtersContent: {
+    paddingVertical: 4,
   },
-  placeholderTitle: {
-    color: COLORS.text,
-    marginBottom: spacing.md,
+  filterChip: {
+    backgroundColor: COLORS.cardBackground,
+    borderColor: COLORS.borderPrimary,
   },
-  placeholderText: {
+  filterChipText: {
+    color: COLORS.textPrimary,
+  },
+  filterChipTextSelected: {
+    color: COLORS.accent,
+  },
+  countSection: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderPrimary,
+    marginBottom: 16,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textSecondary,
-    lineHeight: 22,
   },
-  currentDate: {
-    color: COLORS.primary,
-    marginTop: spacing.md,
-    fontWeight: '500',
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 64,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  emptyHint: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: COLORS.accent,
   },
 });

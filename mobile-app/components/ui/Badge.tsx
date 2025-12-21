@@ -6,13 +6,15 @@ import { borderRadius, spacing } from '@/constants/theme';
 type BadgeVariant = 'live' | 'upcoming' | 'finished' | 'tierS' | 'tierA' | 'tierB' | 'tierC' | 'tierD' | 'default';
 
 interface BadgeProps {
-  label: string;
+  label?: string;
+  children?: React.ReactNode;
   variant?: BadgeVariant;
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
 
-export function Badge({ label, variant = 'default', style, textStyle }: BadgeProps) {
+export function Badge({ label, children, variant = 'default', style, textStyle }: BadgeProps) {
+  const content = children || label;
   const getBackgroundColor = () => {
     switch (variant) {
       case 'live':
@@ -59,7 +61,7 @@ export function Badge({ label, variant = 'default', style, textStyle }: BadgePro
           textStyle,
         ]}
       >
-        {label}
+        {content}
       </Text>
     </View>
   );

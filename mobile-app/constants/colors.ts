@@ -2,6 +2,7 @@
 export const COLORS = {
   // Primary brand colors
   primary: '#F22E62',      // Pink/Red accent
+  accent: '#F22E62',       // Alias for primary (same as primary)
   darkest: '#060B13',      // Darkest background
   dark: '#091626',         // Dark background
   darkBlue: '#182859',     // Dark blue accent
@@ -10,14 +11,17 @@ export const COLORS = {
   background: '#060B13',
   surface: '#091626',
   surfaceVariant: '#182859',
+  cardBackground: '#091626', // Card background (same as surface)
 
   // Text colors
   text: '#FFFFFF',
+  textPrimary: '#FFFFFF',  // Alias for text (same as text)
   textSecondary: '#B0B0B0',
   textMuted: '#6B7280',
 
   // Status colors
   live: '#EF4444',         // Red for live indicator
+  error: '#EF4444',        // Red for errors
   success: '#10B981',      // Green for success/finished
   warning: '#F59E0B',      // Orange for warnings
   info: '#3B82F6',         // Blue for info
@@ -28,6 +32,15 @@ export const COLORS = {
   tierB: '#CD7F32',        // Bronze
   tierC: '#6B7280',        // Gray
   tierD: '#4B5563',        // Dark gray
+
+  // Tier colors object (for easy access)
+  tier: {
+    s: '#FFD700',          // Gold
+    a: '#C0C0C0',          // Silver
+    b: '#CD7F32',          // Bronze
+    c: '#6B7280',          // Gray
+    d: '#4B5563',          // Dark gray
+  },
 
   // UI elements
   border: '#1F2937',

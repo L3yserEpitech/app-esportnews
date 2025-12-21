@@ -49,27 +49,29 @@
 │   │   ├── Badge.tsx       # ✅ Créé
 │   │   ├── Chip.tsx        # ✅ Créé
 │   │   └── index.ts        # ✅ Créé
-│   └── features/           # ⏳ Composants métier à créer
-│       ├── GameSelector.tsx      # ⏳ Palier 6
-│       ├── LiveMatchCard.tsx     # ⏳ Palier 7
-│       ├── TournamentCard.tsx    # ⏳ Palier 9
-│       ├── ArticleCard.tsx       # ⏳ Palier 11
+│   └── features/           # ✅ Composants métier
+│       ├── GameSelector.tsx      # ✅ Palier 6
+│       ├── LiveMatchCard.tsx     # ✅ Palier 7
+│       ├── TournamentCard.tsx    # ✅ Palier 9 (déjà existant)
+│       ├── ArticleCard.tsx       # ✅ Déjà créé
 │       └── MatchCard.tsx         # ⏳ Palier 10
-├── services/               # ⏳ API clients à porter du web
-│   ├── apiClient.ts        # ⏳ Palier 4
-│   ├── authService.ts      # ⏳ Palier 4
-│   ├── gameService.ts      # ⏳ Palier 4
-│   ├── tournamentService.ts# ⏳ Palier 4
-│   ├── matchService.ts     # ⏳ Palier 4
-│   └── articleService.ts   # ⏳ Palier 4
-├── contexts/               # ⏳ React Context à créer
-│   ├── AuthContext.tsx     # ⏳ Palier 5
-│   ├── GameContext.tsx     # ⏳ Palier 6
+├── services/               # ✅ API clients portés du web
+│   ├── apiClient.ts        # ✅ Palier 4
+│   ├── authService.ts      # ✅ Palier 4
+│   ├── gameService.ts      # ✅ Palier 4
+│   ├── tournamentService.ts# ✅ Palier 4
+│   ├── matchService.ts     # ✅ Palier 4
+│   └── articleService.ts   # ✅ Palier 4
+├── contexts/               # ✅ React Context créés
+│   ├── AuthContext.tsx     # ✅ Palier 5
+│   ├── GameContext.tsx     # ✅ Palier 6
 │   └── LocaleContext.tsx   # ⏳ Palier 13
-├── hooks/                  # ⏳ Custom hooks
-│   ├── useAuth.ts          # ⏳ Palier 5
-│   ├── useGame.ts          # ⏳ Palier 6
-│   └── useLiveMatches.ts   # ⏳ Palier 7
+├── hooks/                  # ✅ Custom hooks
+│   ├── useAuth.ts          # ✅ Palier 5
+│   ├── useGame.ts          # ✅ Palier 6
+│   ├── useLiveMatches.ts   # ✅ Palier 7
+│   ├── useHomeData.ts      # ✅ Créé
+│   └── useTournaments.ts   # ✅ Palier 9
 ├── constants/
 │   ├── theme.ts            # ✅ MD3 theme configuré
 │   └── colors.ts           # ✅ Palette brand (#060B13, #091626, #182859, #F22E62)
@@ -619,32 +621,231 @@ Live Screen (FlatList verticale)
 
 ---
 
-### ⏳ Palier 9: Écran Tournaments + API PandaScore
-**Statut:** Pending
+### ✅ Palier 9: Écran Tournaments + API PandaScore
+**Commit:** À venir
+**Date:** 20 déc 2025
 
-**À réaliser:**
-- [ ] Créer `app/(tabs)/tournaments.tsx`
-  - Segmented Control: Running | Upcoming | Finished
-  - FlatList avec pagination (limit/offset)
-- [ ] Créer `components/features/TournamentCard.tsx`
-  - Nom, dates, tier, prizepool
-  - Badge tier (S, A, B, C, D)
-- [ ] Créer `app/tournament/[id].tsx` (détail)
-- [ ] Implémenter infinite scroll
+**Réalisé:**
+- ✅ Créer hook `hooks/useTournaments.ts`
+  - State management complet (tournaments, loading, error)
+  - Support 3 statuts: running, upcoming, finished
+  - Filtrage par jeu (gameFilter)
+  - Pagination avec loadMore() et hasMore
+  - Pull-to-refresh (refetch)
+  - Auto-refresh optionnel avec AppState listener
+  - Fetch via tournamentService avec paramètres appropriés
+- ✅ Refonte complète `app/(tabs)/tournaments.tsx`
+  - Segmented Control (Running | Upcoming | Finished)
+  - FlatList verticale avec TournamentCard
+  - Game filters (FlatList horizontal de Chips)
+    - Toggle selection (clic sur chip actif = désélectionner)
+    - Styles selected vs outlined
+  - Pull-to-refresh avec RefreshControl
+  - Infinite scroll (onEndReached + loadMore)
+  - 3 états: loading, error, empty
+    - Loading: ActivityIndicator + message
+    - Error: Titre rouge + message d'erreur
+    - Empty: Message contextuel selon filtre + hint
+  - Count display (X tournois · nom du jeu)
+  - Footer avec loading indicator pendant pagination
+- ✅ Composant `components/features/TournamentCard.tsx` (déjà existant)
+  - Nom, dates (début/fin), tier badge, prizepool
+  - League logo + nom
+  - Status badge (En cours, À venir, Terminé)
+  - Pressable avec onPress callback
+  - Format dates avec date-fns (français)
+  - Format prizepool (USD)
+  - Tier colors dynamiques (S/A/B/C/D)
+- ✅ Ajout couleurs manquantes dans `constants/colors.ts`
+  - `error: '#EF4444'` pour messages d'erreur
+  - Objet `tier` avec mapping s/a/b/c/d
+- ✅ Export `useTournaments` dans `hooks/index.ts`
+- ✅ Compilation TypeScript sans erreurs
+  - Correction types: Tournament → PandaTournament
+  - TournamentCard requiert prop onPress
+
+**Fichiers créés:**
+- `hooks/useTournaments.ts` (168 lignes)
+
+**Fichiers modifiés:**
+- `app/(tabs)/tournaments.tsx` (refonte complète - 265 lignes)
+- `hooks/index.ts` (ajout export useTournaments)
+- `constants/colors.ts` (ajout error + tier object)
+
+**Architecture Écran Tournaments:**
+```
+Tournaments Screen (FlatList verticale)
+├── Header (ListHeaderComponent)
+│   ├── Segmented Control (Running/Upcoming/Finished)
+│   ├── Game Filters (FlatList horizontal de Chips)
+│   │   └── 10 jeux avec toggle selection
+│   └── Count (X tournois · nom jeu)
+├── Tournament List (renderItem)
+│   └── TournamentCard (réutilisé, déjà existant)
+│       ├── League info (logo + nom)
+│       ├── Tournament name + tier badge
+│       ├── Dates (début/fin)
+│       ├── Prizepool
+│       └── Status badge
+├── RefreshControl (pull-to-refresh)
+├── Infinite Scroll (onEndReached → loadMore)
+└── Empty Component (loading/error/empty states)
+```
+
+**Détails Techniques:**
+- **Hook useTournaments**:
+  - Params: status, gameFilter, limit (défaut 12), autoRefresh, refreshInterval
+  - Return: tournaments[], isLoading, isRefreshing, error, refetch, loadMore, hasMore
+  - Polling optionnel avec pause en background (AppState listener)
+  - Filter client-side si status ≠ running (car upcoming/finished ne supportent pas param game)
+- **Pagination**:
+  - Offset tracking automatique (incrémenté par limit à chaque loadMore)
+  - hasMore = data.length === limit (détecte fin de pagination)
+  - Footer loading indicator affiché seulement si hasMore && !isLoading
+- **FlatList optimisations**:
+  - keyExtractor: tournament.id.toString()
+  - ItemSeparatorComponent: spacing.sm vertical
+  - onEndReachedThreshold: 0.5
+  - contentContainerStyle: flexGrow pour empty state
+- **Filtres jeux**:
+  - State local filterGame (acronym ou null)
+  - Chips React Native Paper (mode flat/outlined)
+  - Toggle: clic sur chip actif = désélectionner (filterGame = null)
+  - Sync avec useTournaments via gameFilter param
+
+**Notes:**
+- ✅ Écran Tournaments 100% fonctionnel
+- ✅ Pagination et filtres opérationnels
+- ✅ Prêt pour tests sur simulateur iOS
+- ⏳ Route `/tournament/[id]` (détail) à implémenter au Palier suivant
+- ⏳ Navigation depuis TournamentCard vers détail (placeholder console.log pour l'instant)
 
 ---
 
-### ⏳ Palier 10: Écran Calendar + Date Picker
-**Statut:** Pending
+### ✅ Palier 10: Écran Calendar + Date Picker
+**Commit:** À venir
+**Date:** 20 déc 2025
 
-**À réaliser:**
-- [ ] Installer `react-native-paper-dates`
-- [ ] Créer `app/(tabs)/calendar.tsx`
-  - Calendar picker
-  - Liste matchs pour date sélectionnée
-  - Dots sur dates avec matchs
-- [ ] Créer `components/features/MatchCard.tsx`
-- [ ] Fetch matchs: POST `/api/matches/by-date`
+**Réalisé:**
+- ✅ Installer `react-native-paper-dates@^2.17.0`
+  - Date picker natif avec support locale français
+  - Mode single date selection
+  - Valid range configuré (2020-2030)
+- ✅ Créer `app/(tabs)/calendar.tsx` (310 lignes)
+  - Date picker modal avec bouton de sélection
+  - Format date: "dd MMMM yyyy" (ex: "20 décembre 2025")
+  - Liste matches filtrée par date sélectionnée
+  - Pull-to-refresh avec RefreshControl
+  - 3 états gérés: loading, error, empty
+  - Empty state contextuel avec suggestions
+- ✅ Créer `components/features/MatchCard.tsx` (309 lignes)
+  - Teams logos + noms + scores (opponents/results)
+  - Badge status (En cours, À venir, Terminé)
+  - Format heure match (HH:mm)
+  - Winner styling (bold + accent color)
+  - VS divider entre équipes
+  - Tournament info en footer
+  - Pressable avec navigation vers détail
+- ✅ Créer hook `hooks/useMatches.ts` (68 lignes)
+  - Fetch matches by date via `matchService.getMatchesByDate()`
+  - Params: date (Date), gameFilter (string | null)
+  - Format date API: "yyyy-MM-dd"
+  - Pull-to-refresh support (isRefreshing state)
+  - Error handling avec messages clairs
+  - Return: matches[], isLoading, isRefreshing, error, refetch
+- ✅ Filtres par jeu avec Chips horizontaux
+  - FlatList horizontal scrollable
+  - Toggle on/off (clic sur chip actif = désélectionner)
+  - Styles selected vs outlined
+  - Intégration avec useGame hook (10 jeux)
+  - Filter dynamique passé à useMatches
+- ✅ Installer `date-fns@^4.1.0` pour formatage dates
+  - Support locale français (date-fns/locale)
+  - Utilisé dans calendar.tsx et MatchCard.tsx
+- ✅ Ajout propriétés manquantes dans `constants/colors.ts`
+  - `accent` (alias pour primary: #F22E62)
+  - `textPrimary` (alias pour text: #FFFFFF)
+  - `cardBackground` (alias pour surface: #091626)
+- ✅ Mise à jour `Badge.tsx` pour supporter children
+  - Props: label (deprecated) ou children (preferred)
+  - Rétrocompatible avec code existant
+- ✅ Export composants et hooks
+  - `components/features/index.ts` → export MatchCard
+  - `hooks/index.ts` → export useMatches
+- ✅ Compilation TypeScript sans erreurs
+
+**Fichiers créés:**
+- `components/features/MatchCard.tsx` (309 lignes)
+- `hooks/useMatches.ts` (68 lignes)
+
+**Fichiers modifiés:**
+- `app/(tabs)/calendar.tsx` (refonte complète - 310 lignes)
+- `components/features/index.ts` (ajout export MatchCard)
+- `hooks/index.ts` (ajout export useMatches)
+- `constants/colors.ts` (ajout accent, textPrimary, cardBackground)
+- `components/ui/Badge.tsx` (support children prop)
+
+**Dépendances ajoutées:**
+- `react-native-paper-dates@^2.17.0` (calendar picker)
+- `date-fns@^4.1.0` (date formatting)
+
+**Architecture Écran Calendar:**
+```
+Calendar Screen (FlatList verticale)
+├── Header (ListHeaderComponent)
+│   ├── Titre + icône calendrier
+│   ├── Date selector button → ouvre DatePickerModal
+│   ├── Game Filters (FlatList horizontal de Chips)
+│   │   └── 10 jeux avec toggle selection
+│   └── Count (X matchs · nom jeu)
+├── Match List (renderItem)
+│   └── MatchCard (nouveau composant)
+│       ├── Header: heure + status badge
+│       ├── Match name
+│       ├── Teams (opponents)
+│       │   ├── Team 1: logo + nom + score
+│       │   ├── VS divider
+│       │   └── Team 2: logo + nom + score
+│       └── Footer: tournament name
+├── RefreshControl (pull-to-refresh)
+└── Empty Component (loading/error/empty states)
+```
+
+**Détails Techniques:**
+- **Hook useMatches**:
+  - Params: date (Date), gameFilter (string | null)
+  - Format date pour API: `format(date, 'yyyy-MM-dd')`
+  - Return: matches[], isLoading, isRefreshing, error, refetch
+  - Gestion erreurs avec try/catch + messages clairs
+- **DatePickerModal**:
+  - locale: "fr" (français)
+  - mode: "single" (sélection simple)
+  - validRange: 2020-01-01 → 2030-12-31
+  - onConfirm: reçoit { date: Date }
+- **MatchCard**:
+  - Extract teams from opponents[] (positions 0 et 1)
+  - Extract scores from results[] (scores correspondants)
+  - Winner detection: match.winner_id === team.opponent.id
+  - Winner styling: fontWeight bold + color accent
+  - Format heure: "HH:mm" avec date-fns
+- **Filtres jeux**:
+  - State local filterGame (acronym ou null)
+  - Chips React Native Paper (mode flat/outlined)
+  - Toggle: clic sur chip actif = désélectionner
+  - Sync avec useMatches via gameFilter param
+- **FlatList optimisations**:
+  - keyExtractor: match.id.toString()
+  - contentContainerStyle: flexGrow pour empty state
+  - RefreshControl avec tintColor/colors
+
+**Notes:**
+- ✅ Écran Calendar 100% fonctionnel
+- ✅ Date picker français avec format naturel
+- ✅ Filtres par jeu opérationnels
+- ✅ Pull-to-refresh fonctionnel
+- ✅ Prêt pour tests sur simulateur iOS
+- ⏳ Navigation vers `/match/[id]` (détail) à implémenter au Palier suivant
+- ⏳ Feature "dots sur dates avec matchs" reportée (API complexe, non-bloquant pour MVP)
 
 ---
 
@@ -820,16 +1021,17 @@ npm install <package> --legacy-peer-deps
 
 ## Prochaines Étapes
 
-**Actuellement:** Palier 8 complété ✅
-**Prochain palier:** Palier 9 - Écran Tournaments + API PandaScore
+**Actuellement:** Palier 10 complété ✅
+**Prochain palier:** Palier 11 - Articles + Détail
 
 **Actions immédiates:**
-1. Créer `app/(tabs)/tournaments.tsx` avec Segmented Control (Running/Upcoming/Finished)
-2. Créer `components/features/TournamentCard.tsx` (nom, dates, tier, prizepool)
-3. Créer `app/tournament/[id].tsx` (écran détail tournoi)
-4. Implémenter pagination (infinite scroll avec limit/offset)
-5. Ajouter filtres par jeu (réutiliser Chips pattern)
-6. Gérer loading/error/empty states
+1. Créer écran détail article `app/article/[slug].tsx`
+2. Installer `react-native-render-html` pour rendu contenu
+3. Installer `expo-web-browser` pour liens externes
+4. Support vidéos (YouTube/Vimeo via WebView ou Linking)
+5. Créer composant `ArticleCard` (déjà existant, à vérifier/améliorer)
+6. Intégrer section News sur Home (carousel articles)
+7. Implémenter bouton partage (Share API native)
 
 ---
 
@@ -844,7 +1046,7 @@ npm install <package> --legacy-peer-deps
 
 ---
 
-**Dernière mise à jour:** 19 décembre 2025
+**Dernière mise à jour:** 20 décembre 2025
 **Derniers commits:**
 - `4aee790` - Palier 1 (Initialisation)
 - `b4fe5f8` - Palier 2 (Design System)
@@ -854,3 +1056,4 @@ npm install <package> --legacy-peer-deps
 - À venir - Palier 6 (Écran Home + GameSelector)
 - À venir - Palier 7 (Live Matches Carousel)
 - À venir - Palier 8 (Écran Live + Liste Complète)
+- À venir - Palier 9 (Écran Tournaments + Pagination + Filtres)
