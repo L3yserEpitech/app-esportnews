@@ -1,7 +1,7 @@
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useState } from 'react';
-import { Text, ActivityIndicator, Chip } from 'react-native-paper';
-import { Card, Badge } from '@/components/ui';
+import { Text, ActivityIndicator } from 'react-native-paper';
+import { Badge } from '@/components/ui';
 import { LiveMatchCard } from '@/components/features';
 import { useGame, useLiveMatches } from '@/hooks';
 import { COLORS } from '@/constants/colors';
@@ -9,8 +9,7 @@ import { spacing } from '@/constants/theme';
 import { LiveMatch } from '@/types';
 
 export default function LiveScreen() {
-  const { games, selectedGame, setSelectedGame } = useGame();
-  const [filterGame, setFilterGame] = useState<string | undefined>(undefined);
+  const { selectedGame } = useGame();
 
   const {
     liveMatches,
@@ -18,7 +17,7 @@ export default function LiveScreen() {
     error,
     refetch,
   } = useLiveMatches({
-    gameAcronym: filterGame,
+    gameAcronym: selectedGame?.acronym,
     pollingInterval: 30000,
     enabled: true,
   });
@@ -31,15 +30,6 @@ export default function LiveScreen() {
     setRefreshing(false);
   };
 
-  const handleGameFilter = (acronym?: string) => {
-    if (filterGame === acronym) {
-      // Toggle off
-      setFilterGame(undefined);
-    } else {
-      setFilterGame(acronym);
-    }
-  };
-
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.titleContainer}>
@@ -49,31 +39,13 @@ export default function LiveScreen() {
         <Badge label="LIVE" variant="live" />
       </View>
       <Text variant="bodyMedium" style={styles.subtitle}>
+        {selectedGame
+          ? `Matchs ${selectedGame.name} en direct`
+          : 'Tous les matchs en direct'}
+      </Text>
+      <Text variant="bodySmall" style={styles.hint}>
         Tirez pour rafraîchir • Mise à jour automatique toutes les 30s
       </Text>
-
-      {/* Game Filters */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          horizontal
-          data={games}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <Chip
-              mode={filterGame === item.acronym ? 'flat' : 'outlined'}
-              selected={filterGame === item.acronym}
-              onPress={() => handleGameFilter(item.acronym)}
-              style={styles.filterChip}
-              textStyle={styles.filterChipText}
-            >
-              {item.name}
-            </Chip>
-          )}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}
-          ItemSeparatorComponent={() => <View style={{ width: spacing.xs }} />}
-        />
-      </View>
     </View>
   );
 
@@ -108,8 +80,8 @@ export default function LiveScreen() {
           Aucun match en direct
         </Text>
         <Text variant="bodyMedium" style={styles.emptyText}>
-          {filterGame
-            ? `Aucun match en direct pour ${games.find(g => g.acronym === filterGame)?.name || 'ce jeu'} actuellement.`
+          {selectedGame
+            ? `Aucun match en direct pour ${selectedGame.name} actuellement.`
             : 'Aucun match en direct pour le moment.'}
         </Text>
         <Text variant="bodySmall" style={styles.emptyHint}>
@@ -173,19 +145,13 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: COLORS.textSecondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
+    fontSize: 15,
+    fontWeight: '600',
   },
-  filtersContainer: {
-    marginTop: spacing.sm,
-  },
-  filtersContent: {
-    paddingVertical: spacing.xs,
-  },
-  filterChip: {
-    height: 36,
-  },
-  filterChipText: {
-    fontSize: 13,
+  hint: {
+    color: COLORS.textMuted,
+    fontSize: 12,
   },
   matchCardContainer: {
     alignItems: 'center',

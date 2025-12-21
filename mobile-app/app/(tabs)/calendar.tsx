@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
-import { Button, Chip } from 'react-native-paper';
+import { Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MatchCard } from '@/components/features';
@@ -20,19 +20,16 @@ import { fr } from 'date-fns/locale';
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const { games } = useGame();
+  const { selectedGame } = useGame();
 
   // Date picker state
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  // Game filter state
-  const [filterGame, setFilterGame] = useState<string | null>(null);
-
   // Fetch matches for selected date
   const { matches, isLoading, isRefreshing, error, refetch } = useMatches({
     date: selectedDate,
-    gameFilter: filterGame,
+    gameFilter: selectedGame?.acronym || null,
   });
 
   // Handle date selection
@@ -49,11 +46,6 @@ export default function CalendarScreen() {
     setIsDatePickerOpen(false);
   };
 
-  // Handle game filter toggle
-  const handleGameFilterToggle = (acronym: string) => {
-    setFilterGame((prev) => (prev === acronym ? null : acronym));
-  };
-
   // Handle match press
   const handleMatchPress = (matchId: number) => {
     router.push(`/match/${matchId}`);
@@ -62,16 +54,6 @@ export default function CalendarScreen() {
   // Render header
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Title */}
-      <View style={styles.titleSection}>
-        <MaterialCommunityIcons
-          name="calendar-month"
-          size={28}
-          color={COLORS.accent}
-        />
-        <Text style={styles.title}>Calendrier</Text>
-      </View>
-
       {/* Date selector button */}
       <Button
         mode="outlined"
@@ -84,39 +66,11 @@ export default function CalendarScreen() {
         {format(selectedDate, 'dd MMMM yyyy', { locale: fr })}
       </Button>
 
-      {/* Game filters */}
-      <View style={styles.filtersSection}>
-        <Text style={styles.filtersLabel}>Filtrer par jeu :</Text>
-        <FlatList
-          data={games}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <Chip
-              mode={filterGame === item.acronym ? 'flat' : 'outlined'}
-              selected={filterGame === item.acronym}
-              onPress={() => handleGameFilterToggle(item.acronym)}
-              style={styles.filterChip}
-              textStyle={
-                filterGame === item.acronym
-                  ? styles.filterChipTextSelected
-                  : styles.filterChipText
-              }
-            >
-              {item.name}
-            </Chip>
-          )}
-          contentContainerStyle={styles.filtersContent}
-          ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
-        />
-      </View>
-
       {/* Results count */}
       <View style={styles.countSection}>
         <Text style={styles.countText}>
           {matches.length} match{matches.length !== 1 ? 's' : ''}
-          {filterGame && ` · ${games.find((g) => g.acronym === filterGame)?.name}`}
+          {selectedGame && ` · ${selectedGame.name}`}
         </Text>
       </View>
     </View>
@@ -163,8 +117,8 @@ export default function CalendarScreen() {
         />
         <Text style={styles.emptyTitle}>Aucun match</Text>
         <Text style={styles.emptyText}>
-          {filterGame
-            ? `Aucun match ${games.find((g) => g.acronym === filterGame)?.name} ce jour-là.`
+          {selectedGame
+            ? `Aucun match ${selectedGame.name} ce jour-là.`
             : 'Aucun match prévu pour cette date.'}
         </Text>
         <Text style={styles.emptyHint}>
@@ -227,17 +181,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginBottom: 16,
   },
-  titleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
   dateButton: {
     marginBottom: 16,
     borderColor: COLORS.borderPrimary,
@@ -248,28 +191,6 @@ const styles = StyleSheet.create({
   dateButtonLabel: {
     fontSize: 16,
     color: COLORS.textPrimary,
-  },
-  filtersSection: {
-    marginBottom: 16,
-  },
-  filtersLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
-  filtersContent: {
-    paddingVertical: 4,
-  },
-  filterChip: {
-    backgroundColor: COLORS.cardBackground,
-    borderColor: COLORS.borderPrimary,
-  },
-  filterChipText: {
-    color: COLORS.textPrimary,
-  },
-  filterChipTextSelected: {
-    color: COLORS.accent,
   },
   countSection: {
     paddingVertical: 12,

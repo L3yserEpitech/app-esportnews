@@ -1,6 +1,6 @@
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
-import { Text, SegmentedButtons, Chip } from 'react-native-paper';
+import { Text, SegmentedButtons } from 'react-native-paper';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { useTournaments } from '@/hooks';
@@ -12,8 +12,7 @@ type TournamentStatus = 'running' | 'upcoming' | 'finished';
 
 export default function TournamentsScreen() {
   const [status, setStatus] = useState<TournamentStatus>('running');
-  const [filterGame, setFilterGame] = useState<string | null>(null);
-  const { games } = useGame();
+  const { selectedGame } = useGame();
 
   const {
     tournaments,
@@ -25,7 +24,7 @@ export default function TournamentsScreen() {
     hasMore,
   } = useTournaments({
     status,
-    gameFilter: filterGame,
+    gameFilter: selectedGame?.acronym || null,
     limit: 12,
     autoRefresh: false,
   });
@@ -47,42 +46,10 @@ export default function TournamentsScreen() {
         />
       </View>
 
-      {/* Game Filters */}
-      <View style={styles.gameFiltersContainer}>
-        <Text variant="labelMedium" style={styles.filterLabel}>
-          Filtrer par jeu :
-        </Text>
-        <FlatList
-          horizontal
-          data={games}
-          keyExtractor={(game) => game.id.toString()}
-          renderItem={({ item: game }) => (
-            <Chip
-              mode={filterGame === game.acronym ? 'flat' : 'outlined'}
-              selected={filterGame === game.acronym}
-              onPress={() => {
-                // Toggle: if already selected, deselect
-                setFilterGame(filterGame === game.acronym ? null : game.acronym);
-              }}
-              style={[
-                styles.gameChip,
-                filterGame === game.acronym && styles.gameChipSelected,
-              ]}
-              textStyle={filterGame === game.acronym ? styles.chipTextSelected : styles.chipText}
-            >
-              {game.name}
-            </Chip>
-          )}
-          ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.gameFiltersList}
-        />
-      </View>
-
-      {/* Count */}
+      {/* Count & Game Filter Info */}
       <Text variant="bodySmall" style={styles.countText}>
         {tournaments.length} tournoi{tournaments.length > 1 ? 's' : ''}
-        {filterGame && ` · ${games.find(g => g.acronym === filterGame)?.name}`}
+        {selectedGame && ` · ${selectedGame.name}`}
       </Text>
     </View>
   );
@@ -119,12 +86,12 @@ export default function TournamentsScreen() {
           Aucun tournoi
         </Text>
         <Text variant="bodyMedium" style={styles.emptyText}>
-          {filterGame
-            ? `Aucun tournoi ${status === 'running' ? 'en cours' : status === 'upcoming' ? 'à venir' : 'terminé'} pour ${games.find(g => g.acronym === filterGame)?.name}.`
+          {selectedGame
+            ? `Aucun tournoi ${status === 'running' ? 'en cours' : status === 'upcoming' ? 'à venir' : 'terminé'} pour ${selectedGame.name}.`
             : `Aucun tournoi ${status === 'running' ? 'en cours' : status === 'upcoming' ? 'à venir' : 'terminé'}.`}
         </Text>
         <Text variant="bodySmall" style={styles.emptyHint}>
-          Essayez de changer de filtre ou revenez plus tard.
+          Essayez de changer de statut ou de sélectionner un jeu.
         </Text>
       </View>
     );
@@ -195,31 +162,6 @@ const styles = StyleSheet.create({
   },
   segmentedButtons: {
     backgroundColor: COLORS.background,
-  },
-  gameFiltersContainer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  filterLabel: {
-    color: COLORS.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  gameFiltersList: {
-    paddingBottom: spacing.sm,
-  },
-  gameChip: {
-    backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
-  },
-  gameChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    color: COLORS.textSecondary,
-  },
-  chipTextSelected: {
-    color: COLORS.darkest,
   },
   countText: {
     color: COLORS.textMuted,

@@ -849,18 +849,125 @@ Calendar Screen (FlatList verticale)
 
 ---
 
-### ⏳ Palier 11: Articles + Détail
-**Statut:** Pending
+### ✅ Palier 11: Articles + Détail
+**Commit:** À venir
+**Date:** 21 déc 2025
 
-**À réaliser:**
-- [ ] Créer section News sur Home (carousel)
-- [ ] Créer `app/article/[slug].tsx`
-  - Titre, auteur, date, featured image
-  - Contenu HTML (react-native-render-html)
-  - Support vidéo (WebView YouTube/Vimeo)
-  - Bouton partage
-- [ ] Créer `components/features/ArticleCard.tsx`
-- [ ] Installer `react-native-render-html`, `expo-web-browser`
+**Réalisé:**
+- ✅ Installer dépendances articles
+  - `react-native-render-html@^6.3.0` (rendu HTML)
+  - `expo-web-browser` (ouvrir vidéos externes)
+  - `react-native-webview` (fallback WebView)
+- ✅ Créer hook `hooks/useArticles.ts`
+  - Fetch articles avec pagination (limit, offset)
+  - Filtrage par catégorie
+  - Pull-to-refresh support
+  - Load more (infinite scroll)
+  - Auto-refresh optionnel
+  - Return: articles[], isLoading, isRefreshing, error, refetch, loadMore, hasMore
+- ✅ Créer écran détail article `app/article/[slug].tsx`
+  - Featured image (Expo Image)
+  - Category badge
+  - Title, subtitle, meta info (auteur, date, vues)
+  - Support vidéo (WebBrowser.openBrowserAsync)
+  - HTML content rendering (react-native-render-html)
+    - Styles custom pour tous les tags (p, h1-h3, a, ul, ol, blockquote, code, pre, strong, em)
+    - Responsive width (useWindowDimensions)
+  - Credit source (si présent)
+  - Tags avec chips
+  - Header avec boutons retour + partage
+  - Share API natif (Share.share)
+  - Loading state avec ActivityIndicator
+  - Error state avec message + bouton retour
+- ✅ Section News sur Home (déjà existante)
+  - FlatList horizontal carousel ArticleCard
+  - Navigation vers `/article/[slug]`
+  - Fetch via useHomeData hook
+- ✅ Composant ArticleCard (déjà existant)
+  - Image avec gradient overlay
+  - Category badge
+  - Title (2 lignes max)
+  - Auteur + date
+  - Responsive card width (75% screen width)
+- ✅ Compilation TypeScript sans erreurs
+  - Fix type Article (extends NewsItem avec content)
+  - Fix htmlStyles avec `as const` pour types stricts
+
+**Fichiers créés:**
+- `hooks/useArticles.ts` (120 lignes)
+- `app/article/[slug].tsx` (533 lignes)
+
+**Fichiers modifiés:**
+- `hooks/index.ts` (ajout export useArticles)
+
+**Dépendances ajoutées:**
+- `react-native-render-html@^6.3.0`
+- `expo-web-browser`
+- `react-native-webview`
+
+**Architecture Articles:**
+```
+Article Detail Screen
+├── Header (back + share buttons)
+├── ScrollView
+│   ├── Featured Image (Expo Image)
+│   ├── Content Container
+│   │   ├── Category Badge
+│   │   ├── Title + Subtitle
+│   │   ├── Meta (author, date, views)
+│   │   ├── Video Container (if videoUrl)
+│   │   │   └── WebBrowser.openBrowserAsync on press
+│   │   ├── HTML Content (RenderHtml)
+│   │   │   └── Custom styles (p, h1-h3, code, blockquote, etc.)
+│   │   ├── Credit (if present)
+│   │   └── Tags (chips)
+│   ├── Loading State (ActivityIndicator)
+│   └── Error State (message + retry button)
+
+Home News Section (existing)
+├── SectionHeader "Dernières Actus"
+├── FlatList horizontal carousel
+│   └── ArticleCard (existing component)
+│       ├── Image + gradient
+│       ├── Category badge
+│       ├── Title
+│       └── Author + date
+└── Navigation → /article/[slug]
+```
+
+**Détails Techniques:**
+- **Hook useArticles**:
+  - Params: category, limit (10), offset (0), autoRefresh, refreshInterval
+  - Pagination automatique (offset tracking)
+  - hasMore detection (data.length === limit)
+  - Pull-to-refresh avec isRefreshing state
+- **HTML Rendering**:
+  - `react-native-render-html` avec `contentWidth` dynamique
+  - Styles custom pour 14 tags HTML
+  - System fonts support
+  - Color tokens depuis COLORS constants
+- **Video Support**:
+  - YouTube/Vimeo/MP4 via `expo-web-browser`
+  - Overlay play button avec MaterialCommunityIcons
+  - Thumbnail utilise featuredImage en fallback
+  - Error handling avec Alert si ouverture échoue
+- **Share API**:
+  - Share.share natif (iOS + Android)
+  - Message + deep link URL (esportnews://article/[slug])
+  - Error handling silencieux (console.error)
+- **Types**:
+  - NewsItem: titre, subtitle, description, author, created_at, featuredImage, category, tags, views, videoUrl
+  - Article extends NewsItem: + content (HTML string)
+
+**Notes:**
+- ✅ Écran Article Detail 100% fonctionnel
+- ✅ Rendu HTML complet avec styles custom
+- ✅ Support vidéos via WebBrowser (pas de WebView embarquée)
+- ✅ Share API natif fonctionnel
+- ✅ Section News déjà intégrée sur Home (via useHomeData)
+- ✅ Compilation TypeScript OK
+- ⏳ Tests à faire : rendu HTML avec articles réels + vidéos YouTube/Vimeo
+- ⏳ Palier 12 (Profil Utilisateur) à venir
 
 ---
 
@@ -1021,17 +1128,19 @@ npm install <package> --legacy-peer-deps
 
 ## Prochaines Étapes
 
-**Actuellement:** Palier 10 complété ✅
-**Prochain palier:** Palier 11 - Articles + Détail
+**Actuellement:** Palier 11 complété ✅
+**Prochain palier:** Palier 12 - Écran Profil Utilisateur
 
 **Actions immédiates:**
-1. Créer écran détail article `app/article/[slug].tsx`
-2. Installer `react-native-render-html` pour rendu contenu
-3. Installer `expo-web-browser` pour liens externes
-4. Support vidéos (YouTube/Vimeo via WebView ou Linking)
-5. Créer composant `ArticleCard` (déjà existant, à vérifier/améliorer)
-6. Intégrer section News sur Home (carousel articles)
-7. Implémenter bouton partage (Share API native)
+1. Améliorer écran Profile existant `app/(tabs)/profile.tsx`
+   - Avatar, nom, email (déjà présents)
+   - Sections détaillées : Info, Équipes Favorites, Notifications, Sécurité, Préférences
+2. Créer écran édition profile `app/profile/edit.tsx`
+3. Installer `expo-image-picker` pour upload avatar
+4. Implémenter CRUD équipes favorites avec swipe-to-delete
+5. Créer toggles préférences notifications (4 switches)
+6. Créer formulaire changement mot de passe
+7. Optionnel : Biométrie (FaceID/TouchID) via `expo-local-authentication`
 
 ---
 
@@ -1046,14 +1155,12 @@ npm install <package> --legacy-peer-deps
 
 ---
 
-**Dernière mise à jour:** 20 décembre 2025
+**Dernière mise à jour:** 21 décembre 2025
 **Derniers commits:**
 - `4aee790` - Palier 1 (Initialisation)
 - `b4fe5f8` - Palier 2 (Design System)
-- À venir - Palier 3 (Navigation + Expo Router)
-- À venir - Palier 4 (Services API + Axios Client)
-- À venir - Palier 5 (Authentification + JWT Context)
-- À venir - Palier 6 (Écran Home + GameSelector)
-- À venir - Palier 7 (Live Matches Carousel)
-- À venir - Palier 8 (Écran Live + Liste Complète)
-- À venir - Palier 9 (Écran Tournaments + Pagination + Filtres)
+- À venir - Paliers 3-5 (Navigation + API + Auth)
+- À venir - Paliers 6-8 (Home + Live + Filtres)
+- À venir - Paliers 9-10 (Tournaments + Calendar)
+- À venir - Palier 11 (Articles + HTML Rendering)
+- À venir - Palier 12 (Profil Utilisateur)

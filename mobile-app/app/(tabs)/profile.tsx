@@ -1,5 +1,5 @@
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Divider, List, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import { Text, Divider, List, ActivityIndicator, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks';
