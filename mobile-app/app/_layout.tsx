@@ -56,25 +56,6 @@ export default function RootLayout() {
             }}
           />
 
-          {/* Dynamic Routes */}
-          <Stack.Screen
-            name="article/[slug]"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="tournament/[id]"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="match/[id]"
-            options={{
-              headerShown: false,
-            }}
-          />
         </Stack>
             </GameProvider>
           </AuthProvider>

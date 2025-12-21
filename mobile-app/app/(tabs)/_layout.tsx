@@ -39,7 +39,7 @@ export default function TabsLayout() {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#060B13' }} edges={['top']}>
+    <View style={{ flex: 1, backgroundColor: '#060B13' }}>
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <Tabs
           screenOptions={{
@@ -78,7 +78,7 @@ export default function TabsLayout() {
               ),
               headerTitle: 'Esport News',
               header: ({ options }) => (
-                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                   <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -96,7 +96,7 @@ export default function TabsLayout() {
                       <GameSelector />
                     </Animated.View>
                   </Animated.View>
-                </View>
+                </SafeAreaView>
               )
             }}
           />
@@ -105,7 +105,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Matchs en Direct',
               header: ({ options }) => (
-                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -123,7 +123,7 @@ export default function TabsLayout() {
                       <GameSelector />
                     </Animated.View>
                   </Animated.View>
-                </View>
+                </SafeAreaView>
               ),
               title: 'Live',
               tabBarIcon: ({ color, size }) => (
@@ -136,7 +136,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Tournois',
               header: ({ options }) => (
-                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -154,7 +154,7 @@ export default function TabsLayout() {
                       <GameSelector />
                     </Animated.View>
                   </Animated.View>
-                </View>
+                </SafeAreaView>
               ),
               title: 'Tournois',
               tabBarIcon: ({ color, size }) => (
@@ -167,7 +167,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Calendrier des Matchs',
               header: ({ options }) => (
-                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -185,7 +185,7 @@ export default function TabsLayout() {
                       <GameSelector />
                     </Animated.View>
                   </Animated.View>
-                </View>
+                </SafeAreaView>
               ),
               title: 'Calendrier',
               tabBarIcon: ({ color, size }) => (
@@ -198,7 +198,7 @@ export default function TabsLayout() {
             options={{
               headerTitle: 'Mon Profil',
               header: ({ options }) => (
-                <View style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
@@ -216,7 +216,7 @@ export default function TabsLayout() {
                       <GameSelector />
                     </Animated.View>
                   </Animated.View>
-                </View>
+                </SafeAreaView>
               ),
               title: 'Profil',
               tabBarIcon: ({ color, size }) => (
@@ -224,9 +224,41 @@ export default function TabsLayout() {
               ),
             }}
           />
+          <Tabs.Screen
+            name="profile/edit"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="profile/security"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="profile/teams"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="profile/notifications"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="profile/language"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="match/[id]"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="tournament/[id]"
+            options={{ href: null, headerShown: false }}
+          />
+          <Tabs.Screen
+            name="article/[slug]"
+            options={{ href: null, headerShown: false }}
+          />
         </Tabs>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
