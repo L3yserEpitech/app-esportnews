@@ -1,8 +1,8 @@
 import { View, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert, Pressable, Animated } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Badge } from '@/components/ui';
@@ -20,30 +20,53 @@ export default function MatchDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  // Animation values pour l'effet cascade
+  const animHero = useRef(new Animated.Value(0)).current;
+  const animSchedule = useRef(new Animated.Value(0)).current;
+  const animTournament = useRef(new Animated.Value(0)).current;
+  const animGames = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadMatchDetails();
   }, [id]);
 
-  useEffect(() => {
-    if (!loading && match) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading && match) {
+        // Réinitialisation des animations
+        animHero.setValue(0);
+        animSchedule.setValue(0);
+        animTournament.setValue(0);
+        animGames.setValue(0);
+
+        const createConfig = (anim: Animated.Value) => 
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          });
+
+        Animated.stagger(100, [
+          createConfig(animHero),
+          createConfig(animSchedule),
+          createConfig(animTournament),
+          createConfig(animGames),
+        ]).start();
+      }
+    }, [loading, match])
+  );
+
+  const getAnimatedStyle = (anim: Animated.Value) => ({
+    opacity: anim,
+    transform: [
+      {
+        translateY: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, 0],
         }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [loading, match]);
+      },
+    ],
+  });
 
   const loadMatchDetails = async () => {
     if (!id) return;
@@ -136,7 +159,7 @@ export default function MatchDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Match Hero Section */}
-        <Animated.View style={[styles.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.hero, getAnimatedStyle(animHero)]}>
           <View style={styles.teamsRow}>
             {/* Team 1 */}
             <View style={styles.heroTeam}>
@@ -198,39 +221,43 @@ export default function MatchDetailScreen() {
         </Animated.View>
 
         {/* Details Section */}
-        <Animated.View style={[styles.detailsSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.detailsSection}>
           {/* Schedule Info */}
-          <Surface style={styles.glassCard} elevation={0}>
-            <View style={styles.detailItem}>
-              <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="calendar-clock" size={20} color={COLORS.primary} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Horaire</Text>
-                <Text style={styles.detailValue}>{formatDate(match.begin_at || match.scheduled_at)}</Text>
-              </View>
-            </View>
-          </Surface>
-
-          {/* Tournament Info */}
-          <Pressable onPress={() => match.tournament?.id && router.push(`/tournament/${match.tournament.id}`)}>
+          <Animated.View style={getAnimatedStyle(animSchedule)}>
             <Surface style={styles.glassCard} elevation={0}>
               <View style={styles.detailItem}>
                 <View style={styles.detailIcon}>
-                  <MaterialCommunityIcons name="trophy-variant-outline" size={20} color={COLORS.primary} />
+                  <MaterialCommunityIcons name="calendar-clock" size={20} color={COLORS.primary} />
                 </View>
                 <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Tournoi</Text>
-                  <Text style={styles.detailValue} numberOfLines={1}>{match.tournament?.name}</Text>
+                  <Text style={styles.detailLabel}>Horaire</Text>
+                  <Text style={styles.detailValue}>{formatDate(match.begin_at || match.scheduled_at)}</Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textMuted} />
               </View>
             </Surface>
-          </Pressable>
+          </Animated.View>
+
+          {/* Tournament Info */}
+          <Animated.View style={getAnimatedStyle(animTournament)}>
+            <Pressable onPress={() => match.tournament?.id && router.push(`/tournament/${match.tournament.id}`)}>
+              <Surface style={styles.glassCard} elevation={0}>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIcon}>
+                    <MaterialCommunityIcons name="trophy-variant-outline" size={20} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Tournoi</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>{match.tournament?.name}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textMuted} />
+                </View>
+              </Surface>
+            </Pressable>
+          </Animated.View>
 
           {/* Maps / Series Status */}
           {match.games && match.games.length > 0 && (
-            <View style={styles.gamesSection}>
+            <Animated.View style={[styles.gamesSection, getAnimatedStyle(animGames)]}>
               <Text style={styles.sectionTitle}>Séries / Maps</Text>
               {match.games.map((game: PandaGame, index) => (
                 <Surface key={game.id} style={styles.gameGlassCard} elevation={0}>
@@ -251,9 +278,9 @@ export default function MatchDetailScreen() {
                   </View>
                 </Surface>
               ))}
-            </View>
+            </Animated.View>
           )}
-        </Animated.View>
+        </View>
       </ScrollView>
     </View>
   );
