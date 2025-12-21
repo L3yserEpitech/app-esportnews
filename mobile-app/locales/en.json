@@ -1,0 +1,232 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "none": "None",
+    "confirm": "Confirm",
+    "viewMore": "View more"
+  },
+  "nav": {
+    "home": "Home",
+    "live": "Live",
+    "tournaments": "Tournaments",
+    "calendar": "Calendar",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "name": "Name",
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "forgotPassword": "Forgot password?",
+    "alreadyHaveAccount": "Already have an account?",
+    "dontHaveAccount": "Don't have an account?",
+    "logoutConfirmTitle": "Logout",
+    "logoutConfirmMessage": "Are you sure you want to logout?",
+    "errors": {
+      "invalidEmail": "Invalid email",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordsDontMatch": "Passwords don't match",
+      "nameTooShort": "Name must be at least 2 characters",
+      "emailRequired": "Email is required",
+      "passwordRequired": "Password is required",
+      "nameRequired": "Name is required"
+    }
+  },
+  "home": {
+    "title": "Home",
+    "selectedGame": "Selected game",
+    "liveNow": "Live Now",
+    "latestNews": "Latest News",
+    "runningTournaments": "Running Tournaments",
+    "noLiveMatches": "No live matches at the moment",
+    "autoRefresh": "Auto-refresh every 30s"
+  },
+  "live": {
+    "title": "Live Matches",
+    "subtitle": "Auto-refresh every 30s",
+    "noMatches": "No live matches at the moment",
+    "noMatchesForGame": "No live matches for {{game}}",
+    "tryAnotherGame": "Try selecting another game",
+    "comeBackLater": "Come back later to discover new matches",
+    "watchLive": "Watch",
+    "filterByGame": "Filter by game"
+  },
+  "tournaments": {
+    "title": "Tournaments",
+    "running": "Running",
+    "upcoming": "Upcoming",
+    "finished": "Finished",
+    "count": "{{count}} tournaments",
+    "countWithGame": "{{count}} tournaments · {{game}}",
+    "noTournaments": "No tournaments at the moment",
+    "noTournamentsForGame": "No tournaments for {{game}}",
+    "tryAnotherGame": "Try selecting another game",
+    "comeBackLater": "Come back later to discover new tournaments",
+    "filterByGame": "Filter by game",
+    "prizepool": "Prize pool",
+    "tier": "Tier {{tier}}",
+    "viewDetails": "View details"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "selectDate": "Select a date",
+    "count": "{{count}} matches",
+    "countWithGame": "{{count}} matches · {{game}}",
+    "noMatches": "No matches on this day",
+    "noMatchesForGame": "No matches for {{game}} on {{date}}",
+    "tryAnotherDate": "Try another date or change game",
+    "filterByGame": "Filter by game",
+    "matchTime": "{{time}}",
+    "status": {
+      "running": "Running",
+      "upcoming": "Upcoming",
+      "finished": "Finished"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "visitor": "Visitor",
+    "notConnected": "Not connected",
+    "editProfile": "Edit profile",
+    "account": "Account",
+    "myAccount": "My Account",
+    "preferences": "Preferences",
+    "settings": "Settings",
+    "personalInfo": "Personal information",
+    "personalInfoDesc": "Name, email, avatar",
+    "security": "Security",
+    "securityDesc": "Password, biometrics",
+    "favoriteTeams": "Favorite teams",
+    "favoriteTeamsCount": "{{count}} team(s)",
+    "notifications": "Notifications",
+    "notificationsDesc": "Push, articles, news, matches",
+    "language": "Language",
+    "about": "About",
+    "aboutVersion": "Version {{version}}",
+    "legal": "Legal",
+    "legalDesc": "Terms, Privacy Policy",
+    "connectInfo": "ℹ️ Sign in to access all features",
+    "loginPrompt": "Access your account",
+    "registerPrompt": "Join Esport News"
+  },
+  "profileEdit": {
+    "title": "Edit profile",
+    "uploadPhoto": "Change photo",
+    "chooseSource": "Choose source",
+    "camera": "Camera",
+    "gallery": "Gallery",
+    "name": "Name",
+    "email": "Email",
+    "saveChanges": "Save",
+    "cancel": "Cancel",
+    "errors": {
+      "nameTooShort": "Name must be at least 2 characters",
+      "invalidEmail": "Invalid email"
+    }
+  },
+  "profileSecurity": {
+    "title": "Security",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "biometricAuth": "Biometric authentication",
+    "biometricDesc": "Use {{type}} to sign in",
+    "biometricNotAvailable": "Biometric authentication not available on this device",
+    "biometricNotEnrolled": "No biometric authentication configured on device",
+    "faceID": "Face ID",
+    "touchID": "Touch ID",
+    "fingerprint": "Fingerprint",
+    "errors": {
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordsDontMatch": "Passwords don't match",
+      "passwordSameAsOld": "New password must be different from old password"
+    }
+  },
+  "profileTeams": {
+    "title": "Favorite teams",
+    "searchPlaceholder": "Search a team...",
+    "addTeam": "Add",
+    "removeTeam": "Remove",
+    "confirmRemoveTitle": "Remove team",
+    "confirmRemoveMessage": "Do you want to remove {{team}} from your favorites?",
+    "noFavorites": "No favorite teams",
+    "noFavoritesDesc": "Add your favorite teams to follow their matches",
+    "swipeToDelete": "Swipe left to delete",
+    "noResults": "No results"
+  },
+  "profileNotifications": {
+    "title": "Notifications",
+    "pushNotifications": "Push notifications",
+    "pushDesc": "Enable push notifications",
+    "articles": "New articles",
+    "articlesDesc": "Notifications for new articles",
+    "news": "News",
+    "newsDesc": "Notifications for esport news",
+    "matches": "Matches",
+    "matchesDesc": "Notifications for your favorite matches",
+    "pushDisabledInfo": "Enable push notifications to receive alerts",
+    "hasChanges": "Unsaved changes",
+    "saveChanges": "Save changes"
+  },
+  "profileLanguage": {
+    "title": "Language",
+    "selectLanguage": "Select your language",
+    "languages": {
+      "fr": "Français",
+      "en": "English",
+      "es": "Español",
+      "de": "Deutsch",
+      "it": "Italiano"
+    }
+  },
+  "articles": {
+    "title": "Articles",
+    "readMore": "Read more",
+    "readTime": "{{minutes}} min read",
+    "views": "{{count}} views",
+    "author": "By {{author}}",
+    "publishedAt": "Published on {{date}}",
+    "relatedArticles": "Related articles",
+    "tags": "Tags",
+    "share": "Share",
+    "watchVideo": "Watch video",
+    "credit": "Source: {{credit}}"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "network": "Network error. Check your connection.",
+    "notFound": "Resource not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access forbidden",
+    "serverError": "Server error. Please try again later.",
+    "timeout": "Request timeout. Please try again."
+  },
+  "games": {
+    "valorant": "Valorant",
+    "lol": "League of Legends",
+    "cs2": "Counter-Strike 2",
+    "dota2": "Dota 2",
+    "overwatch": "Overwatch",
+    "cod": "Call of Duty",
+    "r6": "Rainbow Six Siege",
+    "rl": "Rocket League",
+    "fifa": "FIFA",
+    "wildrift": "Wild Rift"
+  }
+}

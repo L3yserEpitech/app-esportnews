@@ -1,6 +1,5 @@
-import { View, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Divider, List, ActivityIndicator, Avatar } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks';
 import { Card, Button } from '@/components/ui';
@@ -52,20 +51,27 @@ export default function ProfileScreen() {
       {/* User Header */}
       <Card variant="outlined" padding="md" style={styles.userCard}>
         <View style={styles.userHeader}>
-          <View style={styles.avatar}>
-            <MaterialCommunityIcons
-              name={isAuthenticated ? 'account-circle' : 'account'}
-              size={48}
-              color={isAuthenticated ? COLORS.primary : COLORS.textSecondary}
-            />
-          </View>
+          {user?.photo ? (
+            <Avatar.Image size={64} source={{ uri: user.photo }} />
+          ) : (
+            <Avatar.Icon size={64} icon="account" color={COLORS.primary} style={styles.avatarIcon} />
+          )}
           <View style={styles.userInfo}>
             <Text variant="titleLarge" style={styles.userName}>
-              {isAuthenticated ? user?.name : 'Guest User'}
+              {isAuthenticated ? user?.name : 'Visiteur'}
             </Text>
             <Text variant="bodyMedium" style={styles.userEmail}>
               {isAuthenticated ? user?.email : 'Non connecté'}
             </Text>
+            {isAuthenticated && (
+              <Button
+                variant="text"
+                onPress={() => router.push('/profile/edit' as any)}
+                style={styles.editButton}
+              >
+                Modifier le profil
+              </Button>
+            )}
           </View>
         </View>
       </Card>
@@ -96,32 +102,85 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Settings Section */}
+      {/* Account Section (si connecté) */}
+      {isAuthenticated && (
+        <>
+          {/* Informations */}
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Mon Compte
+            </Text>
+            <Card variant="outlined">
+              <List.Item
+                title="Informations personnelles"
+                description="Nom, email, avatar"
+                left={(props) => <List.Icon {...props} icon="account-edit" color={COLORS.primary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => router.push('/profile/edit' as any)}
+              />
+              <Divider />
+              <List.Item
+                title="Sécurité"
+                description="Mot de passe, biométrie"
+                left={(props) => <List.Icon {...props} icon="shield-lock" color={COLORS.primary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => router.push('/profile/security' as any)}
+              />
+            </Card>
+          </View>
+
+          {/* Préférences */}
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Préférences
+            </Text>
+            <Card variant="outlined">
+              <List.Item
+                title="Équipes favorites"
+                description={`${user?.favorite_team?.length || 0} équipe(s)`}
+                left={(props) => <List.Icon {...props} icon="heart" color={COLORS.primary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => router.push('/profile/teams' as any)}
+              />
+              <Divider />
+              <List.Item
+                title="Notifications"
+                description="Push, articles, news, matchs"
+                left={(props) => <List.Icon {...props} icon="bell" color={COLORS.primary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => router.push('/profile/notifications' as any)}
+              />
+              <Divider />
+              <List.Item
+                title="Langue"
+                description="Français"
+                left={(props) => <List.Icon {...props} icon="translate" color={COLORS.primary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => router.push('/profile/language' as any)}
+              />
+            </Card>
+          </View>
+        </>
+      )}
+
+      {/* Settings Section (pour tous) */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Paramètres
         </Text>
         <Card variant="outlined">
           <List.Item
-            title="Équipes favorites"
-            description="Gérer vos équipes"
-            left={(props) => <List.Icon {...props} icon="heart" />}
+            title="À propos"
+            description="Version 1.0.0"
+            left={(props) => <List.Icon {...props} icon="information" color={COLORS.textSecondary} />}
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            disabled={!isAuthenticated}
+            disabled
           />
           <Divider />
           <List.Item
-            title="Notifications"
-            description="Préférences de notification"
-            left={(props) => <List.Icon {...props} icon="bell" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            disabled={!isAuthenticated}
-          />
-          <Divider />
-          <List.Item
-            title="Langue"
-            description="Français"
-            left={(props) => <List.Icon {...props} icon="translate" />}
+            title="Mentions légales"
+            description="CGU, Politique de confidentialité"
+            left={(props) => <List.Icon {...props} icon="file-document" color={COLORS.textSecondary} />}
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
             disabled
           />
@@ -138,16 +197,13 @@ export default function ProfileScreen() {
       )}
 
       {/* Info Section */}
-      <View style={styles.section}>
-        {!isAuthenticated && (
+      {!isAuthenticated && (
+        <View style={styles.section}>
           <Text variant="bodySmall" style={styles.infoText}>
             ℹ️ Connectez-vous pour accéder à toutes les fonctionnalités
           </Text>
-        )}
-        <Text variant="bodySmall" style={styles.versionText}>
-          Version 1.0.0 - Palier 5
-        </Text>
-      </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -172,17 +228,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  avatarIcon: {
     backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: spacing.md,
   },
   userInfo: {
     flex: 1,
+    marginLeft: spacing.md,
   },
   userName: {
     color: COLORS.text,
@@ -190,6 +242,11 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     color: COLORS.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  editButton: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
   },
   section: {
     marginBottom: spacing.xl,
@@ -197,6 +254,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: COLORS.text,
     marginBottom: spacing.md,
+    fontWeight: '600',
   },
   loadingText: {
     color: COLORS.textSecondary,
@@ -206,11 +264,6 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
   },
   infoText: {
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  versionText: {
     color: COLORS.textSecondary,
     textAlign: 'center',
   },

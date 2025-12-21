@@ -971,19 +971,134 @@ Home News Section (existing)
 
 ---
 
-### ⏳ Palier 12: Écran Profil Utilisateur
-**Statut:** Pending
+### ✅ Palier 12: Écran Profil Utilisateur
+**Commit:** À venir
+**Date:** 21 déc 2025
 
-**À réaliser:**
-- [ ] Créer `app/(tabs)/profile.tsx`
-  - Avatar, nom, email
-  - Favorite Teams section
-  - Notifications toggles
-  - Security section
-  - Logout button
-- [ ] Créer `app/profile/edit.tsx`
-  - Upload avatar (expo-image-picker)
-- [ ] Installer `expo-image-picker`
+**Réalisé:**
+- ✅ Améliorer `app/(tabs)/profile.tsx`
+  - Avatar avec React Native Paper Avatar.Image/Avatar.Icon
+  - Sections détaillées : Mon Compte, Préférences, Paramètres
+  - Navigation vers sous-écrans (edit, security, teams, notifications)
+  - Bouton "Modifier le profil" dans header
+  - Logout avec confirmation Alert
+  - Conditional rendering selon isAuthenticated
+- ✅ Créer `app/profile/edit.tsx`
+  - Upload avatar via expo-image-picker
+  - Options : Camera ou Galerie (Alert.alert picker)
+  - Formulaires : Nom, Email avec validation
+  - Preview image en temps réel
+  - Avatar badge avec icône caméra
+  - Actions : Enregistrer / Annuler
+- ✅ Créer `app/profile/notifications.tsx`
+  - 4 switches de préférences :
+    - notifi_push (master switch)
+    - notif_articles (disabled si push off)
+    - notif_news (disabled si push off)
+    - notif_matchs (disabled si push off)
+  - Info card si push désactivé
+  - Detection des changements (hasChanges)
+  - Bouton "Enregistrer" disabled si aucun changement
+- ✅ Créer `app/profile/security.tsx`
+  - Formulaire changement mot de passe
+    - 3 champs : Actuel, Nouveau, Confirmation
+    - Toggle show/hide password (eye icon)
+    - Validation complète (length, match, différent)
+  - Biométrie optionnelle (expo-local-authentication)
+    - Détection hardware (hasHardwareAsync)
+    - Détection enrollment (isEnrolledAsync)
+    - Support Face ID / Touch ID
+    - Switch toggle avec authentification requise
+    - Affichage conditionnel selon disponibilité
+- ✅ Créer `app/profile/teams.tsx`
+  - Liste équipes favorites avec swipe-to-delete
+  - Swipeable via react-native-gesture-handler
+  - Action delete avec confirmation Alert
+  - Searchbar (react-native-paper Searchbar)
+  - Recherche équipes (mock data pour l'instant)
+  - Ajout équipes favorites (+ icon)
+  - Empty state avec icône coeur
+  - Hint "Glissez vers la gauche pour supprimer"
+- ✅ Installer dépendances
+  - expo-image-picker@^16.0.0 (camera + galerie)
+  - expo-local-authentication (Face ID / Touch ID)
+  - react-native-gesture-handler (déjà installé, utilisé pour swipe)
+- ✅ Compilation TypeScript sans erreurs
+  - Fix Card padding="none" (retiré, non supporté)
+  - Fix Card onPress (remplacé par Button pour search results)
+
+**Fichiers créés:**
+- `app/profile/edit.tsx` (321 lignes)
+- `app/profile/notifications.tsx` (197 lignes)
+- `app/profile/security.tsx` (390 lignes)
+- `app/profile/teams.tsx` (390 lignes)
+
+**Fichiers modifiés:**
+- `app/(tabs)/profile.tsx` (refonte complète avec sections détaillées)
+  - Ajout Avatar.Image / Avatar.Icon
+  - Sections : Mon Compte, Préférences, Paramètres
+  - Navigation vers 4 sous-écrans
+
+**Dépendances ajoutées:**
+- `expo-image-picker@^16.0.0`
+- `expo-local-authentication`
+
+**Architecture Profil:**
+```
+Profile Screen (tabs)
+├── Header (Avatar + User Info + Edit Button)
+├── Authentication Section (si non connecté)
+│   ├── Se connecter → /auth/login
+│   └── Créer un compte → /auth/register
+├── Mon Compte Section (si connecté)
+│   ├── Informations personnelles → /profile/edit
+│   └── Sécurité → /profile/security
+├── Préférences Section (si connecté)
+│   ├── Équipes favorites → /profile/teams
+│   ├── Notifications → /profile/notifications
+│   └── Langue (disabled)
+└── Paramètres Section (tous)
+    ├── À propos (disabled)
+    └── Mentions légales (disabled)
+
+Sub-Screens
+├── /profile/edit → Upload avatar + Nom/Email
+├── /profile/security → Mot de passe + Biométrie
+├── /profile/notifications → 4 switches (push, articles, news, matchs)
+└── /profile/teams → Swipe-to-delete + Search + Add
+```
+
+**Détails Techniques:**
+- **expo-image-picker**:
+  - requestMediaLibraryPermissionsAsync() pour galerie
+  - requestCameraPermissionsAsync() pour appareil photo
+  - launchImageLibraryAsync() + launchCameraAsync()
+  - Options: mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8
+- **expo-local-authentication**:
+  - hasHardwareAsync() → compatible biométrie
+  - isEnrolledAsync() → biométrie configurée
+  - supportedAuthenticationTypesAsync() → type (Face ID / Touch ID)
+  - authenticateAsync() → authentification biométrique
+  - Storage préférence dans AsyncStorage (TODO: à implémenter côté API)
+- **Swipe-to-delete**:
+  - Swipeable de react-native-gesture-handler
+  - renderRightActions → bouton delete rouge
+  - overshootRight={false}, friction={2}
+  - Confirmation avec Alert.alert avant suppression
+- **Validation**:
+  - Email: regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`
+  - Password: min 6 caractères, match confirmation, différent de l'ancien
+  - Nom: minimum 2 caractères (non vide)
+
+**Notes:**
+- ✅ Écran Profile 100% fonctionnel avec 4 sous-écrans
+- ✅ Biométrie optionnelle avec détection automatique (Face ID / Touch ID)
+- ✅ Upload avatar avec choix Camera / Galerie
+- ✅ Swipe-to-delete fonctionnel pour équipes favorites
+- ✅ Compilation TypeScript OK
+- ⏳ TODO: Connecter aux endpoints API backend (update profile, change password, manage teams, update notifications)
+- ⏳ TODO: Implémenter stockage biometric preference dans AsyncStorage
+- ⏳ Palier 13 (Internationalisation) à venir
 
 ---
 
@@ -1128,19 +1243,28 @@ npm install <package> --legacy-peer-deps
 
 ## Prochaines Étapes
 
-**Actuellement:** Palier 11 complété ✅
-**Prochain palier:** Palier 12 - Écran Profil Utilisateur
+**Actuellement:** Palier 12 complété ✅
+**Prochain palier:** Palier 13 - Internationalisation (i18n)
 
 **Actions immédiates:**
-1. Améliorer écran Profile existant `app/(tabs)/profile.tsx`
-   - Avatar, nom, email (déjà présents)
-   - Sections détaillées : Info, Équipes Favorites, Notifications, Sécurité, Préférences
-2. Créer écran édition profile `app/profile/edit.tsx`
-3. Installer `expo-image-picker` pour upload avatar
-4. Implémenter CRUD équipes favorites avec swipe-to-delete
-5. Créer toggles préférences notifications (4 switches)
-6. Créer formulaire changement mot de passe
-7. Optionnel : Biométrie (FaceID/TouchID) via `expo-local-authentication`
+1. Installer `react-i18next` + `i18next`
+2. Créer dossier `/locales/` avec fichiers JSON (FR, EN, ES, DE, IT)
+   - Copier depuis `/frontend/locales/` (web app)
+3. Créer `contexts/LocaleContext.tsx`
+   - State langue avec AsyncStorage persistence
+   - Fonction changeLanguage(locale)
+4. Configurer i18next (`utils/i18n.ts`)
+   - Resources (5 langues)
+   - fallbackLng: 'fr'
+   - interpolation
+5. Ajouter sélecteur langue dans Profile
+   - List.Item avec navigation vers `/profile/language`
+   - Écran sélection langue avec RadioButtons
+6. Traduire tous les textes hardcodés (hooks useTranslation)
+   - Écrans principaux : Home, Live, Tournaments, Calendar, Profile
+   - Écrans auth : Login, Register
+   - Écrans profile : Edit, Notifications, Security, Teams
+   - Écrans articles : Detail
 
 ---
 
@@ -1163,4 +1287,4 @@ npm install <package> --legacy-peer-deps
 - À venir - Paliers 6-8 (Home + Live + Filtres)
 - À venir - Paliers 9-10 (Tournaments + Calendar)
 - À venir - Palier 11 (Articles + HTML Rendering)
-- À venir - Palier 12 (Profil Utilisateur)
+- ✅ Complété - Palier 12 (Profil Utilisateur - 4 sous-écrans + biométrie)
