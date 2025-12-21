@@ -13,14 +13,18 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import { 
-  analyticsService, 
-  VisitorStats, 
+import {
+  analyticsService,
+  VisitorStats,
   RegistrationStats,
-  Timeline 
+  AgeDistribution,
+  Timeline
 } from "@/lib/analyticsService";
 import { authService } from "@/app/services/authService";
 import { Button } from "@/components/ui/button";
@@ -39,13 +43,17 @@ const COLORS = {
   accent: "#00C49F",
 };
 
-type Tab = "visitors" | "registrations" | "combined";
+// Couleurs pour le graphique en camembert (âges)
+const AGE_COLORS = ["#F22E62", "#182859", "#00C49F", "#FF8042", "#FFBB28"];
+
+type Tab = "visitors" | "registrations" | "combined" | "ages";
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("visitors");
   const [timeline, setTimeline] = useState<Timeline>("24h");
   const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
   const [registrationStats, setRegistrationStats] = useState<RegistrationStats | null>(null);
+  const [ageDistribution, setAgeDistribution] = useState<AgeDistribution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -57,24 +65,26 @@ export default function AnalyticsPage() {
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Récupérer le token d'authentification
       const token = authService.getToken();
-      
+
       if (!token) {
         setError("Non authentifié - Veuillez vous reconnecter");
         setLoading(false);
         return;
       }
 
-      const [visitors, registrations] = await Promise.all([
+      const [visitors, registrations, ages] = await Promise.all([
         analyticsService.getVisitorStats(timeline, token),
         analyticsService.getRegistrationStats(timeline, token),
+        analyticsService.getAgeDistribution(token),
       ]);
 
       setVisitorStats(visitors);
       setRegistrationStats(registrations);
+      setAgeDistribution(ages);
     } catch (err) {
       console.error("Error loading analytics:", err);
       setError("Erreur lors du chargement des statistiques");
@@ -220,6 +230,16 @@ export default function AnalyticsPage() {
           }`}
         >
           Vue d'ensemble
+        </button>
+        <button
+          onClick={() => setActiveTab("ages")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === "ages"
+              ? "text-[#F22E62] border-b-2 border-[#F22E62]"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          Âges
         </button>
       </div>
 
@@ -527,6 +547,96 @@ export default function AnalyticsPage() {
                     name="Inscriptions"
                   />
                 </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {activeTab === "ages" && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-400">
+                  Total Utilisateurs
+                </CardTitle>
+                <Users className="h-4 w-4 text-[#F22E62]" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {ageDistribution?.total_users.toLocaleString('fr-FR') || 0}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Utilisateurs avec âge renseigné
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-400">
+                  Tranche Principale
+                </CardTitle>
+                <Activity className="h-4 w-4 text-[#182859]" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {ageDistribution && ageDistribution.breakdown.length > 0
+                    ? (() => {
+                        const maxGroup = ageDistribution.breakdown.reduce((prev, current) =>
+                          current.count > prev.count ? current : prev
+                        );
+                        return `${maxGroup.age_range} ans`;
+                      })()
+                    : 'N/A'}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Tranche d'âge la plus représentée
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pie Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Répartition des âges</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <PieChart>
+                  <Pie
+                    data={ageDistribution?.breakdown.map((item) => ({
+                      name: `${item.age_range} ans`,
+                      value: item.count,
+                    })) || []}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) =>
+                      `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
+                    }
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {ageDistribution?.breakdown.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={AGE_COLORS[index % AGE_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a1a',
+                      border: '1px solid #333',
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Legend />
+                </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>

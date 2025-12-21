@@ -280,6 +280,56 @@ func (s *AnalyticsService) invalidateVisitorCache() {
 	}
 }
 
+// GetAgeDistribution retourne la répartition des âges des utilisateurs
+func (s *AnalyticsService) GetAgeDistribution(ctx context.Context) (*models.AgeDistribution, error) {
+	query := `
+		WITH age_ranges AS (
+			SELECT
+				CASE
+					WHEN age >= 0 AND age < 16 THEN '0-16'
+					WHEN age >= 16 AND age < 25 THEN '16-25'
+					WHEN age >= 25 AND age < 40 THEN '25-40'
+					WHEN age >= 40 AND age < 60 THEN '40-60'
+					WHEN age >= 60 THEN '60+'
+				END as age_range,
+				CASE
+					WHEN age >= 0 AND age < 16 THEN 1
+					WHEN age >= 16 AND age < 25 THEN 2
+					WHEN age >= 25 AND age < 40 THEN 3
+					WHEN age >= 40 AND age < 60 THEN 4
+					WHEN age >= 60 THEN 5
+				END as sort_order
+			FROM users
+			WHERE age IS NOT NULL
+		)
+		SELECT age_range, COUNT(*) as count
+		FROM age_ranges
+		GROUP BY age_range, sort_order
+		ORDER BY sort_order
+	`
+
+	var results []models.AgeStats
+	if err := s.db.WithContext(ctx).Raw(query).Scan(&results).Error; err != nil {
+		return nil, fmt.Errorf("failed to get age distribution: %w", err)
+	}
+
+	// Compter le total d'utilisateurs avec âge non-NULL
+	var totalUsers int64
+	if err := s.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where("age IS NOT NULL").
+		Count(&totalUsers).Error; err != nil {
+		return nil, fmt.Errorf("failed to count users with age: %w", err)
+	}
+
+	distribution := &models.AgeDistribution{
+		TotalUsers: totalUsers,
+		Breakdown:  results,
+	}
+
+	return distribution, nil
+}
+
 // getIntervalFromTimeline convertit un timeline string en interval PostgreSQL et nombre de jours
 func getIntervalFromTimeline(timeline string) (string, int) {
 	switch timeline {
