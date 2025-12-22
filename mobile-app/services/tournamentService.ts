@@ -106,10 +106,16 @@ class TournamentService {
    */
   async getTournamentById(id: number): Promise<PandaTournament | null> {
     try {
+      console.log(`📡 API Call: GET /api/tournaments/${id}`);
       const response = await apiClient.get<PandaTournament>(`/api/tournaments/${id}`);
+      console.log(`✅ API Response:`, response.data?.name || 'No name');
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching tournament:', error);
+      console.error('❌ Error fetching tournament:', error.message || error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
       return null;
     }
   }

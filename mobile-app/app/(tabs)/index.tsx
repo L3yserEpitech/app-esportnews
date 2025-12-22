@@ -1,22 +1,24 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, FlatList, RefreshControl } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, Portal, Modal, Button, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { 
-  GameSelector, 
-  LiveMatchCard, 
-  HomeHeader, 
-  SectionHeader, 
-  ArticleCard, 
-  TournamentCard 
+import {
+  GameSelector,
+  LiveMatchCard,
+  HomeHeader,
+  SectionHeader,
+  ArticleCard,
+  TournamentCard
 } from '@/components/features';
-import { useGame, useLiveMatches, useHomeData } from '@/hooks';
+import { useGame, useLiveMatches, useHomeData, useAuth } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { selectedGame, isLoadingGames } = useGame();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   const {
     liveMatches,

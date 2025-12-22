@@ -10,16 +10,18 @@ import { NewsItem } from '@/types';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.75;
 const CARD_HEIGHT = 200;
+const FULL_WIDTH_CARD_HEIGHT = 240;
 
 interface ArticleCardProps {
   article: NewsItem;
   onPress: () => void;
+  fullWidth?: boolean;
 }
 
-export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) => {
+export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress, fullWidth = false }) => {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [
-      styles.container,
+      fullWidth ? styles.containerFull : styles.container,
       pressed && styles.pressed
     ]}>
       <View style={styles.imageContainer}>
@@ -60,6 +62,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
+  },
+  containerFull: {
+    width: '100%',
+    height: FULL_WIDTH_CARD_HEIGHT,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   pressed: {
     opacity: 0.9,

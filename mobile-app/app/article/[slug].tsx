@@ -14,7 +14,7 @@ import { Image } from 'expo-image';
 import RenderHtml from 'react-native-render-html';
 import * as WebBrowser from 'expo-web-browser';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -27,6 +27,7 @@ export default function ArticleDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,8 +76,8 @@ export default function ArticleDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={styles.loadingContainer} edges={['bottom', 'left', 'right']}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </Pressable>
@@ -93,8 +94,8 @@ export default function ArticleDetailScreen() {
 
   if (error || !article) {
     return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={styles.loadingContainer} edges={['bottom', 'left', 'right']}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </Pressable>
@@ -119,9 +120,9 @@ export default function ArticleDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       {/* Header avec bouton retour et partage */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
         </Pressable>
@@ -253,7 +254,7 @@ export default function ArticleDetailScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -271,24 +272,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: COLORS.surface,
+    paddingBottom: spacing.sm,
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   shareButton: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   scrollView: {
     flex: 1,

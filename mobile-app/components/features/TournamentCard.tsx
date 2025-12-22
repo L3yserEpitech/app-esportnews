@@ -47,6 +47,17 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
 
   const tierColor = getTierColor(tournament.tier);
 
+  const formatPrizePool = (prize: string | null | undefined) => {
+    if (!prize) return 'TBD';
+    return prize
+      .replace(/United States Dollar/g, '$')
+      .replace(/Euro/g, '€')
+      .replace(/Pound Sterling/g, '£')
+      .replace(/Japanese Yen/g, '¥')
+      .replace(/South Korean Won/g, '₩')
+      .replace(/Chinese Yuan/g, '¥');
+  };
+
   return (
     <Pressable onPress={onPress} style={styles.pressable}>
       {({ pressed }) => (
@@ -118,7 +129,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
               <View style={styles.prizeBox}>
                 <Text variant="labelSmall" style={styles.prizeLabel}>PRIZEPOOL</Text>
                 <Text variant="titleMedium" style={styles.prizeAmount}>
-                  {tournament.prizepool || 'TBD'}
+                  {formatPrizePool(tournament.prizepool)}
                 </Text>
               </View>
               

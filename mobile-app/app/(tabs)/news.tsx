@@ -1,110 +1,105 @@
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Dimensions, TextInput } from 'react-native';
-import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, memo, useRef } from 'react';
 import { Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
+import Animated, {
   FadeInUp,
   FadeInDown,
-  FadeInRight,
-  FadeOutLeft,
-  FadeInLeft,
-  FadeOutRight,
   Layout,
   useAnimatedStyle,
   withTiming,
-  Easing
+  Easing,
 } from 'react-native-reanimated';
 import { COLORS } from '@/constants/colors';
-import { spacing, borderRadius, shadows } from '@/constants/theme';
-import { useTournaments, useGame } from '@/hooks';
-import { TournamentCard } from '@/components/features/TournamentCard';
-import { Badge } from '@/components/ui';
+import { spacing, borderRadius } from '@/constants/theme';
+import { ArticleCard } from '@/components/features/ArticleCard';
+import { articleService } from '@/services/articleService';
+import type { NewsItem } from '@/types';
 
-type TournamentStatus = 'running' | 'upcoming' | 'finished';
+type ContentType = 'news' | 'articles';
 
 const { width } = Dimensions.get('window');
 
-const StatusTab = ({ label, value, active, onPress }: { label: string, value: TournamentStatus, active: boolean, onPress: (v: TournamentStatus) => void }) => {
+const StatusTab = ({ label, value, active, onPress }: { label: string, value: ContentType, active: boolean, onPress: (v: ContentType) => void }) => {
   return (
     <Pressable onPress={() => onPress(value)} style={styles.tabItem}>
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
         {label}
       </Text>
       {active && (
-        <Animated.View 
+        <Animated.View
           layout={Layout.springify()}
           entering={FadeInDown.duration(200)}
-          style={styles.tabIndicator} 
+          style={styles.tabIndicator}
         />
       )}
     </Pressable>
   );
 };
 
-const EmptyState = ({ isLoading, error, selectedGame, status }: any) => {
+const EmptyState = ({ isLoading, error, contentType, searchQuery }: { isLoading: boolean, error: string | null, contentType: ContentType, searchQuery: string }) => {
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text variant="bodyLarge" style={styles.loadingText}>Recherche de tournois...</Text>
+        <Text variant="bodyLarge" style={styles.loadingText}>
+          Chargement {contentType === 'news' ? 'des actualités' : 'des articles'}...
+        </Text>
       </View>
     );
   }
 
-  const statusLabel = status === 'running' ? 'en cours' : status === 'upcoming' ? 'à venir' : 'terminés';
-
   return (
-    <Animated.View 
+    <Animated.View
       entering={FadeInUp.delay(200)}
       style={styles.centerContainer}
     >
       <View style={styles.emptyIconContainer}>
-        <MaterialCommunityIcons 
-          name={error ? "alert-circle-outline" : "trophy-variant-outline"} 
-          size={80} 
-          color={error ? COLORS.live : COLORS.textMuted} 
+        <MaterialCommunityIcons
+          name={error ? "alert-circle-outline" : (searchQuery ? "magnify" : "newspaper-variant-outline")}
+          size={80}
+          color={error ? COLORS.live : COLORS.textMuted}
         />
         <LinearGradient
           colors={['transparent', COLORS.primary + '10', 'transparent']}
           style={StyleSheet.absoluteFill}
         />
       </View>
-      
+
       <Text variant="headlineSmall" style={styles.emptyTitle}>
-        {error ? 'Oups !' : 'Aucun tournoi'}
+        {error ? 'Oups !' : (searchQuery ? 'Aucun résultat' : `Aucun${contentType === 'news' ? 'e actualité' : ' article'}`)}
       </Text>
-      
+
       <Text variant="bodyMedium" style={styles.emptyDescription}>
-        {error ? error : (selectedGame
-          ? `Il n'y a pas de tournois ${statusLabel} sur ${selectedGame.name} pour le moment.`
-          : `Aucun tournoi ${statusLabel} détecté actuellement.`)}
+        {error ? error : (searchQuery 
+          ? `Aucun contenu ne correspond à "${searchQuery}".`
+          : `Il n'y a pas encore ${contentType === 'news' ? "d'actualités" : "d'articles"} disponibles pour le moment.`)}
       </Text>
     </Animated.View>
   );
 };
 
-const TournamentsHeader = memo(({ 
+const NewsHeader = memo(({ 
   isSearchVisible, 
   searchQuery, 
   setSearchQuery, 
   toggleSearch, 
-  status, 
-  setStatus 
+  contentType, 
+  setContentType 
 }: { 
   isSearchVisible: boolean, 
   searchQuery: string, 
   setSearchQuery: (s: string) => void, 
   toggleSearch: () => void, 
-  status: TournamentStatus, 
-  setStatus: (s: TournamentStatus) => void 
+  contentType: ContentType, 
+  setContentType: (v: ContentType) => void 
 }) => {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (isSearchVisible) {
-      // Small delay to ensure the keyboard doesn't interrupt the slide animation
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -147,7 +142,7 @@ const TournamentsHeader = memo(({
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
-            placeholder="Rechercher un tournoi..."
+            placeholder="Rechercher..."
             placeholderTextColor={COLORS.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -159,23 +154,17 @@ const TournamentsHeader = memo(({
 
         <Animated.View style={[styles.tabsAndSearch, tabsStyle]}>
           <View style={styles.tabsContainer}>
-            <StatusTab 
-              label="En Cours" 
-              value="running" 
-              active={status === 'running'} 
-              onPress={setStatus} 
+            <StatusTab
+              label="Actualités"
+              value="news"
+              active={contentType === 'news'}
+              onPress={setContentType}
             />
-            <StatusTab 
-              label="À Venir" 
-              value="upcoming" 
-              active={status === 'upcoming'} 
-              onPress={setStatus} 
-            />
-            <StatusTab 
-              label="Terminés" 
-              value="finished" 
-              active={status === 'finished'} 
-              onPress={setStatus} 
+            <StatusTab
+              label="Articles"
+              value="articles"
+              active={contentType === 'articles'}
+              onPress={setContentType}
             />
           </View>
           <Pressable onPress={toggleSearch} style={styles.searchButton}>
@@ -186,42 +175,103 @@ const TournamentsHeader = memo(({
     </View>
   );
 }, (prev, next) => {
-  // We MUST re-render for searchQuery, but we avoid unmounting thanks to the structure above
   return prev.isSearchVisible === next.isSearchVisible && 
-         prev.status === next.status && 
+         prev.contentType === next.contentType && 
          prev.searchQuery === next.searchQuery;
 });
 
-export default function TournamentsScreen() {
+export default function NewsScreen() {
   const router = useRouter();
-  const [status, setStatus] = useState<TournamentStatus>('running');
+  const [contentType, setContentType] = useState<ContentType>('news');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { selectedGame } = useGame();
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [articles, setArticles] = useState<NewsItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  const {
-    tournaments,
-    isLoading,
-    isRefreshing,
-    error,
-    refetch,
-    loadMore,
-    hasMore,
-  } = useTournaments({
-    status,
-    gameFilter: selectedGame?.acronym || null,
-    limit: 15,
-    autoRefresh: false,
-  });
+  const LIMIT = 15;
 
-  const filteredTournaments = useMemo(() => {
-    if (!searchQuery) return tournaments;
-    const query = searchQuery.toLowerCase();
-    return tournaments.filter(t => 
-      t.name.toLowerCase().includes(query) || 
-      t.league?.name.toLowerCase().includes(query)
-    );
-  }, [tournaments, searchQuery]);
+  const fetchContent = async (isRefresh = false, loadMore = false) => {
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+        setOffset(0);
+      } else if (!loadMore) {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      const currentOffset = isRefresh ? 0 : (loadMore ? offset : 0);
+
+      if (contentType === 'news') {
+        const data = await articleService.getArticlesByCategory('Actus', {
+          limit: LIMIT,
+          offset: currentOffset
+        });
+
+        // Strict frontend filtering to ensure only 'Actus' category is shown
+        const filtered = data.filter(item => item.category === 'Actus');
+
+        if (isRefresh) {
+          setNewsItems(filtered);
+        } else if (loadMore) {
+          setNewsItems(prev => [...prev, ...filtered]);
+        } else {
+          setNewsItems(filtered);
+        }
+
+        setHasMore(data.length === LIMIT);
+      } else {
+        const data = await articleService.getAllArticles({
+          limit: LIMIT,
+          offset: currentOffset
+        });
+
+        // Filter out Actus category to show everything else (Analyses, etc.)
+        const filteredArticles = data.filter(item => item.category !== 'Actus');
+
+        if (isRefresh) {
+          setArticles(filteredArticles);
+        } else if (loadMore) {
+          setArticles(prev => [...prev, ...filteredArticles]);
+        } else {
+          setArticles(filteredArticles);
+        }
+
+        setHasMore(data.length === LIMIT);
+      }
+
+      if (loadMore) {
+        setOffset(currentOffset + LIMIT);
+      }
+    } catch (err: any) {
+      console.error('Error fetching content:', err);
+      setError(err?.message || 'Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(true);
+    fetchContent();
+  }, [contentType]);
+
+  const handleRefresh = useCallback(() => {
+    fetchContent(true);
+  }, [contentType]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!isLoading && hasMore) {
+      fetchContent(false, true);
+    }
+  }, [isLoading, hasMore, contentType, offset]);
 
   const toggleSearch = useCallback(() => {
     setIsSearchVisible(prev => {
@@ -230,20 +280,30 @@ export default function TournamentsScreen() {
     });
   }, []);
 
-  // Use a stable component reference to avoid remounting the header on every keystroke
+  const filteredData = useMemo(() => {
+    const data = contentType === 'news' ? newsItems : articles;
+    if (!searchQuery) return data;
+    const query = searchQuery.toLowerCase();
+    return data.filter(item => 
+      item.title?.toLowerCase().includes(query) || 
+      item.description?.toLowerCase().includes(query) ||
+      item.author?.toLowerCase().includes(query)
+    );
+  }, [newsItems, articles, contentType, searchQuery]);
+
   const HeaderComponent = useMemo(() => (
-    <TournamentsHeader
+    <NewsHeader
       isSearchVisible={isSearchVisible}
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       toggleSearch={toggleSearch}
-      status={status}
-      setStatus={setStatus}
+      contentType={contentType}
+      setContentType={setContentType}
     />
-  ), [isSearchVisible, searchQuery, status, toggleSearch]);
+  ), [isSearchVisible, searchQuery, contentType, toggleSearch]);
 
   const renderFooter = () => {
-    if (!hasMore || isLoading) return <View style={{ height: spacing.xxl }} />;
+    if (!hasMore || isLoading || searchQuery) return <View style={{ height: spacing.xxl }} />;
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={COLORS.primary} />
@@ -254,34 +314,37 @@ export default function TournamentsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={filteredTournaments}
-        keyExtractor={(item) => item.id.toString()}
+        data={filteredData}
+        keyExtractor={(item) => `${contentType}-${item.id}`}
         renderItem={({ item }) => (
-          <TournamentCard
-            tournament={item}
-            onPress={() => router.push(`/tournament/${item.id}`)}
-          />
+          <View style={styles.cardWrapper}>
+            <ArticleCard
+              article={item}
+              onPress={() => router.push(`/article/${item.slug}`)}
+              fullWidth
+            />
+          </View>
         )}
         ListHeaderComponent={<View style={{ height: 100 }} />} // Spacer for sticky header
         ListEmptyComponent={
-          <EmptyState 
-            isLoading={isLoading} 
-            error={error} 
-            selectedGame={selectedGame} 
-            status={status}
+          <EmptyState
+            isLoading={isLoading}
+            error={error}
+            contentType={contentType}
+            searchQuery={searchQuery}
           />
         }
         ListFooterComponent={renderFooter}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={refetch}
+            onRefresh={handleRefresh}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
             progressViewOffset={100} // Offset for sticky header
           />
         }
-        onEndReached={loadMore}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -389,6 +452,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing.xxl,
+  },
+  cardWrapper: {
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
   },
   centerContainer: {
     flex: 1,

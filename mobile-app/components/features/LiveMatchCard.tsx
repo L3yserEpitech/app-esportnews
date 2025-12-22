@@ -14,9 +14,10 @@ const CARD_WIDTH = width * 0.85;
 interface LiveMatchCardProps {
   match: LiveMatch;
   onPress?: () => void;
+  fullWidth?: boolean;
 }
 
-export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress }) => {
+export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fullWidth }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -59,9 +60,10 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress }) 
   return (
     <Pressable onPress={onPress || handleStreamPress} style={({ pressed }) => [
       styles.container,
+      fullWidth && { marginRight: 0 },
       pressed && styles.pressed
     ]}>
-      <Surface style={styles.card} elevation={2}>
+      <Surface style={[styles.card, fullWidth && { width: '100%' }]} elevation={2}>
         <LinearGradient
           colors={[COLORS.surfaceVariant, COLORS.surface]}
           style={styles.backgroundGradient}

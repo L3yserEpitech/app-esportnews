@@ -1,7 +1,9 @@
 import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { useTheme, Text, IconButton } from 'react-native-paper';
 import { Platform, View, StyleSheet, Animated, Easing } from 'react-native';
+import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameSelector } from '@/components/features';
 import React, { useState, useRef } from 'react';
@@ -44,25 +46,34 @@ export default function TabsLayout() {
         <Tabs
           screenOptions={{
             tabBarActiveTintColor: theme.colors.primary,
-            tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+            tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
+            tabBarShowLabel: false,
             tabBarStyle: {
-              backgroundColor: theme.colors.surface,
-              borderTopColor: theme.colors.surfaceVariant,
-              borderTopWidth: 1,
-              height: Platform.OS === 'ios' ? 88 : 60,
-              paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-              paddingTop: 8,
+              backgroundColor: 'transparent',
+              borderTopWidth: 0,
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: Platform.OS === 'ios' ? 88 : 70,
+              elevation: 0,
             },
-            tabBarLabelStyle: {
-              fontSize: 12,
-              fontWeight: '500',
+            tabBarBackground: () => (
+              <BlurView 
+                tint="dark"
+                intensity={80}
+                style={StyleSheet.absoluteFill}
+              />
+            ),
+            tabBarIconStyle: {
+              marginTop: Platform.OS === 'ios' ? 10 : 0,
             },
             headerStyle: {
-              backgroundColor: theme.colors.surface,
+              backgroundColor: '#060B13',
               elevation: 0,
               shadowOpacity: 0,
             },
-            headerTintColor: theme.colors.onSurface,
+            headerTintColor: '#FFFFFF',
             headerTitleStyle: {
               fontWeight: '600',
               fontSize: 18,
@@ -73,20 +84,30 @@ export default function TabsLayout() {
             name="index"
             options={{
               title: 'Accueil',
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="home" size={size} color={color} />
+              tabBarIcon: ({ color }: { color: string }) => (
+                <FontAwesome6 name="house" size={22} color={color} />
               ),
               headerTitle: 'Esport News',
-              header: ({ options }) => (
+              header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                   <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
+                      <Image 
+                        source={require('@/assets/logo_blanc.png')} 
+                        style={styles.headerLogo}
+                        contentFit="contain"
+                      />
                     </View>
                     <IconButton
-                      icon={isGameSelectorOpen ? "controller-classic" : "controller-classic-outline"}
+                      icon={({ size, color }) => (
+                        <FontAwesome6 
+                          name="gamepad" 
+                          size={size} 
+                          color={color} 
+                        />
+                      )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
-                      size={24}
+                      size={28}
                       onPress={toggleGameSelector}
                       style={styles.gamepadButton}
                     />
@@ -104,16 +125,26 @@ export default function TabsLayout() {
             name="live"
             options={{
               headerTitle: 'Matchs en Direct',
-              header: ({ options }) => (
+              header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
+                      <Image 
+                        source={require('@/assets/logo_blanc.png')} 
+                        style={styles.headerLogo}
+                        contentFit="contain"
+                      />
                     </View>
                     <IconButton
-                      icon={isGameSelectorOpen ? "controller-classic" : "controller-classic-outline"}
+                      icon={({ size, color }) => (
+                        <FontAwesome6 
+                          name="gamepad" 
+                          size={size} 
+                          color={color} 
+                        />
+                      )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
-                      size={24}
+                      size={28}
                       onPress={toggleGameSelector}
                       style={styles.gamepadButton}
                     />
@@ -126,8 +157,8 @@ export default function TabsLayout() {
                 </SafeAreaView>
               ),
               title: 'Live',
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="access-point" size={size} color={color} />
+              tabBarIcon: ({ color }: { color: string }) => (
+                <FontAwesome6 name="bolt" size={22} color={color} />
               ),
             }}
           />
@@ -135,16 +166,26 @@ export default function TabsLayout() {
             name="tournaments"
             options={{
               headerTitle: 'Tournois',
-              header: ({ options }) => (
+              header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
+                      <Image 
+                        source={require('@/assets/logo_blanc.png')} 
+                        style={styles.headerLogo}
+                        contentFit="contain"
+                      />
                     </View>
                     <IconButton
-                      icon={isGameSelectorOpen ? "controller-classic" : "controller-classic-outline"}
+                      icon={({ size, color }) => (
+                        <FontAwesome6 
+                          name="gamepad" 
+                          size={size} 
+                          color={color} 
+                        />
+                      )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
-                      size={24}
+                      size={28}
                       onPress={toggleGameSelector}
                       style={styles.gamepadButton}
                     />
@@ -157,25 +198,35 @@ export default function TabsLayout() {
                 </SafeAreaView>
               ),
               title: 'Tournois',
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="trophy" size={size} color={color} />
+              tabBarIcon: ({ color }: { color: string }) => (
+                <FontAwesome6 name="trophy" size={22} color={color} />
               ),
             }}
           />
           <Tabs.Screen
-            name="calendar"
+            name="news"
             options={{
-              headerTitle: 'Calendrier des Matchs',
-              header: ({ options }) => (
+              headerTitle: 'Actualités & Articles',
+              header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
+                      <Image 
+                        source={require('@/assets/logo_blanc.png')} 
+                        style={styles.headerLogo}
+                        contentFit="contain"
+                      />
                     </View>
                     <IconButton
-                      icon={isGameSelectorOpen ? "controller-classic" : "controller-classic-outline"}
+                      icon={({ size, color }) => (
+                        <FontAwesome6 
+                          name="gamepad" 
+                          size={size} 
+                          color={color} 
+                        />
+                      )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
-                      size={24}
+                      size={28}
                       onPress={toggleGameSelector}
                       style={styles.gamepadButton}
                     />
@@ -187,9 +238,9 @@ export default function TabsLayout() {
                   </Animated.View>
                 </SafeAreaView>
               ),
-              title: 'Calendrier',
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="calendar" size={size} color={color} />
+              title: 'Actus',
+              tabBarIcon: ({ color }: { color: string }) => (
+                <FontAwesome6 name="newspaper" size={22} color={color} />
               ),
             }}
           />
@@ -197,16 +248,26 @@ export default function TabsLayout() {
             name="profile"
             options={{
               headerTitle: 'Mon Profil',
-              header: ({ options }) => (
+              header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Text style={styles.headerTitle}>{options.headerTitle as string}</Text>
+                      <Image 
+                        source={require('@/assets/logo_blanc.png')} 
+                        style={styles.headerLogo}
+                        contentFit="contain"
+                      />
                     </View>
                     <IconButton
-                      icon={isGameSelectorOpen ? "controller-classic" : "controller-classic-outline"}
+                      icon={({ size, color }) => (
+                        <FontAwesome6 
+                          name="gamepad" 
+                          size={size} 
+                          color={color} 
+                        />
+                      )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
-                      size={24}
+                      size={28}
                       onPress={toggleGameSelector}
                       style={styles.gamepadButton}
                     />
@@ -219,8 +280,8 @@ export default function TabsLayout() {
                 </SafeAreaView>
               ),
               title: 'Profil',
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="account" size={size} color={color} />
+              tabBarIcon: ({ color }: { color: string }) => (
+                <FontAwesome6 name="user-large" size={22} color={color} />
               ),
             }}
           />
@@ -278,14 +339,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitleContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  headerLogo: {
+    width: 120,
+    height: 32,
   },
   animWrapper: {
     overflow: 'hidden',
