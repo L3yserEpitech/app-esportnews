@@ -133,6 +133,7 @@ export interface User {
   admin: boolean;
   favorite_team?: any;
   created_at: string;
+  age?: number;
   notifi_push?: boolean;
   notif_articles?: boolean;
   notif_news?: boolean;
@@ -305,6 +306,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
+  age: number;
 }
 
 export interface AuthResponse {

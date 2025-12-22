@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Portal, Modal, Button, IconButton, Text } from 'react-native-paper';
 import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
@@ -55,14 +56,11 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
             />
 
             <View style={styles.headerSection}>
-              <View style={styles.logoCircle}>
-                <LinearGradient
-                  colors={[COLORS.primary, '#9B1D40']}
-                  style={styles.logoGradient}
-                >
-                  <Ionicons name="person-circle-outline" size={48} color="white" />
-                </LinearGradient>
-              </View>
+              <Image 
+                source={require('@/assets/logo_blanc.png')} 
+                style={styles.logo} 
+                contentFit="contain" 
+              />
               
               <Text variant="headlineSmall" style={styles.modalTitle}>
                 Bienvenue sur Esport News
@@ -147,19 +145,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: spacing.lg,
-    padding: 2,
-    backgroundColor: 'rgba(242, 46, 98, 0.2)',
-  },
-  logoGradient: {
-    flex: 1,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logo: {
+    width: 140,
+    height: 40,
+    marginBottom: spacing.md,
   },
   modalTitle: {
     color: COLORS.text,

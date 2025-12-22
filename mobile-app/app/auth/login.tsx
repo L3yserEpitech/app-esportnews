@@ -1,11 +1,29 @@
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { useState } from 'react';
-import { Text, TextInput } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  KeyboardAvoidingView, 
+  Platform, 
+  Dimensions, 
+  ScrollView,
+  StatusBar,
+  TouchableOpacity
+} from 'react-native';
+import { Text, TextInput, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Image } from 'expo-image';
+import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/hooks';
-import { Button, Card } from '@/components/ui';
 import { COLORS } from '@/constants/colors';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { 
+  FadeInDown, 
+  FadeInUp,
+  Layout
+} from 'react-native-reanimated';
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -19,13 +37,11 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError('');
 
-    // Validation des champs
     if (!email || !password) {
       setError('Veuillez remplir tous les champs');
       return;
     }
 
-    // Validation format email basique
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Format d\'email invalide');
@@ -35,15 +51,10 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      // Appel au service d'authentification
       await login({ email, password });
-
-      // Redirection vers Home après succès
       router.replace('/(tabs)');
     } catch (err: any) {
       console.error('Login error:', err);
-
-      // Gestion des erreurs spécifiques
       if (err.message?.includes('401')) {
         setError('Email ou mot de passe incorrect');
       } else if (err.message?.includes('Network')) {
@@ -57,91 +68,159 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        <Text variant="headlineMedium" style={styles.title}>
-          Connexion
-        </Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
-          Connectez-vous à votre compte Esport News
-        </Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={[COLORS.darkBlue, COLORS.darkest]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-        <Card variant="outlined" padding="lg" style={styles.form}>
-          <TextInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            mode="outlined"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="emailAddress"
-            style={styles.input}
-            disabled={loading}
-          />
-
-          <TextInput
-            label="Mot de passe"
-            value={password}
-            onChangeText={setPassword}
-            mode="outlined"
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoComplete="password"
-            textContentType="password"
-            style={styles.input}
-            disabled={loading}
-            right={
-              <TextInput.Icon
-                icon={showPassword ? 'eye-off' : 'eye'}
-                onPress={() => setShowPassword(!showPassword)}
-              />
-            }
-          />
-
-          {error ? (
-            <Text variant="bodyMedium" style={styles.error}>
-              {error}
-            </Text>
-          ) : null}
-
-          <Button
-            variant="primary"
-            onPress={handleLogin}
-            disabled={loading}
-            loading={loading}
-            style={styles.button}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View 
+            entering={FadeInUp.delay(200).duration(800)}
+            style={styles.header}
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </Button>
+            <View style={styles.navBar}>
+              <TouchableOpacity 
+                onPress={() => router.replace('/(tabs)')}
+                activeOpacity={0.7}
+              >
+                <Image 
+                  source={require('@/assets/logo_blanc.png')} 
+                  style={styles.headerLogo} 
+                  contentFit="contain" 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.replace('/(tabs)')}
+                style={styles.homeButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="home" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
 
-          <Button
-            variant="text"
-            onPress={() => {}}
-            disabled={loading}
-            style={styles.forgotButton}
-          >
-            Mot de passe oublié ?
-          </Button>
-        </Card>
+            <View style={styles.headerTextContainer}>
+              <Text variant="headlineLarge" style={styles.title}>
+                Bon retour !
+              </Text>
+              <Text variant="bodyLarge" style={styles.subtitle}>
+                Le meilleur de l'esport vous attend.
+              </Text>
+            </View>
+          </Animated.View>
 
-        <View style={styles.footer}>
-          <Text variant="bodyMedium" style={styles.footerText}>
-            Pas encore de compte ?
-          </Text>
-          <Button
-            variant="text"
-            onPress={() => router.push('/auth/register')}
-            disabled={loading}
+          <Animated.View 
+            entering={FadeInDown.delay(400).duration(800)}
+            style={styles.formContainer}
           >
-            Créer un compte
-          </Button>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+            <View style={styles.formInner}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  mode="flat"
+                  placeholder="votre@email.com"
+                  placeholderTextColor={COLORS.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  disabled={loading}
+                  left={<TextInput.Icon icon="email-outline" color={COLORS.textMuted} />}
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Mot de passe</Text>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  mode="flat"
+                  placeholder="••••••••"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  disabled={loading}
+                  left={<TextInput.Icon icon="lock-outline" color={COLORS.textMuted} />}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? 'eye-off' : 'eye'}
+                      color={COLORS.textMuted}
+                      onPress={() => setShowPassword(!showPassword)}
+                    />
+                  }
+                />
+              </View>
+
+              <Animated.View layout={Layout.springify()}>
+                {error ? (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={18} color={COLORS.error} />
+                    <Text style={styles.error}>{error}</Text>
+                  </View>
+                ) : null}
+              </Animated.View>
+
+              <TouchableOpacity
+                onPress={() => {}}
+                disabled={loading}
+                style={styles.forgotPassword}
+              >
+                <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={[COLORS.primary, '#C2185B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.loginButton}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Se connecter</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(600).duration(800)}
+            style={styles.footer}
+          >
+            <Text style={styles.footerText}>Pas encore de compte ?</Text>
+            <TouchableOpacity onPress={() => router.push('/auth/register')}>
+              <Text style={styles.registerLink}>Créer un compte</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -150,44 +229,134 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  content: {
-    flex: 1,
-    padding: spacing.md,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: spacing.xxl,
+  },
+  header: {
+    marginBottom: spacing.xl,
+  },
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  headerLogo: {
+    width: 120,
+    height: 32,
+  },
+  homeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
   },
   title: {
     color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 32,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
     color: COLORS.textSecondary,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
+    fontSize: 16,
   },
-  form: {
+  formContainer: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  formInner: {
+    padding: spacing.xl,
+  },
+  inputWrapper: {
     marginBottom: spacing.lg,
   },
+  inputLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+    marginLeft: 4,
+  },
   input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: borderRadius.lg,
+    height: 56,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.md,
-    backgroundColor: COLORS.background,
+    gap: spacing.sm,
   },
   error: {
-    color: '#EF4444',
-    marginBottom: spacing.md,
-    textAlign: 'center',
+    color: COLORS.error,
+    fontSize: 14,
+    flex: 1,
   },
-  button: {
-    marginTop: spacing.md,
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: spacing.xl,
   },
-  forgotButton: {
-    marginTop: spacing.sm,
+  forgotPasswordText: {
+    color: COLORS.primary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  loginButton: {
+    height: 56,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  loginButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: spacing.xxl,
+    gap: spacing.xs,
   },
   footerText: {
     color: COLORS.textSecondary,
-    marginBottom: spacing.xs,
+    fontSize: 15,
+  },
+  registerLink: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useTheme, Text, IconButton } from 'react-native-paper';
 import { Platform, View, StyleSheet, Animated, Easing } from 'react-native';
@@ -7,9 +7,12 @@ import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameSelector } from '@/components/features';
 import React, { useState, useRef } from 'react';
+import { useAuth } from '@/hooks';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
   const [isGameSelectorOpen, setIsGameSelectorOpen] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
 
@@ -246,24 +249,33 @@ export default function TabsLayout() {
           />
           <Tabs.Screen
             name="profile"
+            listeners={{
+              tabPress: (e) => {
+                // Si l'utilisateur n'est pas connecté, rediriger vers login
+                if (!isLoading && !isAuthenticated) {
+                  e.preventDefault();
+                  router.push('/auth/login');
+                }
+              },
+            }}
             options={{
               headerTitle: 'Mon Profil',
               header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Image 
-                        source={require('@/assets/logo_blanc.png')} 
+                      <Image
+                        source={require('@/assets/logo_blanc.png')}
                         style={styles.headerLogo}
                         contentFit="contain"
                       />
                     </View>
                     <IconButton
                       icon={({ size, color }) => (
-                        <FontAwesome6 
-                          name="gamepad" 
-                          size={size} 
-                          color={color} 
+                        <FontAwesome6
+                          name="gamepad"
+                          size={size}
+                          color={color}
                         />
                       )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}

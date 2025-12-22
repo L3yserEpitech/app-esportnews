@@ -34,25 +34,13 @@ export default function RootLayout() {
           <Stack.Screen
             name="auth/login"
             options={{
-              presentation: 'modal',
-              headerShown: true,
-              headerTitle: 'Connexion',
-              headerStyle: {
-                backgroundColor: theme.colors.surface,
-              },
-              headerTintColor: theme.colors.onSurface,
+              headerShown: false,
             }}
           />
           <Stack.Screen
             name="auth/register"
             options={{
-              presentation: 'modal',
-              headerShown: true,
-              headerTitle: 'Inscription',
-              headerStyle: {
-                backgroundColor: theme.colors.surface,
-              },
-              headerTintColor: theme.colors.onSurface,
+              headerShown: false,
             }}
           />
 
