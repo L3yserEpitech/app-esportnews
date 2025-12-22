@@ -66,3 +66,15 @@ type ExportDataRow struct {
 	TotalPageViews   int64  `json:"total_pageviews"`
 	NewRegistrations int64  `json:"new_registrations"`
 }
+
+// AgeStats represents age distribution statistics for users
+type AgeStats struct {
+	AgeRange string `json:"age_range"` // "0-16", "16-25", "25-40", "40-60", "60+"
+	Count    int64  `json:"count"`     // Number of users in this age range
+}
+
+// AgeDistribution represents the complete age distribution for users
+type AgeDistribution struct {
+	TotalUsers int64      `json:"total_users"` // Total users with age data (excludes NULL)
+	Breakdown  []AgeStats `json:"breakdown"`   // Age distribution breakdown
+}

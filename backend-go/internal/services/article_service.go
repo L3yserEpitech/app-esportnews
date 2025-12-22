@@ -233,8 +233,11 @@ func (s *ArticleService) CreateArticle(ctx context.Context, input *models.Create
 		return nil, fmt.Errorf("GORM not initialized")
 	}
 
-	// Auto-generate slug
-	slug := generateSlug(input.Title, 80, 10)
+	// Auto-generate unique slug with validation
+	slug, err := s.generateUniqueSlug(ctx, input.Title)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate unique slug: %w", err)
+	}
 
 	// Auto-generate content variants
 	contentWhite := generateContentWhite(input.ArticleContent)
@@ -286,9 +289,12 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *mod
 
 	if input.Title != nil {
 		updates["title"] = *input.Title
-		// Regenerate slug if title changed
-		slug := generateSlug(*input.Title, 80, 10)
-		updates["slug"] = slug
+		// Regenerate unique slug if title changed
+		newSlug, err := s.generateUniqueSlugForUpdate(ctx, *input.Title, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate unique slug: %w", err)
+		}
+		updates["slug"] = newSlug
 	}
 	if input.Subtitle != nil {
 		updates["subtitle"] = *input.Subtitle
@@ -433,4 +439,46 @@ func generateContentWhite(content string) string {
 
 func generateContentBlack(content string) string {
 	return utils.GenerateContentBlack(content)
+}
+
+// generateUniqueSlug generates a unique slug for an article by checking database for conflicts
+func (s *ArticleService) generateUniqueSlug(ctx context.Context, title string) (string, error) {
+	// Define the checkExists callback that queries the database
+	checkExists := func(slug string) (bool, error) {
+		var count int64
+		err := s.gormDB.WithContext(ctx).
+			Model(&models.Article{}).
+			Where("slug = ?", slug).
+			Count(&count).Error
+
+		if err != nil {
+			return false, fmt.Errorf("failed to check slug existence: %w", err)
+		}
+
+		return count > 0, nil
+	}
+
+	// Use the utility function with 150 char limit (increased from 80)
+	return utils.GenerateUniqueSlug(title, 150, checkExists)
+}
+
+// generateUniqueSlugForUpdate generates a unique slug for article update, excluding the current article
+func (s *ArticleService) generateUniqueSlugForUpdate(ctx context.Context, title string, currentArticleID int64) (string, error) {
+	// Define the checkExists callback that queries the database, excluding current article
+	checkExists := func(slug string) (bool, error) {
+		var count int64
+		err := s.gormDB.WithContext(ctx).
+			Model(&models.Article{}).
+			Where("slug = ? AND id != ?", slug, currentArticleID).
+			Count(&count).Error
+
+		if err != nil {
+			return false, fmt.Errorf("failed to check slug existence: %w", err)
+		}
+
+		return count > 0, nil
+	}
+
+	// Use the utility function with 150 char limit (increased from 80)
+	return utils.GenerateUniqueSlug(title, 150, checkExists)
 }

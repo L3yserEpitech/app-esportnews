@@ -1,16 +1,18 @@
 package utils
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 
 	"golang.org/x/net/html"
 )
 
 // GenerateSlug creates a URL-friendly slug from a title
-// maxChars: maximum length of the slug (default: 80)
-// maxWords: maximum number of words (default: 10)
+// maxChars: maximum length of the slug (default: 150 to preserve more context)
+// maxWords: maximum number of words (0 = no limit, preserves all important words)
 func GenerateSlug(title string, maxChars, maxWords int) string {
 	// Convert to lowercase
 	slug := strings.ToLower(title)
@@ -25,23 +27,79 @@ func GenerateSlug(title string, maxChars, maxWords int) string {
 	// Remove leading and trailing hyphens
 	slug = strings.Trim(slug, "-")
 
-	// Limit to maxWords
+	// Limit to maxWords only if specified and > 0
 	if maxWords > 0 {
 		words := strings.Split(slug, "-")
 		if len(words) > maxWords {
+			// Keep first maxWords words to preserve context
 			words = words[:maxWords]
+			slug = strings.Join(words, "-")
 		}
-		slug = strings.Join(words, "-")
 	}
 
-	// Limit to maxChars
+	// Limit to maxChars, but cut at word boundary to avoid mid-word cuts
 	if maxChars > 0 && len(slug) > maxChars {
-		slug = slug[:maxChars]
-		// Remove trailing hyphen if cut off mid-word
+		// Find the last complete word before maxChars
+		truncated := slug[:maxChars]
+		lastHyphen := strings.LastIndex(truncated, "-")
+
+		if lastHyphen > 0 {
+			// Cut at last word boundary
+			slug = truncated[:lastHyphen]
+		} else {
+			// No word boundary found, keep truncated version
+			slug = truncated
+		}
+
+		// Remove trailing hyphen
 		slug = strings.TrimRight(slug, "-")
 	}
 
 	return slug
+}
+
+// GenerateUniqueSlug creates a unique slug by appending a numeric suffix if needed
+// checkExists is a callback function that checks if a slug already exists in the database
+func GenerateUniqueSlug(title string, maxChars int, checkExists func(slug string) (bool, error)) (string, error) {
+	// Generate base slug (no word limit to preserve maximum context)
+	baseSlug := GenerateSlug(title, maxChars, 0)
+
+	// Check if base slug is available
+	exists, err := checkExists(baseSlug)
+	if err != nil {
+		return "", err
+	}
+
+	if !exists {
+		return baseSlug, nil
+	}
+
+	// Base slug exists, try with numeric suffixes
+	for i := 2; i <= 999; i++ {
+		candidateSlug := fmt.Sprintf("%s-%d", baseSlug, i)
+
+		// If adding suffix exceeds maxChars, truncate base slug
+		if maxChars > 0 && len(candidateSlug) > maxChars {
+			suffixLen := len(fmt.Sprintf("-%d", i))
+			baseSlugTruncated := baseSlug[:maxChars-suffixLen]
+			// Remove trailing hyphen if present
+			baseSlugTruncated = strings.TrimRight(baseSlugTruncated, "-")
+			candidateSlug = fmt.Sprintf("%s-%d", baseSlugTruncated, i)
+		}
+
+		exists, err := checkExists(candidateSlug)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			return candidateSlug, nil
+		}
+	}
+
+	// Fallback: use timestamp-based suffix if all numeric suffixes exhausted
+	timestamp := time.Now().Unix()
+	return fmt.Sprintf("%s-%d", baseSlug[:maxChars-15], timestamp), nil
 }
 
 // CalculateReadTime calculates reading time in minutes based on word count

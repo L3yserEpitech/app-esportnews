@@ -45,6 +45,16 @@ export interface AnalyticsSummary {
   registrations: RegistrationStats;
 }
 
+export interface AgeStats {
+  age_range: string; // "0-16", "16-25", "25-40", "40-60", "60+"
+  count: number;
+}
+
+export interface AgeDistribution {
+  total_users: number;
+  breakdown: AgeStats[];
+}
+
 export type Timeline = '24h' | 'day' | 'week' | 'month' | 'year';
 
 /**
@@ -174,6 +184,32 @@ export const analyticsService = {
     }
 
     return await response.blob();
+  },
+
+  /**
+   * Récupère la distribution d'âge des utilisateurs (admin only)
+   */
+  getAgeDistribution: async (token?: string): Promise<AgeDistribution> => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/analytics/age-distribution`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get age distribution: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
   },
 
   /**

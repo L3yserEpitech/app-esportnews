@@ -26,18 +26,18 @@ export async function generateMetadata(
     authors: [{ name: article.author || 'EsportNews' }],
     openGraph: {
       title: article.title,
-      description: article.description || article.subtitle,
+      description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
       type: 'article',
       url,
       images: article.featuredImage ? [{ url: article.featuredImage }] : [],
       publishedTime: article.created_at,
       authors: [article.author || 'EsportNews'],
-      tags: article.tags,
+      tags: article.tags || [],
     },
     twitter: {
       card: 'summary_large_image',
       title: article.title,
-      description: article.description || article.subtitle,
+      description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
       images: article.featuredImage ? [article.featuredImage] : [],
     },
     alternates: {

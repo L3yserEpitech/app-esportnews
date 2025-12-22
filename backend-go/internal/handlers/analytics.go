@@ -34,6 +34,7 @@ func (h *AnalyticsHandler) RegisterAdminRoutes(g RouterGroup) {
 	g.GET("/analytics/registrations", h.GetRegistrationStats)
 	g.GET("/analytics/summary", h.GetAnalyticsSummary)
 	g.GET("/analytics/export", h.ExportAnalytics)
+	g.GET("/analytics/age-distribution", h.GetAgeDistribution)
 }
 
 // TrackPageView enregistre une page view (endpoint public)
@@ -190,5 +191,21 @@ func (h *AnalyticsHandler) GetAnalyticsSummary(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Analytics summary retrieved",
 		"data":    summary,
+	})
+}
+
+// GetAgeDistribution retourne la répartition des âges des utilisateurs (admin only)
+// GET /api/analytics/age-distribution
+func (h *AnalyticsHandler) GetAgeDistribution(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	distribution, err := h.analyticsService.GetAgeDistribution(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get age distribution")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Age distribution retrieved",
+		"data":    distribution,
 	})
 }
