@@ -1,12 +1,24 @@
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
-import { Text, Switch, Divider } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  ScrollView, 
+  Alert, 
+  TouchableOpacity, 
+  Dimensions,
+  StatusBar,
+  Platform
+} from 'react-native';
+import { Text, Switch, ActivityIndicator } from 'react-native-paper';
+import { useRouter, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
-import { Button, Card } from '@/components/ui';
 import { COLORS } from '@/constants/colors';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -18,7 +30,6 @@ export default function NotificationsScreen() {
   const [notifMatchs, setNotifMatchs] = useState(user?.notif_matchs || false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sync with user data
   useEffect(() => {
     if (user) {
       setNotifiPush(user.notifi_push || false);
@@ -28,30 +39,14 @@ export default function NotificationsScreen() {
     }
   }, [user]);
 
-  // Save preferences
   const handleSave = async () => {
     try {
       setIsLoading(true);
-
-      // TODO: API call to update notification preferences
-      // await userService.updateNotificationPreferences({
-      //   notifi_push: notifiPush,
-      //   notif_articles: notifArticles,
-      //   notif_news: notifNews,
-      //   notif_matchs: notifMatchs,
-      // });
-
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Refresh user data
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await refreshUser();
-
-      Alert.alert('Succès', 'Préférences mises à jour', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
+      Alert.alert('Succès', 'Vos préférences ont été mises à jour', [
+        { text: 'Parfait', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Error updating preferences:', error);
@@ -61,138 +56,152 @@ export default function NotificationsScreen() {
     }
   };
 
-  // Check if any changes were made
-  const hasChanges = () => {
-    return (
-      notifiPush !== (user?.notifi_push || false) ||
-      notifArticles !== (user?.notif_articles || false) ||
-      notifNews !== (user?.notif_news || false) ||
-      notifMatchs !== (user?.notif_matchs || false)
-    );
-  };
+  const hasChanges = () => (
+    notifiPush !== (user?.notifi_push || false) ||
+    notifArticles !== (user?.notif_articles || false) ||
+    notifNews !== (user?.notif_news || false) ||
+    notifMatchs !== (user?.notif_matchs || false)
+  );
+
+  const NotificationItem = ({ title, subtitle, value, onValueChange, icon, disabled = false }: any) => (
+    <View style={[styles.settingItem, disabled && { opacity: 0.5 }]}>
+      <View style={styles.settingInfo}>
+        <View style={styles.settingHeader}>
+          <Ionicons name={icon} size={22} color={COLORS.primary} />
+          <Text style={styles.settingTitle}>{title}</Text>
+        </View>
+        <Text style={styles.settingDescription}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        color={COLORS.primary}
+      />
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="headlineSmall" style={styles.title}>
-            Notifications
-          </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Gérez vos préférences de notification
-          </Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <LinearGradient
+        colors={[COLORS.darkBlue, COLORS.darkest]}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Custom Header/Navbar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Notifications</Text>
+          <View style={{ width: 44 }} />
         </View>
 
-        {/* Notification Settings */}
-        <Card variant="outlined" style={styles.section}>
-          {/* Push Notifications */}
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text variant="bodyLarge" style={styles.settingTitle}>
-                Notifications push
-              </Text>
-              <Text variant="bodySmall" style={styles.settingDescription}>
-                Recevoir toutes les notifications sur votre appareil
-              </Text>
-            </View>
-            <Switch
+        {/* General Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Général</Text>
+          <BlurView intensity={10} tint="light" style={styles.glassCard}>
+            <NotificationItem
+              icon="notifications-outline"
+              title="Notifications Push"
+              subtitle="Recevoir les alertes sur cet appareil"
               value={notifiPush}
               onValueChange={setNotifiPush}
-              color={COLORS.primary}
             />
-          </View>
+          </BlurView>
+        </View>
 
-          <Divider />
-
-          {/* Articles Notifications */}
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text variant="bodyLarge" style={styles.settingTitle}>
-                Nouveaux articles
-              </Text>
-              <Text variant="bodySmall" style={styles.settingDescription}>
-                Notifications pour les nouveaux articles publiés
-              </Text>
-            </View>
-            <Switch
+        {/* Categories Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Catégories</Text>
+          <BlurView intensity={10} tint="light" style={styles.glassCard}>
+            <NotificationItem
+              icon="document-text-outline"
+              title="Nouveaux articles"
+              subtitle="Alertes pour chaque publication"
               value={notifArticles}
               onValueChange={setNotifArticles}
-              color={COLORS.primary}
               disabled={!notifiPush}
             />
-          </View>
-
-          <Divider />
-
-          {/* News Notifications */}
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text variant="bodyLarge" style={styles.settingTitle}>
-                Actualités
-              </Text>
-              <Text variant="bodySmall" style={styles.settingDescription}>
-                Notifications pour les dernières actualités esport
-              </Text>
-            </View>
-            <Switch
+            <View style={styles.divider} />
+            <NotificationItem
+              icon="newspaper-outline"
+              title="Actualités"
+              subtitle="Les dernières news de l'esport"
               value={notifNews}
               onValueChange={setNotifNews}
-              color={COLORS.primary}
               disabled={!notifiPush}
             />
-          </View>
-
-          <Divider />
-
-          {/* Matches Notifications */}
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text variant="bodyLarge" style={styles.settingTitle}>
-                Matchs en direct
-              </Text>
-              <Text variant="bodySmall" style={styles.settingDescription}>
-                Notifications quand vos matchs favoris commencent
-              </Text>
-            </View>
-            <Switch
+            <View style={styles.divider} />
+            <NotificationItem
+              icon="game-controller-outline"
+              title="Matchs en direct"
+              subtitle="Quand vos matchs favoris débutent"
               value={notifMatchs}
               onValueChange={setNotifMatchs}
-              color={COLORS.primary}
               disabled={!notifiPush}
             />
-          </View>
-        </Card>
+          </BlurView>
+        </View>
 
-        {/* Info Card */}
         {!notifiPush && (
-          <Card variant="outlined" padding="md" style={styles.infoCard}>
-            <Text variant="bodySmall" style={styles.infoText}>
-              ℹ️ Activez les notifications push pour recevoir des alertes
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={20} color={COLORS.textMuted} />
+            <Text style={styles.infoText}>
+              Activez les notifications push pour configurer les catégories.
             </Text>
-          </Card>
+          </View>
         )}
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          <Button
-            variant="primary"
-            onPress={handleSave}
-            disabled={isLoading || !hasChanges()}
-            style={styles.saveButton}
+        {/* Action Buttons */}
+        <TouchableOpacity 
+          onPress={handleSave}
+          disabled={isLoading || !hasChanges()}
+          activeOpacity={0.8}
+          style={styles.saveAction}
+        >
+          <LinearGradient
+            colors={[COLORS.primary, '#C2185B']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.saveButton,
+              (isLoading || !hasChanges()) && { opacity: 0.5 }
+            ]}
           >
-            {isLoading ? 'Enregistrement...' : 'Enregistrer'}
-          </Button>
-          <Button
-            variant="outline"
-            onPress={() => router.back()}
-            disabled={isLoading}
-          >
-            Annuler
-          </Button>
-        </View>
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={20} color="white" />
+                <Text style={styles.saveButtonText}>Enregistrer les préférences</Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          style={styles.cancelButton}
+          disabled={isLoading}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -202,53 +211,124 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: spacing.md,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  header: {
-    marginBottom: spacing.xl,
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
-  title: {
-    color: COLORS.text,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
+  navTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  subtitle: {
-    color: COLORS.textSecondary,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginLeft: 4,
+  },
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    padding: spacing.md,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
-    gap: spacing.md,
+    paddingVertical: spacing.xs,
   },
   settingInfo: {
     flex: 1,
+    paddingRight: spacing.md,
+  },
+  settingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: spacing.sm,
   },
   settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: COLORS.text,
-    marginBottom: spacing.xs,
   },
   settingDescription: {
-    color: COLORS.textSecondary,
+    fontSize: 13,
+    color: COLORS.textMuted,
     lineHeight: 18,
   },
-  infoCard: {
-    marginBottom: spacing.lg,
-    backgroundColor: COLORS.surface,
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: spacing.md,
+    marginHorizontal: spacing.sm,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
   },
   infoText: {
-    color: COLORS.textSecondary,
-    textAlign: 'center',
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    lineHeight: 18,
   },
-  actions: {
-    gap: spacing.md,
+  saveAction: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   saveButton: {
-    marginBottom: spacing.xs,
+    height: 56,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    height: 56,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cancelButtonText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });

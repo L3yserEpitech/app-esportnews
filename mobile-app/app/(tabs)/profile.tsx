@@ -18,11 +18,6 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import Animated, { 
-  FadeInDown, 
-  FadeInUp,
-  Layout
-} from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
@@ -53,16 +48,13 @@ const ProfileItem = ({
   </TouchableOpacity>
 );
 
-const Section = ({ title, children, delay = 0 }: any) => (
-  <Animated.View 
-    entering={FadeInDown.delay(delay).duration(600)}
-    style={styles.section}
-  >
+const Section = ({ title, children }: any) => (
+  <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
     <BlurView intensity={10} tint="light" style={styles.sectionCard}>
       {children}
     </BlurView>
-  </Animated.View>
+  </View>
 );
 
 export default function ProfileScreen() {
@@ -117,10 +109,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header Section */}
-        <Animated.View 
-          entering={FadeInUp.duration(800)}
-          style={styles.header}
-        >
+        <View style={styles.header}>
           <View style={styles.profileHeaderContainer}>
             <View style={styles.avatarWrapper}>
               <LinearGradient
@@ -173,11 +162,11 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
+        </View>
 
         {isAuthenticated ? (
           <>
-            <Section title="Mon Compte" delay={200}>
+            <Section title="Mon Compte">
               <ProfileItem 
                 icon="person-outline" 
                 title="Informations personnelles" 
@@ -197,28 +186,19 @@ export default function ProfileScreen() {
               />
             </Section>
 
-            <Section title="Préférences" delay={400}>
-              <ProfileItem 
-                icon="heart-outline" 
-                title="Équipes favorites" 
-                subtitle={`${user?.favorite_team?.length || 0} équipe(s) suivie(s)`}
-                onPress={() => router.push('/profile/teams' as any)}
-                iconBg="rgba(255, 45, 85, 0.15)"
-                color="#FF2D55"
-              />
-              <View style={styles.divider} />
-              <ProfileItem 
-                icon="notifications-outline" 
-                title="Notifications" 
+            <Section title="Préférences">
+              <ProfileItem
+                icon="notifications-outline"
+                title="Notifications"
                 subtitle="Gérer vos alertes matchs et news"
                 onPress={() => router.push('/profile/notifications' as any)}
                 iconBg="rgba(255, 149, 0, 0.15)"
                 color="#FF9500"
               />
               <View style={styles.divider} />
-              <ProfileItem 
-                icon="language-outline" 
-                title="Langue" 
+              <ProfileItem
+                icon="language-outline"
+                title="Langue"
                 subtitle="Français"
                 onPress={() => router.push('/profile/language' as any)}
                 iconBg="rgba(0, 122, 255, 0.15)"
@@ -227,7 +207,7 @@ export default function ProfileScreen() {
             </Section>
           </>
         ) : (
-          <Section title="Général" delay={200}>
+          <Section title="Général">
             <ProfileItem 
               icon="log-in-outline" 
               title="Se connecter" 
@@ -248,7 +228,7 @@ export default function ProfileScreen() {
           </Section>
         )}
 
-        <Section title="Paramètres" delay={600}>
+        <Section title="Paramètres">
           <ProfileItem 
             icon="information-circle-outline" 
             title="À propos" 
@@ -258,21 +238,18 @@ export default function ProfileScreen() {
             color="#8E8E93"
           />
           <View style={styles.divider} />
-          <ProfileItem 
-            icon="document-text-outline" 
-            title="Mentions légales" 
-            subtitle="CGU et Confidentialité"
-            onPress={() => {}}
+          <ProfileItem
+            icon="document-text-outline"
+            title="Informations légales"
+            subtitle="Mentions, CGU, CGV et Confidentialité"
+            onPress={() => router.push('/legal' as any)}
             iconBg="rgba(142, 142, 147, 0.15)"
             color="#8E8E93"
           />
         </Section>
 
         {isAuthenticated && (
-          <Animated.View 
-            entering={FadeInDown.delay(700).duration(600)}
-            style={styles.logoutContainer}
-          >
+          <View style={styles.logoutContainer}>
             <TouchableOpacity 
               style={styles.logoutButtonFull} 
               onPress={handleLogout}
@@ -281,7 +258,7 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={22} color="#FF453A" />
               <Text style={styles.logoutText}>Se déconnecter</Text>
             </TouchableOpacity>
-          </Animated.View>
+          </View>
         )}
 
         <View style={styles.footerSpacing} />
@@ -306,7 +283,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
   },
   profileHeaderContainer: {
     alignItems: 'center',
@@ -444,6 +422,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: borderRadius.xl,
     gap: spacing.sm,
+    marginBottom: spacing.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 69, 58, 0.2)',
   },

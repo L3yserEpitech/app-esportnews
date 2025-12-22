@@ -1,5 +1,4 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/services';
 import { User, LoginCredentials, RegisterData } from '@/types';
 
@@ -23,7 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = await AsyncStorage.getItem('token');
+        const token = await authService.getToken();
         if (token) {
           // Token exists, fetch user data
           const userData = await authService.getMe();
@@ -32,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error('AuthContext.initAuth error:', error);
         // Invalid token, remove it
-        await AsyncStorage.removeItem('token');
+        await authService.removeToken();
       } finally {
         setIsLoading(false);
       }
@@ -70,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       // Remove token from AsyncStorage
-      await AsyncStorage.removeItem('token');
+      await authService.removeToken();
 
       // Clear user data
       setUser(null);
@@ -82,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshUser = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await authService.getToken();
       if (token) {
         const userData = await authService.getMe();
         setUser(userData);

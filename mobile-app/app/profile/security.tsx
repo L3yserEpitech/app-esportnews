@@ -1,20 +1,31 @@
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
-import { Text, TextInput, Switch, Divider, ActivityIndicator } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  ScrollView, 
+  Alert, 
+  TouchableOpacity, 
+  Dimensions,
+  StatusBar,
+  Platform,
+  KeyboardAvoidingView
+} from 'react-native';
+import { Text, TextInput, Switch, ActivityIndicator } from 'react-native-paper';
+import { useRouter, Stack } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
-import { Button, Card } from '@/components/ui';
 import { COLORS } from '@/constants/colors';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 export default function SecurityScreen() {
   const router = useRouter();
   const { refreshUser } = useAuth();
 
-  // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,7 +33,6 @@ export default function SecurityScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Biometric authentication
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('');
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -30,7 +40,6 @@ export default function SecurityScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingBiometric, setIsCheckingBiometric] = useState(true);
 
-  // Check biometric availability
   useEffect(() => {
     checkBiometricAvailability();
   }, []);
@@ -53,10 +62,6 @@ export default function SecurityScreen() {
           setBiometricType('Biométrie');
         }
       }
-
-      // TODO: Load biometric preference from AsyncStorage
-      // const enabled = await AsyncStorage.getItem('biometric_enabled');
-      // setBiometricEnabled(enabled === 'true');
     } catch (error) {
       console.error('Error checking biometric availability:', error);
     } finally {
@@ -64,7 +69,6 @@ export default function SecurityScreen() {
     }
   };
 
-  // Authenticate with biometric
   const authenticateBiometric = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -72,7 +76,6 @@ export default function SecurityScreen() {
         fallbackLabel: 'Utiliser le mot de passe',
         disableDeviceFallback: false,
       });
-
       return result.success;
     } catch (error) {
       console.error('Error authenticating:', error);
@@ -80,38 +83,24 @@ export default function SecurityScreen() {
     }
   };
 
-  // Toggle biometric authentication
   const handleToggleBiometric = async (value: boolean) => {
     if (value) {
-      // Enable biometric - require authentication first
       const success = await authenticateBiometric();
       if (success) {
         setBiometricEnabled(true);
-        // TODO: Save to AsyncStorage
-        // await AsyncStorage.setItem('biometric_enabled', 'true');
         Alert.alert('Succès', `${biometricType} activé`);
       } else {
         Alert.alert('Échec', 'Authentification échouée');
       }
     } else {
-      // Disable biometric
       setBiometricEnabled(false);
-      // TODO: Remove from AsyncStorage
-      // await AsyncStorage.removeItem('biometric_enabled');
       Alert.alert('Désactivé', `${biometricType} désactivé`);
     }
   };
 
-  // Change password
   const handleChangePassword = async () => {
-    // Validation
-    if (!currentPassword.trim()) {
-      Alert.alert('Erreur', 'Le mot de passe actuel est requis');
-      return;
-    }
-
-    if (!newPassword.trim()) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe est requis');
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
@@ -125,195 +114,203 @@ export default function SecurityScreen() {
       return;
     }
 
-    if (currentPassword === newPassword) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit être différent de l\'ancien');
-      return;
-    }
-
     try {
       setIsLoading(true);
-
-      // TODO: API call to change password
-      // await authService.changePassword({
-      //   currentPassword,
-      //   newPassword,
-      // });
-
-      // For now, simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Clear fields
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-
       Alert.alert('Succès', 'Mot de passe modifié avec succès');
     } catch (error: any) {
       console.error('Error changing password:', error);
-      Alert.alert(
-        'Erreur',
-        error.message || 'Impossible de modifier le mot de passe'
-      );
+      Alert.alert('Erreur', 'Impossible de modifier le mot de passe');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="headlineSmall" style={styles.title}>
-            Sécurité
-          </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Gérez votre mot de passe et l'authentification
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <LinearGradient
+        colors={[COLORS.darkBlue, COLORS.darkest]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-        {/* Biometric Authentication */}
-        {isCheckingBiometric ? (
-          <Card variant="outlined" padding="md" style={styles.section}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          </Card>
-        ) : biometricAvailable ? (
-          <Card variant="outlined" style={styles.section}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <View style={styles.settingTitleRow}>
-                  <MaterialCommunityIcons
-                    name="fingerprint"
-                    size={24}
-                    color={COLORS.primary}
-                    style={styles.biometricIcon}
-                  />
-                  <Text variant="bodyLarge" style={styles.settingTitle}>
-                    {biometricType}
-                  </Text>
-                </View>
-                <Text variant="bodySmall" style={styles.settingDescription}>
-                  Utilisez {biometricType} pour vous connecter rapidement
-                </Text>
-              </View>
-              <Switch
-                value={biometricEnabled}
-                onValueChange={handleToggleBiometric}
-                color={COLORS.primary}
-              />
-            </View>
-          </Card>
-        ) : null}
-
-        {/* Change Password */}
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Changer de mot de passe
-          </Text>
-          <Card variant="outlined" padding="md">
-            {/* Current Password */}
-            <View style={styles.formGroup}>
-              <Text variant="labelLarge" style={styles.label}>
-                Mot de passe actuel
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="••••••••"
-                secureTextEntry={!showCurrentPassword}
-                autoCapitalize="none"
-                autoComplete="password"
-                style={styles.input}
-                outlineColor={COLORS.border}
-                activeOutlineColor={COLORS.primary}
-                textColor={COLORS.text}
-                right={
-                  <TextInput.Icon
-                    icon={showCurrentPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                  />
-                }
-              />
-            </View>
-
-            {/* New Password */}
-            <View style={styles.formGroup}>
-              <Text variant="labelLarge" style={styles.label}>
-                Nouveau mot de passe
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="••••••••"
-                secureTextEntry={!showNewPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                style={styles.input}
-                outlineColor={COLORS.border}
-                activeOutlineColor={COLORS.primary}
-                textColor={COLORS.text}
-                right={
-                  <TextInput.Icon
-                    icon={showNewPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowNewPassword(!showNewPassword)}
-                  />
-                }
-              />
-              <Text variant="bodySmall" style={styles.hint}>
-                Au moins 6 caractères
-              </Text>
-            </View>
-
-            {/* Confirm Password */}
-            <View style={styles.formGroup}>
-              <Text variant="labelLarge" style={styles.label}>
-                Confirmer le mot de passe
-              </Text>
-              <TextInput
-                mode="outlined"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="••••••••"
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                style={styles.input}
-                outlineColor={COLORS.border}
-                activeOutlineColor={COLORS.primary}
-                textColor={COLORS.text}
-                right={
-                  <TextInput.Icon
-                    icon={showConfirmPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  />
-                }
-              />
-            </View>
-
-            {/* Submit Button */}
-            <Button
-              variant="primary"
-              onPress={handleChangePassword}
-              disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
-              style={styles.changePasswordButton}
-            >
-              {isLoading ? 'Modification...' : 'Modifier le mot de passe'}
-            </Button>
-          </Card>
-        </View>
-
-        {/* Back Button */}
-        <Button
-          variant="outline"
-          onPress={() => router.back()}
-          disabled={isLoading}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          Retour
-        </Button>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Custom Header/Navbar */}
+          <View style={styles.navBar}>
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.navTitle}>Sécurité</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          {/* Biometric Section */}
+          {!isCheckingBiometric && biometricAvailable && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Authentification rapide</Text>
+              <BlurView intensity={10} tint="light" style={styles.glassCard}>
+                <View style={styles.settingItem}>
+                  <View style={styles.settingInfo}>
+                    <View style={styles.settingHeader}>
+                      <Ionicons 
+                        name={biometricType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'} 
+                        size={22} 
+                        color={COLORS.primary} 
+                      />
+                      <Text style={styles.settingTitle}>{biometricType}</Text>
+                    </View>
+                    <Text style={styles.settingDescription}>
+                      Accédez plus rapidement à votre compte
+                    </Text>
+                  </View>
+                  <Switch
+                    value={biometricEnabled}
+                    onValueChange={handleToggleBiometric}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </BlurView>
+            </View>
+          )}
+
+          {/* Password Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Changer de mot de passe</Text>
+            <BlurView intensity={10} tint="light" style={styles.glassCard}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Mot de passe actuel</Text>
+                <TextInput
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  mode="flat"
+                  placeholder="••••••••"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showCurrentPassword}
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  left={<TextInput.Icon icon="lock-outline" color={COLORS.textMuted} />}
+                  right={
+                    <TextInput.Icon
+                      icon={showCurrentPassword ? 'eye-off' : 'eye'}
+                      color={COLORS.textMuted}
+                      onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                    />
+                  }
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  mode="flat"
+                  placeholder="••••••••"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showNewPassword}
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  left={<TextInput.Icon icon="lock-reset" color={COLORS.textMuted} />}
+                  right={
+                    <TextInput.Icon
+                      icon={showNewPassword ? 'eye-off' : 'eye'}
+                      color={COLORS.textMuted}
+                      onPress={() => setShowNewPassword(!showNewPassword)}
+                    />
+                  }
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Confirmer le nouveau passe</Text>
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  mode="flat"
+                  placeholder="••••••••"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  left={<TextInput.Icon icon="lock-check-outline" color={COLORS.textMuted} />}
+                  right={
+                    <TextInput.Icon
+                      icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                      color={COLORS.textMuted}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    />
+                  }
+                />
+              </View>
+            </BlurView>
+          </View>
+
+          {/* Action Buttons */}
+          <TouchableOpacity 
+            onPress={handleChangePassword}
+            disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
+            activeOpacity={0.8}
+            style={styles.saveAction}
+          >
+            <LinearGradient
+              colors={[COLORS.primary, '#C2185B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.saveButton,
+                (isLoading || !currentPassword || !newPassword || !confirmPassword) && { opacity: 0.5 }
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="white" />
+                  <Text style={styles.saveButtonText}>Mettre à jour le mot de passe</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => router.back()}
+            style={styles.cancelButton}
+            disabled={isLoading}
+          >
+            <Text style={styles.cancelButtonText}>Retour</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -323,68 +320,123 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: spacing.md,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  header: {
-    marginBottom: spacing.xl,
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
-  title: {
-    color: COLORS.text,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
+  navTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  subtitle: {
-    color: COLORS.textSecondary,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  sectionTitle: {
-    color: COLORS.text,
-    fontWeight: '600',
-    marginBottom: spacing.md,
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginLeft: 4,
+  },
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    padding: spacing.md,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
-    gap: spacing.md,
+    paddingVertical: spacing.xs,
   },
   settingInfo: {
     flex: 1,
+    paddingRight: spacing.md,
   },
-  settingTitleRow: {
+  settingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  biometricIcon: {
-    marginRight: spacing.xs,
+    marginBottom: 4,
+    gap: spacing.sm,
   },
   settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: COLORS.text,
   },
   settingDescription: {
-    color: COLORS.textSecondary,
+    fontSize: 13,
+    color: COLORS.textMuted,
     lineHeight: 18,
   },
-  formGroup: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    color: COLORS.text,
+  inputWrapper: {
     marginBottom: spacing.xs,
   },
-  input: {
-    backgroundColor: COLORS.surface,
-  },
-  hint: {
+  inputLabel: {
+    fontSize: 12,
     color: COLORS.textMuted,
-    marginTop: spacing.xs,
+    marginBottom: 4,
+    marginLeft: 12,
   },
-  changePasswordButton: {
-    marginTop: spacing.sm,
+  input: {
+    backgroundColor: 'transparent',
+    height: 48,
+    fontSize: 16,
   },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  saveAction: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  saveButton: {
+    height: 56,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    height: 56,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cancelButtonText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });

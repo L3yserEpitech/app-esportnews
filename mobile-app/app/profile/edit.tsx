@@ -1,14 +1,27 @@
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
-import { Text, TextInput, ActivityIndicator, Avatar } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  ScrollView, 
+  Alert, 
+  TouchableOpacity, 
+  Dimensions,
+  StatusBar,
+  Platform,
+  KeyboardAvoidingView
+} from 'react-native';
+import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { Image } from 'expo-image';
+import { useRouter, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
-import { Button, Card } from '@/components/ui';
 import { COLORS } from '@/constants/colors';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -24,8 +37,6 @@ export default function EditProfileScreen() {
   const pickImage = async () => {
     try {
       setIsPickingImage(true);
-
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
@@ -36,7 +47,6 @@ export default function EditProfileScreen() {
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -55,12 +65,9 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Take photo with camera
   const takePhoto = async () => {
     try {
       setIsPickingImage(true);
-
-      // Request permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
       if (status !== 'granted') {
@@ -71,7 +78,6 @@ export default function EditProfileScreen() {
         return;
       }
 
-      // Launch camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
@@ -89,41 +95,24 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Show photo picker options
   const showPhotoPicker = () => {
     Alert.alert(
       'Photo de profil',
       'Choisissez une option',
       [
-        {
-          text: 'Prendre une photo',
-          onPress: takePhoto,
-        },
-        {
-          text: 'Choisir depuis la galerie',
-          onPress: pickImage,
-        },
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
+        { text: 'Prendre une photo', onPress: takePhoto },
+        { text: 'Choisir depuis la galerie', onPress: pickImage },
+        { text: 'Annuler', style: 'cancel' },
       ]
     );
   };
 
-  // Save profile
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('Erreur', 'Le nom est requis');
+    if (!name.trim() || !email.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
-    if (!email.trim()) {
-      Alert.alert('Erreur', 'L\'email est requis');
-      return;
-    }
-
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Erreur', 'Format d\'email invalide');
@@ -132,21 +121,12 @@ export default function EditProfileScreen() {
 
     try {
       setIsLoading(true);
-
-      // TODO: API call to update profile
-      // await userService.updateProfile({ name, email, photo });
-
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Refresh user data
+      // Simuler l'appel API (à remplacer par votre service de mise à jour)
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await refreshUser();
 
-      Alert.alert('Succès', 'Profil mis à jour', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
+      Alert.alert('Succès', 'Votre profil a été mis à jour', [
+        { text: 'Parfait', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -157,101 +137,145 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="headlineSmall" style={styles.title}>
-            Modifier le profil
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <LinearGradient
+        colors={[COLORS.darkBlue, COLORS.darkest]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-        {/* Avatar Section */}
-        <Card variant="outlined" padding="md" style={styles.section}>
-          <View style={styles.avatarSection}>
-            <TouchableOpacity onPress={showPhotoPicker} disabled={isPickingImage}>
-              {photo ? (
-                <Avatar.Image size={100} source={{ uri: photo }} />
-              ) : (
-                <Avatar.Icon size={100} icon="account" color={COLORS.primary} />
-              )}
-              <View style={styles.avatarBadge}>
-                {isPickingImage ? (
-                  <ActivityIndicator size="small" color={COLORS.background} />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Custom Header/Navbar */}
+          <View style={styles.navBar}>
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.navTitle}>Modifier le profil</Text>
+            <View style={{ width: 44 }} /> {/* Spacing balance */}
+          </View>
+          {/* Avatar Section */}
+          <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              onPress={showPhotoPicker} 
+              activeOpacity={0.9}
+              style={styles.avatarWrapper}
+            >
+              <LinearGradient
+                colors={[COLORS.primary, '#C2185B']}
+                style={styles.avatarGradient}
+              >
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.avatarImage} />
                 ) : (
-                  <MaterialCommunityIcons name="camera" size={20} color={COLORS.background} />
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person" size={50} color="white" />
+                  </View>
+                )}
+              </LinearGradient>
+              <View style={styles.editBadge}>
+                {isPickingImage ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="camera" size={18} color="white" />
                 )}
               </View>
             </TouchableOpacity>
-            <Text variant="bodySmall" style={styles.avatarHint}>
-              Touchez pour modifier
-            </Text>
-          </View>
-        </Card>
-
-        {/* Form Section */}
-        <Card variant="outlined" padding="md" style={styles.section}>
-          <View style={styles.formGroup}>
-            <Text variant="labelLarge" style={styles.label}>
-              Nom
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={name}
-              onChangeText={setName}
-              placeholder="Votre nom"
-              autoCapitalize="words"
-              style={styles.input}
-              outlineColor={COLORS.border}
-              activeOutlineColor={COLORS.primary}
-              textColor={COLORS.text}
-            />
+            <Text style={styles.avatarHint}>Touchez pour changer la photo</Text>
           </View>
 
-          <View style={styles.formGroup}>
-            <Text variant="labelLarge" style={styles.label}>
-              Email
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="votre@email.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              style={styles.input}
-              outlineColor={COLORS.border}
-              activeOutlineColor={COLORS.primary}
-              textColor={COLORS.text}
-            />
-          </View>
-        </Card>
+          {/* Form Section */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionLabel}>Informations</Text>
+            
+            <BlurView intensity={10} tint="light" style={styles.glassCard}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Nom d'utilisateur</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  mode="flat"
+                  placeholder="Votre nom"
+                  placeholderTextColor={COLORS.textMuted}
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  left={<TextInput.Icon icon="account-outline" color={COLORS.textMuted} />}
+                />
+              </View>
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          <Button
-            variant="primary"
+              <View style={styles.divider} />
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Adresse Email</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  mode="flat"
+                  placeholder="votre@email.com"
+                  placeholderTextColor={COLORS.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor={COLORS.primary}
+                  left={<TextInput.Icon icon="email-outline" color={COLORS.textMuted} />}
+                />
+              </View>
+            </BlurView>
+          </View>
+
+          {/* Save Button */}
+          <TouchableOpacity 
             onPress={handleSave}
             disabled={isLoading}
-            style={styles.saveButton}
+            activeOpacity={0.8}
+            style={styles.saveAction}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={COLORS.background} />
-            ) : (
-              'Enregistrer'
-            )}
-          </Button>
-          <Button
-            variant="outline"
+            <LinearGradient
+              colors={[COLORS.primary, '#C2185B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saveButton}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="white" />
+                  <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
             onPress={() => router.back()}
+            style={styles.cancelButton}
             disabled={isLoading}
           >
-            Annuler
-          </Button>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <Text style={styles.cancelButtonText}>Annuler</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -261,54 +285,146 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: spacing.md,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  header: {
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
+  },
+  navTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  title: {
-    color: COLORS.text,
-    fontWeight: '700',
+  avatarWrapper: {
+    position: 'relative',
   },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  avatarSection: {
+  avatarGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    padding: 4,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.md,
   },
-  avatarBadge: {
+  avatarImage: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 4,
+    borderColor: COLORS.darkest,
+  },
+  avatarPlaceholder: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: COLORS.darkest,
+  },
+  editBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: 4,
+    right: 4,
+    backgroundColor: COLORS.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.surface,
+    borderWidth: 4,
+    borderColor: COLORS.darkest,
   },
   avatarHint: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     color: COLORS.textMuted,
+    fontSize: 14,
   },
-  formGroup: {
-    marginBottom: spacing.md,
+  formSection: {
+    marginBottom: spacing.xxl,
   },
-  label: {
-    color: COLORS.text,
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginLeft: 4,
+  },
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    padding: spacing.md,
+  },
+  inputWrapper: {
     marginBottom: spacing.xs,
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginBottom: 4,
+    marginLeft: 12,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'transparent',
+    height: 48,
+    fontSize: 16,
   },
-  actions: {
-    gap: spacing.md,
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  saveAction: {
+    marginBottom: spacing.md,
   },
   saveButton: {
-    marginBottom: spacing.xs,
+    height: 56,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    height: 56,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cancelButtonText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });

@@ -148,6 +148,26 @@ export default function Footer() {
                     {t('layout.footer.mentions_legales')}
                   </Link>
                 </li>
+                <li>
+                  <Link href="/legal/politique-confidentialite" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                    {t('layout.footer.confidentialite')}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/cgu" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                    {t('layout.footer.cgu')}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/cgv" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                    {t('layout.footer.cgv')}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/cookies" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                    {t('layout.footer.cookies')}
+                  </Link>
+                </li>
               </ul>
             </div>
 

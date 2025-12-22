@@ -27,16 +27,17 @@ export default function MentionsLegalesPage() {
               Éditeur du site
             </h2>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-2">
-              <p><strong className="text-white">Dénomination sociale :</strong> Esport News SAS</p>
-              <p><strong className="text-white">Forme juridique :</strong> Société par Actions Simplifiée — Capital social : 1 000 €</p>
+              <p><strong className="text-white">Dénomination sociale :</strong> ESPORT NEWS</p>
+              <p><strong className="text-white">Forme juridique :</strong> Société par Actions Simplifiée (SAS)</p>
+              <p><strong className="text-white">Capital social :</strong> 1 000,00 €</p>
               <p><strong className="text-white">Siège social :</strong> 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France</p>
-              <p><strong className="text-white">Immatriculation :</strong> RCS Créteil n° 987 953 247</p>
+              <p><strong className="text-white">SIRET :</strong> 987 953 247</p>
+              <p><strong className="text-white">SIREN :</strong> 98795324700010</p>
               <p><strong className="text-white">N° TVA intracommunautaire :</strong> FR18987953247</p>
-              <p><strong className="text-white">Email :</strong> <a href="mailto:contact@esportnews.fr" className="text-[#F22E62] hover:underline">contact@esportnews.fr</a> — <strong className="text-white">Tél. :</strong> 01 80 91 80 40</p>
+              <p><strong className="text-white">Email :</strong> <a href="mailto:contact@esportnews.fr" className="text-[#F22E62] hover:underline">contact@esportnews.fr</a></p>
               <div className="mt-4 pt-4 border-t border-[#182859]/30">
-                <p><strong className="text-white">Directeur de la publication :</strong> Parnasse edition</p>
-                <p><strong className="text-white">Directeur de la rédaction :</strong> Kenan Altarac</p>
-                <p><strong className="text-white">Directeur du pôle Numérique :</strong> Samuel Cohen</p>
+                <p><strong className="text-white">Directeur Général :</strong> Samuel Yaacov COHEN</p>
+                <p><strong className="text-white">Président de SAS :</strong> Kenan Clément Eliaou ALTARAC</p>
               </div>
             </div>
           </section>
@@ -47,9 +48,8 @@ export default function MentionsLegalesPage() {
               Hébergeur
             </h2>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-2">
-              <p>Le site <strong className="text-white">www.esportnews.fr</strong> est hébergé par <strong className="text-white">Amen SASU</strong></p>
-              <p><strong className="text-white">Adresse :</strong> 12–14, Rond-Point des Champs-Élysées, 75008 Paris, France</p>
-              <p><strong className="text-white">Contact :</strong> 01 70 99 53 41 — <a href="http://www.amen.fr" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">www.amen.fr</a></p>
+              <p>Le site <strong className="text-white">www.esportnews.fr</strong> et l'application mobile sont hébergés par un <strong className="text-white">prestataire technique indépendant en France</strong>.</p>
+              <p className="text-sm text-gray-400 mt-2">L'infrastructure technique est hébergée sur un serveur privé virtuel (VPS) situé en France, garantissant la conformité avec les réglementations européennes en matière de protection des données (RGPD).</p>
             </div>
           </section>
 

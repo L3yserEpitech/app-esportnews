@@ -8,6 +8,7 @@ import ClientLayout from "./components/layout/ClientLayout";
 import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
+import CookieBanner from "./components/common/CookieBanner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -73,6 +74,7 @@ export default function RootLayout({
               {children}
               <Analytics />
             </ClientLayout>
+            <CookieBanner />
           </GameProvider>
         </AuthProvider>
       </body>
