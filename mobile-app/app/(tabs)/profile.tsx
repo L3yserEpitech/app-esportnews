@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 100 : 80,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },

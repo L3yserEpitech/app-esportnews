@@ -260,8 +260,9 @@ export default function TabsLayout() {
             }}
             options={{
               headerTitle: 'Mon Profil',
+              headerTransparent: true,
               header: ({ options }: { options: any }) => (
-                <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
+                <SafeAreaView edges={['top']} style={[styles.headerContainer, { backgroundColor: 'transparent' }, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
                       <Image
