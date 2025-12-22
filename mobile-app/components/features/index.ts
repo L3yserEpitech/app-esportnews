@@ -5,3 +5,4 @@ export * from './SectionHeader';
 export * from './ArticleCard';
 export * from './TournamentCard';
 export * from './MatchCard';
+export * from './LoginPromptModal';

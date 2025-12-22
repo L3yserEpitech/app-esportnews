@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, FlatList, RefreshControl } from 'react-native';
-import { Text, ActivityIndicator, Portal, Modal, Button, IconButton } from 'react-native-paper';
+import { ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import {
-  GameSelector,
   LiveMatchCard,
-  HomeHeader,
   SectionHeader,
   ArticleCard,
-  TournamentCard
+  TournamentCard,
+  LoginPromptModal,
 } from '@/components/features';
 import { useGame, useLiveMatches, useHomeData, useAuth } from '@/hooks';
 import { COLORS } from '@/constants/colors';
@@ -39,15 +38,47 @@ export default function HomeScreen() {
     refetch: refetchHome,
   } = useHomeData(selectedGame?.acronym);
 
+  // Show login modal automatically when user is not authenticated (only once per session)
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        setShowLoginModal(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthLoading, isAuthenticated]);
+
   const onRefresh = useCallback(() => {
     refetchLive();
     refetchHome();
   }, [refetchLive, refetchHome]);
 
-  const isLoading = isLoadingGames || (isLoadingLive && liveMatches.length === 0);
+  const handleCloseModal = () => {
+    setShowLoginModal(false);
+  };
+
+  const handleGoToLogin = () => {
+    setShowLoginModal(false);
+    router.push('/auth/login');
+  };
+
+  const handleGoToRegister = () => {
+    setShowLoginModal(false);
+    router.push('/auth/register');
+  };
 
   return (
     <View style={styles.container}>
+      {/* Login Prompt Modal */}
+      <LoginPromptModal
+        visible={showLoginModal}
+        onClose={handleCloseModal}
+        onLogin={handleGoToLogin}
+        onRegister={handleGoToRegister}
+      />
+
       <ScrollView 
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
