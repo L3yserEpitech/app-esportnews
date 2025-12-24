@@ -16,35 +16,34 @@ export default function RootLayout() {
           <AuthProvider>
             <GameProvider>
               <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: theme.colors.background },
-          }}
-        >
-          {/* Bottom Tabs Navigation */}
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-            }}
-          />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.colors.background },
+                }}
+              >
+                {/* Bottom Tabs Navigation */}
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
 
-          {/* Auth Screens (Modal) */}
-          <Stack.Screen
-            name="auth/login"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="auth/register"
-            options={{
-              headerShown: false,
-            }}
-          />
-
-        </Stack>
+                {/* Auth Screens (Modal) */}
+                <Stack.Screen
+                  name="auth/login"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="auth/register"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+              </Stack>
             </GameProvider>
           </AuthProvider>
         </LocaleProvider>

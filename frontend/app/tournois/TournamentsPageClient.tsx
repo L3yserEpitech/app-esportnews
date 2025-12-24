@@ -406,10 +406,10 @@ const TournamentsPage: React.FC = () => {
 
       {/* Modale de recherche plein écran */}
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-bg-primary border-border-primary/50 flex flex-col [&>button]:hidden">
+        <DialogContent overlayVariant="default" className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
           <DialogTitle className="sr-only">{t('pages_detail.tournaments.search.placeholder')}</DialogTitle>
           {/* Header de la modale avec barre de recherche */}
-          <div className="p-6 border-b border-border-primary/50">
+          <div className="p-6 border-b border-border-primary/50 bg-background">
             <div className="flex items-center gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -448,7 +448,7 @@ const TournamentsPage: React.FC = () => {
           </div>
 
           {/* Contenu scrollable avec résultats */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 bg-background">
             {!searchQuery ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">

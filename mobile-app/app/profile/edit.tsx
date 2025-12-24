@@ -16,6 +16,7 @@ import { useRouter, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
+import { authService } from '@/services';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -121,16 +122,39 @@ export default function EditProfileScreen() {
 
     try {
       setIsLoading(true);
-      // Simuler l'appel API (à remplacer par votre service de mise à jour)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Prepare update data
+      const updateData: { name?: string; email?: string; avatar?: string } = {
+        name: name.trim(),
+        email: email.trim(),
+      };
+
+      // Upload photo if changed (local URI)
+      if (photo && photo !== user?.photo && photo.startsWith('file://')) {
+        try {
+          const uploadResult = await authService.uploadProfilePhoto(photo);
+          updateData.avatar = uploadResult.avatar_url;
+        } catch (uploadError: any) {
+          // Si l'upload échoue (501 Not Implemented), on continue sans la photo
+          console.warn('Avatar upload not implemented:', uploadError.message);
+        }
+      } else if (photo && photo === user?.photo) {
+        // Photo inchangée, on garde l'ancienne
+        updateData.avatar = user.photo;
+      }
+
+      // Update profile with new data
+      await authService.updateProfile(updateData);
+
+      // Refresh user data from server
       await refreshUser();
 
       Alert.alert('Succès', 'Votre profil a été mis à jour', [
         { text: 'Parfait', onPress: () => router.back() },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour le profil');
+      Alert.alert('Erreur', error.message || 'Impossible de mettre à jour le profil');
     } finally {
       setIsLoading(false);
     }

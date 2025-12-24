@@ -320,3 +320,77 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 
 	return &user, nil
 }
+
+// ChangePassword updates user password after verifying current password
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *models.ChangePasswordInput) error {
+	// Validate new password strength
+	if len(input.NewPassword) < 6 {
+		return fmt.Errorf("new password must be at least 6 characters")
+	}
+
+	// Use GORM if available
+	if s.gormDB != nil {
+		var user models.User
+		if err := s.gormDB.WithContext(ctx).First(&user, userID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return fmt.Errorf("user not found")
+			}
+			return fmt.Errorf("failed to query user: %w", err)
+		}
+
+		// Verify current password
+		if err := utils.VerifyPassword(user.Password, input.CurrentPassword); err != nil {
+			return fmt.Errorf("current password is incorrect")
+		}
+
+		// Hash new password
+		hashedPassword, err := utils.HashPassword(input.NewPassword)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+
+		// Update password
+		if err := s.gormDB.WithContext(ctx).
+			Model(&models.User{}).
+			Where("id = ?", userID).
+			Update("password", hashedPassword).Error; err != nil {
+			return fmt.Errorf("failed to update password: %w", err)
+		}
+
+		return nil
+	}
+
+	// Fallback to pgxpool
+	var currentHashedPassword string
+	err := s.db.QueryRow(ctx,
+		`SELECT password FROM public.users WHERE id = $1`,
+		userID,
+	).Scan(&currentHashedPassword)
+
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Verify current password
+	if err := utils.VerifyPassword(currentHashedPassword, input.CurrentPassword); err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	// Hash new password
+	hashedPassword, err := utils.HashPassword(input.NewPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	_, err = s.db.Exec(ctx,
+		`UPDATE public.users SET password = $1 WHERE id = $2`,
+		hashedPassword, userID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}

@@ -9,3 +9,4 @@ node_modules/
 .env.production
 .next/
 .vercel
+.pnpm-store/

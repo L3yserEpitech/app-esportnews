@@ -15,6 +15,7 @@ import { useRouter, Stack } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
+import { authService } from '@/services';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -116,14 +117,21 @@ export default function SecurityScreen() {
 
     try {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Call API to change password
+      await authService.changePassword(currentPassword, newPassword);
+
+      // Clear form
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      Alert.alert('Succès', 'Mot de passe modifié avec succès');
+
+      Alert.alert('Succès', 'Mot de passe modifié avec succès', [
+        { text: 'Parfait', onPress: () => router.back() },
+      ]);
     } catch (error: any) {
       console.error('Error changing password:', error);
-      Alert.alert('Erreur', 'Impossible de modifier le mot de passe');
+      Alert.alert('Erreur', error.message || 'Impossible de modifier le mot de passe');
     } finally {
       setIsLoading(false);
     }
@@ -247,7 +255,7 @@ export default function SecurityScreen() {
               <View style={styles.divider} />
 
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Confirmer le nouveau passe</Text>
+                <Text style={styles.inputLabel}>Confirmer le nouveau mot de passe</Text>
                 <TextInput
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}

@@ -161,6 +161,11 @@ type UpdateUserInput struct {
 	Avatar *string `json:"avatar"`
 }
 
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=6"`
+}
+
 type NotificationPreferences struct {
 	UserID        int64 `json:"user_id"`
 	NotifiPush    bool  `json:"notifi_push"`

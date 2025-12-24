@@ -386,6 +386,14 @@ export default function PolitiqueConfidentialitePage() {
 
               <p className="mt-3">Pour les mineurs de moins de 15 ans, le consentement des parents ou représentants légaux est requis pour certains traitements (newsletters, notifications push).</p>
 
+              <div className="bg-[#182859]/20 rounded p-4 mt-3">
+                <p className="text-sm">
+                  <strong className="text-white">Vérification de l'âge :</strong><br />
+                  • <strong className="text-white">Application mobile :</strong> L'âge est demandé obligatoirement lors de l'inscription (minimum 13 ans)<br />
+                  • <strong className="text-white">Site web :</strong> L'âge est optionnel mais recommandé (si fourni, minimum 13 ans)
+                </p>
+              </div>
+
               <p className="text-sm text-gray-400 mt-3">
                 Si vous êtes parent et souhaitez exercer les droits RGPD au nom de votre enfant mineur, contactez-nous à <a href="mailto:contact@esportnews.fr" className="text-[#F22E62] hover:underline">contact@esportnews.fr</a>.
               </p>

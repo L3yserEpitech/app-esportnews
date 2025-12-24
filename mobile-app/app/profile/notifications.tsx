@@ -13,6 +13,7 @@ import { Text, Switch, ActivityIndicator } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
+import { notificationService } from '@/services';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,15 +43,24 @@ export default function NotificationsScreen() {
   const handleSave = async () => {
     try {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Update notification preferences via API
+      await notificationService.updatePreferences({
+        notifi_push: notifiPush,
+        notif_news: notifNews,
+        notif_articles: notifArticles,
+        notif_matchs: notifMatchs,
+      });
+
+      // Refresh user data to sync with server
       await refreshUser();
+
       Alert.alert('Succès', 'Vos préférences ont été mises à jour', [
         { text: 'Parfait', onPress: () => router.back() },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating preferences:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour les préférences');
+      Alert.alert('Erreur', error.message || 'Impossible de mettre à jour les préférences');
     } finally {
       setIsLoading(false);
     }

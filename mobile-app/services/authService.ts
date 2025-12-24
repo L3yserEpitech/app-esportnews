@@ -87,6 +87,69 @@ class AuthService {
   async logout(): Promise<void> {
     await this.removeToken();
   }
+
+  /**
+   * Mise à jour du profil utilisateur
+   */
+  async updateProfile(data: { name?: string; email?: string; avatar?: string }): Promise<UserData> {
+    try {
+      const response = await apiClient.post<UserData>('/api/auth/me', data);
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.error || 'Impossible de mettre à jour le profil';
+      throw new Error(message);
+    }
+  }
+
+  /**
+   * Upload de la photo de profil vers Cloudflare R2
+   */
+  async uploadProfilePhoto(uri: string): Promise<{ avatar_url: string }> {
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('avatar', {
+        uri,
+        name: filename,
+        type,
+      } as any);
+
+      const response = await apiClient.post<{ avatar_url: string }>(
+        '/api/auth/avatar/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.error || 'Impossible d\'uploader la photo';
+      throw new Error(message);
+    }
+  }
+
+  /**
+   * Changement de mot de passe
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      const response = await apiClient.post('/api/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.error || 'Impossible de changer le mot de passe';
+      throw new Error(message);
+    }
+  }
 }
 
 export const authService = new AuthService();

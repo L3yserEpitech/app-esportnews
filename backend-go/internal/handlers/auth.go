@@ -14,8 +14,9 @@ import (
 
 type AuthHandler struct {
 	BaseHandler
-	authService *services.AuthService
-	JWTSecret   string
+	authService    *services.AuthService
+	storageService *services.StorageService
+	JWTSecret      string
 }
 
 func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
@@ -23,8 +24,10 @@ func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
 	g.POST("/auth/login", h.Login)
 	g.GET("/auth/me", h.GetMe)
 	g.POST("/auth/me", h.UpdateProfile)
-	g.POST("/auth/avatar", h.UploadAvatar)
+	g.POST("/auth/avatar", h.UploadAvatar)              // Web: reçoit URL
+	g.POST("/auth/avatar/upload", h.UploadAvatarFile)   // Mobile: reçoit fichier
 	g.DELETE("/auth/avatar", h.DeleteAvatar)
+	g.POST("/auth/change-password", h.ChangePassword)   // Change password
 	g.POST("/auth/logout", h.Logout)
 	g.POST("/auth/refresh", h.RefreshToken)
 }
@@ -109,7 +112,92 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 }
 
 func (h *AuthHandler) UploadAvatar(c echo.Context) error {
-	return echo.NewHTTPError(http.StatusNotImplemented, "Avatar upload not yet implemented")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	userID, err := h.extractUserID(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	var input struct {
+		AvatarURL string `json:"avatarUrl"`
+	}
+
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	if input.AvatarURL == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Avatar URL is required")
+	}
+
+	// Update user avatar via service
+	updateInput := &models.UpdateUserInput{
+		Avatar: &input.AvatarURL,
+	}
+
+	user, err := h.authService.UpdateProfile(ctx, userID, updateInput)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, user)
+}
+
+func (h *AuthHandler) UploadAvatarFile(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	userID, err := h.extractUserID(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	// Check if storage service is available
+	if h.storageService == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Storage service not available")
+	}
+
+	// Get file from form data
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Avatar file is required")
+	}
+
+	// Open the file
+	src, err := file.Open()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to open uploaded file")
+	}
+	defer src.Close()
+
+	// Upload to R2
+	avatarURL, err := h.storageService.Upload(ctx, services.UploadOptions{
+		Path:        fmt.Sprintf("avatars/users/%d", userID),
+		Filename:    fmt.Sprintf("avatar-%d-%d.jpg", userID, time.Now().Unix()),
+		ContentType: file.Header.Get("Content-Type"),
+		Body:        src,
+		Size:        file.Size,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to upload avatar: %v", err))
+	}
+
+	// Update user avatar in database
+	updateInput := &models.UpdateUserInput{
+		Avatar: &avatarURL,
+	}
+
+	user, err := h.authService.UpdateProfile(ctx, userID, updateInput)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"avatar_url": avatarURL,
+		"user":       user,
+	})
 }
 
 func (h *AuthHandler) DeleteAvatar(c echo.Context) error {
@@ -127,6 +215,40 @@ func (h *AuthHandler) DeleteAvatar(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Avatar deleted"})
+}
+
+func (h *AuthHandler) ChangePassword(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	userID, err := h.extractUserID(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	var input models.ChangePasswordInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	// Validate input
+	if input.CurrentPassword == "" || input.NewPassword == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Current password and new password are required")
+	}
+
+	if len(input.NewPassword) < 6 {
+		return echo.NewHTTPError(http.StatusBadRequest, "New password must be at least 6 characters")
+	}
+
+	// Change password via service
+	if err := h.authService.ChangePassword(ctx, userID, &input); err != nil {
+		if err.Error() == "current password is incorrect" {
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Password changed successfully"})
 }
 
 func (h *AuthHandler) Logout(c echo.Context) error {
