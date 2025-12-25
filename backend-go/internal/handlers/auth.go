@@ -10,6 +10,7 @@ import (
 
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
+	"github.com/esportnews/backend/internal/utils"
 )
 
 type AuthHandler struct {
@@ -163,6 +164,12 @@ func (h *AuthHandler) UploadAvatarFile(c echo.Context) error {
 	file, err := c.FormFile("avatar")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Avatar file is required")
+	}
+
+	// ⚠️ SÉCURITÉ: Valider le fichier (extension, taille, magic bytes)
+	if err := utils.ValidateUploadedFile(file); err != nil {
+		c.Logger().Warnf("Avatar validation failed for user %d: %v", userID, err)
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	// Open the file

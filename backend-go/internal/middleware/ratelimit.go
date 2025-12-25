@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	RateLimitPerMinute = 1000000  // Temporarily increased for testing
+	RateLimitPerMinute = 100  // 100 requêtes par minute par IP
 )
 
 func RateLimitMiddleware(redisCache *cache.RedisCache) echo.MiddlewareFunc {

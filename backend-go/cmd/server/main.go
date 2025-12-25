@@ -89,12 +89,18 @@ func main() {
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOriginFunc: func(origin string) (bool, error) {
-			// Allow requests without Origin header (mobile apps, curl, etc.)
+			// ⚠️ SÉCURITÉ: Si Origin est présent, il DOIT être dans la whitelist
+			// Si Origin est vide (apps mobiles, curl, Postman), autoriser mais désactiver credentials
 			if origin == "" {
+				// Apps mobiles et outils - pas de credentials autorisées
 				return true, nil
 			}
-			// Allow listed origins (web browsers)
-			return corsOriginsSet[origin], nil
+			// Navigateurs web - vérifier whitelist stricte
+			allowed := corsOriginsSet[origin]
+			if !allowed {
+				logger.Warnf("CORS rejected origin: %s", origin)
+			}
+			return allowed, nil
 		},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},

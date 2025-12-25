@@ -1,7 +1,30 @@
-# Environment variables
+# ⚠️ SECRETS - NE JAMAIS COMMITTER CES FICHIERS
+# Environment variables (tous sauf .env.example)
 .env
 .env.local
+.env.production
+.env.prod
 .env.*.local
+.env.*.production
+**/.env
+**/.env.local
+**/.env.prod
+**/.env.production
+frontend/.env
+frontend/.env.local
+backend-go/.env
+backend-go/.env.local
+
+# Fichiers de données sensibles
+**/initial_data/users_rows.sql
+backend-go/initial_data/users_rows.sql
+
+# Secrets et credentials
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
 
 # Go binaries
 backend-go/main

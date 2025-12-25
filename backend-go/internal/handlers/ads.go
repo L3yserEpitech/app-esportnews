@@ -12,6 +12,7 @@ import (
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
+	"github.com/esportnews/backend/internal/utils"
 )
 
 type AdHandler struct {
@@ -246,14 +247,20 @@ func (h *AdHandler) UploadAdImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "No file uploaded")
 	}
 
+	// ⚠️ SÉCURITÉ: Valider le fichier (extension, taille, magic bytes)
+	if err := utils.ValidateUploadedFile(file); err != nil {
+		c.Logger().Warnf("File validation failed: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to open file")
 	}
 	defer src.Close()
 
-	// Generate unique filename
-	filename := services.GenerateFilename(file.Filename)
+	// Generate unique filename (sanitize pour éviter path traversal)
+	filename := services.GenerateFilename(utils.SanitizeFilename(file.Filename))
 
 	// Upload to R2
 	publicURL, err := h.storageService.Upload(ctx, services.UploadOptions{
