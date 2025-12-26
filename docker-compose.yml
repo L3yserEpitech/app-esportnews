@@ -12,7 +12,8 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend-go/migrations:/docker-entrypoint-initdb.d
+      - ./backend-go/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./backend-go/migrations:/migrations:ro
       - ./backend-go/initial_data:/initial_data:ro
     networks:
       - esportnews
