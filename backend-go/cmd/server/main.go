@@ -105,6 +105,7 @@ func main() {
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},
 		AllowCredentials: true, // Requis pour credentials: 'include' côté frontend
+		ExposeHeaders:    []string{"X-Total-Count"}, // Expose custom headers for pagination
 	}))
 
 	// Rate limiting middleware

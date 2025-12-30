@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
 
@@ -37,28 +38,52 @@ func NewArticleServiceWithGORM(gormDB *database.Database, redisCache *cache.Redi
 	}
 }
 
-// GetArticles retrieves articles with pagination
-func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int) ([]*models.Article, error) {
+// GetArticles retrieves articles with pagination and optional category filter
+// If category is empty, returns all articles EXCEPT "Actus"
+func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, category string) ([]*models.Article, error) {
 	// Use GORM if available, otherwise fall back to pgxpool
 	if s.gormDB != nil {
+		fmt.Printf("[DEBUG] GetArticles called with category='%s', limit=%d, offset=%d\n", category, limit, offset)
 		var articles []*models.Article
-		if err := s.gormDB.WithContext(ctx).
-			Order("created_at DESC").
-			Limit(limit).
-			Offset(offset).
-			Find(&articles).Error; err != nil {
+		query := s.gormDB.WithContext(ctx).Order("created_at DESC")
+
+		if category != "" {
+			// Filter by specific category
+			fmt.Printf("[DEBUG] Filtering by category: %s\n", category)
+			query = query.Where("category = ?", category)
+		} else {
+			// Exclude "Actus" when no category is selected
+			fmt.Printf("[DEBUG] Excluding 'Actus' category\n")
+			query = query.Where("category != ?", "Actus")
+		}
+
+		if err := query.Limit(limit).Offset(offset).Find(&articles).Error; err != nil {
 			return nil, fmt.Errorf("failed to query articles: %w", err)
 		}
+		fmt.Printf("[DEBUG] Found %d articles\n", len(articles))
 		return articles, nil
 	}
 
 	// Fallback to pgxpool
-	rows, err := s.db.Query(ctx,
-		`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
-		        content_black, content_white, "featuredImage", "videoUrl", "videoType"
-		 FROM public.articles ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset,
-	)
+	var rows pgx.Rows
+	var err error
+
+	if category != "" {
+		rows, err = s.db.Query(ctx,
+			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
+					content_black, content_white, "featuredImage", "videoUrl", "videoType"
+			 FROM public.articles WHERE category = $3 ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+			limit, offset, category,
+		)
+	} else {
+		rows, err = s.db.Query(ctx,
+			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
+					content_black, content_white, "featuredImage", "videoUrl", "videoType"
+			 FROM public.articles ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+			limit, offset,
+		)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query articles: %w", err)
 	}
@@ -75,6 +100,44 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int)
 	}
 
 	return articles, nil
+}
+
+// CountArticles counts articles with optional category filter
+// If category is empty, counts all articles EXCEPT "Actus"
+func (s *ArticleService) CountArticles(ctx context.Context, category string) (int64, error) {
+	if s.gormDB != nil {
+		var count int64
+		query := s.gormDB.WithContext(ctx).Model(&models.Article{})
+
+		if category != "" {
+			// Count specific category
+			query = query.Where("category = ?", category)
+		} else {
+			// Exclude "Actus" when no category is selected
+			query = query.Where("category != ?", "Actus")
+		}
+
+		if err := query.Count(&count).Error; err != nil {
+			return 0, fmt.Errorf("failed to count articles: %w", err)
+		}
+		return count, nil
+	}
+
+	// Fallback to pgxpool
+	var count int64
+	var err error
+
+	if category != "" {
+		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE category = $1", category).Scan(&count)
+	} else {
+		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles").Scan(&count)
+	}
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to count articles: %w", err)
+	}
+
+	return count, nil
 }
 
 // GetArticleBySlug retrieves a single article by slug with caching

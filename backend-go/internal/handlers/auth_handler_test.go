@@ -52,6 +52,7 @@ func TestSignupHandler_Success(t *testing.T) {
 		Age:      25,
 	}
 
+	
 	body, _ := json.Marshal(payload)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/signup", bytes.NewReader(body))

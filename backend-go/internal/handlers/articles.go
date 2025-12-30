@@ -31,6 +31,7 @@ func NewArticleHandlerWithService(service *services.ArticleService, authService 
 func (h *ArticleHandler) RegisterRoutes(g RouterGroup) {
 	// Public routes
 	g.GET("/articles", h.ListArticles)
+	g.GET("/count-articles", h.CountArticles) // Public count endpoint
 	g.GET("/articles/:slug", h.GetArticle)
 	g.GET("/articles/:slug/similar", h.GetSimilarArticles)
 	g.POST("/articles/:slug/view", h.IncrementViews)
@@ -54,6 +55,7 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 
 	limit := 20
 	offset := 0
+	category := c.QueryParam("category")
 
 	if l := c.QueryParam("limit"); l != "" {
 		if lim, err := strconv.Atoi(l); err == nil && lim > 0 && lim <= 100 {
@@ -66,12 +68,37 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 		}
 	}
 
-	articles, err := h.service.GetArticles(ctx, limit, offset)
+	// Get total count for pagination
+	totalCount, err := h.service.CountArticles(ctx, category)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	articles, err := h.service.GetArticles(ctx, limit, offset, category)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Add total count header for pagination
+	c.Response().Header().Set("X-Total-Count", fmt.Sprintf("%d", totalCount))
+
 	return c.JSON(http.StatusOK, articles)
+}
+
+func (h *ArticleHandler) CountArticles(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	category := c.QueryParam("category")
+
+	count, err := h.service.CountArticles(ctx, category)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]int64{
+		"count": count,
+	})
 }
 
 func (h *ArticleHandler) GetArticle(c echo.Context) error {

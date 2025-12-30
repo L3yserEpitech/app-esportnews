@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { GameProvider } from "./contexts/GameContext";
@@ -9,12 +8,6 @@ import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
 import CookieBanner from "./components/common/CookieBanner";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Esport News — Actus esport & scores en direct",
@@ -59,7 +52,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#060B13" />
       </head>
       <body
-        className={`${inter.variable} font-sans antialiased min-h-screen`}
+        className="font-sans antialiased min-h-screen"
         style={{
           backgroundColor: 'var(--color-bg-primary)',
           color: 'var(--color-text-primary)',

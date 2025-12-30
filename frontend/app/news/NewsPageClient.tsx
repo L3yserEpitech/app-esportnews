@@ -19,6 +19,7 @@ import {
 export default function NewsPage() {
   const t = useTranslations();
   const [articles, setArticles] = useState<NewsItem[]>([]);
+  const [totalArticles, setTotalArticles] = useState(0);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
@@ -27,17 +28,29 @@ export default function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 9;
+  const CATEGORY = 'Actus';
 
-  // Load all articles and filter by "Actualité" category
-  const loadArticles = useCallback(async () => {
+  // Load articles for current page (skip featured article which is shown separately)
+  const loadArticles = useCallback(async (page: number) => {
     try {
       setIsLoadingArticles(true);
-      const fetchedArticles = await articleService.getAllArticles();
-      // Filter only articles with "Actualité" category
-      const newsArticles = fetchedArticles.filter(
-        article => article.category === 'Actus'
-      );
-      setArticles(newsArticles);
+      // Offset = 1 (skip featured) + (page - 1) * articles per page
+      const offset = 1 + (page - 1) * ARTICLES_PER_PAGE;
+      console.log('[NewsPage] Loading articles:', { page, offset, limit: ARTICLES_PER_PAGE, category: CATEGORY });
+
+      const fetchedArticles = await articleService.getAllArticles({
+        limit: ARTICLES_PER_PAGE,
+        offset: offset,
+        category: CATEGORY,
+      });
+
+      console.log('[NewsPage] Fetched articles:', fetchedArticles.length);
+      setArticles(fetchedArticles);
+
+      // Get total count from header
+      const total = articleService.getLastTotalCount();
+      console.log('[NewsPage] Total articles from header:', total);
+      setTotalArticles(total);
     } catch (error) {
       console.error('Erreur lors du chargement des actualités:', error);
     } finally {
@@ -59,9 +72,12 @@ export default function NewsPage() {
   }, []);
 
   useEffect(() => {
-    loadArticles();
     loadAds();
-  }, [loadArticles, loadAds]);
+  }, [loadAds]);
+
+  useEffect(() => {
+    loadArticles(currentPage);
+  }, [currentPage, loadArticles]);
 
   // Raccourci clavier pour ouvrir la modale de recherche (⌘K ou Ctrl+K)
   useEffect(() => {
@@ -85,27 +101,32 @@ export default function NewsPage() {
     window.location.href = `/article/${slug}`;
   }, []);
 
-  // Article le plus récent (featured)
-  const featuredArticle = useMemo(() => {
-    if (articles.length === 0) return null;
-    return [...articles].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0];
-  }, [articles]);
+  // Article le plus récent (featured) - on le récupère en premier lors du premier chargement
+  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
+
+  // Load featured article (most recent) on initial load
+  useEffect(() => {
+    const loadFeaturedArticle = async () => {
+      const featured = await articleService.getAllArticles({
+        limit: 1,
+        offset: 0,
+        category: CATEGORY,
+      });
+      if (featured.length > 0) {
+        setFeaturedArticle(featured[0]);
+      }
+    };
+    loadFeaturedArticle();
+  }, []);
 
   // Filtrer les articles selon la recherche (uniquement catégorie "Actus")
   const filteredArticles = useMemo(() => {
-    // Filtrer uniquement les articles "Actus"
-    const actusArticles = articles.filter(
-      article => article.category === 'Actus'
-    );
-
     if (!searchQuery.trim()) {
-      return actusArticles;
+      return articles;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return actusArticles.filter((article) => {
+    return articles.filter((article) => {
       const titleMatch = article.title?.toLowerCase().includes(query);
       const descriptionMatch = article.description?.toLowerCase().includes(query);
       const subtitleMatch = article.subtitle?.toLowerCase().includes(query);
@@ -117,23 +138,8 @@ export default function NewsPage() {
     });
   }, [articles, searchQuery]);
 
-  // Remaining articles sorted by date (most recent first), excluding featured
-  const newsArticles = useMemo(() => {
-    const articlesWithoutFeatured = articles.filter(
-      article => article.id !== featuredArticle?.id
-    );
-
-    return articlesWithoutFeatured.sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [articles, featuredArticle]);
-
-  // Pagination
-  const totalPages = Math.ceil(newsArticles.length / ARTICLES_PER_PAGE);
-  const paginatedArticles = useMemo(() => {
-    const startIndex = (currentPage - 1) * ARTICLES_PER_PAGE;
-    return newsArticles.slice(startIndex, startIndex + ARTICLES_PER_PAGE);
-  }, [newsArticles, currentPage]);
+  // Calculate total pages based on total articles (excluding featured)
+  const totalPages = Math.ceil(Math.max(0, totalArticles - 1) / ARTICLES_PER_PAGE);
 
   // Ref pour la section des articles
   const articlesSectionRef = useRef<HTMLDivElement>(null);
@@ -193,10 +199,10 @@ export default function NewsPage() {
                 )}
 
                 {/* News articles section */}
-                {newsArticles.length > 0 ? (
+                {articles.length > 0 ? (
                   <>
                     <div ref={articlesSectionRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {paginatedArticles.map((article) => (
+                      {articles.map((article) => (
                         <ArticleCard
                           key={article.id}
                           article={article}

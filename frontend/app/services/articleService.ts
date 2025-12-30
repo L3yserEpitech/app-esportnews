@@ -3,9 +3,18 @@ import { NewsItem, Article, SupabaseArticle } from '../types';
 class ArticleService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-  async getAllArticles(): Promise<NewsItem[]> {
+  private lastTotalCount: number = 0; // Cache for X-Total-Count header
+
+  async getAllArticles(options?: { limit?: number; offset?: number; category?: string }): Promise<NewsItem[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/articles`, {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.offset) params.append('offset', options.offset.toString());
+      if (options?.category) params.append('category', options.category);
+
+      const url = `${this.baseUrl}/api/articles${params.toString() ? `?${params.toString()}` : ''}`;
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -17,14 +26,29 @@ class ArticleService {
         throw new Error(`Failed to fetch articles: ${response.status}`);
       }
 
+      // Read X-Total-Count header for pagination
+      const totalCountHeader = response.headers.get('X-Total-Count');
+      if (totalCountHeader) {
+        this.lastTotalCount = parseInt(totalCountHeader, 10);
+      }
+
       const data: SupabaseArticle[] = await response.json();
+
+      console.log('[ArticleService] Raw API response:', {
+        url,
+        dataLength: data?.length || 0,
+        isArray: Array.isArray(data),
+        totalCountHeader: totalCountHeader,
+        lastTotalCount: this.lastTotalCount,
+      });
 
       // Transformer les données API vers le format NewsItem
       if (!data || !Array.isArray(data)) {
+        console.warn('[ArticleService] Invalid data format:', data);
         return [];
       }
 
-      return data.map((item: SupabaseArticle) => ({
+      const transformed = data.map((item: SupabaseArticle) => ({
         id: item.id,
         slug: item.slug,
         title: item.title,
@@ -40,10 +64,17 @@ class ArticleService {
         views: item.views || 0,
       }));
 
+      console.log('[ArticleService] Transformed articles:', transformed.length);
+      return transformed;
+
     } catch (error) {
       console.error('Error fetching articles:', error);
       return [];
     }
+  }
+
+  getLastTotalCount(): number {
+    return this.lastTotalCount;
   }
 
   async getLatestArticle(): Promise<NewsItem | null> {

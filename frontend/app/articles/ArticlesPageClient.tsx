@@ -16,31 +16,74 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+// Catégories prédéfinies (exclut "Actus")
+const AVAILABLE_CATEGORIES = [
+  'Portrait',
+  'Guide',
+  'Test produit',
+  'Analyse',
+  'Compétition',
+  'Enquête',
+  'Gaming',
+  'Interview'
+];
+
 export default function ArticlesPageClient() {
   const t = useTranslations();
   const [articles, setArticles] = useState<NewsItem[]>([]);
+  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
+  const [totalArticles, setTotalArticles] = useState(0);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [searchResults, setSearchResults] = useState<NewsItem[]>([]);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>(''); // Empty = all categories (except Actus)
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 9; // 3 lignes x 3 colonnes
 
-  // Load all articles
+  // Load featured article (most recent, excluding Actus)
+  const loadFeaturedArticle = useCallback(async () => {
+    try {
+      const fetchedArticles = await articleService.getAllArticles({
+        limit: 1,
+        offset: 0,
+        // No category = all except Actus (handled by backend)
+      });
+      if (fetchedArticles.length > 0) {
+        setFeaturedArticle(fetchedArticles[0]);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'article featured:', error);
+    }
+  }, []);
+
+  // Load paginated articles
   const loadArticles = useCallback(async () => {
     try {
       setIsLoadingArticles(true);
-      const fetchedArticles = await articleService.getAllArticles();
+      const offset = 1 + (currentPage - 1) * ARTICLES_PER_PAGE; // Skip featured article
+      const fetchedArticles = await articleService.getAllArticles({
+        limit: ARTICLES_PER_PAGE,
+        offset: offset,
+        category: selectedCategory || undefined, // Empty string = all except Actus
+      });
+
+      const totalCount = articleService.getLastTotalCount();
       setArticles(fetchedArticles);
+      setTotalArticles(totalCount);
+
+      console.log(`📄 Loaded ${fetchedArticles.length} articles (page ${currentPage})`);
+      console.log(`📊 Total articles: ${totalCount}`);
     } catch (error) {
       console.error('Erreur lors du chargement des articles:', error);
     } finally {
       setIsLoadingArticles(false);
     }
-  }, []);
+  }, [currentPage, selectedCategory]);
 
   // Load ads
   const loadAds = useCallback(async () => {
@@ -55,10 +98,58 @@ export default function ArticlesPageClient() {
     }
   }, []);
 
+  // Load featured article on mount
+  useEffect(() => {
+    loadFeaturedArticle();
+    loadAds();
+  }, [loadFeaturedArticle, loadAds]);
+
+  // Load articles when page or category changes
   useEffect(() => {
     loadArticles();
-    loadAds();
-  }, [loadArticles, loadAds]);
+  }, [loadArticles]);
+
+  // Load all articles for search when modal opens
+  useEffect(() => {
+    const loadSearchArticles = async () => {
+      if (isSearchModalOpen && searchResults.length === 0) {
+        try {
+          setIsLoadingSearch(true);
+          // Load all articles (no limit) for client-side search
+          const allArticles = await articleService.getAllArticles({
+            limit: 1000, // Large limit to get all articles
+            offset: 0,
+          });
+          setSearchResults(allArticles);
+        } catch (error) {
+          console.error('Erreur lors du chargement des articles de recherche:', error);
+        } finally {
+          setIsLoadingSearch(false);
+        }
+      }
+    };
+
+    loadSearchArticles();
+  }, [isSearchModalOpen, searchResults.length]);
+
+  // Filter search results client-side
+  const filteredArticles = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return [];
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return searchResults.filter((article) => {
+      const titleMatch = article.title?.toLowerCase().includes(query);
+      const descriptionMatch = article.description?.toLowerCase().includes(query);
+      const subtitleMatch = article.subtitle?.toLowerCase().includes(query);
+      const categoryMatch = article.category?.toLowerCase().includes(query);
+      const authorMatch = article.author?.toLowerCase().includes(query);
+      const tagsMatch = article.tags?.some((tag) => tag.toLowerCase().includes(query));
+
+      return titleMatch || descriptionMatch || subtitleMatch || categoryMatch || authorMatch || tagsMatch;
+    });
+  }, [searchResults, searchQuery]);
 
   // Raccourci clavier pour ouvrir la modale de recherche (⌘K ou Ctrl+K)
   useEffect(() => {
@@ -82,86 +173,8 @@ export default function ArticlesPageClient() {
     window.location.href = `/article/${slug}`;
   }, []);
 
-  // Article le plus récent (featured) - exclure les articles "Actus"
-  const featuredArticle = useMemo(() => {
-    if (articles.length === 0) return null;
-    const nonActualityArticles = articles.filter(
-      article => article.category !== 'Actus'
-    );
-    if (nonActualityArticles.length === 0) return null;
-    return [...nonActualityArticles].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0];
-  }, [articles]);
-
-  // Filtrer les articles selon la recherche (exclure les articles "Actus")
-  const filteredArticles = useMemo(() => {
-    // Exclure d'abord les articles "Actus"
-    const articlesWithoutActus = articles.filter(
-      article => article.category !== 'Actus'
-    );
-
-    if (!searchQuery.trim()) {
-      return articlesWithoutActus;
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-    return articlesWithoutActus.filter((article) => {
-      const titleMatch = article.title?.toLowerCase().includes(query);
-      const descriptionMatch = article.description?.toLowerCase().includes(query);
-      const subtitleMatch = article.subtitle?.toLowerCase().includes(query);
-      const categoryMatch = article.category?.toLowerCase().includes(query);
-      const authorMatch = article.author?.toLowerCase().includes(query);
-      const tagsMatch = article.tags?.some((tag) => tag.toLowerCase().includes(query));
-
-      return titleMatch || descriptionMatch || subtitleMatch || categoryMatch || authorMatch || tagsMatch;
-    });
-  }, [articles, searchQuery]);
-
-  // Obtenir toutes les catégories disponibles (exclure "Actus")
-  const availableCategories = useMemo(() => {
-    const categories = new Set<string>();
-    articles.forEach(article => {
-      if (article.category && article.category !== 'Actus') {
-        categories.add(article.category);
-      }
-    });
-    return Array.from(categories).sort();
-  }, [articles]);
-
-  // Initialiser les catégories sélectionnées avec toutes les catégories au chargement
-  useEffect(() => {
-    if (availableCategories.length > 0 && selectedCategories.size === 0) {
-      setSelectedCategories(new Set(availableCategories));
-    }
-  }, [availableCategories, selectedCategories.size]);
-
-  // Filtrer et trier les articles selon les catégories sélectionnées
-  const filteredAndSortedArticles = useMemo(() => {
-    const articlesWithoutFeatured = articles.filter(
-      article => article.id !== featuredArticle?.id && article.category !== 'Actus'
-    );
-
-    // Filtrer par catégories sélectionnées
-    let filtered = articlesWithoutFeatured;
-    if (selectedCategories.size > 0) {
-      filtered = articlesWithoutFeatured.filter(article =>
-        article.category && selectedCategories.has(article.category)
-      );
-    }
-
-    // Trier par date (plus récent en premier)
-    return filtered.sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [articles, featuredArticle, selectedCategories]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedArticles.length / ARTICLES_PER_PAGE);
-  const paginatedArticles = useMemo(() => {
-    const startIndex = (currentPage - 1) * ARTICLES_PER_PAGE;
-    return filteredAndSortedArticles.slice(startIndex, startIndex + ARTICLES_PER_PAGE);
-  }, [filteredAndSortedArticles, currentPage]);
+  // Calculate total pages (subtract 1 for featured article)
+  const totalPages = Math.max(1, Math.ceil((totalArticles - 1) / ARTICLES_PER_PAGE));
 
   // Ref pour la section des articles
   const articlesSectionRef = useRef<HTMLDivElement>(null);
@@ -173,29 +186,22 @@ export default function ArticlesPageClient() {
     }
   }, [currentPage]);
 
-  // Gérer la sélection/désélection des catégories
-  const toggleCategory = useCallback((category: string) => {
-    setSelectedCategories(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(category)) {
-        newSet.delete(category);
-      } else {
-        newSet.add(category);
-      }
-      return newSet;
-    });
-    setCurrentPage(1); // Reset à la page 1 lors du changement de filtre
-  }, []);
-
-  // Sélectionner/désélectionner toutes les catégories
-  const toggleAllCategories = useCallback(() => {
-    if (selectedCategories.size === availableCategories.length) {
-      setSelectedCategories(new Set());
+  // Gérer la sélection de catégorie
+  const handleCategoryClick = useCallback((category: string) => {
+    if (selectedCategory === category) {
+      // Clic sur la même catégorie = désélectionner (afficher tout)
+      setSelectedCategory('');
     } else {
-      setSelectedCategories(new Set(availableCategories));
+      setSelectedCategory(category);
     }
+    setCurrentPage(1); // Reset à la page 1 lors du changement de filtre
+  }, [selectedCategory]);
+
+  // Afficher toutes les catégories
+  const handleShowAll = useCallback(() => {
+    setSelectedCategory('');
     setCurrentPage(1);
-  }, [selectedCategories.size, availableCategories]);
+  }, []);
 
   if (isLoadingArticles) {
     return (
@@ -211,76 +217,69 @@ export default function ArticlesPageClient() {
         <div className="flex gap-8">
           {/* Articles content */}
           <div className="flex-1 min-w-0">
-            {articles.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-text-secondary text-lg mb-2">
-                  📰 {t('pages_detail.articles.aucun_article')}
-                </div>
-                <p className="text-text-muted text-sm">
-                  {t('pages_detail.articles.revenez_decouvrir')}
-                </p>
+            <div className="space-y-12">
+              {/* Barre de recherche */}
+              <div className="mb-8 mt-3">
+                <button
+                  onClick={() => setIsSearchModalOpen(true)}
+                  className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                >
+                  <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
+                  <span className="text-sm">{t('pages_detail.articles.search.placeholder_article')}</span>
+                  <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
+                    <span className="text-xs">⌘</span>K
+                  </kbd>
+                </button>
               </div>
-            ) : (
-              <div className="space-y-12">
-                {/* Barre de recherche */}
-                <div className="mb-8 mt-3">
-                  <button
-                    onClick={() => setIsSearchModalOpen(true)}
-                    className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
-                  >
-                    <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
-                    <span className="text-sm">{t('pages_detail.articles.search.placeholder_article')}</span>
-                    <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
-                      <span className="text-xs">⌘</span>K
-                    </kbd>
-                  </button>
-                </div>
 
-                {/* Article Featured (le plus récent) */}
-                {featuredArticle && (
-                  <FeaturedArticleCard
-                    article={featuredArticle}
-                    onClick={handleArticleClick}
-                  />
-                )}
+              {/* Article Featured (le plus récent) - TOUJOURS AFFICHÉ */}
+              {featuredArticle && (
+                <FeaturedArticleCard
+                  article={featuredArticle}
+                  onClick={handleArticleClick}
+                />
+              )}
 
-                {/* Filtres de catégories */}
-                {availableCategories.length > 0 && (
-                  <div className="mb-6">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-text-primary">Filtrer par catégorie</h3>
-                        <button
-                          onClick={toggleAllCategories}
-                          className="text-sm text-accent hover:text-accent/80 transition-colors"
-                        >
-                          {selectedCategories.size === availableCategories.length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {availableCategories.map((category) => (
-                          <button
-                            key={category}
-                            onClick={() => toggleCategory(category)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                              selectedCategories.has(category)
-                                ? 'bg-pink-600 hover:bg-pink-700 text-white'
-                                : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
-                            }`}
-                          >
-                            {category}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+              {/* Barre de catégories - TOUJOURS AFFICHÉE */}
+              <div className="mb-6" ref={articlesSectionRef}>
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-lg font-semibold text-text-primary">Catégories</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Bouton "Tout" */}
+                    <button
+                      onClick={handleShowAll}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        selectedCategory === ''
+                          ? 'bg-accent hover:bg-accent/80 text-white'
+                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                      }`}
+                    >
+                      Tout
+                    </button>
+
+                    {/* Boutons catégories prédéfinies */}
+                    {AVAILABLE_CATEGORIES.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => handleCategoryClick(category)}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          selectedCategory === category
+                            ? 'bg-accent hover:bg-accent/80 text-white'
+                            : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+              </div>
 
-                {/* Articles paginés */}
-                {filteredAndSortedArticles.length > 0 ? (
-                  <>
+              {/* Articles paginés */}
+              {articles.length > 0 ? (
+                <>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {paginatedArticles.map((article) => (
+                      {articles.map((article) => (
                         <ArticleCard
                           key={article.id}
                           article={article}
@@ -324,8 +323,7 @@ export default function ArticlesPageClient() {
                     </p>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Ad column */}
