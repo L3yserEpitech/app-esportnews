@@ -241,7 +241,7 @@ export default function ArticlesPageClient() {
               )}
 
               {/* Barre de catégories - TOUJOURS AFFICHÉE */}
-              <div className="mb-6" ref={articlesSectionRef}>
+              <div className="mb-6">
                 <div className="flex flex-col gap-4">
                   <h3 className="text-lg font-semibold text-text-primary">Catégories</h3>
                   <div className="flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ export default function ArticlesPageClient() {
               {/* Articles paginés */}
               {articles.length > 0 ? (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div ref={articlesSectionRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {articles.map((article) => (
                         <ArticleCard
                           key={article.id}
@@ -337,7 +337,7 @@ export default function ArticlesPageClient() {
 
       {/* Modale de recherche plein écran */}
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
-        <DialogContent overlayVariant="default" className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
+        <DialogContent overlayVariant="default" className="w-[98vw] max-w-[1920px] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
           <DialogTitle className="sr-only">{t('pages_detail.articles.search.placeholder_article')}</DialogTitle>
           {/* Header de la modale avec barre de recherche */}
           <div className="p-6 border-b border-border-primary/50 bg-background">
@@ -397,7 +397,7 @@ export default function ArticlesPageClient() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 {filteredArticles.map((article) => (
                   <ArticleCard
                     key={article.id}

@@ -252,7 +252,7 @@ export default function NewsPage() {
 
       {/* Modale de recherche plein écran */}
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
-        <DialogContent overlayVariant="default" className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
+        <DialogContent overlayVariant="default" className="w-[98vw] max-w-[1920px] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
           <DialogTitle className="sr-only">{t('pages_detail.articles.search.placeholder_news')}</DialogTitle>
           {/* Header de la modale avec barre de recherche */}
           <div className="p-6 border-b border-border-primary/50 bg-background">
@@ -312,7 +312,7 @@ export default function NewsPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 {filteredArticles.map((article) => (
                   <ArticleCard
                     key={article.id}
