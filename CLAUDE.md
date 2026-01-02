@@ -110,8 +110,15 @@
 
 | Endpoint | Méthode | Description | Paramètres |
 |----------|---------|-------------|-----------|
-| `/api/matches/by-date` | POST | Matchs à une date précise | `date` (form), `game` (form, optionnel) |
+| `/api/matches/by-date` | POST | Matchs à une date précise | `date` (form YYYY-MM-DD), `game` (form, optionnel) |
 | `/api/matches/:id` | GET | Détails d'un match | `id` (path) |
+| `/api/matches/running` | GET | Matchs en cours (live) | `game` (query, optionnel) |
+| `/api/matches/upcoming` | GET | Matchs à venir | `game` (query, optionnel) |
+| `/api/matches/past` | GET | Matchs terminés | `game` (query, optionnel) |
+
+**Note importante** :
+- L'endpoint `/api/matches/by-date` utilise `Content-Type: application/x-www-form-urlencoded`
+- Frontend : Utiliser `URLSearchParams` (pas `FormData`) pour construire le body
 
 ### **Autres Endpoints**
 
@@ -360,6 +367,87 @@ create table public.notifications (
   news boolean null default false,
   constraint notifications_pkey primary key (id)
 ) TABLESPACE pg_default;
+
+## 12bis) Page Match — Navigation par Calendrier
+
+* **Route** : `/match` (remplace l'ancienne route `/live`)
+* **Navigation** : Lien "Matchs" dans la navbar
+
+### Concept et UX
+
+* **Système de temporalité par jour** : Calendrier de 11 cases affichant les dates
+  - Jour actuel toujours **centré** (case 6/11)
+  - Navigation avec flèches gauche/droite (décalage de 11 jours)
+  - Date sélectionnée en **rose (#F22E62)** pour mise en évidence
+  - Jour actuel avec bordure rose mais fond gris (distinction visuelle)
+
+* **Affichage des dates** :
+  - Format : Jour (3 lettres) + Numéro + Mois (abrégé)
+  - Exemple : `lun`, `2`, `jan`
+  - Responsive : 5 colonnes mobile, 11 colonnes desktop
+
+* **Filtrage** :
+  - Par **date** : Sélection d'un jour dans le calendrier
+  - Par **jeu** : GameSelector (sticky desktop, accordion mobile)
+  - Combinaison date + jeu supportée
+
+### Fonctionnalités
+
+* **Chargement des matchs** :
+  - Endpoint : `POST /api/matches/by-date` avec `date` (YYYY-MM-DD) et `game` (optionnel)
+  - Filtrage automatique : N'affiche **que les matchs avec les 2 équipes définies**
+  - Validation : `match.opponents.length >= 2` + `opponent.name` présents
+
+* **Recherche modale (⌘K)** :
+  - Style identique à la page Articles
+  - Modale plein écran (98vw × 90vh) avec fond `bg-background`
+  - Affichage : **1 match par ligne** (`grid-cols-1`)
+  - Recherche multi-critères : nom, équipe, tournoi, ligue, jeu
+  - Compteur de résultats dynamique
+
+* **Actualisation** :
+  - Pas d'auto-refresh (contrairement à l'ancienne page live)
+  - Bouton "Actualiser" manuel
+  - Rechargement automatique au changement de date ou de jeu
+
+### Design
+
+* **Calendrier** :
+  - Cases carrées avec padding, bordure arrondie (`rounded-lg`)
+  - États visuels :
+    - **Sélectionné** : `bg-[#F22E62]` (rose) + texte blanc
+    - **Aujourd'hui** : `bg-bg-tertiary` + bordure rose
+    - **Autre** : `bg-bg-secondary` + hover `bg-bg-tertiary`
+
+* **Layout** :
+  - Padding top `pt-20` pour éviter superposition navbar
+  - GameSelector sticky en desktop (z-40)
+  - Grille 3 colonnes pour les cartes de matchs (responsive)
+  - Colonne pub à droite (desktop uniquement)
+
+### Traductions
+
+* **Langues supportées** : fr, en, es, de, it
+* **Clés principales** :
+  - `pages_detail.match.title` : "Matchs" / "Matches" / "Partidos" / "Spiele" / "Partite"
+  - `pages_detail.match.prev_dates` : "Dates précédentes" / "Previous dates"
+  - `pages_detail.match.next_dates` : "Dates suivantes" / "Next dates"
+  - `pages_detail.match.today` : "Aujourd'hui" / "Today" / "Hoy" / "Heute" / "Oggi"
+  - `pages_detail.match.no_matches` : "Aucun match disponible pour cette date"
+
+### Notes techniques
+
+* **Service frontend** : `matchService.getMatchesByDate(date, gameAcronym)`
+* **Format de requête** : `URLSearchParams` (pas FormData) avec `Content-Type: application/x-www-form-urlencoded`
+* **Gestion d'état** :
+  - `selectedDate` : Date object (défaut: aujourd'hui)
+  - `dateRangeOffset` : Nombre de décalages de 11 jours (défaut: 0)
+  - Fonction `generateDateRange(centerDate, offset)` pour calculer les 11 dates
+
+* **Composants** :
+  - `MatchPageClient.tsx` : Composant principal client-side
+  - `LiveMatchCard` : Réutilisé pour l'affichage des matchs
+  - `GameSelector` : Sélecteur de jeux (commun avec Tournois)
 
 ## 13) Panel Admin — Gestion des Publicités
 
