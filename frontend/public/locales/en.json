@@ -4,6 +4,7 @@
       "accueil": "Home",
       "actualites": "News",
       "direct": "Live",
+      "matchs": "Matches",
       "tournois": "Tournaments",
       "articles": "Articles",
       "calendrier": "Calendar",
@@ -337,6 +338,26 @@
       "other_finished": "other finished matches...",
       "live_matches_count": "live"
     },
+    "match": {
+      "title": "Matches",
+      "loading": "Loading matches...",
+      "count": "{count} matches",
+      "count_zero": "No matches",
+      "count_one": "{count} match",
+      "count_other": "{count} matches",
+      "no_matches": "No matches available for this date",
+      "error_loading": "Error loading matches",
+      "refresh": "Refresh",
+      "search": "Search",
+      "search_title": "Search for a match",
+      "search_placeholder": "Search by name, team, tournament, league or game...",
+      "search_start": "Start typing to search",
+      "search_no_results": "No results found",
+      "filter_all_games": "All games",
+      "prev_dates": "Previous dates",
+      "next_dates": "Next dates",
+      "today": "Today"
+    },
     "news": {
       "aucune_actualite": "No news available",
       "revenez_decouvrir": "Come back soon to discover the latest esports news!"
@@ -452,6 +473,7 @@
       "error_title": "Error",
       "breadcrumb_home": "Home",
       "breadcrumb_live": "Live",
+      "breadcrumb_matchs": "Matches",
       "info_game": "Game",
       "info_league": "League",
       "info_region": "Region",

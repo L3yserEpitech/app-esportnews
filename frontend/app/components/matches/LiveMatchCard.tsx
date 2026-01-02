@@ -108,12 +108,12 @@ export default function LiveMatchCard({ match }: LiveMatchCardProps) {
 
       {/* Header */}
       <div className="relative flex items-center justify-between mb-4">
-        {getStatusBadge(match.status)}
+        {getStatusBadge(match.status || undefined)}
         <div
           className="text-xs font-mono"
           style={{ color: 'var(--color-text-secondary)' }}
         >
-          {formatTime(match.begin_at || match.scheduled_at)}
+          {formatTime((match.begin_at || match.scheduled_at) ?? undefined)}
         </div>
       </div>
 

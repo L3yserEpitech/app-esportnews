@@ -4,6 +4,7 @@
       "accueil": "Accueil",
       "actualites": "Actualités",
       "direct": "Direct",
+      "matchs": "Matchs",
       "tournois": "Tournois",
       "articles": "Articles",
       "calendrier": "Calendrier",
@@ -338,6 +339,26 @@
       "other_finished": "autres matchs terminés...",
       "live_matches_count": "live"
     },
+    "match": {
+      "title": "Matchs",
+      "loading": "Chargement des matchs...",
+      "count": "{count} matchs",
+      "count_zero": "Aucun match",
+      "count_one": "{count} match",
+      "count_other": "{count} matchs",
+      "no_matches": "Aucun match disponible pour cette date",
+      "error_loading": "Erreur lors du chargement des matchs",
+      "refresh": "Actualiser",
+      "search": "Rechercher",
+      "search_title": "Rechercher un match",
+      "search_placeholder": "Rechercher un match par nom, équipe, tournoi, ligue ou jeu...",
+      "search_start": "Commencez à taper pour rechercher",
+      "search_no_results": "Aucun résultat trouvé",
+      "filter_all_games": "Tous les jeux",
+      "prev_dates": "Dates précédentes",
+      "next_dates": "Dates suivantes",
+      "today": "Aujourd'hui"
+    },
     "news": {
       "aucune_actualite": "Aucune actualité disponible",
       "revenez_decouvrir": "Revenez bientôt pour découvrir les dernières actualités de l'esport !"
@@ -453,6 +474,7 @@
       "error_title": "Erreur",
       "breadcrumb_home": "Accueil",
       "breadcrumb_live": "Direct",
+      "breadcrumb_matchs": "Matchs",
       "info_game": "Jeu",
       "info_league": "Ligue",
       "info_region": "Région",

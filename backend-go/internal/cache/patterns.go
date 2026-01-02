@@ -21,7 +21,9 @@ const (
 	PandaScoreFilteredTournaments = "pandascore:tournaments:filtered:%s:%s:%s"
 	PandaScoreMatch               = "pandascore:match:%s"
 	PandaScoreMatches             = "pandascore:matches:%s:%s"
-	PandaScoreRunningMatches     = "pandascore:matches:running:%s"
+	PandaScoreRunningMatches      = "pandascore:matches:running:%s"
+	PandaScoreUpcomingMatches     = "pandascore:matches:upcoming:%s"
+	PandaScorePastMatches         = "pandascore:matches:past:%s"
 	PandaScoreTeam                = "pandascore:team:%s"
 	PandaScoreSearchTeams         = "pandascore:teams:search:%s"
 
@@ -122,6 +124,22 @@ func PandaScoreRunningMatchesKey(gameAcronym *string) string {
 		gameStr = *gameAcronym
 	}
 	return fmt.Sprintf(PandaScoreRunningMatches, gameStr)
+}
+
+func PandaScoreUpcomingMatchesKey(gameAcronym *string) string {
+	gameStr := "all"
+	if gameAcronym != nil && *gameAcronym != "" {
+		gameStr = *gameAcronym
+	}
+	return fmt.Sprintf(PandaScoreUpcomingMatches, gameStr)
+}
+
+func PandaScorePastMatchesKey(gameAcronym *string) string {
+	gameStr := "all"
+	if gameAcronym != nil && *gameAcronym != "" {
+		gameStr = *gameAcronym
+	}
+	return fmt.Sprintf(PandaScorePastMatches, gameStr)
 }
 
 func PandaScoreTeamKey(id string) string {

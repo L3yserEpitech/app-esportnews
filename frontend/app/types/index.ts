@@ -21,63 +21,9 @@ export interface Match {
 }
 
 // PandaScore Live Match types (from /api/live endpoint)
-export interface LiveMatch {
-  id: number;
-  name: string;
-  slug?: string;
-  status?: string;
-  begin_at?: string;
-  end_at?: string;
-  scheduled_at?: string;
-  match_type?: string;
-  number_of_games?: number;
-  tournament_id: number;
-  league_id?: number;
-  serie_id?: number;
-  opponents?: Array<{
-    opponent: {
-      id: number;
-      name: string;
-      acronym: string;
-      slug: string;
-      image_url: string;
-    };
-    type: string;
-  }>;
-  results?: Array<{
-    team_id: number;
-    score: number;
-  }>;
-  tournament?: {
-    id: number;
-    name: string;
-    slug?: string;
-    tier?: string;
-  };
-  league?: {
-    id: number;
-    name: string;
-    slug: string;
-    image_url: string;
-  };
-  videogame?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  live?: {
-    supported: boolean;
-    opens_at?: string;
-    url?: string;
-  };
-  streams_list?: Array<{
-    language: string;
-    main: boolean;
-    official: boolean;
-    embed_url?: string;
-    raw_url: string;
-  }>;
-}
+// LiveMatch is an alias for PandaMatch (for backward compatibility)
+export type LiveMatch = PandaMatch;
+
 
 export interface Team {
   id: string;

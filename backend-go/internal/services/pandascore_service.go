@@ -298,40 +298,74 @@ func (s *PandaScoreService) GetFilteredTournaments(ctx context.Context, game *st
 // gameAcronym is optional - if provided, uses game-specific endpoint (e.g., "/csgo/matches/running")
 // If not provided, uses global endpoint "/matches/running"
 func (s *PandaScoreService) GetRunningMatches(ctx context.Context, gameAcronym *string) ([]models.PandaMatch, error) {
+	return s.getMatchesByStatus(ctx, "running", gameAcronym)
+}
+
+// GetUpcomingMatches retrieves upcoming matches
+// gameAcronym is optional - if provided, uses game-specific endpoint (e.g., "/csgo/matches/upcoming")
+// If not provided, uses global endpoint "/matches/upcoming"
+func (s *PandaScoreService) GetUpcomingMatches(ctx context.Context, gameAcronym *string) ([]models.PandaMatch, error) {
+	return s.getMatchesByStatus(ctx, "upcoming", gameAcronym)
+}
+
+// GetPastMatches retrieves past/finished matches
+// gameAcronym is optional - if provided, uses game-specific endpoint (e.g., "/csgo/matches/past")
+// If not provided, uses global endpoint "/matches/past"
+func (s *PandaScoreService) GetPastMatches(ctx context.Context, gameAcronym *string) ([]models.PandaMatch, error) {
+	return s.getMatchesByStatus(ctx, "past", gameAcronym)
+}
+
+// getMatchesByStatus is a helper function to retrieve matches by status (running/upcoming/past)
+func (s *PandaScoreService) getMatchesByStatus(ctx context.Context, status string, gameAcronym *string) ([]models.PandaMatch, error) {
 	// Build endpoint: if gameAcronym provided, use game-specific endpoint
 	var endpoint string
 	if gameAcronym != nil && *gameAcronym != "" {
-		endpoint = fmt.Sprintf("/%s/matches/running", *gameAcronym)
-		fmt.Printf("[GetRunningMatches] Game acronym provided: %s, endpoint: %s\n", *gameAcronym, endpoint)
+		endpoint = fmt.Sprintf("/%s/matches/%s", *gameAcronym, status)
+		fmt.Printf("[getMatchesByStatus] Game acronym provided: %s, status: %s, endpoint: %s\n", *gameAcronym, status, endpoint)
 	} else {
-		endpoint = "/matches/running"
-		fmt.Printf("[GetRunningMatches] No game acronym, using global endpoint: %s\n", endpoint)
+		endpoint = fmt.Sprintf("/matches/%s", status)
+		fmt.Printf("[getMatchesByStatus] No game acronym, status: %s, using global endpoint: %s\n", status, endpoint)
 	}
-	
+
 	// Build query parameters
 	params := map[string]string{
 		"sort":     "-begin_at",
 		"per_page": "50",
 	}
-	
-	cacheKey := cache.PandaScoreRunningMatchesKey(gameAcronym)
-	fmt.Printf("[GetRunningMatches] Cache key: %s\n", cacheKey)
+
+	// Build cache key based on status
+	var cacheKey string
+	switch status {
+	case "running":
+		cacheKey = cache.PandaScoreRunningMatchesKey(gameAcronym)
+	case "upcoming":
+		cacheKey = cache.PandaScoreUpcomingMatchesKey(gameAcronym)
+	case "past":
+		cacheKey = cache.PandaScorePastMatchesKey(gameAcronym)
+	default:
+		cacheKey = fmt.Sprintf("pandascore:matches:%s", status)
+		if gameAcronym != nil && *gameAcronym != "" {
+			cacheKey = fmt.Sprintf("pandascore:matches:%s:%s", status, *gameAcronym)
+		}
+	}
+
+	fmt.Printf("[getMatchesByStatus] Cache key: %s\n", cacheKey)
 	data, err := s.makePandaRequest(ctx, endpoint, cacheKey, params)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Handle empty response
 	if len(data) == 0 || string(data) == "null" {
 		return []models.PandaMatch{}, nil
 	}
-	
+
 	// Try to unmarshal as array
 	var matches []models.PandaMatch
 	if err := json.Unmarshal(data, &matches); err == nil {
 		return matches, nil
 	}
-	
+
 	// If array parsing fails, try as an object (for paginated responses)
 	var respObj map[string]interface{}
 	if err := json.Unmarshal(data, &respObj); err == nil {
@@ -345,8 +379,8 @@ func (s *PandaScoreService) GetRunningMatches(ctx context.Context, gameAcronym *
 			}
 		}
 	}
-	
-	return nil, fmt.Errorf("failed to parse running matches response")
+
+	return nil, fmt.Errorf("failed to parse %s matches response", status)
 }
 
 // GetMatch retrieves a single match by ID

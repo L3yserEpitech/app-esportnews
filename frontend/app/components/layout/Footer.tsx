@@ -111,7 +111,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/live" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                <Link href="/match" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
                   {t('layout.footer.matchs_en_direct')}
                 </Link>
               </li>

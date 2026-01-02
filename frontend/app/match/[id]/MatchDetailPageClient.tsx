@@ -11,11 +11,10 @@ import {
   Play,
   Users,
 } from 'lucide-react';
-import { PandaMatch } from '../../types';
+import { PandaMatch, LiveMatch, Advertisement } from '../../types';
 import { matchService } from '../../services/matchService';
 import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
-import { Advertisement } from '../../types';
 import AdColumn from '../../components/ads/AdColumn';
 import Card from '../../components/ui/Card';
 import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
@@ -27,7 +26,7 @@ interface MatchDetailPageClientProps {
 
 export default function MatchDetailPageClient({ matchId }: MatchDetailPageClientProps) {
   const t = useTranslations('pages_detail.match_detail');
-  const [match, setMatch] = useState<PandaMatch | null>(null);
+  const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -157,7 +156,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
   // Breadcrumbs
   const breadcrumbs = generateBreadcrumbs([
     { name: t('breadcrumb_home'), url: '/' },
-    { name: t('breadcrumb_live'), url: '/direct' },
+    { name: t('breadcrumb_matchs'), url: '/match' },
     { name: `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`, url: matchUrl },
   ]);
 

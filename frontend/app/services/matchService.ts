@@ -1,72 +1,195 @@
-import { PandaMatch } from '../types';
+// Import types from the types file
+import { LiveMatch as LiveMatchType } from '../types';
 
-class MatchService {
-  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+// Re-export for backward compatibility
+export type LiveMatch = LiveMatchType;
+export type Match = LiveMatchType;
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
+export const matchService = {
   /**
-   * Récupère les détails complets d'un match depuis l'API
-   * @param matchId - ID du match PandaScore
-   * @returns Objet PandaMatch avec tous les détails
+   * Get running/live matches
+   * @param gameAcronym Optional game filter (e.g., "valorant", "lol", "cs2")
    */
-  async getMatchById(matchId: number | string): Promise<PandaMatch> {
+  async getRunningMatches(gameAcronym?: string): Promise<Match[]> {
     try {
-      const url = `${this.baseUrl}/api/matches/${matchId}`;
-      console.log(`[MatchService] 📡 GET ${url}`);
+      let url = `${API_BASE_URL}/api/matches/running`;
+      if (gameAcronym) {
+        url += `?game=${encodeURIComponent(gameAcronym)}`;
+      }
+      console.log('[matchService] Fetching running matches:', { gameAcronym, url });
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log(`[MatchService] Response status: ${response.status}`);
+      const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch match ${matchId}: ${response.statusText}`);
+        throw new Error(`Failed to fetch running matches: ${response.status}`);
       }
 
-      const match: PandaMatch = await response.json();
-      console.log(`[MatchService] ✅ Match ${matchId} loaded:`, {
-        id: match.id,
-        name: match.name,
-        status: match.status,
-        opponentsCount: match.opponents?.length || 0,
-      });
-      return match;
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.error(`[MatchService] ❌ Error fetching match ${matchId}:`, error);
-      throw error;
+      console.error('Error fetching running matches:', error);
+      return [];
     }
-  }
+  },
 
   /**
-   * Récupère les détails complets pour plusieurs matchs
-   * @param matchIds - Array d'IDs de matchs
-   * @returns Array de PandaMatch
+   * Get upcoming matches
+   * @param gameAcronym Optional game filter (e.g., "valorant", "lol", "cs2")
    */
-  async getMatchesByIds(matchIds: (number | string)[]): Promise<PandaMatch[]> {
+  async getUpcomingMatches(gameAcronym?: string): Promise<Match[]> {
     try {
-      console.log(`[MatchService] 📦 Fetching ${matchIds.length} matches:`, matchIds);
-      const startTime = Date.now();
+      let url = `${API_BASE_URL}/api/matches/upcoming`;
+      if (gameAcronym) {
+        url += `?game=${encodeURIComponent(gameAcronym)}`;
+      }
+      console.log('[matchService] Fetching upcoming matches:', { gameAcronym, url });
 
-      const matches = await Promise.all(
-        matchIds.map((id) => this.getMatchById(id))
-      );
+      const response = await fetch(url);
 
-      const duration = Date.now() - startTime;
-      console.log(`[MatchService] ✅ All ${matches.length} matches loaded in ${duration}ms`, {
-        matchIds: matches.map(m => m.id),
-        statuses: matches.map(m => m.status),
-      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch upcoming matches: ${response.status}`);
+      }
 
-      return matches;
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.error('[MatchService] ❌ Error fetching multiple matches:', error);
+      console.error('Error fetching upcoming matches:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get past/finished matches
+   * @param gameAcronym Optional game filter (e.g., "valorant", "lol", "cs2")
+   */
+  async getPastMatches(gameAcronym?: string): Promise<Match[]> {
+    try {
+      let url = `${API_BASE_URL}/api/matches/past`;
+      if (gameAcronym) {
+        url += `?game=${encodeURIComponent(gameAcronym)}`;
+      }
+      console.log('[matchService] Fetching past matches:', { gameAcronym, url });
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch past matches: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Error fetching past matches:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get matches by status
+   * @param status Match status: 'running' | 'upcoming' | 'past'
+   * @param gameAcronym Optional game filter
+   */
+  async getMatchesByStatus(status: 'running' | 'upcoming' | 'past', gameAcronym?: string): Promise<Match[]> {
+    switch (status) {
+      case 'running':
+        return this.getRunningMatches(gameAcronym);
+      case 'upcoming':
+        return this.getUpcomingMatches(gameAcronym);
+      case 'past':
+        return this.getPastMatches(gameAcronym);
+      default:
+        return [];
+    }
+  },
+
+  /**
+   * Get a single match by ID
+   * @param matchId Match ID
+   */
+  async getMatchById(matchId: string): Promise<Match> {
+    try {
+      const url = `${API_BASE_URL}/api/matches/${matchId}`;
+      console.log('[matchService] Fetching match by ID:', { matchId, url });
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch match: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching match by ID:', error);
       throw error;
     }
-  }
-}
+  },
 
-export const matchService = new MatchService();
+  /**
+   * Get multiple matches by IDs (not implemented in backend yet)
+   * @param matchIds Array of match IDs
+   */
+  async getMatchesByIds(matchIds: number[]): Promise<Match[]> {
+    try {
+      // TODO: Implement batch endpoint in backend if needed
+      // For now, fetch one by one
+      const promises = matchIds.map(id => this.getMatchById(String(id)));
+      const results = await Promise.allSettled(promises);
+      return results
+        .filter((r): r is PromiseFulfilledResult<Match> => r.status === 'fulfilled')
+        .map(r => r.value);
+    } catch (error) {
+      console.error('Error fetching matches by IDs:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get matches by specific date
+   * @param date Date in YYYY-MM-DD format
+   * @param gameAcronym Optional game filter
+   */
+  async getMatchesByDate(date: string, gameAcronym?: string): Promise<Match[]> {
+    try {
+      const url = `${API_BASE_URL}/api/matches/by-date`;
+      console.log('[matchService] Fetching matches by date:', { date, gameAcronym, url });
+
+      // Use URLSearchParams for application/x-www-form-urlencoded
+      const params = new URLSearchParams();
+      params.append('date', date);
+      if (gameAcronym) {
+        params.append('game', gameAcronym);
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch matches by date: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Error fetching matches by date:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  async getLiveMatches(gameAcronym?: string): Promise<LiveMatch[]> {
+    return this.getRunningMatches(gameAcronym);
+  }
+};
+
+// Export legacy service for backward compatibility
+export const liveMatchService = matchService;

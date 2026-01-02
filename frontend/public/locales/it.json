@@ -337,6 +337,26 @@
       "other_finished": "altre partite concluse...",
       "live_matches_count": "live"
     },
+    "match": {
+      "title": "Partite",
+      "loading": "Caricamento partite...",
+      "count": "{count} partite",
+      "count_zero": "Nessuna partita",
+      "count_one": "{count} partita",
+      "count_other": "{count} partite",
+      "no_matches": "Nessuna partita disponibile per questa data",
+      "error_loading": "Errore nel caricamento delle partite",
+      "refresh": "Aggiorna",
+      "search": "Cerca",
+      "search_title": "Cerca una partita",
+      "search_placeholder": "Cerca per nome, squadra, torneo, lega o gioco...",
+      "search_start": "Inizia a digitare per cercare",
+      "search_no_results": "Nessun risultato trovato",
+      "filter_all_games": "Tutti i giochi",
+      "prev_dates": "Date precedenti",
+      "next_dates": "Date successive",
+      "today": "Oggi"
+    },
     "news": {
       "aucune_actualite": "Nessuna notizia disponibile",
       "revenez_decouvrir": "Torna presto per scoprire le ultime notizie esports!"

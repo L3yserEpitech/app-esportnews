@@ -42,7 +42,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const navLinks = [
     { href: '/', label: mounted ? t('layout.navbar.accueil') : '' },
     { href: '/news', label: mounted ? t('layout.navbar.actualites') : '' },
-    { href: '/live', label: mounted ? t('layout.navbar.direct') : '' },
+    { href: '/match', label: mounted ? t('layout.navbar.matchs') : '' },
     { href: '/tournois', label: mounted ? t('layout.navbar.tournois') : '' },
     { href: '/articles', label: mounted ? t('layout.navbar.articles') : '' },
     { href: '/calendrier', label: mounted ? t('layout.navbar.calendrier') : '' },

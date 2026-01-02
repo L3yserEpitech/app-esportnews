@@ -337,6 +337,26 @@
       "other_finished": "andere beendete Spiele...",
       "live_matches_count": "live"
     },
+    "match": {
+      "title": "Spiele",
+      "loading": "Spiele werden geladen...",
+      "count": "{count} Spiele",
+      "count_zero": "Keine Spiele",
+      "count_one": "{count} Spiel",
+      "count_other": "{count} Spiele",
+      "no_matches": "Keine Spiele für dieses Datum verfügbar",
+      "error_loading": "Fehler beim Laden der Spiele",
+      "refresh": "Aktualisieren",
+      "search": "Suchen",
+      "search_title": "Spiel suchen",
+      "search_placeholder": "Nach Name, Team, Turnier, Liga oder Spiel suchen...",
+      "search_start": "Beginnen Sie mit der Eingabe zum Suchen",
+      "search_no_results": "Keine Ergebnisse gefunden",
+      "filter_all_games": "Alle Spiele",
+      "prev_dates": "Vorherige Daten",
+      "next_dates": "Nächste Daten",
+      "today": "Heute"
+    },
     "news": {
       "aucune_actualite": "Keine Nachrichten verfügbar",
       "revenez_decouvrir": "Kommen Sie bald wieder, um die neuesten Esports-Nachrichten zu entdecken!"
