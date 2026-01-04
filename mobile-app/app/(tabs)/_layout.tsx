@@ -125,25 +125,25 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
-            name="live"
+            name="matchs"
             options={{
-              headerTitle: 'Matchs en Direct',
+              headerTitle: 'Matchs',
               header: ({ options }: { options: any }) => (
                 <SafeAreaView edges={['top']} style={[styles.headerContainer, isGameSelectorOpen && styles.headerActiveContainer]}>
                    <View style={styles.headerTop}>
                     <View style={styles.headerTitleContainer}>
-                      <Image 
-                        source={require('@/assets/logo_blanc.png')} 
+                      <Image
+                        source={require('@/assets/logo_blanc.png')}
                         style={styles.headerLogo}
                         contentFit="contain"
                       />
                     </View>
                     <IconButton
                       icon={({ size, color }) => (
-                        <FontAwesome6 
-                          name="gamepad" 
-                          size={size} 
-                          color={color} 
+                        <FontAwesome6
+                          name="gamepad"
+                          size={size}
+                          color={color}
                         />
                       )}
                       iconColor={isGameSelectorOpen ? theme.colors.primary : "#FFFFFF"}
@@ -159,7 +159,7 @@ export default function TabsLayout() {
                   </Animated.View>
                 </SafeAreaView>
               ),
-              title: 'Live',
+              title: 'Matchs',
               tabBarIcon: ({ color }: { color: string }) => (
                 <FontAwesome6 name="bolt" size={22} color={color} />
               ),

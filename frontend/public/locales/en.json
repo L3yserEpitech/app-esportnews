@@ -348,7 +348,7 @@
       "no_matches": "No matches available for this date",
       "error_loading": "Error loading matches",
       "refresh": "Refresh",
-      "search": "Search",
+      "search": "Search... (⌘K)",
       "search_title": "Search for a match",
       "search_placeholder": "Search by name, team, tournament, league or game...",
       "search_start": "Start typing to search",

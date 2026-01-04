@@ -47,8 +47,35 @@ install-backend: ## Install backend dependencies
 status: ## Show status of services
 	docker-compose ps
 
-start: ## Full rebuild and start
+start: ## Start in development mode with hot reload
+	docker compose -f docker-compose.dev.yml up
+
+dev: ## Restart dev with full rebuild (down + up --build)
+	docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up --build
+
+start-d: ## Start in development mode (detached) with hot reload
+	docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up --build -d
+
+start-prod: ## Full rebuild and start in production mode
 	docker compose down && docker compose up --build
+
+dev-logs: ## Show logs for development services
+	docker compose -f docker-compose.dev.yml logs -f
+
+dev-logs-frontend: ## Show frontend logs (development)
+	docker compose -f docker-compose.dev.yml logs -f frontend
+
+dev-logs-backend: ## Show backend logs (development)
+	docker compose -f docker-compose.dev.yml logs -f backend
+
+dev-down: ## Stop development services
+	docker compose -f docker-compose.dev.yml down
+
+dev-restart: ## Restart development services
+	docker compose -f docker-compose.dev.yml restart
+
+dev-restart-frontend: ## Restart frontend only (development)
+	docker compose -f docker-compose.dev.yml restart frontend
 
 seed: ## Import articles only (47 articles)
 	@echo "📦 Importing articles..."

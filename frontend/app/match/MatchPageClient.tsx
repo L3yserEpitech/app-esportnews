@@ -240,64 +240,52 @@ const MatchPage: React.FC = () => {
   );
 
   return (
-    <div className="relative min-h-screen bg-bg-primary text-text-primary pb-12 pt-20">
-      {/* Game Selector - Desktop seulement, sticky en haut */}
-      <div className="hidden lg:block sticky top-0 z-40 bg-bg-primary border-b border-border-primary">
-        <div className="container mx-auto px-4 py-3">
-          <GameSelector
-            games={memoizedGames}
-            selectedGame={selectedGame}
-            onSelectionChange={setSelectedGame}
-            isLoading={isLoadingGames}
-          />
-        </div>
+    <div className="min-h-screen bg-bg-primary">
+      {/* Game Selector - Desktop seulement */}
+      <div className="pt-20 hidden md:block">
+        <GameSelector
+          games={memoizedGames}
+          selectedGame={selectedGame}
+          onSelectionChange={setSelectedGame}
+          isLoading={isLoadingGames}
+        />
       </div>
 
       {/* Layout principal avec sidebar publicitaire (desktop) */}
-      <div className="container mx-auto px-4 py-6 flex gap-6">
-        {/* Contenu principal */}
-        <div className="flex-1 max-w-none">
-          {/* Header avec titre et bouton de recherche */}
-          <div className="flex items-center justify-between mb-6">
+      <div className="pb-8 pt-20 md:pt-0">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+          <div className="flex gap-6">
+            {/* Contenu principal */}
+            <div className="flex-1 max-w-none">
+          {/* Titre de la page avec barre de recherche */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">
+              <h1 className="text-3xl font-bold text-text-primary mb-2">
                 {selectedGame
                   ? `${selectedGameData?.name || ''} - ${t('pages_detail.match.title')}`
                   : t('pages_detail.match.title')}
               </h1>
-              <p className="text-text-muted">
+              <p className="text-text-secondary text-sm">
                 {loading
                   ? t('pages_detail.match.loading')
                   : t('pages_detail.match.count', { count: memoizedMatches.length })}
               </p>
             </div>
 
-            {/* Bouton de recherche - Desktop */}
+            {/* Barre de recherche */}
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className="hidden md:flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border-primary transition-colors"
+              className="w-full sm:w-auto sm:max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50 flex-shrink-0"
             >
-              <Search className="w-4 h-4" />
-              <span className="text-sm text-text-muted">
-                {t('pages_detail.match.search')}
-              </span>
-              <kbd className="hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-bg-tertiary rounded">
-                ⌘K
+              <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
+              <span className="text-sm">{t('pages_detail.match.search')}</span>
+              <kbd className="ml-auto hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
+                <span className="text-xs">⌘</span>K
               </kbd>
             </button>
           </div>
 
-          {/* Game Selector - Mobile (accordion) */}
-          <div className="lg:hidden mb-6">
-            <GameSelector
-              games={memoizedGames}
-              selectedGame={selectedGame}
-              onSelectionChange={setSelectedGame}
-              isLoading={isLoadingGames}
-            />
-          </div>
-
-          {/* Calendrier de dates (10 jours avec flèches de navigation) */}
+          {/* Calendrier de dates (responsive) */}
           <div className="mb-6">
             <div className="flex items-center gap-2">
               {/* Flèche précédent */}
@@ -309,8 +297,8 @@ const MatchPage: React.FC = () => {
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              {/* Grille de dates */}
-              <div className="flex-1 grid grid-cols-5 sm:grid-cols-11 gap-2">
+              {/* Grille de dates - responsive */}
+              <div className="flex-1 grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 gap-2">
                 {dateRange.map((date, index) => {
                   const isSelected =
                     date.getDate() === selectedDate.getDate() &&
@@ -318,12 +306,24 @@ const MatchPage: React.FC = () => {
                     date.getFullYear() === selectedDate.getFullYear();
                   const isTodayDate = isToday(date);
 
+                  // Masquer les dates selon la taille d'écran
+                  // Mobile (< sm) : 5 dates (index 0-4)
+                  // Tablet (sm < md) : 7 dates (index 0-6)
+                  // Medium (md < lg) : 9 dates (index 0-8)
+                  // Large (lg+) : 11 dates (index 0-10)
+                  const hiddenClasses = [
+                    index >= 5 && 'hidden sm:flex',
+                    index >= 7 && 'sm:hidden md:flex',
+                    index >= 9 && 'md:hidden lg:flex'
+                  ].filter(Boolean).join(' ');
+
                   return (
                     <button
                       key={index}
                       onClick={() => handleDateSelect(date)}
                       className={`
                         flex flex-col items-center justify-center p-2 rounded-lg border transition-all
+                        ${hiddenClasses}
                         ${isSelected
                           ? 'bg-[#F22E62] text-white border-[#F22E62]'
                           : isTodayDate
@@ -357,25 +357,15 @@ const MatchPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Bouton Refresh et bouton de recherche mobile */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-            {/* Bouton Refresh */}
+          {/* Bouton Refresh */}
+          <div className="flex items-center gap-3 mb-6">
             <button
               onClick={handleRefresh}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{t('pages_detail.match.refresh')}</span>
-            </button>
-
-            {/* Bouton de recherche - Mobile */}
-            <button
-              onClick={() => setIsSearchModalOpen(true)}
-              className="md:hidden flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border-primary transition-colors"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              {t('pages_detail.match.search')}
+              <span className="text-sm">{t('pages_detail.match.refresh')}</span>
             </button>
           </div>
 
@@ -388,7 +378,7 @@ const MatchPage: React.FC = () => {
 
           {/* Grille des matchs */}
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {loadingSkeletons}
             </div>
           ) : memoizedMatches.length === 0 ? (
@@ -398,20 +388,22 @@ const MatchPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {matchesGrid}
             </div>
           )}
-        </div>
-
-        {/* Colonne de publicités - Desktop uniquement */}
-        {!isSubscribed && (
-          <div className="hidden xl:block">
-            <div className="sticky top-24">
-              <AdColumn ads={memoizedAds} isLoading={isLoadingAds} />
             </div>
+
+            {/* Colonne de publicités - Desktop uniquement */}
+            {!isSubscribed && (
+              <div className="hidden xl:block">
+                <div className="sticky top-24">
+                  <AdColumn ads={memoizedAds} isLoading={isLoadingAds} />
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modale de recherche */}
@@ -453,7 +445,7 @@ const MatchPage: React.FC = () => {
             </div>
             {searchQuery && (
               <p className="mt-3 text-sm text-text-muted">
-                {filteredMatches.length} {filteredMatches.length === 1 ? t('pages_detail.match.count_one') : t('pages_detail.match.count_other')}
+                {t('pages_detail.match.count', { count: filteredMatches.length })}
               </p>
             )}
           </div>

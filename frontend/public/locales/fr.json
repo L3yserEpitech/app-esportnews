@@ -349,7 +349,7 @@
       "no_matches": "Aucun match disponible pour cette date",
       "error_loading": "Erreur lors du chargement des matchs",
       "refresh": "Actualiser",
-      "search": "Rechercher",
+      "search": "Rechercher... (⌘K)",
       "search_title": "Rechercher un match",
       "search_placeholder": "Rechercher un match par nom, équipe, tournoi, ligue ou jeu...",
       "search_start": "Commencez à taper pour rechercher",

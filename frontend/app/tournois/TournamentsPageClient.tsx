@@ -223,23 +223,23 @@ const TournamentsPage: React.FC = () => {
           <div className="flex gap-8">
             {/* Contenu principal */}
             <div className="flex-1 max-w-none">
-              {/* Titre de la page */}
-              <div className="mb-6 pt-7">
-                <h1 className="text-3xl font-bold text-text-primary mb-2">Tous les tournois</h1>
-                <p className="text-text-secondary text-sm">
-                  Page {currentPage + 1} • {memoizedTournaments.length} tournois
-                </p>
-              </div>
+              {/* Titre de la page avec barre de recherche */}
+              <div className="mb-6 pt-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-text-primary mb-2">Tous les tournois</h1>
+                  <p className="text-text-secondary text-sm">
+                    Page {currentPage + 1} • {memoizedTournaments.length} tournois
+                  </p>
+                </div>
 
-              {/* Barre de recherche */}
-              <div className="mb-6">
+                {/* Barre de recherche */}
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
-                  className="w-full max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  className="w-full sm:w-auto sm:max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50 flex-shrink-0"
                 >
                   <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
                   <span className="text-sm">{t('pages_detail.tournaments.search.placeholder')}</span>
-                  <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
+                  <kbd className="ml-auto hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
                     <span className="text-xs">⌘</span>K
                   </kbd>
                 </button>
