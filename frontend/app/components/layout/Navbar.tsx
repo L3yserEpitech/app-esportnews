@@ -45,7 +45,6 @@ const Navbar: React.FC<NavbarProps> = ({
     { href: '/match', label: mounted ? t('layout.navbar.matchs') : '' },
     { href: '/tournois', label: mounted ? t('layout.navbar.tournois') : '' },
     { href: '/articles', label: mounted ? t('layout.navbar.articles') : '' },
-    { href: '/calendrier', label: mounted ? t('layout.navbar.calendrier') : '' },
   ];
 
   // Détection du scroll pour changer le background de la navbar

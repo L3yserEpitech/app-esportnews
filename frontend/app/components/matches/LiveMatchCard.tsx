@@ -1,294 +1,220 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import Link from 'next/link';
+import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { LiveMatch } from '../../types';
 
 interface LiveMatchCardProps {
   match: LiveMatch;
+  showGames?: boolean; // true by default, false to hide games list
 }
 
-export default function LiveMatchCard({ match }: LiveMatchCardProps) {
-  const router = useRouter();
+export default function LiveMatchCard({ match, showGames = true }: LiveMatchCardProps) {
+  // Get teams from opponents array
+  const homeTeam = match.opponents?.[0]?.opponent;
+  const awayTeam = match.opponents?.[1]?.opponent;
 
-  const formatTime = (timeString?: string) => {
-    if (!timeString) return '';
-    const date = new Date(timeString);
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit'
+  // Get scores from results array
+  const homeScore = match.results?.find(r => r.team_id === homeTeam?.id)?.score ?? '-';
+  const awayScore = match.results?.find(r => r.team_id === awayTeam?.id)?.score ?? '-';
+
+  // Determine status
+  const isLive = match.status === 'running';
+  const isFinished = match.status === 'finished';
+  const isUpcoming = match.status === 'not_started';
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
     });
   };
 
-  const getStatusBadge = (status?: string) => {
-    const statusLower = status?.toLowerCase() || '';
-    
-    if (statusLower === 'running' || statusLower === 'live') {
-      return (
-        <div
-          className="flex items-center gap-1.5 px-2 py-1 rounded-full"
-          style={{
-            backgroundColor: 'var(--color-accent)',
-            color: 'white',
-          }}
-        >
-          <div
-            className="w-1.5 h-1.5 rounded-full animate-pulse bg-white"
-          ></div>
-          <span className="text-xs font-medium text-white">EN DIRECT</span>
-        </div>
-      );
-    }
-    
-    if (statusLower === 'finished') {
-      return (
-        <div
-          className="px-2 py-1 rounded-full"
-          style={{
-            backgroundColor: 'var(--color-bg-tertiary)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          <span className="text-xs font-medium">TERMINÉ</span>
-        </div>
-      );
-    }
-    
-    return (
-      <div
-        className="px-2 py-1 rounded-full"
-        style={{
-          backgroundColor: 'var(--color-primary-600)',
-          color: 'var(--color-text-secondary)',
-        }}
-      >
-        <span className="text-xs font-medium">À VENIR</span>
-      </div>
-    );
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
-  const getTeamInitials = (teamName: string) => {
-    return teamName
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  // Get teams from opponents array
-  const team1 = match.opponents?.[0]?.opponent;
-  const team2 = match.opponents?.[1]?.opponent;
-  
-  // Get scores from results array
-  const team1Score = match.results?.find(r => r.team_id === team1?.id)?.score || 0;
-  const team2Score = match.results?.find(r => r.team_id === team2?.id)?.score || 0;
-
-  const handleClick = () => {
-    router.push(`/match/${match.id}`);
-  };
+  // Check for stream availability
+  const mainStream = match.streams_list?.[0];
+  const hasStream = mainStream?.raw_url && isLive;
 
   return (
-    <div
-      onClick={handleClick}
-      className="group relative rounded-xl p-5 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden"
-      style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        borderWidth: '1px',
-        borderColor: 'var(--color-border-secondary)',
-      }}
-    >
-      {/* Background glow effect */}
-      <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{
-          backgroundImage: 'linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))',
-          opacity: '0.05',
-        }}
-      ></div>
+    <Link href={`/match/${match.id}`}>
+      <div className="group relative h-full cursor-pointer">
+        {/* Background glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-      {/* Header */}
-      <div className="relative flex items-center justify-between mb-4">
-        {getStatusBadge(match.status || undefined)}
-        <div
-          className="text-xs font-mono"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          {formatTime((match.begin_at || match.scheduled_at) ?? undefined)}
-        </div>
-      </div>
+        {/* Main card */}
+        <div className="relative h-full bg-bg-primary border border-border-primary rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col group-hover:scale-102 group-hover:-translate-y-1">
 
-      {/* Tournament info */}
-      <div className="relative mb-4">
-        <h3
-          className="font-semibold text-sm mb-1 line-clamp-1"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          {match.tournament?.name || match.name}
-        </h3>
-      </div>
-
-      {/* Teams and score */}
-      {team1 && team2 && (
-        <div className="relative mb-4">
-          <div className="flex items-center justify-between">
-            {/* Team 1 */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border-secondary)',
-                }}
-              >
-                {team1.image_url ? (
-                  <img
-                    src={team1.image_url}
-                    alt={team1.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const fallback = target.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = 'block';
-                    }}
-                  />
-                ) : null}
-                <span
-                  className="text-xs font-bold"
-                  style={{
-                    display: team1.image_url ? 'none' : 'block',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  {team1.acronym || getTeamInitials(team1.name)}
-                </span>
-              </div>
-              <span
-                className="text-sm font-medium truncate"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {team1.name}
-              </span>
+        {/* Header with status and tournament */}
+        <div className="relative p-4 border-b border-[#182859]/20">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs uppercase tracking-widest text-gray-400 font-semibold">{match.tournament?.name || 'Tournament'}</p>
+              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{match.name}</p>
             </div>
 
-            {/* Score */}
-            <div className="flex items-center gap-2 mx-4 flex-shrink-0">
-              <div className="text-center">
-                <div
-                  className="text-lg font-bold"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  {team1Score}
-                </div>
-              </div>
-              <div
-                className="text-sm"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                -
-              </div>
-              <div className="text-center">
-                <div
-                  className="text-lg font-bold"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  {team2Score}
-                </div>
-              </div>
-            </div>
-
-            {/* Team 2 */}
-            <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-              <span
-                className="text-sm font-medium truncate text-right"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {team2.name}
-              </span>
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center border flex-shrink-0 overflow-hidden"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border-secondary)',
-                }}
-              >
-                {team2.image_url ? (
-                  <img
-                    src={team2.image_url}
-                    alt={team2.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const fallback = target.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = 'block';
-                    }}
-                  />
-                ) : null}
-                <span
-                  className="text-xs font-bold"
-                  style={{
-                    display: team2.image_url ? 'none' : 'block',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  {team2.acronym || getTeamInitials(team2.name)}
-                </span>
-              </div>
+            {/* Status badge */}
+            <div className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-bold uppercase whitespace-nowrap ${
+              isLive ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
+              isFinished ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30' :
+              'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+            }`}>
+              {isLive && <><Zap className="w-3 h-3 inline mr-1" />LIVE</> }
+              {isFinished && 'Terminé'}
+              {isUpcoming && 'À venir'}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <div
-        className="relative pt-3 border-t"
-        style={{ borderColor: 'var(--color-border-secondary)' }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs font-medium"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {match.videogame?.name || 'Esport'}
-            </span>
-          </div>
-          {match.league && (
-            <div className="flex items-center gap-2">
-              <span
-                className="text-xs truncate max-w-[100px]"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {match.league.name}
-              </span>
-              {match.league.image_url && (
-                <div
-                  className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border-secondary)',
-                  }}
-                >
+        {/* Match content */}
+        <div className="flex-1 flex flex-col justify-center p-4 space-y-4">
+          {/* Teams and Score */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Home Team */}
+            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
+                {homeTeam?.image_url ? (
                   <img
-                    src={match.league.image_url}
-                    alt={match.league.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.style.backgroundImage = `linear-gradient(to bottom right, var(--color-accent), var(--color-primary-600))`;
-                      }
-                    }}
+                    src={homeTeam.image_url}
+                    alt={homeTeam.name}
+                    className="w-10 h-10 object-contain"
+                    loading="lazy"
                   />
+                ) : (
+                  <Trophy className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+              <div className="text-center min-w-0 w-full">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight">
+                  {homeTeam?.acronym || homeTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
+                </p>
+                <p className="text-xs text-gray-400 truncate">{homeTeam?.name?.slice(0, 12) || '-'}</p>
+              </div>
+            </div>
+
+            {/* Score Display */}
+            <div className="flex flex-col items-center gap-2 px-2">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-[#F44576] font-mono">
+                  {isFinished || isLive ? (
+                    <>
+                      <span>{homeScore}</span>
+                      <span className="text-gray-400 mx-1">-</span>
+                      <span>{awayScore}</span>
+                    </>
+                  ) : (
+                    'VS'
+                  )}
+                </div>
+              </div>
+              {match.number_of_games && (
+                <div className="text-xs text-gray-400 font-medium bg-[#182859]/20 px-2 py-1 rounded-md">
+                  BO{match.number_of_games}
                 </div>
               )}
             </div>
+
+            {/* Away Team */}
+            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
+                {awayTeam?.image_url ? (
+                  <img
+                    src={awayTeam.image_url}
+                    alt={awayTeam.name}
+                    className="w-10 h-10 object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Trophy className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+              <div className="text-center min-w-0 w-full">
+                <p className="text-xs font-bold text-primary truncate leading-tight">
+                  {awayTeam?.acronym || awayTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
+                </p>
+                <p className="text-xs text-gray-400 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-[#182859]/30 to-transparent"></div>
+
+          {/* Date & Time */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Calendar className="w-3.5 h-3.5 text-[#F44576]" />
+              <span className="font-medium">{(match.begin_at || match.scheduled_at) ? formatDate(match.begin_at || match.scheduled_at!) : '-'}</span>
+              <span className="text-gray-600">•</span>
+              <span>{(match.begin_at || match.scheduled_at) ? formatTime(match.begin_at || match.scheduled_at!) : '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions footer */}
+        <div className="border-t border-[#182859]/20 p-3 space-y-2">
+          {hasStream && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(mainStream.raw_url, '_blank', 'noopener,noreferrer');
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-[#F44576] to-[#F44576] hover:from-[#F44576]/90 hover:to-[#F44576]/80 text-white rounded-lg font-semibold transition-all duration-200 text-sm shadow-lg shadow-[#F44576]/20 hover:shadow-[#F44576]/40"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              Regarder
+            </button>
           )}
+
+          {/* Games list */}
+          {showGames && match.games && match.games.length > 0 && (
+            <div className="space-y-1 pt-2 border-t border-[#182859]/20">
+              {match.games.slice(0, 3).map((game, idx) => (
+                <div key={game.id} className="flex items-center justify-between text-xs px-2 py-1 bg-[#182859]/10 rounded">
+                  <span className="text-gray-500">Game {idx + 1}</span>
+                  <span className={`font-medium ${
+                    game.status === 'finished' ? 'text-green-400' :
+                    game.status === 'running' ? 'text-[#F44576]' :
+                    'text-gray-400'
+                  }`}>
+                    {game.status === 'finished' ? '✓' : game.status === 'running' ? '●' : '○'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Game info */}
+          <div className="flex items-center justify-between text-xs px-2 py-1">
+            <span className="text-gray-500">{match.videogame?.name || 'Esport'}</span>
+            {match.league && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 truncate max-w-[100px]">{match.league.name}</span>
+                {match.league.image_url && (
+                  <div className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border border-[#182859]/30">
+                    <img
+                      src={match.league.image_url}
+                      alt={match.league.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
+    </Link>
   );
 }

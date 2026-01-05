@@ -108,18 +108,24 @@ const MatchPage: React.FC = () => {
       const fetchedMatches = await matchService.getMatchesByDate(dateStr, gameAcronym);
       console.log('[MatchPage] Fetched matches:', fetchedMatches.length);
 
-      // Filter matches to only show those with both teams defined
+      // Filter matches to only show those with both teams defined AND exclude banned games
       const validMatches = Array.isArray(fetchedMatches)
         ? fetchedMatches.filter(match => {
             // Check if match has at least 2 opponents with defined opponent data
-            return match.opponents &&
+            const hasValidTeams = match.opponents &&
                    match.opponents.length >= 2 &&
                    match.opponents[0]?.opponent?.name &&
                    match.opponents[1]?.opponent?.name;
+
+            // Exclude banned games (Mobile Legends: Bang Bang, StarCraft 2)
+            const gameName = match.videogame?.name?.toLowerCase() || '';
+            const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
+
+            return hasValidTeams && !isBannedGame;
           })
         : [];
 
-      console.log('[MatchPage] Valid matches (with both teams):', validMatches.length);
+      console.log('[MatchPage] Valid matches (with both teams, excluding banned games):', validMatches.length);
       setMatches(validMatches);
     } catch (err) {
       console.error('Error loading matches:', err);
@@ -231,13 +237,62 @@ const MatchPage: React.FC = () => {
       </div>
     )), []);
 
+  // Regrouper les matchs par jeu si aucun jeu n'est sélectionné
+  const matchesByGame = useMemo(() => {
+    if (selectedGame) return null;
+
+    const grouped = new Map<string, LiveMatch[]>();
+
+    memoizedMatches.forEach((match) => {
+      const gameName = match.videogame?.name || 'Autres';
+      const gameSlug = match.videogame?.slug || 'others';
+      const key = `${gameSlug}::${gameName}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(match);
+    });
+
+    return grouped;
+  }, [memoizedMatches, selectedGame]);
+
   // Mémoriser la grille des matchs
-  const matchesGrid = useMemo(() =>
-    memoizedMatches.map((match) => (
-      <LiveMatchCard key={match.id} match={match} />
-    )),
-    [memoizedMatches]
-  );
+  const matchesGrid = useMemo(() => {
+    if (!selectedGame && matchesByGame) {
+      // Mode groupé par jeu
+      return Array.from(matchesByGame.entries()).map(([key, matches]) => {
+        const [slug, gameName] = key.split('::');
+        const game = games.find(g => g.acronym === slug);
+
+        return (
+          <div key={key} className="mb-8">
+            {/* Banderole du jeu */}
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border-primary">
+              <h2 className="text-xl font-bold text-text-primary">
+                {gameName}
+              </h2>
+              <span className="ml-auto text-sm text-text-muted">
+                {matches.length} {matches.length > 1 ? 'matchs' : 'match'}
+              </span>
+            </div>
+
+            {/* Grille des matchs pour ce jeu */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {matches.map((match) => (
+                <LiveMatchCard key={match.id} match={match} showGames={true} />
+              ))}
+            </div>
+          </div>
+        );
+      });
+    }
+
+    // Mode normal (jeu sélectionné)
+    return memoizedMatches.map((match) => (
+      <LiveMatchCard key={match.id} match={match} showGames={true} />
+    ));
+  }, [memoizedMatches, selectedGame, matchesByGame, games]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -387,8 +442,12 @@ const MatchPage: React.FC = () => {
                 {t('pages_detail.match.no_matches')}
               </p>
             </div>
-          ) : (
+          ) : selectedGame ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {matchesGrid}
+            </div>
+          ) : (
+            <div className="space-y-8">
               {matchesGrid}
             </div>
           )}
@@ -474,6 +533,7 @@ const MatchPage: React.FC = () => {
                   <LiveMatchCard
                     key={match.id}
                     match={match}
+                    showGames={true}
                   />
                 ))}
               </div>

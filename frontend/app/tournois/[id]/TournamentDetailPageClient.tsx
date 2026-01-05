@@ -23,7 +23,7 @@ import { Advertisement } from '@/app/types';
 import AdColumn from '@/app/components/ads/AdColumn';
 import TeamsRosters from '@/app/components/tournaments/TeamsRosters';
 import TournamentStats from '@/app/components/tournaments/TournamentStats';
-import PandaMatchCard from '@/app/components/matches/PandaMatchCard';
+import LiveMatchCard from '@/app/components/matches/LiveMatchCard';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import Card from '@/app/components/ui/Card';
 import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
@@ -326,7 +326,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
               {(tournament.matches?.length || 0) > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {(tournament.matches || []).map(match => (
-                    <PandaMatchCard key={match.id} match={match} tournamentName={tournament.name} />
+                    <LiveMatchCard key={match.id} match={match} showGames={true} />
                   ))}
                 </div>
               ) : (

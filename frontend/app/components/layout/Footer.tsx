@@ -130,11 +130,6 @@ export default function Footer() {
                   {t('layout.navbar.articles')}
                 </Link>
               </li>
-              <li>
-                <Link href="/calendrier" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
-                  {t('layout.navbar.calendrier')}
-                </Link>
-              </li>
             </ul>
           </div>
 

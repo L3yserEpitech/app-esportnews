@@ -41,7 +41,7 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
           {matchList.map((match) => (
             <CarouselItem key={match.id} className="pl-2 md:pl-4 basis-[320px] md:basis-[350px] lg:basis-[380px] flex-shrink-0">
               <div className="w-full max-w-full">
-                <LiveMatchCard match={match} />
+                <LiveMatchCard match={match} showGames={false} />
               </div>
             </CarouselItem>
           ))}

@@ -57,7 +57,18 @@ export default function HomePage() {
       // Utiliser directement l'acronym sans mapping
       const fetchedMatches = await liveMatchService.getLiveMatches(gameAcronym);
       console.log('[HomePage] Fetched matches:', fetchedMatches.length);
-      setLiveMatches(fetchedMatches);
+
+      // Filter out banned games (Mobile Legends: Bang Bang, StarCraft 2)
+      const validMatches = Array.isArray(fetchedMatches)
+        ? fetchedMatches.filter(match => {
+            const gameName = match.videogame?.name?.toLowerCase() || '';
+            const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
+            return !isBannedGame;
+          })
+        : [];
+
+      console.log('[HomePage] Valid matches (excluding banned games):', validMatches.length);
+      setLiveMatches(validMatches);
     } catch (error) {
       console.error('[HomePage] Erreur lors du chargement des matchs en direct:', error);
     } finally {
