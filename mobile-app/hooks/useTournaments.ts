@@ -63,7 +63,8 @@ export const useTournaments = ({
             data = await tournamentService.getUpcomingTournaments({
               limit,
               offset: currentOffset,
-              sort: '-begin_at',
+              sort: 'begin_at',
+              game: gameFilter || undefined,
             });
             break;
           case 'finished':
@@ -71,15 +72,9 @@ export const useTournaments = ({
               limit,
               offset: currentOffset,
               sort: '-begin_at',
+              game: gameFilter || undefined,
             });
             break;
-        }
-
-        if (gameFilter && status !== 'running') {
-          data = data.filter((t) => {
-            const gameAcronym = t.videogame?.slug || t.videogame?.name?.toLowerCase();
-            return gameAcronym === gameFilter.toLowerCase();
-          });
         }
 
         if (isRefresh || currentOffset === 0) {

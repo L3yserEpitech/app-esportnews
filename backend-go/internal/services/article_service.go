@@ -39,28 +39,25 @@ func NewArticleServiceWithGORM(gormDB *database.Database, redisCache *cache.Redi
 }
 
 // GetArticles retrieves articles with pagination and optional category filter
-// If category is empty, returns all articles EXCEPT "Actus"
-func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, category string) ([]*models.Article, error) {
+// If category is empty, returns all articles
+func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, category string, excludeNews ...bool) ([]*models.Article, error) {
 	// Use GORM if available, otherwise fall back to pgxpool
 	if s.gormDB != nil {
-		fmt.Printf("[DEBUG] GetArticles called with category='%s', limit=%d, offset=%d\n", category, limit, offset)
+		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
 		var articles []*models.Article
 		query := s.gormDB.WithContext(ctx).Order("created_at DESC")
 
 		if category != "" {
 			// Filter by specific category
-			fmt.Printf("[DEBUG] Filtering by category: %s\n", category)
 			query = query.Where("category = ?", category)
-		} else {
-			// Exclude "Actus" when no category is selected
-			fmt.Printf("[DEBUG] Excluding 'Actus' category\n")
+		} else if shouldExcludeNews {
+			// Exclude "Actus" when excludeNews is true
 			query = query.Where("category != ?", "Actus")
 		}
 
 		if err := query.Limit(limit).Offset(offset).Find(&articles).Error; err != nil {
 			return nil, fmt.Errorf("failed to query articles: %w", err)
 		}
-		fmt.Printf("[DEBUG] Found %d articles\n", len(articles))
 		return articles, nil
 	}
 
@@ -103,17 +100,18 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 }
 
 // CountArticles counts articles with optional category filter
-// If category is empty, counts all articles EXCEPT "Actus"
-func (s *ArticleService) CountArticles(ctx context.Context, category string) (int64, error) {
+// If category is empty, counts all articles
+func (s *ArticleService) CountArticles(ctx context.Context, category string, excludeNews ...bool) (int64, error) {
 	if s.gormDB != nil {
+		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
 		var count int64
 		query := s.gormDB.WithContext(ctx).Model(&models.Article{})
 
 		if category != "" {
 			// Count specific category
 			query = query.Where("category = ?", category)
-		} else {
-			// Exclude "Actus" when no category is selected
+		} else if shouldExcludeNews {
+			// Exclude "Actus" when excludeNews is true
 			query = query.Where("category != ?", "Actus")
 		}
 

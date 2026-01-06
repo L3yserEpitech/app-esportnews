@@ -11,6 +11,8 @@
 
 **Contexte** : Liquipedia impose une limite de **60 requêtes/heure/endpoint/jeu**. Avec 10 jeux supportés et un système de polling, cette limite serait rapidement atteinte. Les webhooks permettent de recevoir uniquement les mises à jour nécessaires.
 
+**⚠️ CONTRAINTE CRITIQUE** : Avec 60 req/h/endpoint/game, les utilisateurs ne peuvent **JAMAIS** déclencher d'appels API directs. Toute la logique de fetch doit être **backend-side** et proactive.
+
 ---
 
 ## 📋 Étapes principales
@@ -43,8 +45,10 @@ POST /api/webhooks/liquipedia
 ├─ Reçoit JSON de Liquipedia
 ├─ Valide la signature (sécurité)
 ├─ Parse l'événement (type, game, resource_id)
-└─ Invalide le cache Redis correspondant
+└─ ⚠️ NE PAS JUSTE INVALIDER → Refetch IMMÉDIATEMENT les données (backend-side)
 ```
+
+**IMPORTANT** : Contrairement à PandaScore, on ne peut pas se permettre d'invalider le cache et attendre qu'un utilisateur déclenche le refetch. Le webhook doit **proactivement** mettre à jour le cache.
 
 **Exemple d'implémentation** :
 ```go
@@ -70,16 +74,18 @@ type LiquipediaWebhookEvent struct {
 }
 
 type LiquipediaWebhookHandler struct {
-    cache         *cache.RedisCache
-    logger        *logrus.Logger
-    webhookSecret string
+    cache            *cache.RedisCache
+    logger           *logrus.Logger
+    webhookSecret    string
+    liquipediaClient *liquipedia.Client  // Client pour refetch les données
 }
 
-func NewLiquipediaWebhookHandler(redisCache *cache.RedisCache, logger *logrus.Logger, secret string) *LiquipediaWebhookHandler {
+func NewLiquipediaWebhookHandler(redisCache *cache.RedisCache, logger *logrus.Logger, secret string, client *liquipedia.Client) *LiquipediaWebhookHandler {
     return &LiquipediaWebhookHandler{
-        cache:         redisCache,
-        logger:        logger,
-        webhookSecret: secret,
+        cache:            redisCache,
+        logger:           logger,
+        webhookSecret:    secret,
+        liquipediaClient: client,
     }
 }
 
@@ -117,27 +123,20 @@ func (h *LiquipediaWebhookHandler) HandleWebhook(c echo.Context) error {
     h.logger.Infof("Liquipedia webhook received: type=%s, game=%s, resource=%s",
         event.Type, event.GameSlug, event.ResourceID)
 
-    // Invalider le cache correspondant pour forcer un refresh
+    // ⚠️ REFETCH IMMÉDIATEMENT (pas juste invalider)
     ctx := c.Request().Context()
     switch event.Type {
     case "tournament.updated", "tournament.created":
-        // Invalider cache tournois pour ce jeu
-        h.cache.Del(ctx, cache.PandaScoreTournamentsKey(event.GameSlug, "running"))
-        h.cache.Del(ctx, cache.PandaScoreTournamentsKey(event.GameSlug, "upcoming"))
-        h.cache.Del(ctx, cache.PandaScoreTournamentKey(event.ResourceID))
-        h.logger.Infof("Cache invalidated for game %s tournaments", event.GameSlug)
+        // Refetch proactif en goroutine (pour répondre < 5s)
+        go h.refreshTournamentCache(event.GameSlug)
 
     case "match.updated", "match.created":
-        // Invalider cache matchs running
-        h.cache.Del(ctx, cache.PandaScoreRunningMatchesKey(&event.GameSlug))
-        h.cache.Del(ctx, cache.PandaScoreMatchKey(event.ResourceID))
-        h.logger.Infof("Cache invalidated for game %s running matches", event.GameSlug)
+        go h.refreshMatchCache(event.GameSlug)
 
     case "match.deleted":
-        // Invalider cache match spécifique
-        h.cache.Del(ctx, cache.PandaScoreMatchKey(event.ResourceID))
-        h.cache.Del(ctx, cache.PandaScoreRunningMatchesKey(&event.GameSlug))
-        h.logger.Infof("Cache invalidated for deleted match %s", event.ResourceID)
+        // Pour les suppressions, on peut juste invalider
+        h.cache.Del(ctx, cache.LiquipediaMatchKey(event.ResourceID))
+        h.cache.Del(ctx, cache.LiquipediaRunningMatchesKey(&event.GameSlug))
 
     default:
         h.logger.Warnf("Unknown webhook event type: %s", event.Type)
@@ -147,6 +146,44 @@ func (h *LiquipediaWebhookHandler) HandleWebhook(c echo.Context) error {
     return c.JSON(http.StatusOK, map[string]string{"status": "received"})
 }
 
+// refreshTournamentCache refetch proactivement les tournois (backend-side)
+func (h *LiquipediaWebhookHandler) refreshTournamentCache(game string) {
+    ctx := context.Background()
+
+    statuses := []string{"running", "upcoming"}
+    for _, status := range statuses {
+        cacheKey := cache.LiquipediaTournamentsKey(game, status)
+
+        // Fetch Liquipedia
+        data, err := h.liquipediaClient.FetchTournaments(game, status)
+        if err != nil {
+            h.logger.Errorf("Failed to refresh %s/%s tournaments: %v", game, status, err)
+            continue
+        }
+
+        // Update cache (2h TTL)
+        h.cache.Set(ctx, cacheKey, data, 2*time.Hour)
+        h.logger.Infof("Cache refreshed: %s/%s (webhook-triggered)", game, status)
+    }
+}
+
+// refreshMatchCache refetch proactivement les matchs (backend-side)
+func (h *LiquipediaWebhookHandler) refreshMatchCache(game string) {
+    ctx := context.Background()
+    cacheKey := cache.LiquipediaRunningMatchesKey(&game)
+
+    // Fetch Liquipedia
+    data, err := h.liquipediaClient.FetchMatches(game, "running")
+    if err != nil {
+        h.logger.Errorf("Failed to refresh %s running matches: %v", game, err)
+        return
+    }
+
+    // Update cache (2h TTL)
+    h.cache.Set(ctx, cacheKey, data, 2*time.Hour)
+    h.logger.Infof("Cache refreshed: %s/running matches (webhook-triggered)", game)
+}
+
 // RegisterRoutes enregistre les routes webhook
 func (h *LiquipediaWebhookHandler) RegisterRoutes(g *echo.Group) {
     webhooks := g.Group("/webhooks")
@@ -154,9 +191,10 @@ func (h *LiquipediaWebhookHandler) RegisterRoutes(g *echo.Group) {
 }
 ```
 
-**Pourquoi invalider le cache ?**
-- Quand Liquipedia dit "tournoi X mis à jour", on supprime le cache de ce tournoi
-- Au prochain appel frontend, on refetch les données fraîches depuis Liquipedia
+**Pourquoi refetch proactif au lieu d'invalider ?**
+- ❌ **Invalider uniquement** → Prochain utilisateur déclenche un appel API (consomme le rate limit)
+- ✅ **Refetch backend-side** → Utilisateurs ne déclenchent JAMAIS d'appels API (économise le rate limit)
+- Le cache est **toujours à jour** sans intervention utilisateur
 - Pas besoin de stocker en base (architecture actuelle préservée)
 
 ---
@@ -192,71 +230,193 @@ type Config struct {
 
 ---
 
-### **4️⃣ Gérer les événements par type**
+### **4️⃣ Warm-up cache au démarrage**
 
-**Mapping événement → action** :
+**Problème** : Au démarrage, le cache est vide. Les premiers utilisateurs déclencheraient des appels API.
 
-| Événement Liquipedia | Action backend |
-|---------------------|----------------|
-| `tournament.created` | Invalider cache `tournaments/running` + `tournaments/upcoming` |
-| `tournament.updated` | Invalider cache tournoi spécifique + listes |
-| `match.created` | Invalider cache `matches/running` |
-| `match.updated` | Invalider cache match spécifique |
-| `match.deleted` | Invalider cache + liste matchs |
+**Solution** : Pré-remplir le cache au démarrage du backend (warm-up proactif).
 
-**Code exemple** :
 ```go
-switch event.Type {
-case "tournament.updated":
-    // Invalider cache tournoi individuel
-    cache.Del(ctx, "pandascore:tournament:" + event.ResourceID)
-    // Invalider listes (running/upcoming)
-    cache.Del(ctx, "pandascore:tournaments:valorant:running")
+// backend-go/cmd/server/main.go
 
-case "match.updated":
-    cache.Del(ctx, "pandascore:match:" + event.ResourceID)
-    cache.Del(ctx, "pandascore:matches:running:valorant")
+func warmUpCache(client *liquipedia.Client, cache *cache.RedisCache, logger *logrus.Logger) {
+    games := []string{"valorant", "lol", "cs2", "dota2", "overwatch", "fifa", "wildrift", "cod", "r6", "rocketleague"}
+    statuses := []string{"running", "upcoming"}
+
+    logger.Info("Starting cache warm-up...")
+
+    for _, game := range games {
+        for _, status := range statuses {
+            cacheKey := cache.LiquipediaTournamentsKey(game, status)
+
+            // Fetch Liquipedia
+            data, err := client.FetchTournaments(game, status)
+            if err != nil {
+                logger.Errorf("Warm-up failed for %s/%s: %v", game, status, err)
+                continue
+            }
+
+            // Populate cache (2h TTL)
+            cache.Set(context.Background(), cacheKey, data, 2*time.Hour)
+            logger.Infof("Warmed up: %s/%s", game, status)
+
+            // Rate limit : 1 call/sec pour rester sous 60 req/h
+            time.Sleep(1 * time.Second)
+        }
+    }
+
+    logger.Info("Cache warm-up completed (20 calls in 20 sec)")
+}
+
+func main() {
+    // ... init services ...
+
+    // Warm-up cache au démarrage (goroutine pour ne pas bloquer)
+    go warmUpCache(liquipediaClient, redisCache, logger)
+
+    // Start server
+    e.Start(":8080")
 }
 ```
 
----
-
-### **5️⃣ Enregistrer le handler dans main.go**
-
-**Ajouter dans `/backend-go/cmd/server/main.go`** :
-
-```go
-// Initialize Liquipedia webhook handler
-liquipediaWebhookHandler := handlers.NewLiquipediaWebhookHandler(
-    redisClient,
-    logger,
-    cfg.LiquipediaWebhookSecret,
-)
-
-// Register webhook routes (public, no auth required)
-liquipediaWebhookHandler.RegisterRoutes(apiGroup)
-```
+**Calcul** :
+- 10 jeux × 2 statuses = 20 appels API
+- 1 call/seconde = 20 secondes au démarrage
+- **20 calls << 60 req/h** ✅ Rate limit respecté
 
 ---
 
-### **6️⃣ Fallback si webhook échoue**
+### **5️⃣ Modifier les handlers d'API pour empêcher les appels directs**
 
-**Problème** : Si Liquipedia a une panne, vous ne recevez plus de mises à jour
+**Problème** : Actuellement, `/api/tournaments` peut déclencher un fetch si cache expiré.
 
-**Solution** : Garder un **polling léger de secours** (20-30 min) uniquement pour les données critiques
+**Solution** : Les handlers doivent **TOUJOURS** servir depuis le cache, jamais d'appel API direct.
 
 ```go
-// Cron job toutes les 30 min (fallback)
-// Seulement si aucun webhook reçu dans les 30 dernières minutes
-if time.Since(lastWebhookTime) > 30*time.Minute {
-    RefreshCriticalData() // Polling manuel
+// backend-go/internal/handlers/tournaments.go
+
+const CacheTTL = 2 * time.Hour  // Cache long
+
+func (h *TournamentHandler) GetTournaments(c echo.Context) error {
+    game := c.QueryParam("game")
+    status := c.QueryParam("status") // running, upcoming
+
+    cacheKey := cache.LiquipediaTournamentsKey(game, status)
+
+    // TOUJOURS servir depuis le cache
+    cached, found := h.cache.Get(c.Request().Context(), cacheKey)
+    if found {
+        return c.JSON(http.StatusOK, cached)
+    }
+
+    // ⚠️ Cache MISS = ANOMALIE (ne devrait jamais arriver)
+    h.logger.WithFields(logrus.Fields{
+        "game":   game,
+        "status": status,
+    }).Error("Cache MISS on tournaments endpoint - data not warmed up")
+
+    // Fallback : fetch mais logger comme erreur critique
+    data, err := h.liquipediaClient.FetchTournaments(game, status)
+    if err != nil {
+        return c.JSON(http.StatusServiceUnavailable, map[string]string{
+            "error": "Tournament data temporarily unavailable",
+        })
+    }
+
+    // Cache pour éviter re-fetch
+    h.cache.Set(c.Request().Context(), cacheKey, data, CacheTTL)
+
+    // Alerter l'équipe (metrics/logs)
+    h.metrics.CacheMissTotal.Inc()
+
+    return c.JSON(http.StatusOK, data)
 }
 ```
 
-**Implémentation suggérée** :
-- Stocker timestamp du dernier webhook dans Redis : `SET last_webhook_timestamp <unix_time>`
-- Cronjob (package `github.com/robfig/cron/v3`) qui vérifie toutes les 30 min
-- Si `last_webhook_timestamp` > 30 min, déclencher un refresh manuel
+**Résultat** :
+- ✅ Utilisateurs ne déclenchent JAMAIS d'appels API
+- ✅ Cache MISS = alerté dans les logs (anomalie à investiguer)
+- ✅ Fallback en cas d'urgence (mais loggé comme erreur)
+
+---
+
+### **6️⃣ Fallback si webhook échoue ou cache expire**
+
+**Problème** : Si Liquipedia ne notifie pas ou si le cache expire (2h), les données deviennent obsolètes.
+
+**Solution** : Cron job qui vérifie le TTL du cache et refresh proactivement avant expiration.
+
+```go
+// backend-go/internal/services/cache_manager.go
+
+type CacheManager struct {
+    cache            *cache.RedisCache
+    liquipediaClient *liquipedia.Client
+    logger           *logrus.Logger
+}
+
+// CheckAndRefreshCache vérifie TTL et refresh si < 10 min
+func (m *CacheManager) CheckAndRefreshCache() {
+    games := []string{"valorant", "lol", "cs2", "dota2", "overwatch", "fifa", "wildrift", "cod", "r6", "rocketleague"}
+    statuses := []string{"running", "upcoming"}
+
+    for _, game := range games {
+        for _, status := range statuses {
+            cacheKey := cache.LiquipediaTournamentsKey(game, status)
+
+            // Vérifier TTL restant
+            ttl := m.cache.TTL(context.Background(), cacheKey)
+
+            // Si cache expire dans < 10 min → refresh proactif
+            if ttl < 10*time.Minute {
+                m.logger.Warnf("Cache expiring soon for %s/%s (TTL: %v), proactive refresh", game, status, ttl)
+                m.refreshCache(game, status)
+                time.Sleep(1 * time.Second) // Rate limit
+            }
+        }
+    }
+}
+
+func (m *CacheManager) refreshCache(game, status string) {
+    cacheKey := cache.LiquipediaTournamentsKey(game, status)
+
+    data, err := m.liquipediaClient.FetchTournaments(game, status)
+    if err != nil {
+        m.logger.Errorf("Failed to refresh %s/%s: %v", game, status, err)
+        return
+    }
+
+    m.cache.Set(context.Background(), cacheKey, data, 2*time.Hour)
+    m.logger.Infof("Cache refreshed proactively: %s/%s", game, status)
+}
+```
+
+**Cron setup dans main.go** :
+```go
+import "github.com/robfig/cron/v3"
+
+func main() {
+    // ... init services ...
+
+    // Cron job : vérifier cache toutes les heures
+    c := cron.New()
+    cacheManager := services.NewCacheManager(redisCache, liquipediaClient, logger)
+
+    c.AddFunc("0 * * * *", func() {  // Toutes les heures à la minute 0
+        cacheManager.CheckAndRefreshCache()
+    })
+
+    c.Start()
+
+    // Start server
+    e.Start(":8080")
+}
+```
+
+**Résultat** :
+- ✅ Cache jamais expiré (refresh proactif avant expiration)
+- ✅ Fonctionne même si webhooks échouent
+- ✅ Max 20 calls/heure (1x vérification) << 60 req/h
 
 ---
 
@@ -336,7 +496,7 @@ func TestLiquipediaWebhookHandler_ValidateSignature(t *testing.T) {
 
 ## 🔄 Comparaison Avant/Après
 
-### **Avant (polling à la demande + cache)**
+### **Avant (PandaScore - polling + cache 5 min)**
 ```
 User visite /tournois/valorant
   ↓
@@ -344,45 +504,101 @@ Frontend → Backend /api/tournaments?game=valorant
   ↓
 Backend vérifie cache (5 min TTL)
   ├─ Cache HIT → Retourne données
-  └─ Cache MISS → Appelle Liquipedia → Cache → Retourne
+  └─ Cache MISS → Appelle PandaScore → Cache → Retourne
 ```
 
-**Problème** : Si 100 users visitent en 1h → potentiellement 100 appels Liquipedia (si cache expiré)
+**Problème** : Pas adapté à Liquipedia (60 req/h) → 100 users = 100 calls potentiels
 
-### **Après (webhooks)**
+---
+
+### **Après (Liquipedia - webhooks + warm-up + cache 2h)**
+
+#### **Démarrage**
+```
+Backend démarre
+  ↓
+Warm-up proactif : 10 jeux × 2 statuses = 20 calls en 20 sec
+  ↓
+Cache peuplé pour 2h
+  ↓
+Users arrivent → TOUJOURS cache HIT ✅
+```
+
+#### **Mise à jour de données**
 ```
 Liquipedia détecte changement tournoi Valorant
   ↓
 POST /api/webhooks/liquipedia {"type":"tournament.updated","game":"valorant"}
   ↓
-Backend invalide cache Redis
+Backend refetch IMMÉDIATEMENT (backend-side, pas user-triggered)
   ↓
-Prochain user → Cache MISS → Appelle Liquipedia UNE FOIS → Cache 5 min
+Cache mis à jour (2h TTL reset)
+  ↓
+Prochain user → Cache HIT avec données fraîches ✅
+```
+
+#### **Fallback (si webhook échoue)**
+```
+Cron job vérifie TTL toutes les heures
+  ↓
+Si TTL < 10 min → Refresh proactif
+  ↓
+Cache jamais expiré ✅
 ```
 
 **Avantages** :
-- ✅ 1 seul appel API même avec 1000 users
-- ✅ Données toujours fraîches (notifiées en temps réel)
-- ✅ Respecte limite 60 req/h (car pas de polling)
+- ✅ **0 appel API déclenché par les utilisateurs**
+- ✅ Données toujours fraîches (webhooks temps réel)
+- ✅ Respecte limite 60 req/h (~15 calls/h max)
+- ✅ Self-healing si webhooks échouent (cron fallback)
+- ✅ Pas de stockage persistant (architecture préservée)
 
 ---
 
 ## 📝 Checklist d'implémentation
 
+### **Configuration externe**
 - [ ] Contacter Liquipedia pour activer webhooks
 - [ ] Obtenir clé secrète webhook (`LIQUIPEDIA_WEBHOOK_SECRET`)
-- [ ] Créer handler `liquipedia_webhook.go`
+- [ ] Fournir URL publique : `https://votredomaine.com/api/webhooks/liquipedia`
+
+### **Backend - Webhook handler**
+- [ ] Créer handler `liquipedia_webhook.go` avec refetch proactif
 - [ ] Ajouter validation signature HMAC
 - [ ] Ajouter config `LiquipediaWebhookSecret` dans `config.go`
 - [ ] Router webhook dans `main.go`
-- [ ] Mapper événements → invalidations cache
-- [ ] Ajouter logs/monitoring
-- [ ] Tester avec curl (simulation locale)
-- [ ] Déployer en production
-- [ ] Configurer URL webhook publique chez Liquipedia
+- [ ] Implémenter `refreshTournamentCache()` et `refreshMatchCache()`
+
+### **Backend - Warm-up & Cache**
+- [ ] Créer fonction `warmUpCache()` dans `main.go`
+- [ ] Allonger TTL cache : 5 min → 2h dans `cache/keys.go`
+- [ ] Modifier handlers API pour empêcher fetch direct utilisateur
+- [ ] Logger cache MISS comme anomalie critique
+
+### **Backend - Fallback**
+- [ ] Créer `CacheManager` avec méthode `CheckAndRefreshCache()`
+- [ ] Ajouter cron job (1x/heure) pour vérifier TTL
+- [ ] Refresh proactif si TTL < 10 min
+
+### **Monitoring**
+- [ ] Ajouter logs webhook reçus (type, jeu, resource)
+- [ ] Logger signature invalide (tentative fraude)
+- [ ] Métriques `cache_misses_total` (devrait être ~0)
+- [ ] Métriques `webhooks_received_total`
+- [ ] Alertes si cache MISS utilisateur > 5/jour
+
+### **Tests**
+- [ ] Tester webhook avec curl + signature HMAC
+- [ ] Tester warm-up au démarrage (logs)
+- [ ] Tester fallback cron (simuler cache expiré)
+- [ ] Tester charge : 1000 users ne déclenchent aucun appel API
+
+### **Production**
+- [ ] Déployer backend avec nouvelles routes
+- [ ] Vérifier URL publique accessible (ngrok pour dev)
+- [ ] Configurer webhook chez Liquipedia
 - [ ] Vérifier réception premier webhook réel
-- [ ] (Optionnel) Ajouter fallback polling 30 min
-- [ ] (Optionnel) Ajouter métriques Prometheus
+- [ ] Monitorer rate limit : doit rester < 60 req/h
 
 ---
 
@@ -397,13 +613,24 @@ Prochain user → Cache MISS → Appelle Liquipedia UNE FOIS → Cache 5 min
 
 2. **Sécurité** : TOUJOURS vérifier la signature, sinon n'importe qui peut envoyer de fausses données.
 
-3. **Timeout** : Liquipedia attend une réponse 200 sous 5 secondes. Invalidation cache = rapide ✅, mais ne faites PAS de traitement lourd dans le webhook.
+3. **Timeout** : Liquipedia attend une réponse 200 sous 5 secondes. Utiliser `go` goroutine pour le refetch (pas dans le handler principal).
 
-4. **Idempotence** : Liquipedia peut envoyer le même événement 2 fois. Votre code doit gérer ça (invalider cache 2 fois = pas de problème).
+4. **Idempotence** : Liquipedia peut envoyer le même événement 2 fois. Refetch 2 fois = pas de problème (cache écrasé).
 
 5. **Format de signature** : Vérifier avec Liquipedia le format exact (`X-Liquipedia-Signature`, `X-Hub-Signature`, etc.) et l'algorithme (SHA256, SHA1).
 
-6. **Rate limit toujours actif** : Même avec webhooks, la limite 60 req/h s'applique aux appels manuels (quand cache expiré). Prévoir un système de retry avec backoff exponentiel.
+6. **Rate limit critique** : ⚠️ **Les utilisateurs ne doivent JAMAIS déclencher d'appels API**. Toute la logique doit être backend-side (webhooks + warm-up + cron).
+
+7. **Cache TTL** : 2h est un bon compromis. Plus long = risque de données obsolètes si webhook échoue. Plus court = plus de refetch proactifs.
+
+8. **Cron job fréquence** : 1x/heure suffit. Plus fréquent = gaspillage d'appels API. Moins fréquent = risque cache expiré.
+
+9. **Monitoring essentiel** : Cache MISS utilisateur = bug critique à investiguer immédiatement.
+
+10. **Consommation API cible** : ~15 calls/h en moyenne :
+    - Warm-up : 20 calls au démarrage (amortis sur la journée)
+    - Webhooks : 1-5 calls/h selon activité Liquipedia
+    - Cron fallback : 0-10 calls/h (seulement si TTL < 10 min)
 
 ---
 
@@ -415,6 +642,22 @@ Prochain user → Cache MISS → Appelle Liquipedia UNE FOIS → Cache 5 min
 
 ---
 
+## 📊 Résumé Architecture Finale
+
+| Composant | Stratégie | Détails |
+|-----------|-----------|---------|
+| **Cache TTL** | 2 heures | Long pour éviter expiration entre webhooks |
+| **Warm-up** | Au démarrage | 20 calls en 20 sec (10 jeux × 2 statuses) |
+| **Webhook** | Refetch proactif | Backend fetch immédiatement, pas utilisateur |
+| **Fallback** | Cron 1x/heure | Refresh si TTL < 10 min |
+| **API Handlers** | Cache-only | JAMAIS d'appel direct, cache MISS = anomalie |
+| **Rate Limit** | ~15 calls/h | << 60 req/h (marge de sécurité × 4) |
+| **Consommation utilisateur** | 0 call | Toujours cache HIT |
+| **Monitoring** | Logs + métriques | Cache MISS = alerte critique |
+
+---
+
 ## 📅 Historique
 
-- **2025-12-11** : Création du document suite à l'analyse des contraintes de rate limit Liquipedia (60 req/h/endpoint/jeu)
+- **2026-01-05** : Refonte complète du document pour gérer la contrainte **60 req/h/endpoint/jeu**. Ajout warm-up proactif, refetch backend-side, cron fallback, monitoring.
+- **2025-12-11** : Création du document suite à l'analyse des contraintes de rate limit Liquipedia

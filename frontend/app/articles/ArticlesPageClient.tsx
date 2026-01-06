@@ -51,7 +51,7 @@ export default function ArticlesPageClient() {
       const fetchedArticles = await articleService.getAllArticles({
         limit: 1,
         offset: 0,
-        // No category = all except Actus (handled by backend)
+        excludeNews: true, // Exclure les articles "Actus"
       });
       if (fetchedArticles.length > 0) {
         setFeaturedArticle(fetchedArticles[0]);
@@ -69,7 +69,8 @@ export default function ArticlesPageClient() {
       const fetchedArticles = await articleService.getAllArticles({
         limit: ARTICLES_PER_PAGE,
         offset: offset,
-        category: selectedCategory || undefined, // Empty string = all except Actus
+        category: selectedCategory || undefined,
+        excludeNews: true, // Exclure les articles "Actus" sur la page Articles
       });
 
       const totalCount = articleService.getLastTotalCount();
@@ -119,6 +120,7 @@ export default function ArticlesPageClient() {
           const allArticles = await articleService.getAllArticles({
             limit: 1000, // Large limit to get all articles
             offset: 0,
+            excludeNews: true, // Exclure les articles "Actus" de la recherche
           });
           setSearchResults(allArticles);
         } catch (error) {

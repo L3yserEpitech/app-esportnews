@@ -5,12 +5,13 @@ class ArticleService {
 
   private lastTotalCount: number = 0; // Cache for X-Total-Count header
 
-  async getAllArticles(options?: { limit?: number; offset?: number; category?: string }): Promise<NewsItem[]> {
+  async getAllArticles(options?: { limit?: number; offset?: number; category?: string; excludeNews?: boolean }): Promise<NewsItem[]> {
     try {
       const params = new URLSearchParams();
       if (options?.limit) params.append('limit', options.limit.toString());
       if (options?.offset) params.append('offset', options.offset.toString());
       if (options?.category) params.append('category', options.category);
+      if (options?.excludeNews) params.append('excludeNews', 'true');
 
       const url = `${this.baseUrl}/api/articles${params.toString() ? `?${params.toString()}` : ''}`;
 

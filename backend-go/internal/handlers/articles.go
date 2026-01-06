@@ -56,6 +56,7 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 	limit := 20
 	offset := 0
 	category := c.QueryParam("category")
+	excludeNews := c.QueryParam("excludeNews") == "true"
 
 	if l := c.QueryParam("limit"); l != "" {
 		if lim, err := strconv.Atoi(l); err == nil && lim > 0 && lim <= 100 {
@@ -69,12 +70,12 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 	}
 
 	// Get total count for pagination
-	totalCount, err := h.service.CountArticles(ctx, category)
+	totalCount, err := h.service.CountArticles(ctx, category, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	articles, err := h.service.GetArticles(ctx, limit, offset, category)
+	articles, err := h.service.GetArticles(ctx, limit, offset, category, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -90,8 +91,9 @@ func (h *ArticleHandler) CountArticles(c echo.Context) error {
 	defer cancel()
 
 	category := c.QueryParam("category")
+	excludeNews := c.QueryParam("excludeNews") == "true"
 
-	count, err := h.service.CountArticles(ctx, category)
+	count, err := h.service.CountArticles(ctx, category, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
