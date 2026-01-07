@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -14,6 +16,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+
+const openSocialLink = async (url: string) => {
+  try {
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir ce lien');
+    }
+  } catch (error) {
+    console.error('Error opening URL:', error);
+    Alert.alert('Erreur', 'Une erreur est survenue');
+  }
+};
 
 interface LegalItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -214,6 +230,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
     lineHeight: 18,
+  },
+  socialSection: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  socialTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  socialIconsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  socialIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   footerSpacing: {
     height: 40,

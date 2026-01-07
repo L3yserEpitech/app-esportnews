@@ -229,13 +229,22 @@ export default function ProfileScreen() {
         )}
 
         <Section title="Paramètres">
-          <ProfileItem 
-            icon="information-circle-outline" 
-            title="À propos" 
+          <ProfileItem
+            icon="information-circle-outline"
+            title="À propos"
             subtitle="Version 1.0.0"
             showChevron={false}
             iconBg="rgba(142, 142, 147, 0.15)"
             color="#8E8E93"
+          />
+          <View style={styles.divider} />
+          <ProfileItem
+            icon="share-social-outline"
+            title="Réseaux sociaux"
+            subtitle="Suivez-nous sur toutes les plateformes"
+            onPress={() => router.push('/profile/social-media' as any)}
+            iconBg="rgba(94, 92, 230, 0.15)"
+            color="#5E5CE6"
           />
           <View style={styles.divider} />
           <ProfileItem
@@ -247,6 +256,8 @@ export default function ProfileScreen() {
             color="#8E8E93"
           />
         </Section>
+
+        
 
         {isAuthenticated && (
           <View style={styles.logoutContainer}>

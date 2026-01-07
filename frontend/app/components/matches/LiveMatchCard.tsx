@@ -52,7 +52,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {/* Main card */}
-        <div className="relative h-full bg-bg-primary border border-border-primary rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col group-hover:scale-102 group-hover:-translate-y-1">
+        <div className="relative h-full bg-bg-primary border border-border-primary rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#F44576]/30 transition-all duration-300 flex flex-col">
 
         {/* Header with status and tournament */}
         <div className="relative p-4 border-b border-[#182859]/20">
