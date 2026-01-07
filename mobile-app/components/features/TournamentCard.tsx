@@ -38,19 +38,23 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
   };
 
   const statusInfo = (() => {
-    const status = tournament.status?.toLowerCase();
+    const now = new Date();
+    const beginAt = tournament.begin_at ? new Date(tournament.begin_at) : null;
+    const endAt = tournament.end_at ? new Date(tournament.end_at) : null;
 
-    // Debug: afficher le statut reçu (à retirer après debug)
-    if (__DEV__) {
-      console.log('Tournament status:', tournament.name, '→', tournament.status);
+    // Logique basée sur les dates (comme sur le web)
+    if (beginAt && endAt) {
+      if (now >= beginAt && now <= endAt) {
+        // Tournoi en cours
+        return { label: 'EN COURS', variant: 'live' as const };
+      } else if (now > endAt) {
+        // Tournoi terminé
+        return { label: 'TERMINÉ', variant: 'finished' as const };
+      }
     }
 
-    switch (status) {
-      case 'running': return { label: 'EN COURS', variant: 'live' as const };
-      case 'finished': return { label: 'TERMINÉ', variant: 'finished' as const };
-      case 'upcoming': return { label: 'À VENIR', variant: 'upcoming' as const };
-      default: return { label: 'À VENIR', variant: 'upcoming' as const };
-    }
+    // Par défaut : à venir
+    return { label: 'À VENIR', variant: 'upcoming' as const };
   })();
 
   const tierColor = getTierColor(tournament.tier);
