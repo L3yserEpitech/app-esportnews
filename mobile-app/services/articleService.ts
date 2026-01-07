@@ -5,6 +5,7 @@ export interface ArticleQueryParams {
   limit?: number;
   offset?: number;
   category?: string;
+  excludeNews?: boolean;
 }
 
 class ArticleService {

@@ -1,4 +1,4 @@
-import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Dimensions, TextInput } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Dimensions, TextInput, Modal, ScrollView } from 'react-native';
 import { useState, useCallback, useEffect, useMemo, memo, useRef } from 'react';
 import { Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -19,6 +19,18 @@ import { articleService } from '@/services/articleService';
 import type { NewsItem } from '@/types';
 
 type ContentType = 'news' | 'articles';
+
+// Catégories disponibles (sans "Actus")
+const AVAILABLE_CATEGORIES = [
+  'Portrait',
+  'Guide',
+  'Test produit',
+  'Analyse',
+  'Compétition',
+  'Enquête',
+  'Gaming',
+  'Interview'
+];
 
 const { width } = Dimensions.get('window');
 
@@ -81,20 +93,24 @@ const EmptyState = ({ isLoading, error, contentType, searchQuery }: { isLoading:
   );
 };
 
-const NewsHeader = memo(({ 
-  isSearchVisible, 
-  searchQuery, 
-  setSearchQuery, 
-  toggleSearch, 
-  contentType, 
-  setContentType 
-}: { 
-  isSearchVisible: boolean, 
-  searchQuery: string, 
-  setSearchQuery: (s: string) => void, 
-  toggleSearch: () => void, 
-  contentType: ContentType, 
-  setContentType: (v: ContentType) => void 
+const NewsHeader = memo(({
+  isSearchVisible,
+  searchQuery,
+  setSearchQuery,
+  toggleSearch,
+  toggleFilter,
+  contentType,
+  setContentType,
+  selectedCategory
+}: {
+  isSearchVisible: boolean,
+  searchQuery: string,
+  setSearchQuery: (s: string) => void,
+  toggleSearch: () => void,
+  toggleFilter: () => void,
+  contentType: ContentType,
+  setContentType: (v: ContentType) => void,
+  selectedCategory: string
 }) => {
   const inputRef = useRef<TextInput>(null);
 
@@ -167,6 +183,14 @@ const NewsHeader = memo(({
               onPress={setContentType}
             />
           </View>
+
+          {/* Bouton filtre (visible uniquement sur Articles) */}
+          {contentType === 'articles' && (
+            <Pressable onPress={toggleFilter} style={styles.filterButton}>
+              <MaterialCommunityIcons name="filter-variant" size={22} color={selectedCategory ? COLORS.primary : COLORS.text} />
+            </Pressable>
+          )}
+
           <Pressable onPress={toggleSearch} style={styles.searchButton}>
             <MaterialCommunityIcons name="magnify" size={22} color={COLORS.text} />
           </Pressable>
@@ -175,9 +199,10 @@ const NewsHeader = memo(({
     </View>
   );
 }, (prev, next) => {
-  return prev.isSearchVisible === next.isSearchVisible && 
-         prev.contentType === next.contentType && 
-         prev.searchQuery === next.searchQuery;
+  return prev.isSearchVisible === next.isSearchVisible &&
+         prev.contentType === next.contentType &&
+         prev.searchQuery === next.searchQuery &&
+         prev.selectedCategory === next.selectedCategory;
 });
 
 export default function NewsScreen() {
@@ -192,6 +217,8 @@ export default function NewsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
 
   const LIMIT = 15;
 
@@ -228,18 +255,17 @@ export default function NewsScreen() {
       } else {
         const data = await articleService.getAllArticles({
           limit: LIMIT,
-          offset: currentOffset
+          offset: currentOffset,
+          excludeNews: true,
+          category: selectedCategory || undefined
         });
 
-        // Filter out Actus category to show everything else (Analyses, etc.)
-        const filteredArticles = data.filter(item => item.category !== 'Actus');
-
         if (isRefresh) {
-          setArticles(filteredArticles);
+          setArticles(data);
         } else if (loadMore) {
-          setArticles(prev => [...prev, ...filteredArticles]);
+          setArticles(prev => [...prev, ...data]);
         } else {
-          setArticles(filteredArticles);
+          setArticles(data);
         }
 
         setHasMore(data.length === LIMIT);
@@ -261,23 +287,41 @@ export default function NewsScreen() {
     setOffset(0);
     setHasMore(true);
     fetchContent();
-  }, [contentType]);
+  }, [contentType, selectedCategory]);
 
   const handleRefresh = useCallback(() => {
     fetchContent(true);
-  }, [contentType]);
+  }, [contentType, selectedCategory]);
 
   const handleLoadMore = useCallback(() => {
     if (!isLoading && hasMore) {
       fetchContent(false, true);
     }
-  }, [isLoading, hasMore, contentType, offset]);
+  }, [isLoading, hasMore, contentType, offset, selectedCategory]);
 
   const toggleSearch = useCallback(() => {
     setIsSearchVisible(prev => {
       if (prev) setSearchQuery('');
       return !prev;
     });
+  }, []);
+
+  const toggleFilter = useCallback(() => {
+    setIsFilterModalVisible(prev => !prev);
+  }, []);
+
+  const handleCategorySelect = useCallback((category: string) => {
+    if (selectedCategory === category) {
+      setSelectedCategory('');
+    } else {
+      setSelectedCategory(category);
+    }
+    setIsFilterModalVisible(false);
+  }, [selectedCategory]);
+
+  const handleShowAll = useCallback(() => {
+    setSelectedCategory('');
+    setIsFilterModalVisible(false);
   }, []);
 
   const filteredData = useMemo(() => {
@@ -297,10 +341,12 @@ export default function NewsScreen() {
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       toggleSearch={toggleSearch}
+      toggleFilter={toggleFilter}
       contentType={contentType}
       setContentType={setContentType}
+      selectedCategory={selectedCategory}
     />
-  ), [isSearchVisible, searchQuery, contentType, toggleSearch]);
+  ), [isSearchVisible, searchQuery, contentType, toggleSearch, toggleFilter, selectedCategory]);
 
   const renderFooter = () => {
     if (!hasMore || isLoading || searchQuery) return <View style={{ height: spacing.xxl }} />;
@@ -315,7 +361,7 @@ export default function NewsScreen() {
     <View style={styles.container}>
       <FlatList
         data={filteredData}
-        keyExtractor={(item) => `${contentType}-${item.id}`}
+        keyExtractor={(item, index) => `${contentType}-${item.id}-${item.slug}-${index}`}
         renderItem={({ item }) => (
           <View style={styles.cardWrapper}>
             <ArticleCard
@@ -350,6 +396,85 @@ export default function NewsScreen() {
         showsVerticalScrollIndicator={false}
       />
       {HeaderComponent}
+
+      {/* Modale de filtrage par catégorie */}
+      <Modal
+        visible={isFilterModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsFilterModalVisible(false)}
+        presentationStyle="overFullScreen"
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setIsFilterModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text variant="headlineSmall" style={styles.modalTitle}>
+                Catégories
+              </Text>
+              <Pressable onPress={() => setIsFilterModalVisible(false)} style={styles.closeModalButton}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+              </Pressable>
+            </View>
+
+            {selectedCategory && (
+              <Text style={styles.filterActiveText}>
+                Filtre actif : <Text style={styles.filterActiveCategory}>{selectedCategory}</Text>
+              </Text>
+            )}
+
+            {/* Liste des catégories */}
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Bouton "Tout" */}
+              <Pressable
+                onPress={handleShowAll}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === '' && styles.categoryButtonActive
+                ]}
+              >
+                <Text style={[
+                  styles.categoryButtonText,
+                  selectedCategory === '' && styles.categoryButtonTextActive
+                ]}>
+                  Tout
+                </Text>
+              </Pressable>
+
+              {/* Boutons catégories */}
+              {AVAILABLE_CATEGORIES.map((category) => (
+                <Pressable
+                  key={category}
+                  onPress={() => handleCategorySelect(category)}
+                  style={[
+                    styles.categoryButton,
+                    selectedCategory === category && styles.categoryButtonActive
+                  ]}
+                >
+                  <Text style={[
+                    styles.categoryButtonText,
+                    selectedCategory === category && styles.categoryButtonTextActive
+                  ]}>
+                    {category}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Footer avec bouton de réinitialisation */}
+            {selectedCategory && (
+              <View style={styles.modalFooter}>
+                <Pressable onPress={handleShowAll} style={styles.resetButton}>
+                  <Text style={styles.resetButtonText}>Réinitialiser les filtres</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -381,6 +506,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   searchButton: {
     width: 44,
@@ -496,5 +632,92 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: spacing.xl,
     alignItems: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontWeight: '800',
+  },
+  closeModalButton: {
+    padding: spacing.xs,
+  },
+  filterActiveText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  filterActiveCategory: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  modalScroll: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  categoryButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  categoryButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  categoryButtonText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  categoryButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  modalFooter: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  resetButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
