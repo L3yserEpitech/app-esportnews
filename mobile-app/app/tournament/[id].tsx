@@ -8,10 +8,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui';
-import { MatchCard, LiveMatchCard } from '@/components/features';
+import { LiveMatchCard } from '@/components/features';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { tournamentService } from '@/services/tournamentService';
+import { matchService } from '@/services/matchService';
 import type { PandaTournament, PandaMatch } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -79,8 +80,34 @@ export default function TournamentDetailScreen() {
     setError(null);
     try {
       const data = await tournamentService.getTournamentById(Number(id));
-      if (data) setTournament(data);
-      else setError('Tournoi introuvable');
+      if (!data) {
+        setError('Tournoi introuvable');
+        return;
+      }
+
+      setTournament(data);
+
+      // Charger les détails complets de chaque match
+      if (data.matches && data.matches.length > 0) {
+        console.log(`📦 Loading match details for ${data.matches.length} matches...`);
+        const matchIds = data.matches.map((m) => m.id);
+
+        try {
+          const enrichedMatches = await matchService.getMatchesByIds(matchIds);
+          // Remplacer les matchs avec les données enrichies
+          setTournament((prevTournament) => {
+            if (!prevTournament) return prevTournament;
+            return {
+              ...prevTournament,
+              matches: enrichedMatches,
+            };
+          });
+          console.log(`✅ All ${enrichedMatches.length} match details loaded`);
+        } catch (matchError) {
+          console.error('⚠️ Error loading match details:', matchError);
+          // On continue avec les données de base du tournoi si le chargement détaillé échoue
+        }
+      }
     } catch (err) {
       setError('Erreur lors du chargement du tournoi');
     } finally {
@@ -256,29 +283,17 @@ export default function TournamentDetailScreen() {
           {tournament.matches && tournament.matches.length > 0 && (
             <Animated.View style={[styles.section, getAnimatedStyle(animMatches)]}>
               <Text style={styles.sectionTitle}>Matchs récents / à venir</Text>
-              {tournament.matches.slice(0, 8).map((match) => {
-                const isRunning = match.status?.toLowerCase() === 'running';
-                
-                if (isRunning) {
-                  return (
-                    <View key={match.id} style={{ marginBottom: spacing.sm }}>
-                      <LiveMatchCard 
-                        match={match as any} 
-                        fullWidth 
-                        onPress={() => router.push(`/match/${match.id}`)}
-                      />
-                    </View>
-                  );
-                }
-
-                return (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    onPress={() => router.push(`/match/${match.id}`)}
-                  />
-                );
-              })}
+              <View style={styles.matchesContainer}>
+                {tournament.matches.slice(0, 8).map((match) => (
+                  <View key={match.id} style={styles.cardWrapper}>
+                    <LiveMatchCard
+                      match={match as any}
+                      onPress={() => router.push(`/match/${match.id}`)}
+                      fullWidth={true}
+                    />
+                  </View>
+                ))}
+              </View>
             </Animated.View>
           )}
 
@@ -472,47 +487,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: spacing.md,
   },
-  matchItem: {
+  matchesContainer: {
+    gap: 0,
+  },
+  cardWrapper: {
     marginBottom: spacing.sm,
-  },
-  gameGlassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  matchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  matchTeamSide: {
-    flex: 1,
-  },
-  matchTeamText: {
-    color: COLORS.text,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  matchScoreSide: {
-    width: 80,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 4,
-    paddingVertical: 2,
-  },
-  matchScoreText: {
-    color: COLORS.primary,
-    fontWeight: '900',
-    fontSize: 16,
-  },
-  matchStatusMini: {
-    color: COLORS.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
+    width: '100%',
   },
   teamsGrid: {
     flexDirection: 'row',

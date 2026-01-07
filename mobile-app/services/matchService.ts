@@ -42,6 +42,20 @@ class MatchService {
       return null;
     }
   }
+
+  /**
+   * Récupérer plusieurs matchs par leurs IDs
+   */
+  async getMatchesByIds(ids: number[]): Promise<PandaMatch[]> {
+    try {
+      const promises = ids.map(id => this.getMatchById(id));
+      const results = await Promise.all(promises);
+      return results.filter((match): match is PandaMatch => match !== null);
+    } catch (error: any) {
+      console.error('Error fetching matches by IDs:', error);
+      return [];
+    }
+  }
 }
 
 export const matchService = new MatchService();
