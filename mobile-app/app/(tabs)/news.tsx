@@ -7,6 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeInUp,
   FadeInDown,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
   Layout,
   useAnimatedStyle,
   withTiming,
@@ -398,83 +402,94 @@ export default function NewsScreen() {
       {HeaderComponent}
 
       {/* Modale de filtrage par catégorie */}
-      <Modal
-        visible={isFilterModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsFilterModalVisible(false)}
-        presentationStyle="overFullScreen"
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setIsFilterModalVisible(false)}
+      {isFilterModalVisible && (
+        <Modal
+          visible={isFilterModalVisible}
+          animationType="none"
+          transparent={true}
+          onRequestClose={() => setIsFilterModalVisible(false)}
+          presentationStyle="overFullScreen"
         >
-          <View style={styles.modalContent}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text variant="headlineSmall" style={styles.modalTitle}>
-                Catégories
-              </Text>
-              <Pressable onPress={() => setIsFilterModalVisible(false)} style={styles.closeModalButton}>
-                <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
-              </Pressable>
-            </View>
-
-            {selectedCategory && (
-              <Text style={styles.filterActiveText}>
-                Filtre actif : <Text style={styles.filterActiveCategory}>{selectedCategory}</Text>
-              </Text>
-            )}
-
-            {/* Liste des catégories */}
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              {/* Bouton "Tout" */}
-              <Pressable
-                onPress={handleShowAll}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === '' && styles.categoryButtonActive
-                ]}
-              >
-                <Text style={[
-                  styles.categoryButtonText,
-                  selectedCategory === '' && styles.categoryButtonTextActive
-                ]}>
-                  Tout
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
+            style={styles.modalOverlay}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setIsFilterModalVisible(false)}
+            />
+            <Animated.View
+              entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))}
+              exiting={SlideOutDown.duration(250).easing(Easing.in(Easing.cubic))}
+              style={styles.modalContent}
+            >
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text variant="headlineSmall" style={styles.modalTitle}>
+                  Catégories
                 </Text>
-              </Pressable>
+                <Pressable onPress={() => setIsFilterModalVisible(false)} style={styles.closeModalButton}>
+                  <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+                </Pressable>
+              </View>
 
-              {/* Boutons catégories */}
-              {AVAILABLE_CATEGORIES.map((category) => (
+              {selectedCategory && (
+                <Text style={styles.filterActiveText}>
+                  Filtre actif : <Text style={styles.filterActiveCategory}>{selectedCategory}</Text>
+                </Text>
+              )}
+
+              {/* Liste des catégories */}
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {/* Bouton "Tout" */}
                 <Pressable
-                  key={category}
-                  onPress={() => handleCategorySelect(category)}
+                  onPress={handleShowAll}
                   style={[
                     styles.categoryButton,
-                    selectedCategory === category && styles.categoryButtonActive
+                    selectedCategory === '' && styles.categoryButtonActive
                   ]}
                 >
                   <Text style={[
                     styles.categoryButtonText,
-                    selectedCategory === category && styles.categoryButtonTextActive
+                    selectedCategory === '' && styles.categoryButtonTextActive
                   ]}>
-                    {category}
+                    Tout
                   </Text>
                 </Pressable>
-              ))}
-            </ScrollView>
 
-            {/* Footer avec bouton de réinitialisation */}
-            {selectedCategory && (
-              <View style={styles.modalFooter}>
-                <Pressable onPress={handleShowAll} style={styles.resetButton}>
-                  <Text style={styles.resetButtonText}>Réinitialiser les filtres</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </Pressable>
-      </Modal>
+                {/* Boutons catégories */}
+                {AVAILABLE_CATEGORIES.map((category) => (
+                  <Pressable
+                    key={category}
+                    onPress={() => handleCategorySelect(category)}
+                    style={[
+                      styles.categoryButton,
+                      selectedCategory === category && styles.categoryButtonActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      selectedCategory === category && styles.categoryButtonTextActive
+                    ]}>
+                      {category}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {/* Footer avec bouton de réinitialisation */}
+              {selectedCategory && (
+                <View style={styles.modalFooter}>
+                  <Pressable onPress={handleShowAll} style={styles.resetButton}>
+                    <Text style={styles.resetButtonText}>Réinitialiser les filtres</Text>
+                  </Pressable>
+                </View>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -635,7 +650,7 @@ const styles = StyleSheet.create({
   },
   // Modal styles
   modalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
