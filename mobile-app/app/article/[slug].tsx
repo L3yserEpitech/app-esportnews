@@ -181,14 +181,6 @@ export default function ArticleDetailScreen() {
             <Text variant="labelMedium" style={styles.date}>
               {format(new Date(article.created_at), 'dd MMMM yyyy', { locale: fr })}
             </Text>
-            {article.views !== undefined && article.views > 0 && (
-              <View style={styles.viewsContainer}>
-                <MaterialCommunityIcons name="eye-outline" size={14} color={COLORS.textSecondary} />
-                <Text variant="labelSmall" style={styles.views}>
-                  {article.views}
-                </Text>
-              </View>
-            )}
           </View>
 
           {/* Video (if exists) */}
