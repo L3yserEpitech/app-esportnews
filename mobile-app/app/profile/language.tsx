@@ -86,6 +86,14 @@ export default function LanguageScreen() {
           <View style={{ width: 44 }} />
         </View>
 
+        {/* Warning Banner - Translation in progress */}
+        <View style={styles.warningBanner}>
+          <Ionicons name="construct-outline" size={20} color="#F59E0B" />
+          <Text style={styles.warningText}>
+            La traduction est actuellement en cours de développement.
+          </Text>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Sélectionnez votre langue</Text>
           <BlurView intensity={10} tint="light" style={styles.glassCard}>
@@ -255,6 +263,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#F59E0B',
+    lineHeight: 18,
+    fontWeight: '500',
   },
   infoBox: {
     flexDirection: 'row',
