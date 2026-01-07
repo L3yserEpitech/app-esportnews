@@ -228,6 +228,17 @@ export default function ProfileScreen() {
           </Section>
         )}
 
+        <Section title="Suivez-nous">
+          <ProfileItem
+            icon="share-social-outline"
+            title="Réseaux sociaux"
+            subtitle="Suivez-nous sur toutes les plateformes"
+            onPress={() => router.push('/profile/social-media' as any)}
+            iconBg="rgba(94, 92, 230, 0.15)"
+            color="#5E5CE6"
+          />
+        </Section>
+
         <Section title="Paramètres">
           <ProfileItem
             icon="information-circle-outline"
@@ -239,15 +250,6 @@ export default function ProfileScreen() {
           />
           <View style={styles.divider} />
           <ProfileItem
-            icon="share-social-outline"
-            title="Réseaux sociaux"
-            subtitle="Suivez-nous sur toutes les plateformes"
-            onPress={() => router.push('/profile/social-media' as any)}
-            iconBg="rgba(94, 92, 230, 0.15)"
-            color="#5E5CE6"
-          />
-          <View style={styles.divider} />
-          <ProfileItem
             icon="document-text-outline"
             title="Informations légales"
             subtitle="Mentions, CGU, CGV et Confidentialité"
@@ -256,8 +258,6 @@ export default function ProfileScreen() {
             color="#8E8E93"
           />
         </Section>
-
-        
 
         {isAuthenticated && (
           <View style={styles.logoutContainer}>
