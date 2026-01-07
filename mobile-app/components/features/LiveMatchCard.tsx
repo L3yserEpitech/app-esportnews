@@ -20,7 +20,26 @@ interface LiveMatchCardProps {
 export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fullWidth }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Déterminer le statut basé sur le champ status
+  const statusInfo = (() => {
+    const status = match.status?.toLowerCase();
+
+    switch (status) {
+      case 'running':
+        return { label: 'LIVE', variant: 'live' as const, isLive: true };
+      case 'finished':
+        return { label: 'TERMINÉ', variant: 'finished' as const, isLive: false };
+      case 'not_started':
+        return { label: 'À VENIR', variant: 'upcoming' as const, isLive: false };
+      default:
+        return { label: 'À VENIR', variant: 'upcoming' as const, isLive: false };
+    }
+  })();
+
   useEffect(() => {
+    // N'animer que si le match est réellement LIVE
+    if (!statusInfo.isLive) return;
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -35,7 +54,7 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
         }),
       ])
     ).start();
-  }, []);
+  }, [statusInfo.isLive]);
 
   const team1 = match.opponents?.[0]?.opponent;
   const team2 = match.opponents?.[1]?.opponent;
@@ -75,9 +94,13 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
               {match.videogame?.name || 'Live'}
             </Text>
           </View>
-          <Animated.View style={{ opacity: pulseAnim }}>
-            <Badge label="LIVE" variant="live" />
-          </Animated.View>
+          {statusInfo.isLive ? (
+            <Animated.View style={{ opacity: pulseAnim }}>
+              <Badge label={statusInfo.label} variant={statusInfo.variant} />
+            </Animated.View>
+          ) : (
+            <Badge label={statusInfo.label} variant={statusInfo.variant} />
+          )}
         </View>
 
         <View style={styles.content}>

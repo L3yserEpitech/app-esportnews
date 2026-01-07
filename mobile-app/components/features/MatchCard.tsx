@@ -25,18 +25,28 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
   const score1 = match.results?.find(r => r.team_id === team1?.id)?.score ?? match.results?.[0]?.score ?? 0;
   const score2 = match.results?.find(r => r.team_id === team2?.id)?.score ?? match.results?.[1]?.score ?? 0;
 
-  const matchDate = match.begin_at 
+  const matchDate = match.begin_at
     ? format(parseISO(match.begin_at), "dd MMM · HH:mm", { locale: fr })
     : 'À définir';
 
+  // Déterminer le statut basé sur le champ status
+  const statusInfo = (() => {
+    const status = match.status?.toLowerCase();
+
+    switch (status) {
+      case 'running':
+        return { label: 'LIVE', color: COLORS.live, glow: COLORS.live + '20' };
+      case 'finished':
+        return { label: 'TERMINÉ', color: COLORS.textMuted, glow: 'rgba(255,255,255,0.05)' };
+      case 'not_started':
+        return { label: 'À VENIR', color: COLORS.primary, glow: COLORS.primary + '20' };
+      default:
+        return { label: 'À VENIR', color: COLORS.primary, glow: COLORS.primary + '20' };
+    }
+  })();
+
   const isFinished = match.status?.toLowerCase() === 'finished';
   const isRunning = match.status?.toLowerCase() === 'running';
-
-  const statusInfo = (() => {
-    if (isRunning) return { label: 'LIVE', color: COLORS.live, glow: COLORS.live + '20' };
-    if (isFinished) return { label: 'TERMINÉ', color: COLORS.textMuted, glow: 'rgba(255,255,255,0.05)' };
-    return { label: 'À VENIR', color: COLORS.primary, glow: COLORS.primary + '20' };
-  })();
 
   const formatText = match.number_of_games ? `BO${match.number_of_games}` : '';
 
