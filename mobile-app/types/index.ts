@@ -128,8 +128,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  photo?: string;
-  photoUploaded: boolean;
+  avatar?: string;
   admin: boolean;
   favorite_team?: any;
   created_at: string;

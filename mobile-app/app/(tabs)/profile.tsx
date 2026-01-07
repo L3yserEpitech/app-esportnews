@@ -116,9 +116,9 @@ export default function ProfileScreen() {
                 colors={[COLORS.primary, '#C2185B']}
                 style={styles.avatarGradient}
               >
-                {user?.photo ? (
-                  <Image 
-                    source={{ uri: user.photo }} 
+                {user?.avatar ? (
+                  <Image
+                    source={{ uri: user.avatar }}
                     style={styles.avatarImage}
                   />
                 ) : (

@@ -30,9 +30,15 @@ export default function EditProfileScreen() {
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [photo, setPhoto] = useState<string | undefined>(user?.photo);
+  const [photo, setPhoto] = useState<string | undefined>(user?.avatar);
   const [isLoading, setIsLoading] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
+
+  // Check if any changes have been made
+  const hasChanges =
+    name.trim() !== (user?.name || '') ||
+    email.trim() !== (user?.email || '') ||
+    photo !== user?.avatar;
 
   // Request permission and pick image
   const pickImage = async () => {
@@ -130,7 +136,7 @@ export default function EditProfileScreen() {
       };
 
       // Upload photo if changed (local URI)
-      if (photo && photo !== user?.photo && photo.startsWith('file://')) {
+      if (photo && photo !== user?.avatar && photo.startsWith('file://')) {
         try {
           const uploadResult = await authService.uploadProfilePhoto(photo);
           updateData.avatar = uploadResult.avatar_url;
@@ -138,9 +144,9 @@ export default function EditProfileScreen() {
           // Si l'upload échoue (501 Not Implemented), on continue sans la photo
           console.warn('Avatar upload not implemented:', uploadError.message);
         }
-      } else if (photo && photo === user?.photo) {
+      } else if (photo && photo === user?.avatar) {
         // Photo inchangée, on garde l'ancienne
-        updateData.avatar = user.photo;
+        updateData.avatar = user.avatar;
       }
 
       // Update profile with new data
@@ -189,7 +195,8 @@ export default function EditProfileScreen() {
               <Ionicons name="chevron-back" size={28} color="white" />
             </TouchableOpacity>
             <Text style={styles.navTitle}>Modifier le profil</Text>
-            <View style={{ width: 44 }} /> {/* Spacing balance */}
+            {/* Spacing balance */}
+            <View style={{ width: 44 }} />
           </View>
           {/* Avatar Section */}
           <View style={styles.avatarContainer}>
@@ -265,14 +272,18 @@ export default function EditProfileScreen() {
           </View>
 
           {/* Save Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleSave}
-            disabled={isLoading}
+            disabled={isLoading || !hasChanges}
             activeOpacity={0.8}
             style={styles.saveAction}
           >
             <LinearGradient
-              colors={[COLORS.primary, '#C2185B']}
+              colors={
+                !hasChanges
+                  ? ['rgba(242, 46, 98, 0.4)', 'rgba(194, 24, 91, 0.4)']
+                  : [COLORS.primary, '#C2185B']
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.saveButton}
@@ -281,8 +292,17 @@ export default function EditProfileScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="white" />
-                  <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={20}
+                    color={!hasChanges ? 'rgba(255, 255, 255, 0.5)' : 'white'}
+                  />
+                  <Text style={[
+                    styles.saveButtonText,
+                    !hasChanges && { opacity: 0.5 }
+                  ]}>
+                    Enregistrer les modifications
+                  </Text>
                 </>
               )}
             </LinearGradient>
