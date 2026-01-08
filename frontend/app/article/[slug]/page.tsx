@@ -1,4 +1,4 @@
-import { Metadata, ResolvingMetadata } from 'next';
+import { Metadata } from 'next';
 import { articleService } from '@/app/services/articleService';
 import ArticlePageClient from './ArticlePageClient';
 
@@ -29,7 +29,16 @@ export async function generateMetadata(
       description: article.description || article.subtitle || 'Lire l\'article complet sur EsportNews',
       type: 'article',
       url,
-      images: article.featuredImage ? [{ url: article.featuredImage }] : [],
+      images: article.featuredImage
+        ? [
+            {
+              url: article.featuredImage,
+              width: 1200,
+              height: 630,
+              alt: article.title,
+            },
+          ]
+        : [],
       publishedTime: article.created_at,
       authors: [article.author || 'EsportNews'],
       tags: article.tags || [],

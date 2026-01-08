@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 
 interface StructuredDataProps {
   data: Record<string, any>;
@@ -46,7 +45,16 @@ export function ArticleSchema({
     '@type': 'NewsArticle',
     headline: title,
     description,
-    image: image ? [image] : [],
+    image: image
+      ? [
+          {
+            '@type': 'ImageObject',
+            url: image,
+            width: 1200,
+            height: 630,
+          },
+        ]
+      : [],
     datePublished,
     dateModified: dateModified || datePublished,
     author: {
@@ -58,13 +66,17 @@ export function ArticleSchema({
       name: 'EsportNews',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://esportnews.fr/logo.png',
+        url: 'https://esportnews.fr/logo_blanc.png',
         width: 250,
         height: 60,
       },
     },
     url,
     articleBody: content?.replace(/<[^>]*>/g, '') || '',
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': url,
+    },
   };
 
   return <StructuredData data={schema} />;
