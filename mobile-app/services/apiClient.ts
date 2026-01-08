@@ -1,14 +1,21 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // Backend URL configuration
-// iOS simulator: localhost works
-// Android emulator: use 10.0.2.2
-// Physical device: use machine IP (e.g., 192.168.1.x)
+// Priority:
+// 1. Environment variable from EAS Build (production/preview)
+// 2. Development fallback based on platform
 const getBackendUrl = () => {
+  // Check if environment variable is set (EAS Build)
+  const envApiUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (envApiUrl && envApiUrl !== 'http://localhost:4000') {
+    return envApiUrl;
+  }
+
+  // Development mode - platform-specific
   if (__DEV__) {
-    // Development mode
     if (Platform.OS === 'ios') {
       return 'http://localhost:4000';
     } else if (Platform.OS === 'android') {
@@ -16,8 +23,9 @@ const getBackendUrl = () => {
       return 'http://10.0.2.2:4000';
     }
   }
-  // Production
-  return 'https://api.esportnews.com';
+
+  // Fallback to production URL
+  return 'https://esportnews.fr/api';
 };
 
 export const BACKEND_URL = getBackendUrl();
