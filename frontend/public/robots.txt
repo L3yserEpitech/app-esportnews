@@ -1,11 +1,29 @@
-# Allow all crawlers
+# robots.txt for EsportNews
+# Updated: 2026-01-08
+
+# Allow all major search engines
 User-agent: *
 Allow: /
 
-# Disallow admin pages
+# Block private/admin areas
 Disallow: /admin/
 Disallow: /api/
+Disallow: /auth/
+Disallow: /profile/
+Disallow: /test-sync/
 
-# Sitemap location
+# Allow important public pages (explicit)
+Allow: /articles
+Allow: /article/
+Allow: /news
+Allow: /match
+Allow: /tournois/
+Allow: /legal/
+
+# Crawl-delay to prevent server overload
+Crawl-delay: 1
+
+# Sitemap locations
 Sitemap: https://esportnews.fr/sitemap.xml
 Sitemap: https://esportnews.fr/image-sitemap.xml
+Sitemap: https://esportnews.fr/feed.xml
