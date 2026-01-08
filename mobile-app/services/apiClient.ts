@@ -4,31 +4,26 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // Backend URL configuration
-// Priority:
-// 1. Environment variable from EAS Build (production/preview)
-// 2. Development fallback based on platform
+// HARDCODED for production reliability
 const getBackendUrl = () => {
-  // Check if environment variable is set (EAS Build)
-  const envApiUrl = Constants.expoConfig?.extra?.apiUrl;
-  if (envApiUrl && envApiUrl !== 'http://localhost:4000') {
-    return envApiUrl;
-  }
-
   // Development mode - platform-specific
   if (__DEV__) {
     if (Platform.OS === 'ios') {
+      console.log('🔧 [apiClient] DEV MODE - iOS - Using localhost:4000');
       return 'http://localhost:4000';
     } else if (Platform.OS === 'android') {
-      // Android emulator
+      console.log('🔧 [apiClient] DEV MODE - Android - Using 10.0.2.2:4000');
       return 'http://10.0.2.2:4000';
     }
   }
 
-  // Fallback to production URL
+  // Production mode - HARDCODED URL
+  console.log('🚀 [apiClient] PRODUCTION MODE - Using https://esportnews.fr/api');
   return 'https://esportnews.fr/api';
 };
 
 export const BACKEND_URL = getBackendUrl();
+console.log('🌐 [apiClient] Final BACKEND_URL set to:', BACKEND_URL);
 
 // Storage keys
 const TOKEN_KEY = 'authToken';
