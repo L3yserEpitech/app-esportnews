@@ -15,42 +15,31 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary (static compilation, no CGO needed)
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server && \
+# Build binary (static compilation, optimized for size)
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server && \
     ls -la /build/server
-
-# Build seed binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o seed ./cmd/seed && \
-    ls -la /build/seed
 
 # Runtime stage
 FROM alpine:latest
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates postgresql-client
+# Create non-root user for security
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 
-# Copy binaries from builder
+# Install runtime dependencies (only ca-certificates for HTTPS)
+RUN apk add --no-cache ca-certificates
+
+# Copy binary from builder
 COPY --from=builder /build/server .
-COPY --from=builder /build/seed .
 
-# Verify binaries are present
-RUN ls -la /app/ && \
-    test -f /app/server && \
-    test -f /app/seed && \
-    chmod +x /app/server /app/seed
+# Set permissions
+RUN chmod +x /app/server && \
+    chown -R appuser:appgroup /app
 
-# Copy migrations and migration script
-COPY migrations ./migrations
-COPY run-migrations.sh ./run-migrations.sh
-RUN chmod +x ./run-migrations.sh
-
-# Copy initial data for seeding
-COPY initial_data ./initial_data
-
-# Copy .env if exists
-COPY .env* ./
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 4000
