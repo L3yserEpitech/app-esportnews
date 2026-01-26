@@ -20,19 +20,20 @@ services:
     networks:
       - esportnews_network
 
-  redis:
-    image: redis:7-alpine
-    container_name: esportnews_redis
-    ports:
-      - "6379:6379"
-    command: redis-server --maxmemory-policy allkeys-lru --maxmemory 256mb
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - esportnews_network
+  # Redis: Moved to Upstash (cloud-hosted)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: esportnews_redis
+  #   ports:
+  #     - "6379:6379"
+  #   command: redis-server --maxmemory-policy allkeys-lru --maxmemory 256mb
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - esportnews_network
 
   backend:
     build:
@@ -45,15 +46,15 @@ services:
       PORT: "4000"
       ENV: "development"
       DATABASE_URL: "postgres://esportnews:secret@postgres:5432/esportnews"
-      REDIS_URL: "redis://redis:6379"
+      REDIS_URL: "rediss://default:Ad7HAAIncDEzMzQ5NGJmODY3ZjI0NzFmOGU5NjBjZTE0YzhiNTU0M3AxNTcwMzE@hot-insect-57031.upstash.io:6379"
       JWT_SECRET: "your-secret-key"
       FRONTEND_URL: "http://localhost:3002"
       PANDASCORE_API_KEY: "rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      # redis:
+      #   condition: service_healthy
     volumes:
       - .:/app
     networks:

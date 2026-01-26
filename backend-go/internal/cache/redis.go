@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -18,6 +19,13 @@ func NewRedisClient(redisURL string) *RedisCache {
 		logrus.Warnf("Invalid Redis URL, using defaults: %v", err)
 		opt = &redis.Options{
 			Addr: "localhost:6379",
+		}
+	}
+
+	// Enable TLS for Upstash (rediss:// scheme)
+	if opt.TLSConfig == nil && len(redisURL) >= 9 && redisURL[0:9] == "rediss://" {
+		opt.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
 		}
 	}
 
