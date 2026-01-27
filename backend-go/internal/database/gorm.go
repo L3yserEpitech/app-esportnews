@@ -48,13 +48,14 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 		logLevel = logger.Info
 	}
 
-	// Open connection
+	// Open connection with PrepareStmt disabled to avoid cache conflicts
 	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logLevel),
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   "",
 			SingularTable: true,
 		},
+		PrepareStmt: false, // Disable prepared statement cache to avoid conflicts
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
