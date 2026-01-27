@@ -69,7 +69,15 @@ func main() {
 	e.Use(mw.LoggingMiddleware(logger))
 	e.Use(mw.ErrorHandlerMiddleware())
 	// Parse CORS origins from env var (comma-separated)
-	corsOrigins := []string{"http://localhost:3000", "http://localhost:3002", "http://127.0.0.1:3002", "esportnews.fr", "www.esportnews.fr"}
+	corsOrigins := []string{
+		"http://localhost:3000",
+		"http://localhost:3002",
+		"http://127.0.0.1:3002",
+		"https://esportnews.fr",
+		"https://www.esportnews.fr",
+		"http://esportnews.fr",    // HTTP redirect support
+		"http://www.esportnews.fr", // HTTP redirect support
+	}
 	if cfg.FrontendURL != "" {
 		corsOrigins = append(corsOrigins, cfg.FrontendURL)
 	}

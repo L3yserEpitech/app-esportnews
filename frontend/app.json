@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "2c521510-e9c0-45f7-a529-6441eda4ee9f"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.julespoc.front",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
