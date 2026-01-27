@@ -15,7 +15,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.esportnews.mobile",
+      bundleIdentifier: "com.esportnews-app.mobile",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false
       }
@@ -25,7 +25,7 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#060B13"
       },
-      package: "com.esportnews.mobile",
+      package: "com.esportnews-app.mobile",
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false
     },
