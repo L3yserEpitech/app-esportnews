@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
@@ -48,8 +49,19 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 		logLevel = logger.Info
 	}
 
+	// Append default_query_exec_mode=simple_protocol to disable pgx statement cache
+	// This prevents "prepared statement already exists" errors with Supabase pooler
+	connURL := databaseURL
+	if !strings.Contains(connURL, "default_query_exec_mode") {
+		if strings.Contains(connURL, "?") {
+			connURL += "&default_query_exec_mode=simple_protocol"
+		} else {
+			connURL += "?default_query_exec_mode=simple_protocol"
+		}
+	}
+
 	// Open connection with PrepareStmt disabled to avoid cache conflicts
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(connURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logLevel),
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   "",

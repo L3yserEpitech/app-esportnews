@@ -69,7 +69,7 @@ func main() {
 	e.Use(mw.LoggingMiddleware(logger))
 	e.Use(mw.ErrorHandlerMiddleware())
 	// Parse CORS origins from env var (comma-separated)
-	corsOrigins := []string{"http://localhost:3000", "http://localhost:3002", "http://127.0.0.1:3002", "http://frontend.esportnews.orb.local"}
+	corsOrigins := []string{"http://localhost:3000", "http://localhost:3002", "http://127.0.0.1:3002", "esportnews.fr", "www.esportnews.fr"}
 	if cfg.FrontendURL != "" {
 		corsOrigins = append(corsOrigins, cfg.FrontendURL)
 	}
@@ -104,7 +104,7 @@ func main() {
 		},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},
-		AllowCredentials: true, // Requis pour credentials: 'include' côté frontend
+		AllowCredentials: true,                      // Requis pour credentials: 'include' côté frontend
 		ExposeHeaders:    []string{"X-Total-Count"}, // Expose custom headers for pagination
 	}))
 
