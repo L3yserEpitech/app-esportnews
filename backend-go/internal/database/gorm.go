@@ -72,19 +72,22 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 
-	// Auto migrate models (creates tables if they don't exist)
-	if err := db.AutoMigrate(
-		&models.User{},
-		&models.Game{},
-		&models.Article{},
-		&models.Ad{},
-		&models.Notification{},
-		&models.PageView{},
-	); err != nil {
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	// Auto migrate models only in development (tables already exist in production/Supabase)
+	if env == "development" {
+		if err := db.AutoMigrate(
+			&models.User{},
+			&models.Game{},
+			&models.Article{},
+			&models.Ad{},
+			&models.Notification{},
+			&models.PageView{},
+		); err != nil {
+			return nil, fmt.Errorf("failed to run migrations: %w", err)
+		}
+		log.Info("Database migrations completed")
+	} else {
+		log.Info("Skipping migrations (production mode)")
 	}
-
-	log.Info("Database migrations completed")
 
 	return &Database{DB: db}, nil
 }
