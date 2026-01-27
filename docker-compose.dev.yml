@@ -1,12 +1,12 @@
 services:
-  # PostgreSQL Database - Development
+  # PostgreSQL Database - Local Development
   postgres:
     image: postgres:15-alpine
     container_name: esportnews-db-dev
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: esportnews
     command: postgres -c shared_buffers=256MB -c max_connections=200
     ports:
       - "127.0.0.1:5432:5432"
@@ -24,28 +24,12 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # Redis Cache - Local for development
+  # Redis Cache - Local Development
   redis:
     image: redis:7-alpine
     container_name: esportnews-cache-dev
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD}
-      --protected-mode yes
-      --bind 0.0.0.0
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-      --appendonly yes
-      --appendfsync everysec
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -53,37 +37,31 @@ services:
     networks:
       - esportnews
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # Go Backend - Development (no hot reload for Go, rebuild required)
+  # Go Backend - Local Development
   backend:
     build:
       context: ./backend-go
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: esportnews-backend-dev
     ports:
       - "4000:4000"
     environment:
-      # Server config
-      ENVIRONMENT: ${ENVIRONMENT}
+      ENVIRONMENT: development
       SERVER_PORT: 4000
       SERVER_HOST: 0.0.0.0
-      LOG_LEVEL: ${LOG_LEVEL}
-      # Database
-      DATABASE_URL: ${DATABASE_URL}
-      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
-      # Redis
-      REDIS_URL: ${REDIS_URL}
-      CACHE_TTL: ${CACHE_TTL}
+      LOG_LEVEL: debug
+      # Local Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/esportnews?sslmode=disable
+      DB_MAX_CONNECTIONS: 20
+      # Local Redis
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL: 300
       # JWT
       JWT_SECRET: ${JWT_SECRET}
       # External APIs
@@ -108,7 +86,7 @@ services:
       MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE}
       UPLOAD_TIMEOUT: ${UPLOAD_TIMEOUT}
       # CORS
-      CORS_ORIGINS: ${CORS_ORIGINS}
+      CORS_ORIGINS: http://localhost:3002,http://127.0.0.1:3002
     depends_on:
       postgres:
         condition: service_healthy
@@ -123,20 +101,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # Next.js Frontend - Development with Hot Reload
+  # Next.js Frontend - Local Development
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
       args:
-        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+        - NEXT_PUBLIC_API_URL=http://localhost:4000/api
         - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -148,18 +121,15 @@ services:
       - PORT=3002
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
-      # Runtime variables
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - NEXT_PUBLIC_API_URL=http://localhost:4000/api
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_URL=http://localhost:3002
     volumes:
-      # Mount source code for hot reload
       - ./frontend:/app
-      # Prevent node_modules from being overwritten
       - /app/node_modules
       - /app/.next
     depends_on:
@@ -167,11 +137,6 @@ services:
     networks:
       - esportnews
     restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   postgres_data:

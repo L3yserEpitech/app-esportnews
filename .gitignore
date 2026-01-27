@@ -1,6 +1,7 @@
 # ⚠️ SECRETS - NE JAMAIS COMMITTER CES FICHIERS
 # Environment variables (tous sauf .env.example)
 .env
+.env*
 .env.local
 .env.production
 .env.prod
@@ -49,3 +50,4 @@ node_modules/
 .next/
 dist/
 build/
+.env.prod

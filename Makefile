@@ -50,8 +50,11 @@ status: ## Show status of services
 start: ## Start in development mode with hot reload
 	docker compose -f docker-compose.dev.yml up
 
-dev: ## Restart dev with full rebuild (down + up --build)
-	docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up --build
+dev: ## Start local dev (postgres, redis, backend, frontend - all local)
+	docker compose -f docker-compose.dev.yml down --remove-orphans && docker compose -f docker-compose.dev.yml up --build
+
+prod: ## Start frontend local + production backend (Supabase, Upstash, Railway)
+	docker compose -f docker-compose.local-prod.yml down --remove-orphans && docker compose -f docker-compose.local-prod.yml up --build
 
 start-d: ## Start in development mode (detached) with hot reload
 	docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up --build -d
@@ -70,6 +73,12 @@ dev-logs-backend: ## Show backend logs (development)
 
 dev-down: ## Stop development services
 	docker compose -f docker-compose.dev.yml down
+
+prod-down: ## Stop local-prod services
+	docker compose -f docker-compose.local-prod.yml down
+
+prod-logs: ## Show logs for local-prod frontend
+	docker compose -f docker-compose.local-prod.yml logs -f
 
 dev-restart: ## Restart development services
 	docker compose -f docker-compose.dev.yml restart
