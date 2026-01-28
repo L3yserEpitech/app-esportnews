@@ -8,21 +8,24 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:4000",
         "EXPO_PUBLIC_ENVIRONMENT": "development"
+      }
+    },
+    "development:simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://esportnews.fr/api",
-        "EXPO_PUBLIC_ENVIRONMENT": "preview"
+        "EXPO_PUBLIC_ENVIRONMENT": "production"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://esportnews.fr/api",
         "EXPO_PUBLIC_ENVIRONMENT": "production"
       }
     }

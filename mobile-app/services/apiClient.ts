@@ -3,27 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Backend URL configuration
-// HARDCODED for production reliability
-const getBackendUrl = () => {
-  // Development mode - platform-specific
-  if (__DEV__) {
-    if (Platform.OS === 'ios') {
-      console.log('🔧 [apiClient] DEV MODE - iOS - Using localhost:4000');
-      return 'http://localhost:4000';
-    } else if (Platform.OS === 'android') {
-      console.log('🔧 [apiClient] DEV MODE - Android - Using 10.0.2.2:4000');
-      return 'http://10.0.2.2:4000';
-    }
-  }
+// =====================================================
+// 🔧 BACKEND URL - CHANGE ICI POUR SWITCHER
+// =====================================================
+// Pour localhost :    'http://localhost:4000'
+// Pour Railway :      'https://app-esportnews-production.up.railway.app'
+// =====================================================
+export const BACKEND_URL = 'https://app-esportnews-production.up.railway.app';
 
-  // Production mode - HARDCODED URL
-  console.log('🚀 [apiClient] PRODUCTION MODE - Using https://esportnews.fr/api');
-  return 'https://esportnews.fr/api';
-};
-
-export const BACKEND_URL = getBackendUrl();
-console.log('🌐 [apiClient] Final BACKEND_URL set to:', BACKEND_URL);
+console.log('🌐 [apiClient] BACKEND_URL:', BACKEND_URL);
 
 // Storage keys
 const TOKEN_KEY = 'authToken';

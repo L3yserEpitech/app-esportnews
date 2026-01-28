@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Alert, 
-  TouchableOpacity, 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
   Dimensions,
   StatusBar,
   Platform
@@ -21,17 +21,17 @@ import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
-const ProfileItem = ({ 
-  icon, 
-  title, 
-  subtitle, 
-  onPress, 
+const ProfileItem = ({
+  icon,
+  title,
+  subtitle,
+  onPress,
   showChevron = true,
   color = COLORS.text,
   iconBg = 'rgba(255, 255, 255, 0.05)'
 }: any) => (
-  <TouchableOpacity 
-    style={styles.profileItem} 
+  <TouchableOpacity
+    style={styles.profileItem}
     onPress={onPress}
     activeOpacity={0.7}
   >
@@ -98,13 +98,13 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       <LinearGradient
         colors={[COLORS.darkBlue, COLORS.darkest]}
         style={StyleSheet.absoluteFillObject}
       />
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -128,7 +128,7 @@ export default function ProfileScreen() {
                 )}
               </LinearGradient>
               {isAuthenticated && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.editBadge}
                   onPress={() => router.push('/profile/edit' as any)}
                 >
@@ -147,7 +147,7 @@ export default function ProfileScreen() {
             </View>
 
             {!isAuthenticated && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.loginCta}
                 onPress={() => router.push('/auth/login')}
               >
@@ -167,18 +167,27 @@ export default function ProfileScreen() {
         {isAuthenticated ? (
           <>
             <Section title="Mon Compte">
-              <ProfileItem 
-                icon="person-outline" 
-                title="Informations personnelles" 
+              <ProfileItem
+                icon="star-outline"
+                title="Abonnement Premium"
+                subtitle="Zéro pub, soutenez l'app"
+                onPress={() => router.push('/profile/subscription' as any)}
+                iconBg="rgba(242, 46, 98, 0.15)"
+                color={COLORS.primary}
+              />
+              <View style={styles.divider} />
+              <ProfileItem
+                icon="person-outline"
+                title="Informations personnelles"
                 subtitle="Modifier votre nom, email et avatar"
                 onPress={() => router.push('/profile/edit' as any)}
                 iconBg="rgba(88, 86, 214, 0.15)"
                 color="#5856D6"
               />
               <View style={styles.divider} />
-              <ProfileItem 
-                icon="shield-checkmark-outline" 
-                title="Sécurité" 
+              <ProfileItem
+                icon="shield-checkmark-outline"
+                title="Sécurité"
                 subtitle="Mot de passe et authentification"
                 onPress={() => router.push('/profile/security' as any)}
                 iconBg="rgba(52, 199, 89, 0.15)"
@@ -208,18 +217,18 @@ export default function ProfileScreen() {
           </>
         ) : (
           <Section title="Général">
-            <ProfileItem 
-              icon="log-in-outline" 
-              title="Se connecter" 
+            <ProfileItem
+              icon="log-in-outline"
+              title="Se connecter"
               subtitle="Accéder à votre espace personnel"
               onPress={() => router.push('/auth/login')}
               iconBg="rgba(48, 209, 88, 0.15)"
               color="#30D158"
             />
             <View style={styles.divider} />
-            <ProfileItem 
-              icon="person-add-outline" 
-              title="Créer un compte" 
+            <ProfileItem
+              icon="person-add-outline"
+              title="Créer un compte"
               subtitle="Rejoindre la communauté Esport News"
               onPress={() => router.push('/auth/register')}
               iconBg="rgba(10, 132, 255, 0.15)"
@@ -261,8 +270,8 @@ export default function ProfileScreen() {
 
         {isAuthenticated && (
           <View style={styles.logoutContainer}>
-            <TouchableOpacity 
-              style={styles.logoutButtonFull} 
+            <TouchableOpacity
+              style={styles.logoutButtonFull}
               onPress={handleLogout}
               activeOpacity={0.7}
             >

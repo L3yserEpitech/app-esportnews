@@ -20,7 +20,22 @@ L'application mobile utilise **EAS Build** pour gérer les variables d'environne
 
 ## 🔨 Commandes de Build
 
-### Development Build (local testing)
+### Development Build (Local Simulator/Emulator)
+> **Recommandé pour le développement quotidien**
+
+Ces commandes génèrent le code natif temporaire et l'installent directement sur votre simulateur.
+
+```bash
+# iOS Simulator
+npx expo run:ios
+
+# Android Emulator
+npx expo run:android
+```
+
+### Development Build (EAS / Cloud)
+> Pour partager le build avec l'équipe ou tester sur device physique sans Xcode/Android Studio.
+
 ```bash
 # iOS
 eas build --profile development --platform ios
@@ -134,3 +149,16 @@ Cela garantit que les nouvelles variables d'environnement sont appliquées.
 - Vérifier que le backend est démarré en production avec `.env.prod`
 - Confirmer que `CORS_ORIGINS=https://esportnews.fr,https://www.esportnews.fr` dans `.env.prod`
 - Les apps mobiles n'envoient **pas** d'en-tête `Origin`, donc le backend accepte origin vide
+
+### Erreur Build iOS Local (`iOS 26.2 is not installed`)
+Si `npx expo run:ios` échoue avec cette erreur, votre Xcode manque le Runtime 26.2.
+
+**Solution 1 : Installer le runtime**
+Dans Xcode > Settings > Components, téléchargez "iOS 26.2 Simulator".
+
+**Solution 2 : Build Cloud pour Simulateur**
+Utilisez EAS pour compiler dans le cloud sans utiliser votre Xcode local :
+```bash
+eas build --profile development:simulator --platform ios
+```
+Une fois terminé, téléchargez l'archive, décompressez-la, et glissez le fichier `.app` sur votre simulateur.

@@ -1,3 +1,6 @@
+// Load .env file for local development
+require('dotenv').config();
+
 module.exports = {
   expo: {
     name: "Esport News",
@@ -42,7 +45,6 @@ module.exports = {
         projectId: "96bacb7b-e2b7-4bfa-b8ad-940dc3e54815"
       },
       // Environment variables - accessible via expo-constants
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000",
       environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development"
     }
   }
