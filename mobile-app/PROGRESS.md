@@ -94,7 +94,7 @@
 **Réalisé:**
 - ✅ Projet Expo créé avec template TypeScript
 - ✅ Dependencies installées (Expo Router, React Native Paper, Navigation)
-- ✅ `app.json` configuré (Bundle ID: `com.esportnews.mobile`, scheme: `esportnews://`)
+- ✅ `app.json` configuré (Bundle ID: `com.esportnews-app.mobile`, scheme: `esportnews://`)
 - ✅ Structure de dossiers créée
 - ✅ Fichiers de base: `app/_layout.tsx`, `app/index.tsx`
 

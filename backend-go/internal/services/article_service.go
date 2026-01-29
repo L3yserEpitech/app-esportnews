@@ -17,8 +17,8 @@ import (
 )
 
 type ArticleService struct {
-	db     *pgxpool.Pool        // For backward compatibility
-	gormDB *database.Database   // For GORM queries
+	db     *pgxpool.Pool      // For backward compatibility
+	gormDB *database.Database // For GORM queries
 	cache  *cache.RedisCache
 }
 
@@ -58,6 +58,13 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 		if err := query.Limit(limit).Offset(offset).Find(&articles).Error; err != nil {
 			return nil, fmt.Errorf("failed to query articles: %w", err)
 		}
+
+		// Fallback for articles where Content is missing but ArticleContent exists
+		for _, a := range articles {
+			if (a.Content == nil || *a.Content == "") && (a.ArticleContent != nil && *a.ArticleContent != "") {
+				a.Content = a.ArticleContent
+			}
+		}
 		return articles, nil
 	}
 
@@ -68,14 +75,14 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 	if category != "" {
 		rows, err = s.db.Query(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
-					content_black, content_white, "featuredImage", "videoUrl", "videoType"
+					content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
 			 FROM public.articles WHERE category = $3 ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 			limit, offset, category,
 		)
 	} else {
 		rows, err = s.db.Query(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
-					content_black, content_white, "featuredImage", "videoUrl", "videoType"
+					content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
 			 FROM public.articles ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 			limit, offset,
 		)
@@ -90,9 +97,11 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 	for rows.Next() {
 		var a models.Article
 		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Slug, &a.Tags, &a.Title, &a.Views, &a.Author, &a.Content,
-			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType); err != nil {
+			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType, &a.ArticleContent); err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
 		}
+		// Fallback: if Content is empty but ArticleContent is set (though not scanned here yet), we can't do much in pgx without query change.
+		// However, for GORM path above (which is prioritized), we can fix it.
 		articles = append(articles, &a)
 	}
 
@@ -146,7 +155,10 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 	if err == nil {
 		var article models.Article
 		if err := json.Unmarshal([]byte(cached), &article); err == nil {
-			return &article, nil
+			// Check if cached article has content. If not, ignore cache to self-heal.
+			if article.Content != nil && *article.Content != "" {
+				return &article, nil
+			}
 		}
 	}
 
@@ -164,6 +176,11 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 			return nil, fmt.Errorf("failed to query article: %w", err)
 		}
 
+		// Fallback: if Content is empty, use ArticleContent
+		if (a.Content == nil || *a.Content == "") && (a.ArticleContent != nil && *a.ArticleContent != "") {
+			a.Content = a.ArticleContent
+		}
+
 		// Increment views asynchronously
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -176,11 +193,11 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 		// Fallback to pgxpool
 		err = s.db.QueryRow(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
-			        content_black, content_white, "featuredImage", "videoUrl", "videoType"
+			        content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
 			 FROM public.articles WHERE slug = $1`,
 			slug,
 		).Scan(&a.ID, &a.CreatedAt, &a.Slug, &a.Tags, &a.Title, &a.Views, &a.Author, &a.Content,
-			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType)
+			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType, &a.ArticleContent)
 
 		if err != nil {
 			return nil, fmt.Errorf("article not found")
@@ -238,6 +255,13 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 			return nil, fmt.Errorf("failed to query similar articles: %w", err)
 		}
 
+		// Fallback for Content
+		for _, a := range articles {
+			if (a.Content == nil || *a.Content == "") && (a.ArticleContent != nil && *a.ArticleContent != "") {
+				a.Content = a.ArticleContent
+			}
+		}
+
 		// Cache for 1 hour
 		if data, err := json.Marshal(articles); err == nil {
 			s.cache.Set(ctx, cacheKey, string(data), 1*time.Hour)
@@ -272,7 +296,7 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 	for rows.Next() {
 		var a models.Article
 		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Slug, &a.Tags, &a.Title, &a.Views, &a.Author, &a.Content,
-			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType); err != nil {
+			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType, &a.ArticleContent); err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
 		}
 		articles = append(articles, &a)
@@ -310,6 +334,7 @@ func (s *ArticleService) CreateArticle(ctx context.Context, input *models.Create
 		Subtitle:       input.Subtitle,
 		Author:         &input.Author,
 		ArticleContent: &input.ArticleContent,
+		Content:        &input.ArticleContent, // Map "article_content" input to "content" column for compatibility
 		ContentWhite:   &contentWhite,
 		ContentBlack:   &contentBlack,
 		Category:       input.Category,
@@ -365,6 +390,7 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *mod
 	}
 	if input.ArticleContent != nil {
 		updates["article_content"] = *input.ArticleContent
+		updates["content"] = *input.ArticleContent // Map "article_content" input to "content" column for compatibility
 		// Regenerate content variants
 		updates["content_white"] = generateContentWhite(*input.ArticleContent)
 		updates["content_black"] = generateContentBlack(*input.ArticleContent)
