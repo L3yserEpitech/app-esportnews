@@ -48,9 +48,27 @@ export default function MentionsLegalesPage() {
             <h2 className="text-2xl font-semibold text-white mb-4">
               Hébergeur
             </h2>
-            <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-2">
-              <p>Le site <strong className="text-white">www.esportnews.fr</strong> et l'application mobile sont hébergés par un <strong className="text-white">prestataire technique indépendant en France</strong>.</p>
-              <p className="text-sm text-gray-400 mt-2">L'infrastructure technique est hébergée sur un serveur privé virtuel (VPS) situé en France, garantissant la conformité avec les réglementations européennes en matière de protection des données (RGPD).</p>
+            <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-4">
+              <div>
+                <p className="font-semibold text-white mb-1">Site web (frontend) :</p>
+                <p>Hébergé par <strong className="text-white">Vercel Inc.</strong></p>
+                <p className="text-sm text-gray-400 mt-1">440 N Barranca Ave #4133, Covina, CA 91723, États-Unis — <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">vercel.com</a></p>
+              </div>
+              <div>
+                <p className="font-semibold text-white mb-1">Serveur applicatif (backend) :</p>
+                <p>Hébergé par <strong className="text-white">Railway Corporation</strong></p>
+                <p className="text-sm text-gray-400 mt-1">San Francisco, CA, États-Unis — <a href="https://railway.app" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">railway.app</a></p>
+              </div>
+              <div>
+                <p className="font-semibold text-white mb-1">Base de données :</p>
+                <p>Hébergée par <strong className="text-white">Supabase Inc.</strong></p>
+                <p className="text-sm text-gray-400 mt-1">San Francisco, CA, États-Unis — <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">supabase.com</a></p>
+              </div>
+              <div>
+                <p className="font-semibold text-white mb-1">Application mobile :</p>
+                <p>Distribuée via l'<strong className="text-white">App Store</strong> (Apple Inc.) et le <strong className="text-white">Google Play Store</strong> (Google LLC).</p>
+              </div>
+              <p className="text-sm text-gray-400 mt-2 pt-2 border-t border-[#182859]/30">Les transferts de données hors UE sont encadrés par des garanties appropriées (Clauses Contractuelles Types de la Commission européenne).</p>
             </div>
           </section>
 

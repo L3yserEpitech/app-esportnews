@@ -38,10 +38,23 @@ export default function MentionsLegalesScreen() {
 
       <Section title="Hébergement">
         <Paragraph>
-          Le site web et l'application mobile ESPORT NEWS sont hébergés par un prestataire technique indépendant en France.
+          <Text style={{ fontWeight: '600' }}>Site web (frontend) :{'\n'}</Text>
+          Vercel Inc. — San Francisco, États-Unis{'\n'}
+          vercel.com{'\n\n'}
+
+          <Text style={{ fontWeight: '600' }}>Serveur applicatif (backend) :{'\n'}</Text>
+          Railway Corporation — San Francisco, États-Unis{'\n'}
+          railway.app{'\n\n'}
+
+          <Text style={{ fontWeight: '600' }}>Base de données :{'\n'}</Text>
+          Supabase Inc. — San Francisco, États-Unis{'\n'}
+          supabase.com{'\n\n'}
+
+          <Text style={{ fontWeight: '600' }}>Application mobile :{'\n'}</Text>
+          Distribuée via l'App Store (Apple) et Google Play Store (Google).
         </Paragraph>
-        <InfoBox type="success">
-          Infrastructure hébergée sur un serveur privé virtuel (VPS) situé en France, garantissant la conformité avec les réglementations européennes (RGPD).
+        <InfoBox type="info">
+          Les transferts de données hors UE sont encadrés par des garanties appropriées (Clauses Contractuelles Types).
         </InfoBox>
       </Section>
 
