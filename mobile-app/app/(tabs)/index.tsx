@@ -97,7 +97,7 @@ export default function HomeScreen() {
             <SectionHeader 
               title="En Direct" 
               showLiveBadge 
-              onViewAll={() => router.push('/(tabs)/live')}
+              onViewAll={() => router.push('/(tabs)/matchs')}
             />
             
             {isLoadingLive && liveMatches.length === 0 ? (
@@ -128,7 +128,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <SectionHeader 
             title="Dernières Actus" 
-            onViewAll={() => router.push('/(tabs)/profile')} // Temporary redirection
+            onViewAll={() => router.push('/(tabs)/news')}
           />
           {isLoadingHome && news.length === 0 ? (
             <View style={styles.loadingBox}>
