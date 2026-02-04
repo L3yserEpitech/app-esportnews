@@ -16,6 +16,31 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+// Hook pour détecter le nombre de dates visibles selon la taille d'écran
+const useVisibleDatesCount = (): number => {
+  const [count, setCount] = useState(11); // Default to desktop
+
+  useEffect(() => {
+    const getCount = () => {
+      if (typeof window === 'undefined') return 11;
+      const width = window.innerWidth;
+      // Breakpoints Tailwind: sm=640, md=768, lg=1024
+      if (width < 640) return 5;      // Mobile
+      if (width < 768) return 7;      // Tablet (sm)
+      if (width < 1024) return 9;     // Medium (md)
+      return 11;                       // Large (lg+)
+    };
+
+    setCount(getCount());
+
+    const handleResize = () => setCount(getCount());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return count;
+};
+
 // Utility functions for date manipulation
 const formatDateToYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
@@ -46,13 +71,17 @@ const isToday = (date: Date): boolean => {
   );
 };
 
-// Generate array of 11 dates centered on current date
-const generateDateRange = (centerDate: Date, offset: number = 0): Date[] => {
+// Generate array of dates centered on current date
+// visibleCount: nombre de dates visibles selon la taille d'écran (5, 7, 9 ou 11)
+const generateDateRange = (centerDate: Date, offset: number = 0, visibleCount: number = 11): Date[] => {
   const dates: Date[] = [];
   const adjustedCenter = new Date(centerDate);
-  adjustedCenter.setDate(adjustedCenter.getDate() + offset * 11);
+  // Décaler du nombre de dates visibles (pas toujours 11)
+  adjustedCenter.setDate(adjustedCenter.getDate() + offset * visibleCount);
 
-  for (let i = -5; i <= 5; i++) {
+  // Toujours générer 11 dates pour le rendu, mais le décalage est basé sur visibleCount
+  const halfRange = 5;
+  for (let i = -halfRange; i <= halfRange; i++) {
     const date = new Date(adjustedCenter);
     date.setDate(date.getDate() + i);
     dates.push(date);
@@ -74,6 +103,9 @@ const MatchPage: React.FC = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Nombre de dates visibles selon la taille d'écran
+  const visibleDatesCount = useVisibleDatesCount();
+
   // Mémoriser les données du jeu sélectionné
   const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
 
@@ -82,8 +114,11 @@ const MatchPage: React.FC = () => {
   const memoizedAds = useMemo(() => ads, [ads]);
   const memoizedGames = useMemo(() => games, [games]);
 
-  // Générer la plage de dates
-  const dateRange = useMemo(() => generateDateRange(new Date(), dateRangeOffset), [dateRangeOffset]);
+  // Générer la plage de dates (décalage basé sur le nombre de dates visibles)
+  const dateRange = useMemo(
+    () => generateDateRange(new Date(), dateRangeOffset, visibleDatesCount),
+    [dateRangeOffset, visibleDatesCount]
+  );
 
   // Charger les matchs
   const loadMatches = useCallback(async () => {
