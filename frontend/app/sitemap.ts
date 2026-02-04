@@ -24,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
-      url: `${baseUrl}/live`,
+      url: `${baseUrl}/match`,
       lastModified: new Date(),
       changeFrequency: 'hourly',
       priority: 0.9,
@@ -70,31 +70,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let tournamentPages: SitemapEntry[] = [];
 
   try {
-    const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-
-    // Récupérer les articles
+    // Récupérer les articles via le service
     try {
-      const articlesResponse = await fetch(`${baseUrl_api}/api/articles`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        next: { revalidate: 3600 },
-      });
-
-      if (articlesResponse.ok) {
-        const articles = await articlesResponse.json();
-        articlePages = articles.map((article: any) => ({
-          url: `${baseUrl}/article/${article.slug}`,
-          lastModified: article.created_at,
-          changeFrequency: 'weekly' as const,
-          priority: 0.7,
-        }));
-      }
+      const articles = await articleService.getAllArticles();
+      articlePages = articles.map((article) => ({
+        url: `${baseUrl}/article/${article.slug}`,
+        lastModified: article.created_at,
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+      }));
     } catch (error) {
       console.error('Error fetching articles for sitemap:', error);
     }
 
     // Récupérer les tournois (tous les tournois en cours)
     try {
+      const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
       const tournamentsResponse = await fetch(`${baseUrl_api}/api/tournaments/all`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
