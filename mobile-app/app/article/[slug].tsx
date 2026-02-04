@@ -207,11 +207,11 @@ export default function ArticleDetailScreen() {
           )}
 
           {/* Article Content (HTML) */}
-          {article.content && (
+          {(article.content ?? article.content_black) && (
             <View style={styles.htmlContainer}>
               <RenderHtml
                 contentWidth={width - spacing.lg * 2}
-                source={{ html: article.content }}
+                source={{ html: article.content ?? article.content_black ?? '' }}
                 tagsStyles={htmlStyles}
                 systemFonts={['System']}
               />
