@@ -36,8 +36,9 @@ export default function MentionsLegalesPage() {
               <p><strong className="text-white">N° TVA intracommunautaire :</strong> FR18987953247</p>
               <p><strong className="text-white">Email :</strong> <a href="mailto:contact@esportnews.fr" className="text-[#F22E62] hover:underline">contact@esportnews.fr</a></p>
               <div className="mt-4 pt-4 border-t border-[#182859]/30">
-                <p><strong className="text-white">Directeur Général :</strong> Samuel Yaacov COHEN</p>
-                <p><strong className="text-white">Président de SAS :</strong> Kenan Clément Eliaou ALTARAC</p>
+                <p><strong className="text-white">Directeur de la publication :</strong> Parnasse édition</p>
+                <p><strong className="text-white">Directeur de la rédaction :</strong> Kenan ALTARAC</p>
+                <p><strong className="text-white">Directeur du pôle numérique :</strong> Samuel COHEN</p>
               </div>
             </div>
           </section>

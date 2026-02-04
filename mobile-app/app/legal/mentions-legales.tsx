@@ -28,16 +28,11 @@ export default function MentionsLegalesScreen() {
         <Paragraph>
 
           <Text style={{ fontWeight: '600' }}>Directeur de la publication:{'\n'}</Text>
-          Parnasse edition{'\n\n'}
+          Parnasse édition{'\n\n'}
           <Text style={{ fontWeight: '600' }}>Directeur de la rédaction :{'\n'}</Text>
           Kenan ALTARAC{'\n\n'}
           <Text style={{ fontWeight: '600' }}>Directeur du pôle Numérique :{'\n'}</Text>
           Samuel COHEN{'\n\n'}
-          <Text style={{ fontWeight: '600' }}>Directeur Général :{'\n'}</Text>
-          Samuel COHEN{'\n\n'}
-
-          <Text style={{ fontWeight: '600' }}>Président de SAS :{'\n'}</Text>
-          Kenan ALTARAC
         </Paragraph>
       </Section>
 
