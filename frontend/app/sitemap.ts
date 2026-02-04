@@ -70,10 +70,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let tournamentPages: SitemapEntry[] = [];
 
   try {
-    // Récupérer les articles via le service
+    // Récupérer TOUS les articles via pagination (le backend limite à 100 par requête)
     try {
-      const articles = await articleService.getAllArticles();
-      articlePages = articles.map((article) => ({
+      const allArticles: any[] = [];
+      const pageSize = 100; // Max autorisé par le backend
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const articles = await articleService.getAllArticles({ limit: pageSize, offset });
+        if (articles.length > 0) {
+          allArticles.push(...articles);
+          offset += pageSize;
+          // Continuer si on a reçu exactement pageSize articles (il y en a peut-être plus)
+          hasMore = articles.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`[Sitemap] Total articles fetched: ${allArticles.length}`);
+
+      articlePages = allArticles.map((article) => ({
         url: `${baseUrl}/article/${article.slug}`,
         lastModified: article.created_at,
         changeFrequency: 'weekly' as const,
