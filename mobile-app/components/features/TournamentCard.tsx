@@ -1,12 +1,10 @@
 import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/colors';
-import { spacing, borderRadius, shadows } from '@/constants/theme';
-import { Badge } from '@/components/ui';
+import { spacing, borderRadius } from '@/constants/theme';
 import { PandaTournament } from '@/types';
 
 interface TournamentCardProps {
@@ -29,38 +27,34 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
 
   const getTierColor = (tier: string | null | undefined) => {
     switch (tier?.toLowerCase()) {
-      case 's': return COLORS.tierS || '#FFD700';
-      case 'a': return COLORS.tierA || '#FF4D4D';
-      case 'b': return COLORS.tierB || '#4D79FF';
-      case 'c': return COLORS.tierC || '#4DFF4D';
-      default: return COLORS.textMuted;
+      case 's': return COLORS.tierS;
+      case 'a': return COLORS.tierA;
+      case 'b': return COLORS.tierB;
+      case 'c': return COLORS.tierC;
+      default: return COLORS.tierD;
     }
   };
 
-  const statusInfo = (() => {
+  const getStatusInfo = () => {
     const now = new Date();
     const beginAt = tournament.begin_at ? new Date(tournament.begin_at) : null;
     const endAt = tournament.end_at ? new Date(tournament.end_at) : null;
 
-    // Logique basée sur les dates (comme sur le web)
     if (beginAt && endAt) {
       if (now >= beginAt && now <= endAt) {
-        // Tournoi en cours
-        return { label: 'EN COURS', variant: 'live' as const };
+        return { label: 'LIVE', color: COLORS.live, bgColor: COLORS.liveTransparent };
       } else if (now > endAt) {
-        // Tournoi terminé
-        return { label: 'TERMINÉ', variant: 'finished' as const };
+        return { label: 'Terminé', color: COLORS.textMuted, bgColor: 'rgba(107, 114, 128, 0.15)' };
       }
     }
-
-    // Par défaut : à venir
-    return { label: 'À VENIR', variant: 'upcoming' as const };
-  })();
+    return { label: 'À venir', color: COLORS.info, bgColor: 'rgba(59, 130, 246, 0.15)' };
+  };
 
   const tierColor = getTierColor(tournament.tier);
+  const statusInfo = getStatusInfo();
 
   const formatPrizePool = (prize: string | null | undefined) => {
-    if (!prize) return 'TBD';
+    if (!prize) return null;
     return prize
       .replace(/United States Dollar/g, '$')
       .replace(/Euro/g, '€')
@@ -70,92 +64,77 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
       .replace(/Chinese Yuan/g, '¥');
   };
 
+  const prizepool = formatPrizePool(tournament.prizepool);
+
   return (
     <Pressable onPress={onPress} style={styles.pressable}>
       {({ pressed }) => (
-        <Surface
-          style={[
-            styles.container,
-            pressed && styles.pressed,
-            { borderLeftColor: tierColor, borderLeftWidth: 4 }
-          ]}
-          elevation={4}
-        >
-          <LinearGradient
-            colors={['rgba(24, 40, 89, 0.4)', 'rgba(6, 11, 19, 0.95)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradient}
-          />
-          
-          <View style={styles.contentWrapper}>
-            {/* Header avec statut */}
+        <View style={[styles.container, pressed && styles.pressed]}>
+          {/* Barre tier à gauche */}
+          <View style={[styles.tierBar, { backgroundColor: tierColor }]} />
+
+          <View style={styles.content}>
+            {/* Header : Game badge + Status + Tier */}
             <View style={styles.headerRow}>
-              <Badge label={statusInfo.label} variant={statusInfo.variant} />
-              <View style={[styles.tierIndicator, { backgroundColor: `${tierColor}20`, borderColor: tierColor }]}>
-                <Text variant="labelMedium" style={[styles.tierText, { color: tierColor }]}>
-                  TIER {tournament.tier?.toUpperCase() || 'D'}
-                </Text>
+              {tournament.videogame?.name && (
+                <View style={styles.gameBadge}>
+                  <Text style={styles.gameText}>{tournament.videogame.name}</Text>
+                </View>
+              )}
+              <View style={styles.rightBadges}>
+                <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
+                  {statusInfo.label === 'LIVE' && <View style={styles.liveDot} />}
+                  <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                    {statusInfo.label}
+                  </Text>
+                </View>
+                <View style={[styles.tierBadge, { backgroundColor: `${tierColor}20` }]}>
+                  <Text style={[styles.tierText, { color: tierColor }]}>
+                    {tournament.tier?.toUpperCase() || 'D'}
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Logo et nom de la ligue */}
-            <View style={styles.leagueSection}>
-              <View style={styles.logoContainer}>
+            {/* Main content : Logo + Infos */}
+            <View style={styles.mainRow}>
+              <View style={styles.logoWrapper}>
                 {tournament.league?.image_url ? (
                   <Image
                     source={{ uri: tournament.league?.image_url }}
-                    style={styles.leagueLogo}
+                    style={styles.logo}
                     contentFit="contain"
                   />
                 ) : (
-                  <MaterialCommunityIcons name="trophy-outline" size={32} color={COLORS.textMuted} />
+                  <MaterialCommunityIcons name="trophy" size={28} color={COLORS.textMuted} />
                 )}
               </View>
-              <View style={styles.leagueInfo}>
-                <Text variant="labelSmall" style={styles.leagueName} numberOfLines={1}>
-                  {tournament.league?.name || 'Pro League'}
+
+              <View style={styles.mainInfo}>
+                <Text style={styles.leagueName} numberOfLines={1}>
+                  {tournament.league?.name || 'Tournament'}
                 </Text>
-                {tournament.videogame?.name && (
-                  <Text variant="labelSmall" style={styles.gameName}>
-                    {tournament.videogame.name}
-                  </Text>
-                )}
+                <Text style={styles.tournamentName} numberOfLines={2}>
+                  {tournament.name}
+                </Text>
               </View>
             </View>
 
-            {/* Titre du tournoi */}
-            <View style={styles.mainInfo}>
-              <Text variant="headlineMedium" style={styles.tournamentTitle} numberOfLines={2}>
-                {tournament.name}
-              </Text>
-            </View>
-
-            {/* Infos meta */}
-            <View style={styles.metaRow}>
+            {/* Footer : Date + Prizepool */}
+            <View style={styles.footerRow}>
               <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="calendar-month" size={16} color={COLORS.primary} />
-                <Text variant="labelMedium" style={styles.metaText}>{dateRange}</Text>
+                <MaterialCommunityIcons name="calendar-outline" size={16} color={COLORS.textMuted} />
+                <Text style={styles.metaText}>{dateRange}</Text>
               </View>
-              {tournament.region && (
+              {prizepool && (
                 <View style={styles.metaItem}>
-                  <MaterialCommunityIcons name="map-marker-outline" size={16} color={COLORS.primary} />
-                  <Text variant="labelMedium" style={styles.metaText}>{tournament.region}</Text>
+                  <MaterialCommunityIcons name="cash" size={16} color={COLORS.primary} />
+                  <Text style={[styles.metaText, styles.prizeText]}>{prizepool}</Text>
                 </View>
               )}
             </View>
-
-            <View style={styles.separator} />
-
-            {/* Prix */}
-            <View style={styles.prizeBox}>
-              <Text variant="labelSmall" style={styles.prizeLabel}>PRIZEPOOL</Text>
-              <Text variant="titleLarge" style={styles.prizeAmount}>
-                {formatPrizePool(tournament.prizepool)}
-              </Text>
-            </View>
           </View>
-        </Surface>
+        </View>
       )}
     </Pressable>
   );
@@ -167,78 +146,114 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   container: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    backgroundColor: COLORS.darkest,
-    ...shadows.medium,
-  },
-  gradient: {
-    ...StyleSheet.absoluteFillObject,
   },
   pressed: {
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
-    opacity: 0.9,
   },
-  contentWrapper: {
+  tierBar: {
+    width: 5,
+  },
+  content: {
+    flex: 1,
     padding: spacing.lg,
+    gap: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
   },
-  leagueSection: {
+  gameBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+  },
+  gameText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  rightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  mainRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.md,
   },
-  logoContainer: {
+  logoWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  leagueLogo: {
-    width: 40,
-    height: 40,
+  logo: {
+    width: 38,
+    height: 38,
   },
-  leagueInfo: {
+  mainInfo: {
     flex: 1,
     gap: 4,
   },
   leagueName: {
-    color: COLORS.text,
-    fontWeight: '800',
+    color: COLORS.textSecondary,
     fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  gameName: {
-    color: COLORS.primary,
     fontWeight: '600',
-    fontSize: 11,
   },
-  mainInfo: {
-    marginBottom: spacing.sm,
-  },
-  tournamentTitle: {
+  tournamentName: {
     color: COLORS.text,
-    fontWeight: '900',
-    fontSize: 24,
-    lineHeight: 32,
-    letterSpacing: -0.5,
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 22,
   },
-  metaRow: {
+  tierBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.sm,
+  },
+  tierText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.sm,
+    gap: 5,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.live,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   metaItem: {
     flexDirection: 'row',
@@ -246,39 +261,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   metaText: {
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: spacing.md,
-  },
-  prizeBox: {
-    gap: 4,
-  },
-  prizeLabel: {
     color: COLORS.textMuted,
-    fontWeight: '700',
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontWeight: '500',
   },
-  prizeAmount: {
+  prizeText: {
     color: COLORS.primary,
-    fontWeight: '900',
-    fontSize: 22,
-  },
-  tierIndicator: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    borderWidth: 1.5,
-  },
-  tierText: {
-    fontWeight: '900',
-    fontSize: 11,
-    letterSpacing: 0.8,
+    fontWeight: '700',
   },
 });
