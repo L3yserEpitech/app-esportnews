@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#060B13"
       },
-      "package": "com.esportnews-app.mobile",
+      "package": "com.esportnewsapp.mobile",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -34,7 +34,9 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "react-native-nitro-modules",
+      "react-native-iap"
     ],
     "extra": {
       "router": {},

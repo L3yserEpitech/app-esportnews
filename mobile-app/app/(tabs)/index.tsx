@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, FlatList, RefreshControl } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   LiveMatchCard,
   SectionHeader,
@@ -9,34 +10,52 @@ import {
   TournamentCard,
   LoginPromptModal,
 } from '@/components/features';
-import { useGame, useLiveMatches, useHomeData, useAuth } from '@/hooks';
+import { useGame, useLiveMatches, useHomeData, useAuth, useAdPopup, useSubscription } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { selectedGame, isLoadingGames } = useGame();
+  const { selectedGame } = useGame();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  
+
+  // Subscription status pour le popup pub
+  const { isSubscribed } = useSubscription();
+
+  // Publicité interstitielle AdMob - affichage manuel seulement
+  // Le hook gère le chargement, le cooldown (5 min) et l'affichage
+  const { showAd } = useAdPopup({
+    skipIfSubscribed: true,
+    isSubscribed,
+    onClose: () => console.log('[HomeScreen] Ad closed'),
+    onShow: () => console.log('[HomeScreen] Ad shown'),
+  });
+
   const {
     liveMatches,
     isLoading: isLoadingLive,
-    error: liveError,
     refetch: refetchLive,
   } = useLiveMatches({
     gameAcronym: selectedGame?.acronym,
     pollingInterval: 30000,
-    enabled: !!selectedGame,
+    enabled: true, // Toujours charger les matchs, même sans jeu sélectionné
   });
 
   const {
     news,
     tournaments,
     isLoading: isLoadingHome,
-    error: homeError,
     refetch: refetchHome,
   } = useHomeData(selectedGame?.acronym);
+
+  // Afficher une pub quand l'utilisateur revient sur l'onglet Home
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[HomeScreen] Tab focused - attempting to show ad');
+      showAd();
+    }, [showAd])
+  );
 
   // Show login modal automatically when user is not authenticated (only once per session)
   useEffect(() => {
@@ -78,6 +97,8 @@ export default function HomeScreen() {
         onLogin={handleGoToLogin}
         onRegister={handleGoToRegister}
       />
+
+      {/* Note: La pub interstitielle AdMob est gérée automatiquement par useAdPopup */}
 
       <ScrollView 
         contentContainerStyle={styles.content}

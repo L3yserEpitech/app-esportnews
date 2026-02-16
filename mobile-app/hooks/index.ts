@@ -5,4 +5,7 @@ export { useHomeData } from './useHomeData';
 export { useTournaments } from './useTournaments';
 export { useMatches } from './useMatches';
 export { useArticles } from './useArticles';
+export { useSubscription } from './useSubscription';
+export { useAdPopup } from './useAdPopup';
+export { useAd } from '@/contexts/AdContext';
 export { useLocale } from '@/contexts/LocaleContext';

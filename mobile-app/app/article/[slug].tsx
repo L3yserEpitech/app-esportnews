@@ -22,6 +22,7 @@ import { articleService } from '@/services';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import type { Article } from '@/types';
+import { useAdPopup, useSubscription } from '@/hooks';
 
 export default function ArticleDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -32,6 +33,13 @@ export default function ArticleDetailScreen() {
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Publicité - affichage manuel au retour
+  const { isSubscribed } = useSubscription();
+  const { showAd } = useAdPopup({
+    skipIfSubscribed: true,
+    isSubscribed,
+  });
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -51,7 +59,13 @@ export default function ArticleDetailScreen() {
     };
 
     fetchArticle();
-  }, [slug]);
+
+    // Afficher une pub quand l'utilisateur quitte l'article (cleanup)
+    return () => {
+      console.log('[ArticleDetail] User leaving article - attempting to show ad');
+      showAd();
+    };
+  }, [slug, showAd]);
 
   const handleShare = async () => {
     if (!article) return;

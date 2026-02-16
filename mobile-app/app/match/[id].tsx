@@ -13,6 +13,7 @@ import { matchService } from '@/services';
 import type { PandaMatch, PandaGame } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAdPopup, useSubscription } from '@/hooks';
 
 export default function MatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +23,13 @@ export default function MatchDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Publicité - affichage manuel au retour
+  const { isSubscribed } = useSubscription();
+  const { showAd } = useAdPopup({
+    skipIfSubscribed: true,
+    isSubscribed,
+  });
+
   // Animation values pour l'effet cascade
   const animHero = useRef(new Animated.Value(0)).current;
   const animSchedule = useRef(new Animated.Value(0)).current;
@@ -30,7 +38,13 @@ export default function MatchDetailScreen() {
 
   useEffect(() => {
     loadMatchDetails();
-  }, [id]);
+
+    // Afficher une pub quand l'utilisateur quitte le match (cleanup)
+    return () => {
+      console.log('[MatchDetail] User leaving match - attempting to show ad');
+      showAd();
+    };
+  }, [id, showAd]);
 
   useFocusEffect(
     useCallback(() => {

@@ -7,7 +7,7 @@ import {
     Dimensions,
     StatusBar,
     Platform,
-    Alert
+    ActivityIndicator
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
@@ -16,20 +16,28 @@ import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useSubscription } from '@/hooks';
 
 const { width } = Dimensions.get('window');
 
 export default function SubscriptionScreen() {
     const router = useRouter();
+    const { products, isSubscribed, loading, purchasing, subscribe, restorePurchases } = useSubscription();
 
     const handleSubscribe = () => {
-        // Placeholder for subscription logic
-        Alert.alert(
-            "Abonnement",
-            "Cette fonctionnalité sera bientôt disponible.",
-            [{ text: "OK", onPress: () => console.log("OK Pressed") }]
-        );
+        console.log('Products loaded:', products);
+        if (products.length > 0) {
+            console.log('Subscribing to:', products[0].id);
+            subscribe(products[0].id);
+        } else {
+            console.log('No products available - are you on a development build?');
+        }
     };
+
+    // Afficher le prix depuis le store si disponible
+    const displayPrice = products.length > 0
+        ? products[0].displayPrice
+        : '0.99€';
 
     return (
         <View style={styles.container}>
@@ -71,7 +79,7 @@ export default function SubscriptionScreen() {
 
                 <BlurView intensity={20} tint="light" style={styles.card}>
                     <View style={styles.priceContainer}>
-                        <Text style={styles.price}>0.99€</Text>
+                        <Text style={styles.price}>{displayPrice}</Text>
                         <Text style={styles.period}>/ mois</Text>
                     </View>
 
@@ -105,21 +113,48 @@ export default function SubscriptionScreen() {
                     </View>
                 </BlurView>
 
-                <TouchableOpacity
-                    onPress={handleSubscribe}
-                    activeOpacity={0.8}
-                    style={styles.subscribeButtonContainer}
-                >
-                    <LinearGradient
-                        colors={[COLORS.primary, '#C2185B']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.subscribeButton}
-                    >
-                        <Text style={styles.subscribeButtonText}>S'abonner maintenant</Text>
-                        <Ionicons name="arrow-forward" size={20} color="white" />
-                    </LinearGradient>
-                </TouchableOpacity>
+                {isSubscribed ? (
+                    <View style={styles.subscribedContainer}>
+                        <View style={styles.subscribedBadge}>
+                            <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                            <Text style={styles.subscribedText}>Vous êtes abonné Premium</Text>
+                        </View>
+                    </View>
+                ) : (
+                    <>
+                        <TouchableOpacity
+                            onPress={handleSubscribe}
+                            activeOpacity={0.8}
+                            style={styles.subscribeButtonContainer}
+                            disabled={purchasing || loading}
+                        >
+                            <LinearGradient
+                                colors={[COLORS.primary, '#C2185B']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={[styles.subscribeButton, (purchasing || loading) && styles.buttonDisabled]}
+                            >
+                                {purchasing ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <>
+                                        <Text style={styles.subscribeButtonText}>S'abonner maintenant</Text>
+                                        <Ionicons name="arrow-forward" size={20} color="white" />
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={restorePurchases}
+                            activeOpacity={0.7}
+                            style={styles.restoreButton}
+                            disabled={loading}
+                        >
+                            <Text style={styles.restoreButtonText}>Restaurer mes achats</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
 
                 <Text style={styles.disclaimer}>
                     L'abonnement se renouvelle automatiquement. Vous pouvez annuler à tout moment depuis les paramètres de votre compte.
@@ -267,5 +302,35 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontStyle: 'italic',
         paddingHorizontal: spacing.md,
-    }
+    },
+    subscribedContainer: {
+        marginBottom: spacing.lg,
+    },
+    subscribedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(242, 46, 98, 0.1)',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: borderRadius.xl,
+        gap: spacing.sm,
+    },
+    subscribedText: {
+        color: COLORS.primary,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+    restoreButton: {
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+    },
+    restoreButtonText: {
+        color: COLORS.textMuted,
+        fontSize: 14,
+        textDecorationLine: 'underline',
+    },
 });

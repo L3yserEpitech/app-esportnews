@@ -16,15 +16,23 @@ import { matchService } from '@/services/matchService';
 import type { PandaTournament, PandaMatch } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAdPopup, useSubscription } from '@/hooks';
 
 export default function TournamentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
+
   const [tournament, setTournament] = useState<PandaTournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Publicité - affichage manuel au retour
+  const { isSubscribed } = useSubscription();
+  const { showAd } = useAdPopup({
+    skipIfSubscribed: true,
+    isSubscribed,
+  });
 
   // Animation values for cascade effect
   const animHero = useRef(new Animated.Value(0)).current;
@@ -34,7 +42,13 @@ export default function TournamentDetailScreen() {
 
   useEffect(() => {
     loadTournament();
-  }, [id]);
+
+    // Afficher une pub quand l'utilisateur quitte le tournoi (cleanup)
+    return () => {
+      console.log('[TournamentDetail] User leaving tournament - attempting to show ad');
+      showAd();
+    };
+  }, [id, showAd]);
 
   useFocusEffect(
     useCallback(() => {

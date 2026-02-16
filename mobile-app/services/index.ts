@@ -6,6 +6,8 @@ export { matchService } from './matchService';
 export { liveMatchService } from './liveMatchService';
 export { articleService } from './articleService';
 export { notificationService } from './notificationService';
+export { adService } from './adService';
+export { adCooldownService } from './adCooldownService';
 
 // Export types
 export type { SignupData, LoginData, UserData } from './authService';
