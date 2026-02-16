@@ -12,7 +12,7 @@ import {
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/hooks';
+import { useAuth, useSubscription } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,6 +60,7 @@ const Section = ({ title, children }: any) => (
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { isSubscribed } = useSubscription();
 
   const handleLogout = () => {
     Alert.alert(
@@ -144,6 +145,21 @@ export default function ProfileScreen() {
               <Text style={styles.userEmail}>
                 {isAuthenticated ? user?.email : 'Connectez-vous pour profiter de tout'}
               </Text>
+
+              {/* Badge Premium */}
+              {isAuthenticated && isSubscribed && (
+                <View style={styles.premiumBadge}>
+                  <LinearGradient
+                    colors={[COLORS.primary, '#C2185B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.premiumGradient}
+                  >
+                    <Ionicons name="star" size={14} color="white" />
+                    <Text style={styles.premiumText}>Premium</Text>
+                  </LinearGradient>
+                </View>
+              )}
             </View>
 
             {!isAuthenticated && (
@@ -365,6 +381,29 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: COLORS.textMuted,
+  },
+  premiumBadge: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  premiumGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  premiumText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   loginCta: {
     width: '60%',
