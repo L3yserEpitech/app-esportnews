@@ -7,7 +7,8 @@ import {
     Dimensions,
     StatusBar,
     Platform,
-    ActivityIndicator
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
@@ -30,7 +31,12 @@ export default function SubscriptionScreen() {
             console.log('Subscribing to:', products[0].id);
             subscribe(products[0].id);
         } else {
-            console.log('No products available - are you on a development build?');
+            console.log('No products available');
+            Alert.alert(
+                'Produit non disponible',
+                'L\'abonnement n\'est pas encore disponible. Veuillez réessayer dans quelques minutes.',
+                [{ text: 'OK' }]
+            );
         }
     };
 

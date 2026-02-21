@@ -14,11 +14,19 @@ import {
   Purchase,
   ErrorCode,
 } from 'react-native-iap';
+import { useSubscriptionMock } from './useSubscriptionMock';
+
+// =====================================================
+// Configuration Mode Mock (Développement sans appareil)
+// =====================================================
+// ⚠️ Activer UNIQUEMENT pour tester sur émulateur Android sans appareil physique
+// ⚠️ DÉSACTIVER en production (mettre false)
+const USE_MOCK_SUBSCRIPTION = __DEV__ && Platform.OS === 'android' && false;
 
 // Product ID de ton abonnement App Store Connect
 const SUBSCRIPTION_SKUS = Platform.select({
   ios: ['13801972972'],
-  android: [] as string[],
+  android: [] as string[], // TODO: Ajouter le Product ID Android ici (ex: 'premium_monthly')
 }) ?? [];
 
 export interface SubscriptionState {
@@ -30,6 +38,11 @@ export interface SubscriptionState {
 }
 
 export function useSubscription() {
+  // Mode Mock pour tester sans appareil physique (développement uniquement)
+  if (USE_MOCK_SUBSCRIPTION) {
+    console.log('⚠️ [useSubscription] Using MOCK mode (no real purchases)');
+    return useSubscriptionMock();
+  }
   const [products, setProducts] = useState<ProductSubscription[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
