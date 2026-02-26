@@ -138,7 +138,12 @@ func main() {
 	// Initialize services
 	gameService := services.NewGameServiceWithGORM(gormDB, redisClient)
 	authService := services.NewAuthServiceWithGORM(gormDB, redisClient, cfg.JWTSecret)
-	pandaScoreService := services.NewPandaScoreService(cfg.PandaScoreAPIKey, redisClient)
+
+	// Liquipedia service + poller + webhook dirty tracker
+	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, redisClient, logger)
+	dirtyTracker := services.NewDirtyTracker()
+	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
+
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
@@ -169,14 +174,14 @@ func main() {
 
 	// Initialize handlers
 	gameHandler := handlers.NewGameHandler(gameService)
-	tournamentHandler := handlers.NewTournamentHandler(pandaScoreService)
-	matchHandler := handlers.NewMatchHandler(pandaScoreService)
+	tournamentHandler := handlers.NewTournamentHandler(liquipediaService, redisClient, logger)
+	matchHandler := handlers.NewMatchHandler(liquipediaService, redisClient, logger)
 	articleService := services.NewArticleServiceWithGORM(gormDB, redisClient)
 	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
 	authHandler := handlers.NewAuthHandler(authService, storageService)
-	teamHandler := handlers.NewTeamHandler(pandaScoreService, authService, gormDB)
+	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB)
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
@@ -185,6 +190,7 @@ func main() {
 	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
+	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -199,9 +205,10 @@ func main() {
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	matchSubHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
-	iapHandler.RegisterRoutes(apiGroup)        // IAP validation (JWT required)
+	iapHandler.RegisterRoutes(apiGroup)           // IAP validation (JWT required)
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
+	webhookHandler.RegisterRoutes(apiGroup)       // Liquipedia webhook endpoint
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
@@ -220,6 +227,15 @@ func main() {
 	iapScheduler := services.NewIAPValidationScheduler(gormDB, iapService, logger)
 	iapSchedulerCtx, iapSchedulerCancel := context.WithCancel(context.Background())
 	go iapScheduler.Start(iapSchedulerCtx)
+
+	// Liquipedia API budget monitoring (admin only)
+	adminGroup.GET("/admin/api-budget", func(c echo.Context) error {
+		return c.JSON(200, liquipediaService.GetBudgetStatus())
+	})
+
+	// Start Liquipedia poller in background
+	pollerCtx, pollerCancel := context.WithCancel(context.Background())
+	liquipediaPoller.Start(pollerCtx)
 
 	// Start server
 	go func() {
@@ -240,6 +256,10 @@ func main() {
 	// Stop schedulers
 	schedulerCancel()
 	iapSchedulerCancel()
+
+	// Stop Liquipedia poller gracefully
+	pollerCancel()
+	liquipediaPoller.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
