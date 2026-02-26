@@ -621,7 +621,7 @@ Live Screen (FlatList verticale)
 
 ---
 
-### ✅ Palier 9: Écran Tournaments + API PandaScore
+### ✅ Palier 9: Écran Tournaments + API Liquipedia
 **Commit:** À venir
 **Date:** 20 déc 2025
 
@@ -1176,7 +1176,7 @@ Sub-Screens
 - POST `/api/matches/by-date` - Matchs à une date (body: {date, game?})
 - GET `/api/matches/:id` - Détail match
 
-### Live (SportDevs)
+### Live (Liquipedia)
 - GET `/api/live` - Matchs en direct (filtrable par game)
 
 ### Articles

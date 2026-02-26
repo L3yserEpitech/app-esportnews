@@ -118,7 +118,7 @@ export interface Match {
 }
 
 // =====================================================
-// Live Match Types (from SportDevs)
+// Live Match Types (from Liquipedia)
 // =====================================================
 
 export interface LiveMatch {

@@ -229,8 +229,7 @@ export default function CGUPage() {
                 <h3 className="text-lg font-semibold text-white mb-2">7.1 Fournisseurs de données</h3>
                 <p>ESPORT NEWS agrège des données provenant de sources tierces :</p>
                 <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><strong className="text-white">PandaScore :</strong> Tournois, matchs, équipes, statistiques</li>
-                  <li><strong className="text-white">SportDevs :</strong> Matchs en direct, actualités esport</li>
+                  <li><strong className="text-white">Liquipedia :</strong> Tournois, matchs, équipes, statistiques, matchs en direct</li>
                 </ul>
               </div>
 

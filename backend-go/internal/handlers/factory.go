@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sirupsen/logrus"
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/services"
@@ -24,37 +25,21 @@ func NewGameHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache) *Gam
 	}
 }
 
-// NewTournamentHandler creates a new tournament handler with PandaScoreService
-func NewTournamentHandler(pandaService *services.PandaScoreService) *TournamentHandler {
+// NewTournamentHandler creates a new tournament handler with Liquipedia service and Redis cache
+func NewTournamentHandler(liqService *services.LiquipediaService, redisCache *cache.RedisCache, logger *logrus.Logger) *TournamentHandler {
 	return &TournamentHandler{
-		pandaService: pandaService,
+		liqService: liqService,
+		redisCache: redisCache,
+		log:        logger,
 	}
 }
 
-// NewTournamentHandlerWithPool creates a new tournament handler with pgxpool (backward compatible)
-func NewTournamentHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache) *TournamentHandler {
-	return &TournamentHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
-	}
-}
-
-// NewMatchHandler creates a new match handler with PandaScoreService
-func NewMatchHandler(pandaService *services.PandaScoreService) *MatchHandler {
+// NewMatchHandler creates a new match handler with Liquipedia service and Redis cache
+func NewMatchHandler(liqService *services.LiquipediaService, redisCache *cache.RedisCache, logger *logrus.Logger) *MatchHandler {
 	return &MatchHandler{
-		pandaService: pandaService,
-	}
-}
-
-// NewMatchHandlerWithPool creates a new match handler with pgxpool (backward compatible)
-func NewMatchHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache) *MatchHandler {
-	return &MatchHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
+		liqService: liqService,
+		redisCache: redisCache,
+		log:        logger,
 	}
 }
 
@@ -98,23 +83,12 @@ func NewAuthHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtS
 	}
 }
 
-// NewTeamHandler creates a new team handler with PandaScoreService and AuthService
-func NewTeamHandler(pandaService *services.PandaScoreService, authService *services.AuthService, gormDB interface{}) *TeamHandler {
+// NewTeamHandler creates a new team handler with Liquipedia service, AuthService and GORM DB
+func NewTeamHandler(liquipediaService *services.LiquipediaService, authService *services.AuthService, gormDB interface{}) *TeamHandler {
 	return &TeamHandler{
-		pandaService: pandaService,
-		authService:  authService,
-		gormDB:       gormDB,
-	}
-}
-
-// NewTeamHandlerWithPool creates a new team handler with pgxpool (backward compatible)
-func NewTeamHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, authService *services.AuthService) *TeamHandler {
-	return &TeamHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
-		authService: authService,
+		liquipediaService: liquipediaService,
+		authService:       authService,
+		gormDB:            gormDB,
 	}
 }
 

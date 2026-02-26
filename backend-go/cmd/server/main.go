@@ -136,7 +136,12 @@ func main() {
 	// Initialize services
 	gameService := services.NewGameServiceWithGORM(gormDB, redisClient)
 	authService := services.NewAuthServiceWithGORM(gormDB, redisClient, cfg.JWTSecret)
-	pandaScoreService := services.NewPandaScoreService(cfg.PandaScoreAPIKey, redisClient)
+
+	// Liquipedia service + poller + webhook dirty tracker
+	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, redisClient, logger)
+	dirtyTracker := services.NewDirtyTracker()
+	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
+
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 
@@ -158,18 +163,19 @@ func main() {
 
 	// Initialize handlers
 	gameHandler := handlers.NewGameHandler(gameService)
-	tournamentHandler := handlers.NewTournamentHandler(pandaScoreService)
-	matchHandler := handlers.NewMatchHandler(pandaScoreService)
+	tournamentHandler := handlers.NewTournamentHandler(liquipediaService, redisClient, logger)
+	matchHandler := handlers.NewMatchHandler(liquipediaService, redisClient, logger)
 	articleService := services.NewArticleServiceWithGORM(gormDB, redisClient)
 	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
 	authHandler := handlers.NewAuthHandler(authService, storageService)
-	teamHandler := handlers.NewTeamHandler(pandaScoreService, authService, gormDB)
+	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB)
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
+	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -183,6 +189,7 @@ func main() {
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
+	webhookHandler.RegisterRoutes(apiGroup)   // Liquipedia webhook endpoint
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
@@ -190,6 +197,15 @@ func main() {
 	articleHandler.RegisterAdminRoutes(adminGroup)
 	adHandler.RegisterAdminRoutes(adminGroup)
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
+
+	// Liquipedia API budget monitoring (admin only)
+	adminGroup.GET("/admin/api-budget", func(c echo.Context) error {
+		return c.JSON(200, liquipediaService.GetBudgetStatus())
+	})
+
+	// Start Liquipedia poller in background
+	pollerCtx, pollerCancel := context.WithCancel(context.Background())
+	liquipediaPoller.Start(pollerCtx)
 
 	// Start server
 	go func() {
@@ -206,6 +222,10 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+
+	// Stop Liquipedia poller gracefully
+	pollerCancel()
+	liquipediaPoller.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

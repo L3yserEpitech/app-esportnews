@@ -136,7 +136,7 @@ export default function HomePage() {
 
   // Charger les données selon le jeu sélectionné
   const loadGameData = useCallback((gameId: string) => {
-    // Ici on appellerait les vraies APIs SportDevs et PandaScore
+    // Ici on appellerait les vraies APIs Liquipedia
   }, []);
 
   useEffect(() => {

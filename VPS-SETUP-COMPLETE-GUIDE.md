@@ -493,8 +493,7 @@ CORS_ORIGINS=https://esportnews.fr,https://www.esportnews.fr,https://api.esportn
 # ===================
 # APIs Externes
 # ===================
-PANDASCORE_API_KEY=VOTRE_CLE_API_PANDASCORE
-SPORTDEVS_API_KEY=VOTRE_CLE_API_SPORTDEVS
+# PANDASCORE_API_KEY et SPORTDEVS_API_KEY supprimés (remplacés par LIQUIPEDIA_API_KEY)
 
 # ===================
 # Stripe
@@ -1099,7 +1098,7 @@ sudo reboot
 - Mot de passe PostgreSQL (`POSTGRES_PASSWORD` dans `.env.prod`)
 - Mot de passe Redis (`REDIS_PASSWORD` dans `.env.prod`)
 - JWT Secret (`JWT_SECRET` dans `.env.prod`)
-- Clés API (PandaScore, SportDevs, Stripe, Resend, Cloudflare)
+- Clés API (Liquipedia, Stripe, Resend, Cloudflare)
 - Mot de passe admin Dokploy
 
 ### Fichiers critiques à ne jamais commit

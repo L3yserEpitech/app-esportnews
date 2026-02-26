@@ -34,8 +34,8 @@ type Config struct {
 	FrontendURL string
 	CORSOrigins string
 
-	// PandaScore API
-	PandaScoreAPIKey string
+	// Liquipedia API
+	LiquipediaAPIKey string
 
 	// Stripe
 	StripeSecretKey   string
@@ -71,7 +71,7 @@ func LoadConfig() *Config {
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
 		CORSOrigins:      getEnv("CORS_ORIGINS", ""),
-		PandaScoreAPIKey: getEnv("PANDASCORE_API_KEY", ""),
+		LiquipediaAPIKey: getEnv("LIQUIPEDIA_API_KEY", ""),
 		StripeSecretKey:  getEnv("STRIPE_SECRET_KEY", ""),
 		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
