@@ -149,3 +149,52 @@
   background-color: #f0f4f8;
   color: #F22E62;
 }
+
+/* Tweet embed */
+.tweetEmbed {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+  max-width: 550px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tweetFallback {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  background-color: #091626;
+  border: 1px solid #182859;
+  border-radius: 0.5rem;
+  color: #60a5fa;
+  text-decoration: underline;
+  font-size: 0.875rem;
+}
+
+.tweetFallback:hover {
+  color: #93c5fd;
+  border-color: #F22E62;
+}
+
+/* Placeholder d'aperçu Twitter dans l'éditeur admin */
+:global(.twitter-embed-placeholder) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #091626;
+  border: 1px dashed #182859;
+  border-radius: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+  cursor: default;
+  user-select: none;
+}
+
+:global(.twitter-embed-placeholder::before) {
+  content: "𝕏";
+  font-weight: bold;
+  color: white;
+  font-size: 1rem;
+}

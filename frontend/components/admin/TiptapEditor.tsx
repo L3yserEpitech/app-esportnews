@@ -25,6 +25,7 @@ import {
   AlignRight,
   AlignJustify,
   Video as VideoIcon,
+  Twitter as TwitterIcon,
 } from "lucide-react";
 import { adminService } from "@/lib/adminService";
 import { useState } from "react";
@@ -37,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 interface TiptapEditorProps {
   content: string;
@@ -97,6 +99,56 @@ const CustomVideo = Node.create({
   },
 });
 
+// Custom Twitter Embed Node Extension
+const TwitterEmbed = Node.create({
+  name: 'twitterEmbed',
+  group: 'block',
+  atom: true,
+
+  addAttributes() {
+    return {
+      tweetId: { default: null },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-tweet-id]',
+        getAttrs: (dom: HTMLElement) => ({ tweetId: dom.getAttribute('data-tweet-id') }),
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', {
+      'data-tweet-id': HTMLAttributes.tweetId,
+      class: 'twitter-embed-placeholder',
+    }];
+  },
+
+  addCommands() {
+    return {
+      setTwitterEmbed: (tweetId: string) => ({ commands }: any) => {
+        return commands.insertContent({
+          type: this.name,
+          attrs: { tweetId },
+        });
+      },
+    } as any;
+  },
+});
+
+// Extrait l'ID d'un tweet depuis une URL ou un ID brut
+function extractTweetId(input: string): string | null {
+  const trimmed = input.trim();
+  // ID brut numérique (10-20 chiffres)
+  if (/^\d{10,20}$/.test(trimmed)) return trimmed;
+  // URL twitter.com ou x.com
+  const match = trimmed.match(/(?:twitter\.com|x\.com)\/[^/]+\/status\/(\d{10,20})/);
+  return match ? match[1] : null;
+}
+
 export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
@@ -107,6 +159,9 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
     loop: false,
     controls: true,
   });
+  const [twitterDialogOpen, setTwitterDialogOpen] = useState(false);
+  const [tweetUrl, setTweetUrl] = useState('');
+  const [tweetUrlError, setTweetUrlError] = useState('');
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -124,6 +179,7 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
         },
       }),
       CustomVideo,
+      TwitterEmbed,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
         alignments: ['left', 'center', 'right', 'justify'],
@@ -375,6 +431,17 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
           <VideoIcon className="h-4 w-4" />
         </Button>
 
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => { setTweetUrl(''); setTweetUrlError(''); setTwitterDialogOpen(true); }}
+          className="text-gray-300 hover:text-white hover:bg-[#182859]/50"
+          title="Intégrer un tweet"
+        >
+          <TwitterIcon className="h-4 w-4" />
+        </Button>
+
         <div className="w-px h-6 bg-[#182859] mx-1" />
 
         <Button
@@ -482,6 +549,63 @@ export function TiptapEditor({ content, onChange, placeholder }: TiptapEditorPro
               className="bg-[#F22E62] hover:bg-[#F22E62]/80"
             >
               Insérer la vidéo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Twitter Embed Dialog */}
+      <Dialog open={twitterDialogOpen} onOpenChange={setTwitterDialogOpen}>
+        <DialogContent className="bg-[#091626] border-[#182859]">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <TwitterIcon className="h-4 w-4" />
+              Intégrer un tweet
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <Label htmlFor="tweet-url" className="text-gray-300">
+              URL du tweet ou ID
+            </Label>
+            <Input
+              id="tweet-url"
+              value={tweetUrl}
+              onChange={(e) => { setTweetUrl(e.target.value); setTweetUrlError(''); }}
+              placeholder="https://x.com/user/status/123456789..."
+              className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+            />
+            {tweetUrlError && (
+              <p className="text-[#F22E62] text-sm">{tweetUrlError}</p>
+            )}
+            <p className="text-gray-500 text-xs">
+              Supporte les URLs twitter.com, x.com, ou un ID numérique brut.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTwitterDialogOpen(false)}
+              className="border-[#182859] text-white hover:bg-[#182859]"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                const id = extractTweetId(tweetUrl);
+                if (!id) {
+                  setTweetUrlError('URL invalide. Collez une URL twitter.com / x.com ou un ID numérique.');
+                  return;
+                }
+                (editor.chain().focus() as any).setTwitterEmbed(id).run();
+                setTwitterDialogOpen(false);
+                setTweetUrl('');
+                setTweetUrlError('');
+              }}
+              className="bg-[#F22E62] hover:bg-[#F22E62]/80"
+            >
+              Insérer le tweet
             </Button>
           </DialogFooter>
         </DialogContent>

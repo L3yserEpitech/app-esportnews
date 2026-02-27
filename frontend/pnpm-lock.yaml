@@ -107,6 +107,9 @@ importers:
       react-dom:
         specifier: 19.1.2
         version: 19.1.2(react@19.1.2)
+      react-tweet:
+        specifier: ^3.3.0
+        version: 3.3.0(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
       recharts:
         specifier: ^3.5.1
         version: 3.7.0(@types/react@19.2.9)(react-dom@19.1.2(react@19.1.2))(react-is@19.2.3)(react@19.1.2)(redux@5.0.1)
@@ -1447,6 +1450,10 @@ packages:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
     engines: {node: '>=0.4.0'}
 
+  dequal@2.0.3:
+    resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
+    engines: {node: '>=6'}
+
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
@@ -1953,6 +1960,12 @@ packages:
       '@types/react':
         optional: true
 
+  react-tweet@3.3.0:
+    resolution: {integrity: sha512-gSIG2169ZK7UH6rBzuU+j1xnQbH3IlOTLEkuGrRiJJTMgETik+h+26yHyyVKrLkzwrOaYPk4K3OtEKycqKgNLw==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
   react@19.1.2:
     resolution: {integrity: sha512-MdWVitvLbQULD+4DP8GYjZUrepGW7d+GQkNVqJEzNxE+e9WIa4egVFE/RDfVb1u9u/Jw7dNMmPB4IqxzbFYJ0w==}
     engines: {node: '>=0.10.0'}
@@ -2014,6 +2027,11 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
+
+  swr@2.4.0:
+    resolution: {integrity: sha512-sUlC20T8EOt1pHmDiqueUWMmRRX03W7w5YxovWX7VR2KHEPCTMly85x05vpkP5i6Bu4h44ePSMD9Tc+G2MItFw==}
+    peerDependencies:
+      react: ^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   tailwind-merge@3.4.0:
     resolution: {integrity: sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==}
@@ -3266,6 +3284,8 @@ snapshots:
 
   delayed-stream@1.0.0: {}
 
+  dequal@2.0.3: {}
+
   detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
@@ -3766,6 +3786,14 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.9
 
+  react-tweet@3.3.0(react-dom@19.1.2(react@19.1.2))(react@19.1.2):
+    dependencies:
+      '@swc/helpers': 0.5.15
+      clsx: 2.1.1
+      react: 19.1.2
+      react-dom: 19.1.2(react@19.1.2)
+      swr: 2.4.0(react@19.1.2)
+
   react@19.1.2: {}
 
   recharts@3.7.0(@types/react@19.2.9)(react-dom@19.1.2(react@19.1.2))(react-is@19.2.3)(react@19.1.2)(redux@5.0.1):
@@ -3847,6 +3875,12 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.1.2
+
+  swr@2.4.0(react@19.1.2):
+    dependencies:
+      dequal: 2.0.3
+      react: 19.1.2
+      use-sync-external-store: 1.6.0(react@19.1.2)
 
   tailwind-merge@3.4.0: {}
 
