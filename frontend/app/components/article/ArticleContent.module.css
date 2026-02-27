@@ -160,6 +160,22 @@
   margin-right: auto;
 }
 
+/* Réduction du texte : cibler .react-tweet-theme directement pour surcharger ses propres variables */
+.tweetEmbed :global(.react-tweet-theme) {
+  --tweet-body-font-size: 0.875rem;
+  --tweet-body-line-height: 1.25rem;
+  --tweet-header-font-size: 0.8rem;
+  --tweet-header-line-height: 1rem;
+  --tweet-info-font-size: 0.78rem;
+  --tweet-info-line-height: 1rem;
+  --tweet-quoted-body-font-size: 0.8rem;
+  --tweet-quoted-body-line-height: 1.1rem;
+  --tweet-actions-font-size: 0.75rem;
+  --tweet-actions-line-height: 0.9rem;
+  --tweet-replies-font-size: 0.75rem;
+  --tweet-replies-line-height: 0.9rem;
+}
+
 .tweetFallback {
   display: inline-block;
   padding: 0.75rem 1.25rem;
