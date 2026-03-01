@@ -61,7 +61,10 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	_ = godotenv.Load()
+	// Load centralized .env from project root (for local dev without Docker)
+	// In Docker, env vars are set by docker-compose, so this silently no-ops
+	_ = godotenv.Load("../.env")
+	_ = godotenv.Load() // fallback: local .env if it exists
 
 	cfg := &Config{
 		Port:             getEnv("PORT", "4000"),

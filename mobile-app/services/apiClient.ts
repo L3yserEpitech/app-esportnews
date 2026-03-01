@@ -3,13 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// =====================================================
-// 🔧 BACKEND URL - CHANGE ICI POUR SWITCHER
-// =====================================================
-// Pour localhost :    'http://localhost:4000'
-// Pour Railway :      'https://app-esportnews-production.up.railway.app'
-// =====================================================
-export const BACKEND_URL = 'https://app-esportnews-production.up.railway.app';
+// Backend URL from centralized .env (EXPO_PUBLIC_API_URL)
+export const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
 
 console.log('🌐 [apiClient] BACKEND_URL:', BACKEND_URL);
 

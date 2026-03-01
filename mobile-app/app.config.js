@@ -1,5 +1,6 @@
-// Load .env file for local development
-require('dotenv').config();
+// Load centralized .env from project root
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 module.exports = {
   expo: {

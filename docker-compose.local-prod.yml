@@ -8,8 +8,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
       args:
-        - NEXT_PUBLIC_BACKEND_URL=https://esportnews.fr
-        - NEXT_PUBLIC_API_URL=https://esportnews.fr/api
+        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -21,9 +21,8 @@ services:
       - PORT=3002
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
-      # Production Backend (Railway)
-      - NEXT_PUBLIC_BACKEND_URL=https://esportnews.fr
-      - NEXT_PUBLIC_API_URL=https://esportnews.fr/api
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}

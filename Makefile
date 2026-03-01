@@ -53,14 +53,17 @@ start: ## Start in development mode with hot reload
 dev: ## Start local dev (postgres, redis, backend, frontend - all local)
 	docker compose -f docker-compose.dev.yml down --remove-orphans && docker compose -f docker-compose.dev.yml up --build
 
-prod: ## Start frontend local + production backend (Supabase, Upstash, Railway)
-	docker compose -f docker-compose.local-prod.yml down --remove-orphans && docker compose -f docker-compose.local-prod.yml up --build
+preview: ## Start frontend local + Railway dev backend (uses .env.preview)
+	docker compose --env-file .env.preview -f docker-compose.local-prod.yml down --remove-orphans && docker compose --env-file .env.preview -f docker-compose.local-prod.yml up --build
+
+prod: ## Start frontend local + production backend (uses .env.prod)
+	docker compose --env-file .env.prod -f docker-compose.local-prod.yml down --remove-orphans && docker compose --env-file .env.prod -f docker-compose.local-prod.yml up --build
 
 start-d: ## Start in development mode (detached) with hot reload
 	docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up --build -d
 
-start-prod: ## Full rebuild and start in production mode
-	docker compose down && docker compose up --build
+start-prod: ## Full rebuild and start in production mode (uses .env.prod)
+	docker compose --env-file .env.prod down && docker compose --env-file .env.prod up --build
 
 dev-logs: ## Show logs for development services
 	docker compose -f docker-compose.dev.yml logs -f
@@ -74,11 +77,17 @@ dev-logs-backend: ## Show backend logs (development)
 dev-down: ## Stop development services
 	docker compose -f docker-compose.dev.yml down
 
+preview-down: ## Stop preview services
+	docker compose --env-file .env.preview -f docker-compose.local-prod.yml down
+
+preview-logs: ## Show logs for preview frontend
+	docker compose --env-file .env.preview -f docker-compose.local-prod.yml logs -f
+
 prod-down: ## Stop local-prod services
-	docker compose -f docker-compose.local-prod.yml down
+	docker compose --env-file .env.prod -f docker-compose.local-prod.yml down
 
 prod-logs: ## Show logs for local-prod frontend
-	docker compose -f docker-compose.local-prod.yml logs -f
+	docker compose --env-file .env.prod -f docker-compose.local-prod.yml logs -f
 
 dev-restart: ## Restart development services
 	docker compose -f docker-compose.dev.yml restart
