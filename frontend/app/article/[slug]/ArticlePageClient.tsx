@@ -205,7 +205,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
 
                 {/* Article content */}
                 <div className="mb-8">
-                  <ArticleContent content={isDarkMode ? (article.content_black ?? '') : (article.content_white ?? '')} />
+                  <ArticleContent content={isDarkMode ? (article.content_black ?? '') : (article.content_white ?? '')} isDarkMode={isDarkMode} />
                 </div>
 
                 {/* Tags */}

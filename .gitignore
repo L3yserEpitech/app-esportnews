@@ -51,3 +51,4 @@ node_modules/
 dist/
 build/
 .env.prod
+frontend/tsconfig.tsbuildinfo
