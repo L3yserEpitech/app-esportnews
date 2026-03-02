@@ -153,6 +153,8 @@ export interface PandaTournament {
   matches?: PandaMatch[];
   expected_roster?: PandaRoster[];
   winner_id?: number | null;
+  icon_url?: string | null;
+  icon_dark_url?: string | null;
 }
 
 export interface PandaMatchResult {

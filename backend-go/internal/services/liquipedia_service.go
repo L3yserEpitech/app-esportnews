@@ -147,11 +147,12 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		return s.getStaleOrError(ctx, cacheKey, wiki)
 	}
 
-	// 3. Build URL
-	reqURL := fmt.Sprintf("%s/%s/%s", liquipediaBaseURL, wiki, endpoint)
-	if len(params) > 0 {
-		reqURL += "?" + params.Encode()
+	// 3. Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
+	if params == nil {
+		params = url.Values{}
 	}
+	params.Set("wiki", wiki)
+	reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, params.Encode())
 
 	// 4. Build HTTP request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
