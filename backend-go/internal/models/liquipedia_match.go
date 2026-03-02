@@ -21,7 +21,7 @@ type LiqMatch struct {
 	Winner             string          `json:"winner"`
 	Walkover           string          `json:"walkover"`
 	ResultType         string          `json:"resulttype"`
-	Finished           bool            `json:"finished"`
+	Finished           int             `json:"finished"` // 0 or 1 (Liquipedia returns int, not bool)
 	Mode               string          `json:"mode"`
 	Type               string          `json:"type"`
 	Section            string          `json:"section"`
@@ -29,7 +29,7 @@ type LiqMatch struct {
 	Patch              string          `json:"patch"`
 	BestOf             int             `json:"bestof"`
 	Date               string          `json:"date"`
-	DateExact          bool            `json:"dateexact"`
+	DateExact          int             `json:"dateexact"` // 0 or 1 (Liquipedia returns int, not bool)
 	Vod                string          `json:"vod"`
 	Tournament         string          `json:"tournament"`
 	Parent             string          `json:"parent"`
@@ -242,7 +242,7 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 	// Winner
 	var winnerID *int
 	var winner interface{}
-	if m.Winner != "" && m.Winner != "0" && m.Finished {
+	if m.Winner != "" && m.Winner != "0" && m.Finished == 1 {
 		idx := 0
 		if m.Winner == "2" {
 			idx = 1
@@ -318,7 +318,7 @@ func computeMatchStatus(m LiqMatch, hint string) string {
 	if hint != "" {
 		return hint
 	}
-	if m.Finished {
+	if m.Finished == 1 {
 		return "finished"
 	}
 	t, err := m.ParsedDate()
@@ -532,8 +532,11 @@ func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []Norma
 		}
 
 		finished := false
-		if v, ok := gameData["finished"].(bool); ok {
+		switch v := gameData["finished"].(type) {
+		case bool:
 			finished = v
+		case float64:
+			finished = v == 1
 		}
 
 		status := "not_started"

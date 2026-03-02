@@ -510,7 +510,26 @@
       "platform_youtube": "YouTube",
       "stream_fallback": "Guarda lo Stream",
       "stream_status_playing": "In Riproduzione",
-      "stream_link_text": "Guarda su"
+      "stream_link_text": "Guarda su",
+      "tier_label": "Tier",
+      "badge_rescheduled": "Riprogrammato",
+      "wins": "vince",
+      "info_tournament": "Torneo",
+      "stream_live_now": "In diretta",
+      "game_forfeit": "Forfait",
+      "section_match_info": "Informazioni",
+      "info_match_id": "ID partita",
+      "info_match2id": "ID Bracket",
+      "info_slug": "Slug",
+      "info_match_type": "Tipo",
+      "info_scheduled_at": "Programmato",
+      "info_end_at": "Terminato",
+      "info_wiki": "Wiki",
+      "info_live_supported": "Live supportato",
+      "info_live_opens_at": "Apertura live",
+      "yes": "Sì",
+      "no": "No",
+      "stat_rescheduled": "Riprogrammato"
     }
   }
 }
