@@ -266,7 +266,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf(
-		"[[finished::false]] AND [[dateexact::true]] AND [[date::<%s]] AND [[date::>%s]]",
+		"[[finished::0]] AND [[dateexact::1]] AND [[date::<%s]] AND [[date::>%s]]",
 		cutoff, pastCutoff,
 	))
 	params.Set("order", "date ASC")
@@ -286,7 +286,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf(
-		"[[finished::false]] AND [[dateexact::true]] AND [[date::>%s]]",
+		"[[finished::0]] AND [[dateexact::1]] AND [[date::>%s]]",
 		now,
 	))
 	params.Set("order", "date ASC")
@@ -304,7 +304,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 	cacheKey := cache.LiqMatchesPastKey(wiki)
 
 	params := url.Values{}
-	params.Set("conditions", "[[finished::true]]")
+	params.Set("conditions", "[[finished::1]]")
 	params.Set("order", "date DESC")
 	params.Set("limit", "50")
 	params.Set("rawstreams", "true")
