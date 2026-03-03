@@ -61,7 +61,7 @@ type LiqOpponent struct {
 	Score         interface{}     `json:"score"`
 	Status        string          `json:"status"`
 	Type          string          `json:"type"`
-	ID            string          `json:"id"`
+	ID            interface{}     `json:"id"` // int from Liquipedia API (1, 2, ...)
 	Icon          string          `json:"icon"`
 	IconDark      string          `json:"icondark"`
 	Match2Players json.RawMessage `json:"match2players"`
