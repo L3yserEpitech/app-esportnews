@@ -213,10 +213,14 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	// Tournaments overlapping the given date: startdate <= date AND enddate >= date
+	// Tournaments overlapping the given date: startdate < date+1 AND enddate > date-1
+	// Liquipedia API doesn't support <= and >= operators
+	dateTime, _ := time.Parse("2006-01-02", date)
+	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
+	prevDay := dateTime.Add(-24 * time.Hour).Format("2006-01-02")
 	conditions := fmt.Sprintf(
-		"[[startdate::<=%s]] AND [[enddate::>=%s]] AND [[status::!finished]]",
-		date, date,
+		"[[startdate::<%s]] AND [[enddate::>%s]] AND [[status::!finished]]",
+		nextDay, prevDay,
 	)
 
 	type wikiResult struct {

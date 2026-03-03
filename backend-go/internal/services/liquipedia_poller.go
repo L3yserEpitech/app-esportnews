@@ -318,12 +318,13 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 
 func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsRunningKey(wiki)
-	today := time.Now().UTC().Format("2006-01-02")
+	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02")
+	yesterday := time.Now().UTC().Add(-24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf(
-		"[[status::!finished]] AND [[startdate::<=%s]] AND [[enddate::>=%s]]",
-		today, today,
+		"[[status::!finished]] AND [[startdate::<%s]] AND [[enddate::>%s]]",
+		tomorrow, yesterday,
 	))
 	params.Set("order", "liquipediatier ASC, startdate ASC")
 	params.Set("limit", "50")
