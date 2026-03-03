@@ -191,6 +191,7 @@ func main() {
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
 	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
+	imageProxyHandler := handlers.NewImageProxyHandler()
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -209,6 +210,7 @@ func main() {
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
 	webhookHandler.RegisterRoutes(apiGroup)       // Liquipedia webhook endpoint
+	imageProxyHandler.RegisterRoutes(apiGroup)    // Image proxy for Liquipedia assets
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")

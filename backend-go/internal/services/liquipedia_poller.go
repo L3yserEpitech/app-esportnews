@@ -270,7 +270,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 		cutoff, pastCutoff,
 	))
 	params.Set("order", "date ASC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
@@ -290,7 +290,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 		now,
 	))
 	params.Set("order", "date ASC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
@@ -306,7 +306,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 	params := url.Values{}
 	params.Set("conditions", "[[finished::1]]")
 	params.Set("order", "date DESC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
@@ -327,7 +327,7 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 		tomorrow, yesterday,
 	))
 	params.Set("order", "liquipediatier ASC, startdate ASC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 
 	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsRunning)
 	if err != nil {
@@ -345,7 +345,7 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 		today,
 	))
 	params.Set("order", "startdate ASC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 
 	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsUpcoming)
 	if err != nil {
@@ -359,7 +359,7 @@ func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki 
 	params := url.Values{}
 	params.Set("conditions", "[[status::finished]]")
 	params.Set("order", "enddate DESC")
-	params.Set("limit", "50")
+	params.Set("limit", "5000")
 
 	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsFinished)
 	if err != nil {

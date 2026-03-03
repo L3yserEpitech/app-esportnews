@@ -171,7 +171,7 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 			params.Set("wiki", w)
 			params.Set("conditions", conditions)
 			params.Set("order", "date ASC")
-			params.Set("limit", "50")
+			params.Set("limit", "5000")
 			params.Set("rawstreams", "true")
 			params.Set("streamurls", "true")
 

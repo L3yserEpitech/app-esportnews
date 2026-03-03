@@ -235,7 +235,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 			params := url.Values{}
 			params.Set("conditions", conditions)
 			params.Set("order", "liquipediatier ASC, startdate ASC")
-			params.Set("limit", "50")
+			params.Set("limit", "5000")
 
 			data, fetchErr := h.liqService.MakeRequest(ctx, w, "tournament", params, cacheKey, 10*time.Minute)
 			if fetchErr != nil {
@@ -400,11 +400,11 @@ func parseTournaments(data []byte, wiki string) ([]models.NormalizedTournament, 
 
 // parsePagination extracts limit and offset from query parameters.
 func parsePagination(c echo.Context) (int, int) {
-	limit := 20
+	limit := 5000
 	offset := 0
 
 	if l := c.QueryParam("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
 			limit = parsed
 		}
 	}
