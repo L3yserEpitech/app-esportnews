@@ -176,6 +176,7 @@ func main() {
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
 	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
+	imageProxyHandler := handlers.NewImageProxyHandler()
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -190,6 +191,7 @@ func main() {
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
 	webhookHandler.RegisterRoutes(apiGroup)   // Liquipedia webhook endpoint
+	imageProxyHandler.RegisterRoutes(apiGroup) // Image proxy for Liquipedia assets
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
