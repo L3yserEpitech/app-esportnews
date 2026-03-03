@@ -152,7 +152,9 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		params = url.Values{}
 	}
 	params.Set("wiki", wiki)
-	reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, params.Encode())
+	// Liquipedia API requires %20 for spaces, not + (Go's default form-encoding)
+	encoded := strings.ReplaceAll(params.Encode(), "+", "%20")
+	reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, encoded)
 
 	// 4. Build HTTP request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
