@@ -72,7 +72,7 @@ function BracketMatchCell({ match }: { match: PandaMatch }) {
   const awayWon = isFinished && match.winner_id === away?.id;
 
   return (
-    <Link href={`/match/${match.id}`}>
+    <Link href={`/match/${match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
       <div
         className="group rounded-md border border-[var(--color-border-primary)]/60 bg-[var(--color-bg-secondary)] overflow-hidden hover:border-[#F22E62]/50 transition-all duration-200 cursor-pointer hover:shadow-[0_0_12px_rgba(242,46,98,0.15)]"
         style={{ width: CELL_W, height: CELL_H }}

@@ -214,9 +214,11 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 }
 
 // GetMatch returns a single match by ID (on-demand, cache-aside).
-// Requires ?wiki= query parameter to avoid searching all 10 wikis.
+// The ID param is the Liquipedia PageID (integer), used in frontend URLs.
+// Optional ?wiki= query parameter to target a specific wiki (faster).
+// If wiki is omitted, searches all wikis in parallel.
 func (h *MatchHandler) GetMatch(c echo.Context) error {
-	ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
 	defer cancel()
 
 	matchID := c.Param("id")
@@ -225,25 +227,64 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	}
 
 	wikiParam := c.QueryParam("wiki")
-	if wikiParam == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "wiki query parameter required"})
+
+	// If wiki is provided, search only that wiki
+	if wikiParam != "" {
+		wiki, ok := models.GameWikiMapping[wikiParam]
+		if !ok {
+			if _, exists := models.WikiToAcronym[wikiParam]; exists {
+				wiki = wikiParam
+			} else {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "unknown game/wiki: " + wikiParam})
+			}
+		}
+
+		normalized, err := h.fetchMatchFromWiki(ctx, wiki, matchID)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+		}
+		return c.JSON(http.StatusOK, normalized)
 	}
 
-	// Accept both acronym (e.g. "valorant") and wiki name (e.g. "valorant")
-	wiki, ok := models.GameWikiMapping[wikiParam]
-	if !ok {
-		// Try as direct wiki name
-		if _, exists := models.WikiToAcronym[wikiParam]; exists {
-			wiki = wikiParam
-		} else {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "unknown game/wiki: " + wikiParam})
+	// No wiki provided — search all wikis in parallel
+	type wikiMatchResult struct {
+		wiki       string
+		normalized *models.NormalizedMatch
+	}
+
+	allWikis := make([]string, 0, len(models.GameWikiMapping))
+	for _, wiki := range models.GameWikiMapping {
+		allWikis = append(allWikis, wiki)
+	}
+
+	results := make(chan wikiMatchResult, len(allWikis))
+	for _, wiki := range allWikis {
+		go func(w string) {
+			normalized, err := h.fetchMatchFromWiki(ctx, w, matchID)
+			if err != nil || normalized == nil {
+				results <- wikiMatchResult{wiki: w, normalized: nil}
+				return
+			}
+			results <- wikiMatchResult{wiki: w, normalized: normalized}
+		}(wiki)
+	}
+
+	for i := 0; i < len(allWikis); i++ {
+		res := <-results
+		if res.normalized != nil {
+			return c.JSON(http.StatusOK, res.normalized)
 		}
 	}
 
+	return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+}
+
+// fetchMatchFromWiki fetches a single match by PageID from a specific wiki.
+func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matchID string) (*models.NormalizedMatch, error) {
 	cacheKey := cache.LiqMatchKey(wiki, matchID)
 	params := url.Values{}
 	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[match2id::%s]]", matchID))
+	params.Set("conditions", fmt.Sprintf("[[pageid::%s]]", matchID))
 	params.Set("limit", "1")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
@@ -253,22 +294,22 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		h.log.WithError(err).WithFields(logrus.Fields{
 			"wiki":    wiki,
 			"matchID": matchID,
-		}).Warn("Failed to fetch match detail")
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+		}).Debug("Failed to fetch match detail from wiki")
+		return nil, err
 	}
 
 	resp, err := services.ParseResponse(data)
 	if err != nil || len(resp.Result) == 0 {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+		return nil, fmt.Errorf("match not found in wiki %s", wiki)
 	}
 
 	var match models.LiqMatch
 	if err := json.Unmarshal(resp.Result[0], &match); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to parse match"})
+		return nil, fmt.Errorf("failed to parse match from wiki %s: %w", wiki, err)
 	}
 
 	normalized := models.NormalizeLiqMatch(match, wiki, "")
-	return c.JSON(http.StatusOK, normalized)
+	return &normalized, nil
 }
 
 // --- Helpers ---

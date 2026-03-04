@@ -4,13 +4,15 @@ import MatchDetailPageClient from './MatchDetailPageClient';
 
 interface MatchPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ wiki?: string }>;
 }
 
-export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: MatchPageProps): Promise<Metadata> {
   const { id } = await params;
+  const { wiki } = await searchParams;
 
   try {
-    const match = await matchService.getMatchById(id);
+    const match = await matchService.getMatchById(id, wiki);
 
     if (!match) {
       return {
@@ -55,8 +57,9 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   }
 }
 
-export default async function MatchDetailPage({ params }: MatchPageProps) {
+export default async function MatchDetailPage({ params, searchParams }: MatchPageProps) {
   const { id } = await params;
+  const { wiki } = await searchParams;
 
-  return <MatchDetailPageClient matchId={id} />;
+  return <MatchDetailPageClient matchId={id} wiki={wiki} />;
 }

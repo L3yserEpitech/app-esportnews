@@ -47,7 +47,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
   const hasStream = mainStream?.raw_url && isLive;
 
   return (
-    <Link href={`/match/${match.id}`}>
+    <Link href={`/match/${match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
       <div className="group relative h-full cursor-pointer">
         {/* Background glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
