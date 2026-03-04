@@ -192,10 +192,13 @@ export interface PandaMatch {
   };
   videogame?: PandaVideogame;
 
+  // Liquipedia extra fields
+  wiki?: string | null;
+  match2id?: string | null;
+
   // Bracket fields for tournament bracket tree
   section?: string | null;
   match2bracketid?: string | null;
-  match2id?: string | null;
 }
 
 export interface PandaStream {

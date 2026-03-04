@@ -105,13 +105,17 @@ export const matchService = {
   },
 
   /**
-   * Get a single match by ID
-   * @param matchId Match ID
+   * Get a single match by ID (PageID)
+   * @param matchId Match PageID
+   * @param wiki Optional wiki name to speed up lookup (avoids searching all wikis)
    */
-  async getMatchById(matchId: string): Promise<Match> {
+  async getMatchById(matchId: string, wiki?: string): Promise<Match> {
     try {
-      const url = `${API_BASE_URL}/api/matches/${matchId}`;
-      console.log('[matchService] Fetching match by ID:', { matchId, url });
+      let url = `${API_BASE_URL}/api/matches/${matchId}`;
+      if (wiki) {
+        url += `?wiki=${encodeURIComponent(wiki)}`;
+      }
+      console.log('[matchService] Fetching match by ID:', { matchId, wiki, url });
 
       const response = await fetch(url);
 

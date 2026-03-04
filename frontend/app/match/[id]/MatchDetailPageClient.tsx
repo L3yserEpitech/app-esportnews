@@ -24,6 +24,7 @@ import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
 
 interface MatchDetailPageClientProps {
   matchId: string;
+  wiki?: string;
 }
 
 // --- Helpers ---
@@ -67,7 +68,7 @@ const InfoRow = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export default function MatchDetailPageClient({ matchId }: MatchDetailPageClientProps) {
+export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPageClientProps) {
   const t = useTranslations('pages_detail.match_detail');
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +100,7 @@ export default function MatchDetailPageClient({ matchId }: MatchDetailPageClient
     const loadMatch = async () => {
       try {
         setLoading(true);
-        const data = await matchService.getMatchById(matchId);
+        const data = await matchService.getMatchById(matchId, wiki);
         setMatch(data);
 
         if (data.opponents && data.opponents.length === 2) {
