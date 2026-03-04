@@ -154,6 +154,7 @@ type NormalizedTeamCompact struct {
 	Slug     string  `json:"slug"`
 	Acronym  *string `json:"acronym"`
 	ImageURL *string `json:"image_url"`
+	Template string  `json:"template,omitempty"` // Liquipedia team template/pagename for squad fetching
 }
 
 type NormalizedMatchCompact struct {
@@ -382,6 +383,86 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		IconURL:        t.IconURL,
 		IconDarkURL:    t.IconDarkURL,
 	}
+}
+
+// --- Enriched tournament detail (used by GET /tournaments/:id) ---
+
+// EnrichedTournamentDetail extends NormalizedTournament with full match data
+// and roster info. In Go JSON, outer fields shadow the embedded struct's
+// Matches/Teams/ExpectedRoster fields.
+type EnrichedTournamentDetail struct {
+	NormalizedTournament
+	Matches        []NormalizedMatch        `json:"matches"`
+	ExpectedRoster []NormalizedRosterEntry   `json:"expected_roster"`
+	Teams          []NormalizedTeamCompact   `json:"teams"`
+}
+
+// NormalizedRosterEntry matches the frontend PandaRoster interface.
+type NormalizedRosterEntry struct {
+	Team    *NormalizedRosterTeam    `json:"team"`
+	Players []NormalizedRosterPlayer `json:"players"`
+}
+
+// NormalizedRosterTeam matches the frontend PandaTeam for roster display.
+type NormalizedRosterTeam struct {
+	ID       int     `json:"id"`
+	Name     string  `json:"name"`
+	Slug     string  `json:"slug"`
+	Acronym  *string `json:"acronym"`
+	ImageURL *string `json:"image_url"`
+	Location *string `json:"location,omitempty"`
+}
+
+// NormalizedRosterPlayer matches the frontend PandaPlayer for roster display.
+type NormalizedRosterPlayer struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Active      bool    `json:"active"`
+	Role        *string `json:"role,omitempty"`
+	ImageURL    *string `json:"image_url,omitempty"`
+	FirstName   *string `json:"first_name,omitempty"`
+	LastName    *string `json:"last_name,omitempty"`
+	Nationality *string `json:"nationality,omitempty"`
+}
+
+// ExtractTeamsAndRostersFromMatches extracts unique teams from match opponents
+// and builds roster entries. Players are empty (fetching squads would cost
+// N additional API calls).
+func ExtractTeamsAndRostersFromMatches(matches []NormalizedMatch) ([]NormalizedTeamCompact, []NormalizedRosterEntry) {
+	seen := make(map[int]bool)
+	var teams []NormalizedTeamCompact
+	var rosters []NormalizedRosterEntry
+
+	for _, m := range matches {
+		for _, opp := range m.Opponents {
+			if opp.Opponent == nil || opp.Opponent.ID == 0 || seen[opp.Opponent.ID] {
+				continue
+			}
+			seen[opp.Opponent.ID] = true
+			teams = append(teams, *opp.Opponent)
+
+			rosterTeam := &NormalizedRosterTeam{
+				ID:       opp.Opponent.ID,
+				Name:     opp.Opponent.Name,
+				Slug:     opp.Opponent.Slug,
+				Acronym:  opp.Opponent.Acronym,
+				ImageURL: opp.Opponent.ImageURL,
+			}
+			rosters = append(rosters, NormalizedRosterEntry{
+				Team:    rosterTeam,
+				Players: []NormalizedRosterPlayer{},
+			})
+		}
+	}
+
+	if teams == nil {
+		teams = []NormalizedTeamCompact{}
+	}
+	if rosters == nil {
+		rosters = []NormalizedRosterEntry{}
+	}
+
+	return teams, rosters
 }
 
 // NormalizeLiqTournaments normalizes a slice of Liquipedia tournaments.

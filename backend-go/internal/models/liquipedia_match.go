@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +64,9 @@ type LiqOpponent struct {
 	Type          string          `json:"type"`
 	ID            interface{}     `json:"id"` // int from Liquipedia API (1, 2, ...)
 	Icon          string          `json:"icon"`
+	IconURL       string          `json:"iconurl"`
 	IconDark      string          `json:"icondark"`
+	IconDarkURL   string          `json:"icondarkurl"`
 	Match2Players json.RawMessage `json:"match2players"`
 }
 
@@ -362,8 +365,12 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 		}
 
 		var imageURL *string
-		if opp.Icon != "" {
-			u := liquipediaFileURL + opp.Icon
+		if opp.IconDarkURL != "" {
+			imageURL = &opp.IconDarkURL
+		} else if opp.IconURL != "" {
+			imageURL = &opp.IconURL
+		} else if opp.Icon != "" {
+			u := liquipediaFileURL + url.PathEscape(opp.Icon)
 			imageURL = &u
 		}
 
@@ -373,6 +380,7 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 			Slug:     pageNameToSlug(opp.Name),
 			Acronym:  acronym,
 			ImageURL: imageURL,
+			Template: opp.Template,
 		}
 
 		normalized = append(normalized, NormalizedOpponent{
@@ -627,18 +635,23 @@ func buildMatchLeague(m LiqMatch) *NormalizedLeague {
 // --- Helpers ---
 
 // parseScore converts a score value (string or number) to int.
+// Liquipedia uses -1 to indicate "no score yet"; we clamp to 0.
 func parseScore(v interface{}) int {
+	var score int
 	switch s := v.(type) {
 	case float64:
-		return int(s)
+		score = int(s)
 	case string:
 		if n, err := strconv.Atoi(s); err == nil {
-			return n
+			score = n
 		}
 	case json.Number:
 		if n, err := s.Int64(); err == nil {
-			return int(n)
+			score = int(n)
 		}
 	}
-	return 0
+	if score < 0 {
+		return 0
+	}
+	return score
 }

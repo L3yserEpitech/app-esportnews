@@ -456,6 +456,98 @@ func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPag
 	return models.NormalizeLiqSquadPlayers(squadPlayers)
 }
 
+// FetchBatchSquadPlayers fetches squad players for multiple teams in a single API call.
+// Uses OR conditions on teamtemplate ([[teamtemplate::t1||t2||...]]) to minimize API budget usage.
+// Returns a map of team template → []NormalizedRosterPlayer.
+func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki string, teamTemplates []string, cacheKey string, ttl time.Duration) map[string][]models.NormalizedRosterPlayer {
+	if len(teamTemplates) == 0 {
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	// Normalize templates to lowercase (Liquipedia templates are lowercase)
+	lowerTemplates := make([]string, len(teamTemplates))
+	for i, t := range teamTemplates {
+		lowerTemplates[i] = strings.ToLower(t)
+	}
+
+	params := url.Values{}
+	params.Set("wiki", wiki)
+	condition := fmt.Sprintf("[[teamtemplate::%s]] AND [[type::player]]", strings.Join(lowerTemplates, "||"))
+	params.Set("conditions", condition)
+	params.Set("limit", "500")
+
+	s.log.WithFields(logrus.Fields{
+		"wiki":      wiki,
+		"templates": len(teamTemplates),
+		"condition": condition,
+	}).Debug("Batch fetching squad players")
+
+	data, err := s.MakeRequest(ctx, wiki, "squadplayer", params, cacheKey, ttl)
+	if err != nil {
+		s.log.WithError(err).WithField("wiki", wiki).Debug("Failed to batch fetch squad players")
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	s.log.WithFields(logrus.Fields{
+		"wiki":       wiki,
+		"rawResults": len(resp.Result),
+	}).Debug("Batch squad players API response")
+
+	// Group players by team template (lowercase, matches the query)
+	teamPlayers := make(map[string][]models.LiqSquadPlayer)
+	for _, raw := range resp.Result {
+		var sp models.LiqSquadPlayer
+		if err := json.Unmarshal(raw, &sp); err != nil {
+			continue
+		}
+		key := strings.ToLower(sp.TeamTemplate)
+		if key == "" {
+			key = strings.ToLower(sp.PageName) // fallback
+		}
+		teamPlayers[key] = append(teamPlayers[key], sp)
+	}
+
+	// Normalize each group
+	result := make(map[string][]models.NormalizedRosterPlayer)
+	for tmpl, players := range teamPlayers {
+		normalized := models.NormalizeLiqSquadPlayers(players)
+		rosterPlayers := make([]models.NormalizedRosterPlayer, 0, len(normalized))
+		for _, p := range normalized {
+			rp := models.NormalizedRosterPlayer{
+				ID:     p.ID,
+				Name:   p.Name,
+				Active: p.Active,
+				Role:   p.Role,
+			}
+			if p.ImageURL != "" {
+				v := p.ImageURL
+				rp.ImageURL = &v
+			}
+			if p.FirstName != "" {
+				v := p.FirstName
+				rp.FirstName = &v
+			}
+			if p.LastName != "" {
+				v := p.LastName
+				rp.LastName = &v
+			}
+			if p.Nationality != "" {
+				v := p.Nationality
+				rp.Nationality = &v
+			}
+			rosterPlayers = append(rosterPlayers, rp)
+		}
+		result[tmpl] = rosterPlayers
+	}
+
+	return result
+}
+
 // getAllWikis returns a list of all known Liquipedia wiki names.
 func (s *LiquipediaService) getAllWikis() []string {
 	wikis := make([]string, 0, len(models.GameWikiMapping))
