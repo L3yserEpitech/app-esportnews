@@ -33,7 +33,7 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
     ? 'bg-[var(--color-status-live)]'
     : isFinished
       ? 'bg-[var(--color-text-muted)]/40'
-      : 'bg-[var(--color-accent)]';
+      : 'bg-blue-500';
 
   return (
     <Link href={`/match/${match.id}`}>

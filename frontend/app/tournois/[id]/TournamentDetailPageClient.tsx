@@ -161,22 +161,19 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
   const memoizedAds = useMemo(() => ads, [ads]);
 
-  // Separate matches: live vs others, group others by date
+  // Separate live matches + group ALL matches by date (live included in today)
   const { liveMatches, matchesByDate, totalMatches } = useMemo(() => {
     const matches = tournament?.matches || [];
     const live: PandaMatch[] = [];
-    const other: PandaMatch[] = [];
 
     matches.forEach(m => {
       if (m.status === 'running') {
         live.push(m);
-      } else {
-        other.push(m);
       }
     });
 
-    // Sort by date descending (most recent first)
-    other.sort((a, b) => {
+    // Sort all matches by date descending (most recent first)
+    const sorted = [...matches].sort((a, b) => {
       const dateA = a.begin_at || a.scheduled_at || '';
       const dateB = b.begin_at || b.scheduled_at || '';
       return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -184,7 +181,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
     return {
       liveMatches: live,
-      matchesByDate: groupMatchesByDate(other),
+      matchesByDate: groupMatchesByDate(sorted),
       totalMatches: matches.length,
     };
   }, [tournament?.matches]);
