@@ -5,14 +5,11 @@ import { useTranslations } from 'next-intl';
 import {
   Gamepad2,
   Calendar,
-  BarChart3,
   Users,
-  CheckCircle,
-  Clock,
-  Info,
-  TrendingUp,
   Trophy,
   Newspaper,
+  Zap,
+  Globe,
 } from 'lucide-react';
 import { PandaTournament, PandaMatch, NewsItem } from '@/app/types';
 import { tournamentService } from '@/app/services/tournamentService';
@@ -22,38 +19,68 @@ import { articleService } from '@/app/services/articleService';
 import { Advertisement } from '@/app/types';
 import AdColumn from '@/app/components/ads/AdColumn';
 import TeamsRosters from '@/app/components/tournaments/TeamsRosters';
-import TournamentStats from '@/app/components/tournaments/TournamentStats';
-import LiveMatchCard from '@/app/components/matches/LiveMatchCard';
+import TournamentMatchCard from '@/app/components/tournaments/TournamentMatchCard';
+import TournamentBracket from '@/app/components/tournaments/TournamentBracket';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import Card from '@/app/components/ui/Card';
 import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
+import { proxyImageUrl } from '@/app/lib/imageProxy';
 
 interface TournamentDetailPageClientProps {
   tournamentId: string;
 }
 
-const esportBackgrounds = [
-  'https://images.unsplash.com/photo-1587095951604-b9d924a3fda0?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  'https://images.pexels.com/photos/7862518/pexels-photo-7862518.jpeg',
-  'https://images.pexels.com/photos/14266493/pexels-photo-14266493.jpeg',
-  'https://images.pexels.com/photos/7915216/pexels-photo-7915216.jpeg',
-  'https://images.pexels.com/photos/7849513/pexels-photo-7849513.jpeg',
-  'https://images.pexels.com/photos/7862508/pexels-photo-7862508.jpeg',
-  'https://images.pexels.com/photos/6125333/pexels-photo-6125333.jpeg',
-  'https://images.pexels.com/photos/2263410/pexels-photo-2263410.jpeg',
-  'https://images.pexels.com/photos/9072317/pexels-photo-9072317.jpeg',
-  'https://senet-cloud.s3.eu-central-1.amazonaws.com/assets/images/601aee0379b57/keyarena_seattle.jpg',
-  'https://t4.ftcdn.net/jpg/05/70/24/67/360_F_570246739_Kg1bu2gzoCYziBgt0KqKYi9HJPm8Ndqz.jpg',
-  'https://images.stockcake.com/public/b/f/6/bf67663c-009e-45a9-9c58-eac8767d3d50_large/epic-gaming-event-stockcake.jpg',
-  'https://senet-cloud.s3.eu-central-1.amazonaws.com/assets/images/6064a55c9a5d7/lol_park_esports_stadium.jpg',
-  'https://official.garena.com/sg/v1/config/gallery_esport01.jpg',
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjhMR9ABK5pjusiu0gxvHJuG3xOxIFfPfG6Q&s',
-  'https://images.stockcake.com/public/3/0/a/30a65fff-8037-498e-8eb8-2c6d8e9fdc7f_large/gaming-tournament-action-stockcake.jpg',
-  'https://t4.ftcdn.net/jpg/05/70/24/67/360_F_570246736_xICutjsnExPt1v9DP2XebD7GtCDoMsIb.jpg',
-  'https://t4.ftcdn.net/jpg/05/97/50/07/360_F_597500737_MAhUxiVskdhrjNSIb9jbz0Otmw9rvmaO.jpg',
-  'https://imageio.forbes.com/specials-images/imageserve/5e0f8f19db7a9600065d7cec/photo-of-an-esports-arena/960x0.jpg?format=jpg&width=960',
-];
+/** Group matches by date string (YYYY-MM-DD) preserving order */
+function groupMatchesByDate(matches: PandaMatch[]): { dateKey: string; label: string; matches: PandaMatch[] }[] {
+  const groups = new Map<string, PandaMatch[]>();
+  const order: string[] = [];
+
+  for (const m of matches) {
+    const raw = m.begin_at || m.scheduled_at || '';
+    let dateKey = 'unknown';
+    if (raw) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime()) && d.getFullYear() >= 2000) {
+        dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, []);
+      order.push(dateKey);
+    }
+    groups.get(dateKey)!.push(m);
+  }
+
+  return order.map(dateKey => {
+    let label: string;
+    if (dateKey === 'unknown') {
+      label = 'Date inconnue';
+    } else {
+      const [y, mo, d] = dateKey.split('-').map(Number);
+      const date = new Date(y, mo - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      if (date.getTime() === today.getTime()) {
+        label = "Aujourd'hui";
+      } else if (date.getTime() === yesterday.getTime()) {
+        label = 'Hier';
+      } else if (date.getTime() === tomorrow.getTime()) {
+        label = 'Demain';
+      } else {
+        label = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        // Capitalize first letter
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+      }
+    }
+    return { dateKey, label, matches: groups.get(dateKey)! };
+  });
+}
 
 export default function TournamentDetailPageClient({ tournamentId }: TournamentDetailPageClientProps) {
   const t = useTranslations('pages_detail.tournament_detail');
@@ -64,8 +91,9 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
   const [relatedArticles, setRelatedArticles] = useState<NewsItem[]>([]);
+  const [bannerError, setBannerError] = useState(false);
 
-  // Charger les publicités
+  // Load ads
   useEffect(() => {
     const loadAds = async () => {
       try {
@@ -78,56 +106,33 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
         setIsLoadingAds(false);
       }
     };
-
     loadAds();
   }, []);
 
-  // Charger le tournoi
+  // Load tournament
   useEffect(() => {
     const loadTournament = async () => {
       try {
         setLoading(true);
-        console.log(`[Tournament Detail] Fetching tournament ID: ${tournamentId}`);
         const data = await tournamentService.getTournamentById(tournamentId);
-        console.log(`[Tournament Detail] ✅ Tournament loaded:`, {
-          id: data.id,
-          name: data.name,
-          matchesCount: data.matches?.length || 0,
-          teamsCount: data.teams?.length || 0,
-          expectedRosterCount: data.expected_roster?.length || 0,
-        });
         setTournament(data);
 
-        // The backend now enriches matches directly via [[parent::PageName]].
-        // Only attempt re-enrichment if ALL matches lack opponents (backend didn't enrich).
-        // Some TBD bracket matches naturally have empty opponents — that's expected.
         const allMatchesLackOpponents = data.matches?.every(m => !m.opponents || m.opponents.length === 0);
         if (data.matches && data.matches.length > 0 && allMatchesLackOpponents) {
-          console.log(`[Tournament Detail] 📦 No matches have opponents — attempting re-enrichment for ${data.matches.length} matches...`);
           const matchIds = data.matches.map((m) => m.id);
-
           try {
             const enrichedMatches = await matchService.getMatchesByIds(matchIds);
             if (enrichedMatches.length > 0) {
-              setTournament((prevTournament) => {
-                if (!prevTournament) return prevTournament;
-                return {
-                  ...prevTournament,
-                  matches: enrichedMatches,
-                };
-              });
+              setTournament((prev) => prev ? { ...prev, matches: enrichedMatches } : prev);
             }
           } catch (matchError) {
-            console.error('[Tournament Detail] ⚠️ Error loading match details, using basic tournament data:', matchError);
+            console.error('[Tournament Detail] Error loading match details:', matchError);
           }
-        } else if (data.matches && data.matches.length > 0) {
-          console.log(`[Tournament Detail] ✅ Matches enriched from backend (${data.matches.length} matches)`);
         }
 
-        // Charger les articles liés au tournoi
+        // Load related articles
         try {
           const tournamentTags = [data.name, data.league?.name].filter(Boolean);
-          console.log(`[Tournament Detail] 📰 Searching related articles with tags:`, tournamentTags);
           const articles = await articleService.getAllArticles();
           const related = articles
             .filter(a => {
@@ -137,13 +142,12 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
               );
             })
             .slice(0, 3);
-          console.log(`[Tournament Detail] 📰 Found ${related.length} related articles`);
           setRelatedArticles(related);
         } catch (articleError) {
           console.error('[Tournament Detail] Error loading related articles:', articleError);
         }
       } catch (err) {
-        console.error('[Tournament Detail] ❌ Error loading tournament:', err);
+        console.error('[Tournament Detail] Error loading tournament:', err);
         setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
       } finally {
         setLoading(false);
@@ -157,23 +161,46 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
   const memoizedAds = useMemo(() => ads, [ads]);
 
-  // Format utilities
+  // Separate matches: live vs others, group others by date
+  const { liveMatches, matchesByDate, totalMatches } = useMemo(() => {
+    const matches = tournament?.matches || [];
+    const live: PandaMatch[] = [];
+    const other: PandaMatch[] = [];
+
+    matches.forEach(m => {
+      if (m.status === 'running') {
+        live.push(m);
+      } else {
+        other.push(m);
+      }
+    });
+
+    // Sort by date descending (most recent first)
+    other.sort((a, b) => {
+      const dateA = a.begin_at || a.scheduled_at || '';
+      const dateB = b.begin_at || b.scheduled_at || '';
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+
+    return {
+      liveMatches: live,
+      matchesByDate: groupMatchesByDate(other),
+      totalMatches: matches.length,
+    };
+  }, [tournament?.matches]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   const getTierColor = (tier: string) => {
-    const colors: { [key: string]: string } = {
-      's': 'bg-yellow-500 text-gray-950',
-      'a': 'bg-blue-500 text-white',
-      'b': 'bg-green-500 text-white',
-      'c': 'bg-purple-500 text-white',
-      'd': 'bg-gray-500 text-white',
+    const colors: Record<string, string> = {
+      's': 'bg-[var(--color-tier-s)] text-gray-950',
+      'a': 'bg-[var(--color-tier-a)] text-white',
+      'b': 'bg-[var(--color-tier-b)] text-white',
+      'c': 'bg-[var(--color-tier-c)] text-white',
+      'd': 'bg-[var(--color-tier-d)] text-white',
     };
     return colors[tier.toLowerCase()] || colors['d'];
   };
@@ -183,18 +210,20 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
     const now = new Date();
     const begin = new Date(tournament.begin_at);
     const end = new Date(tournament.end_at || tournament.begin_at);
-
-    if (now < begin) return t('status_upcoming');
-    if (now > end) return t('status_finished');
-    return t('status_running');
+    if (now < begin) return { label: t('status_upcoming'), color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+    if (now > end) return { label: t('status_finished'), color: 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-muted)] border-[var(--color-text-muted)]/30' };
+    return { label: t('status_running'), color: 'bg-red-500/20 text-red-400 border-red-500/30' };
   };
+
+  const bannerUrl = tournament?.banner_dark_url || tournament?.banner_url;
+  const hasBanner = bannerUrl && !bannerError;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-accent border-t-accent/30 rounded-full animate-spin mb-4"></div>
-          <p className="text-text-secondary">{t('loading')}</p>
+          <div className="inline-block w-12 h-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[var(--color-text-secondary)]">{t('loading')}</p>
         </div>
       </div>
     );
@@ -202,33 +231,24 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
   if (error || !tournament) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
         <Card variant="outlined" className="p-8 max-w-md">
-          <p className="text-red-500 text-center">
-            {error || t('not_found')}
-          </p>
+          <p className="text-red-500 text-center">{error || t('not_found')}</p>
         </Card>
       </div>
     );
   }
 
   const status = getTournamentStatus();
-
-  // Sélectionner une image aléatoire basée sur l'ID du tournoi (cohérent à chaque rendu)
-  const backgroundImage = esportBackgrounds[tournament.id % esportBackgrounds.length];
-
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
   const tournamentUrl = `${siteUrl}/tournois/${tournament.id}`;
-
-  // Breadcrumbs
   const breadcrumbs = generateBreadcrumbs([
     { name: 'Tournois', url: '/tournois' },
     { name: tournament.name, url: tournamentUrl },
   ]);
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      {/* Structured Data pour SEO */}
+    <div className="min-h-screen bg-[var(--color-bg-primary)]">
       <TournamentSchema
         name={tournament.name}
         description={`Tournoi ${tournament.name} - ${tournament.league?.name || 'Esport'}`}
@@ -241,122 +261,167 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
       />
       <BreadcrumbSchema items={breadcrumbs} />
 
-      {/* Hero Section */}
-      <div className="relative w-full h-96 overflow-hidden mt-20">
-        {/* Image de fond */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `url(${backgroundImage})`,
-          }}
-        />
-
-        {/* Dégradé fondu de haut en bas vers le reste du site */}
-        <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/40 via-bg-primary/60 to-bg-primary/95" />
-
-        {/* Overlay supplémentaire pour plus de contraste */}
-        <div className="absolute inset-0 bg-gradient-to-r from-bg-primary/80 via-bg-primary/40 to-bg-primary/80" />
-
-        {/* Effets de lumière (rose/bleu) */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl" />
-        </div>
-
-        {/* Contenu du hero */}
-        <div className="relative h-full flex flex-col justify-center container mx-auto px-4">
-          <div className="space-y-4">
-            {/* Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${getTierColor(tournament.tier || '')}`}>
-                {t('tier_label')} {(tournament.tier || '-').toUpperCase()}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === t('status_running') ? 'bg-red-500/20 text-red-400' :
-                status === t('status_upcoming') ? 'bg-orange-500/20 text-orange-400' :
-                  'bg-gray-500/20 text-gray-400'
-                }`}>
-                {status}
-              </span>
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-500/20 text-blue-400">
-                {tournament.region}
-              </span>
+      {/* ── Header ── */}
+      <div className="container mx-auto px-4 pt-35">
+        <div className="flex items-start gap-4">
+          {/* Icon */}
+          {(tournament.icon_dark_url || tournament.icon_url) && (
+            <div className="hidden sm:flex w-14 h-14 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] items-center justify-center overflow-hidden flex-shrink-0">
+              <img
+                src={proxyImageUrl(tournament.icon_dark_url || tournament.icon_url || '')}
+                alt=""
+                className="w-10 h-10 object-contain"
+              />
             </div>
-
-            {/* Titre */}
-            <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight">
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              {tournament.tier && (
+                <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider ${getTierColor(tournament.tier)}`}>
+                  {tournament.tier.toUpperCase()}
+                </span>
+              )}
+              {status && (
+                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${status.color}`}>
+                  {status.label}
+                </span>
+              )}
+              {tournament.videogame?.slug && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-[var(--color-text-muted)] bg-[var(--color-bg-hover)] uppercase">
+                  {tournament.videogame.slug}
+                </span>
+              )}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text-primary)] leading-tight">
               {tournament.name}
             </h1>
+          </div>
 
-            {/* Sous-titre et infos */}
-            <div className="space-y-2">
-              {tournament.league?.name && (
-                <p className="text-xl text-white">
-                  {tournament.league.name}
-                </p>
-              )}
-              <p className="text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-white" />
-                {tournament.begin_at ? formatDate(tournament.begin_at) : '-'} - {tournament.end_at ? formatDate(tournament.end_at) : (tournament.begin_at ? formatDate(tournament.begin_at) : '-')}
-              </p>
+          {/* Banner — small contained image on the right */}
+          {hasBanner && (
+            <div className="hidden md:block flex-shrink-0 w-64 lg:w-80 overflow-hidden border border-[var(--color-border-primary)]/50">
+              <img
+                src={proxyImageUrl(bannerUrl)}
+                alt=""
+                className="w-full h-auto object-contain"
+                onError={() => setBannerError(true)}
+              />
             </div>
+          )}
+        </div>
+
+        {/* Meta line */}
+        <div className="flex items-center gap-4 flex-wrap mt-3 text-sm text-[var(--color-text-secondary)] pb-6 border-b border-[var(--color-border-primary)]/50">
+          {tournament.league?.name && (
+            <span className="flex items-center gap-1.5">
+              <Trophy className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                {tournament.league.name}
+              </span>
+            )}
+            {tournament.begin_at && (
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                {formatDate(tournament.begin_at)}
+                {tournament.end_at && ` — ${formatDate(tournament.end_at)}`}
+              </span>
+            )}
+            {tournament.region && (
+              <span className="flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                <span className="capitalize">{tournament.region}</span>
+              </span>
+            )}
+            {tournament.prizepool && (
+              <span className="font-bold text-[var(--color-accent)]">{tournament.prizepool}</span>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Contenu principal */}
-      <main className="container mx-auto px-4 py-8 pt-24 md:pt-27">
+      {/* ── Main Content ── */}
+      <main className="container mx-auto px-4 py-8">
         <div className="flex gap-8">
-          {/* Colonne principale */}
-          <div className="flex-1 min-w-0 space-y-12">
+          <div className="flex-1 min-w-0 space-y-10">
 
-            {/* Section Tous les matchs */}
-            <section className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
-                    <Gamepad2 className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-text-primary">{t('all_matches')}</h2>
+            {/* ── Live Matches ── */}
+            {liveMatches.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-status-live)] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--color-status-live)]" />
+                  </span>
+                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{t('live_matches_title')}</h2>
+                  <span className="text-xs font-semibold text-[var(--color-status-live)] bg-[var(--color-status-live)]/10 px-2 py-0.5 rounded">
+                    {liveMatches.length}
+                  </span>
                 </div>
-                <p className="text-text-secondary text-sm ml-13">
-                  {(tournament.matches?.length || 0)} {(tournament.matches?.length || 0) > 1 ? t('matches_total_plural') : t('matches_total_singular')}
-                </p>
-              </div>
-
-              {(tournament.matches?.length || 0) > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {(tournament.matches || []).map(match => (
-                    <LiveMatchCard key={match.id} match={match} showGames={true} />
+                <div className="space-y-1.5">
+                  {liveMatches.map(match => (
+                    <TournamentMatchCard key={match.id} match={match} />
                   ))}
                 </div>
-              ) : (
-                <Card variant="outlined" className="p-8 text-center">
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-border-muted/20 to-border-muted/10 rounded-xl flex items-center justify-center">
-                      <Gamepad2 className="w-8 h-8 text-text-muted" />
+              </section>
+            )}
+
+            {/* ── Bracket Tree (desktop only) ── */}
+            <div className="hidden md:block">
+              <TournamentBracket matches={tournament.matches || []} />
+            </div>
+
+            {/* ── All Matches (grouped by date) ── */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <Gamepad2 className="w-5 h-5 text-[var(--color-accent)]" />
+                <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{t('all_matches')}</h2>
+                <span className="text-xs text-[var(--color-text-muted)] font-medium">
+                  {totalMatches} {totalMatches > 1 ? t('matches_total_plural') : t('matches_total_singular')}
+                </span>
+              </div>
+
+              {matchesByDate.length > 0 ? (
+                <div className="space-y-6">
+                  {matchesByDate.map(group => (
+                    <div key={group.dateKey}>
+                      {/* Date header */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <Calendar className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                        <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
+                          {group.label}
+                        </span>
+                        <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {group.matches.length} match{group.matches.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {group.matches.map(match => (
+                          <TournamentMatchCard key={match.id} match={match} />
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-text-secondary text-lg">{t('no_matches')}</p>
-                    <p className="text-text-muted text-sm">{t('no_matches_subtitle')}</p>
-                  </div>
-                </Card>
-              )}
+                  ))}
+                </div>
+              ) : totalMatches === 0 ? (
+                <div className="rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] p-10 text-center">
+                  <Gamepad2 className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-3" />
+                  <p className="text-[var(--color-text-secondary)] font-medium">{t('no_matches')}</p>
+                  <p className="text-[var(--color-text-muted)] text-sm mt-1">{t('no_matches_subtitle')}</p>
+                </div>
+              ) : null}
             </section>
 
-            {/* Équipes et Rosters */}
+            {/* ── Teams & Rosters ── */}
             <section>
               <TeamsRosters tournament={tournament} />
             </section>
 
-            {/* Articles liés au tournoi */}
+            {/* ── Related Articles ── */}
             {relatedArticles.length > 0 && (
-              <section className="space-y-6 mt-12">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
-                    <Newspaper className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-text-primary">{t('related_news')}</h2>
+              <section className="space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <Newspaper className="w-5 h-5 text-[var(--color-accent)]" />
+                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{t('related_news')}</h2>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {relatedArticles.map((article) => (
                     <ArticleCard key={article.id} article={article} />
@@ -367,7 +432,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
 
           </div>
 
-          {/* Colonne publicitaire */}
+          {/* Ad column */}
           <AdColumn
             ads={memoizedAds}
             isSubscribed={isSubscribed}

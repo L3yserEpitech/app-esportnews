@@ -133,6 +133,10 @@ type NormalizedMatch struct {
 	// Extra Liquipedia fields for match detail navigation
 	Match2ID string `json:"match2id,omitempty"`
 	Wiki     string `json:"wiki,omitempty"`
+
+	// Bracket fields for tournament bracket tree
+	Section         string `json:"section,omitempty"`
+	Match2BracketID string `json:"match2bracketid,omitempty"`
 }
 
 // NormalizedOpponent matches the frontend PandaOpponent interface.
@@ -293,8 +297,10 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		Winner:        winner,
 		Live:          live,
 		Videogame:     vg,
-		Match2ID:      m.Match2ID,
-		Wiki:          wiki,
+		Match2ID:        m.Match2ID,
+		Wiki:            wiki,
+		Section:         m.Section,
+		Match2BracketID: m.Match2BracketID,
 	}
 }
 

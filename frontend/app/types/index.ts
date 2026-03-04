@@ -191,6 +191,11 @@ export interface PandaMatch {
     opens_at?: string | null;
   };
   videogame?: PandaVideogame;
+
+  // Bracket fields for tournament bracket tree
+  section?: string | null;
+  match2bracketid?: string | null;
+  match2id?: string | null;
 }
 
 export interface PandaStream {

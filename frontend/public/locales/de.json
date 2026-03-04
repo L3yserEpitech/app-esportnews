@@ -453,6 +453,7 @@
       "status_running": "Laufend",
       "status_upcoming": "Bevorstehend",
       "status_finished": "Beendet",
+      "live_matches_title": "Live-Spiele",
       "all_matches": "Alle Spiele",
       "matches_total_singular": "Spiel insgesamt",
       "matches_total_plural": "Spiele insgesamt",
