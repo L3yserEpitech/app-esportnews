@@ -451,6 +451,7 @@
       "status_running": "Ongoing",
       "status_upcoming": "Upcoming",
       "status_finished": "Finished",
+      "live_matches_title": "Live Matches",
       "all_matches": "All Matches",
       "matches_total_singular": "match total",
       "matches_total_plural": "matches total",

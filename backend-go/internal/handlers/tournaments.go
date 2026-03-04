@@ -444,49 +444,30 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 
 	teams, rosters := models.ExtractTeamsAndRostersFromMatches(matches)
 
-	// Collect unique team templates for batch squad fetch (lowercase for Liquipedia matching)
-	var teamTemplates []string
-	templateSeen := make(map[string]bool)
+	// Collect unique team names (pagenames) for batch squad fetch
+	var teamNames []string
+	nameSeen := make(map[string]bool)
 	for _, roster := range rosters {
-		if roster.Team != nil {
-			tmpl := ""
-			for _, t := range teams {
-				if t.ID == roster.Team.ID && t.Template != "" {
-					tmpl = t.Template
-					break
-				}
-			}
-			if tmpl == "" {
-				tmpl = roster.Team.Name
-			}
-			lower := strings.ToLower(tmpl)
-			if lower != "" && !templateSeen[lower] {
-				templateSeen[lower] = true
-				teamTemplates = append(teamTemplates, tmpl)
+		if roster.Team != nil && roster.Team.Name != "" {
+			if !nameSeen[roster.Team.Name] {
+				nameSeen[roster.Team.Name] = true
+				teamNames = append(teamNames, roster.Team.Name)
 			}
 		}
 	}
 
 	// Batch fetch squad players for all teams in 1 API call
-	if len(teamTemplates) > 0 {
+	if len(teamNames) > 0 {
 		squadCacheKey := cache.LiqTournamentSquadsKey(wiki, tournament.PageName)
-		playersByTeam := h.liqService.FetchBatchSquadPlayers(ctx, wiki, teamTemplates, squadCacheKey, services.TTLTournamentDetail)
+		playersByTeam := h.liqService.FetchBatchSquadPlayers(ctx, wiki, teamNames, squadCacheKey, services.TTLTournamentDetail)
 
-		// Attach players to their roster entries (match by lowercase template)
+		// Attach players to their roster entries (match by lowercase team name = pagename)
 		for i, roster := range rosters {
 			if roster.Team == nil {
 				continue
 			}
-			tmpl := ""
-			for _, t := range teams {
-				if t.ID == roster.Team.ID && t.Template != "" {
-					tmpl = strings.ToLower(t.Template)
-					break
-				}
-			}
-			if players, ok := playersByTeam[tmpl]; ok && len(players) > 0 {
-				rosters[i].Players = players
-			} else if players, ok := playersByTeam[strings.ToLower(roster.Team.Name)]; ok && len(players) > 0 {
+			key := strings.ToLower(roster.Team.Name)
+			if players, ok := playersByTeam[key]; ok && len(players) > 0 {
 				rosters[i].Players = players
 			}
 		}
@@ -494,7 +475,7 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 		h.log.WithFields(logrus.Fields{
 			"wiki":       wiki,
 			"tournament": tournament.PageName,
-			"templates":  len(teamTemplates),
+			"teamNames":  len(teamNames),
 			"teamsFound": len(playersByTeam),
 		}).Info("Batch squad fetch complete")
 	}

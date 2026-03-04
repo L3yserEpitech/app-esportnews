@@ -457,34 +457,35 @@ func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPag
 }
 
 // FetchBatchSquadPlayers fetches squad players for multiple teams in a single API call.
-// Uses OR conditions on teamtemplate ([[teamtemplate::t1||t2||...]]) to minimize API budget usage.
-// Returns a map of team template → []NormalizedRosterPlayer.
-func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki string, teamTemplates []string, cacheKey string, ttl time.Duration) map[string][]models.NormalizedRosterPlayer {
-	if len(teamTemplates) == 0 {
+// Uses OR conditions on pagename ([[pagename::T1]] OR [[pagename::T2]] OR ...) since
+// Liquipedia's teamtemplate field includes date suffixes (e.g. "heroic sep 2024").
+// teamNames are the Liquipedia page names (opponent Name from match data).
+// Returns a map of lowercase team name → []NormalizedRosterPlayer (active players only).
+func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki string, teamNames []string, cacheKey string, ttl time.Duration) map[string][]models.NormalizedRosterPlayer {
+	if len(teamNames) == 0 {
 		return map[string][]models.NormalizedRosterPlayer{}
 	}
 
-	// Normalize templates to lowercase (Liquipedia templates are lowercase)
-	lowerTemplates := make([]string, len(teamTemplates))
-	for i, t := range teamTemplates {
-		lowerTemplates[i] = strings.ToLower(t)
+	// Build OR condition: [[pagename::T1]] OR [[pagename::T2]] OR ...
+	// The || operator doesn't work with pagename, so we use the OR keyword.
+	parts := make([]string, len(teamNames))
+	for i, name := range teamNames {
+		parts[i] = fmt.Sprintf("[[pagename::%s]]", name)
 	}
+	condition := strings.Join(parts, " OR ")
 
 	params := url.Values{}
-	params.Set("wiki", wiki)
-	condition := fmt.Sprintf("[[teamtemplate::%s]] AND [[type::player]]", strings.Join(lowerTemplates, "||"))
 	params.Set("conditions", condition)
-	params.Set("limit", "500")
+	params.Set("limit", "5000")
 
 	s.log.WithFields(logrus.Fields{
-		"wiki":      wiki,
-		"templates": len(teamTemplates),
-		"condition": condition,
-	}).Debug("Batch fetching squad players")
+		"wiki":  wiki,
+		"teams": len(teamNames),
+	}).Info("Batch fetching squad players by pagename")
 
 	data, err := s.MakeRequest(ctx, wiki, "squadplayer", params, cacheKey, ttl)
 	if err != nil {
-		s.log.WithError(err).WithField("wiki", wiki).Debug("Failed to batch fetch squad players")
+		s.log.WithError(err).WithField("wiki", wiki).Warn("Failed to batch fetch squad players")
 		return map[string][]models.NormalizedRosterPlayer{}
 	}
 
@@ -496,25 +497,26 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 	s.log.WithFields(logrus.Fields{
 		"wiki":       wiki,
 		"rawResults": len(resp.Result),
-	}).Debug("Batch squad players API response")
+	}).Info("Batch squad players API response")
 
-	// Group players by team template (lowercase, matches the query)
+	// Group players by pagename (lowercase for matching), filter type=player and status!=former
 	teamPlayers := make(map[string][]models.LiqSquadPlayer)
 	for _, raw := range resp.Result {
 		var sp models.LiqSquadPlayer
 		if err := json.Unmarshal(raw, &sp); err != nil {
 			continue
 		}
-		key := strings.ToLower(sp.TeamTemplate)
-		if key == "" {
-			key = strings.ToLower(sp.PageName) // fallback
+		// Only keep current roster: type=player, not former
+		if sp.Type != "player" || sp.Status == "former" {
+			continue
 		}
+		key := strings.ToLower(sp.PageName)
 		teamPlayers[key] = append(teamPlayers[key], sp)
 	}
 
 	// Normalize each group
 	result := make(map[string][]models.NormalizedRosterPlayer)
-	for tmpl, players := range teamPlayers {
+	for teamKey, players := range teamPlayers {
 		normalized := models.NormalizeLiqSquadPlayers(players)
 		rosterPlayers := make([]models.NormalizedRosterPlayer, 0, len(normalized))
 		for _, p := range normalized {
@@ -542,7 +544,7 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 			}
 			rosterPlayers = append(rosterPlayers, rp)
 		}
-		result[tmpl] = rosterPlayers
+		result[teamKey] = rosterPlayers
 	}
 
 	return result
