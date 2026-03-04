@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { LiveMatch } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface LiveMatchCardProps {
   match: LiveMatch;
@@ -84,7 +85,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
                 {homeTeam?.image_url ? (
                   <img
-                    src={homeTeam.image_url}
+                    src={proxyImageUrl(homeTeam.image_url)}
                     alt={homeTeam.name}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
@@ -128,7 +129,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
                 {awayTeam?.image_url ? (
                   <img
-                    src={awayTeam.image_url}
+                    src={proxyImageUrl(awayTeam.image_url)}
                     alt={awayTeam.name}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
@@ -202,7 +203,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 {match.league.image_url && (
                   <div className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border border-[#182859]/30">
                     <img
-                      src={match.league.image_url}
+                      src={proxyImageUrl(match.league.image_url)}
                       alt={match.league.name}
                       className="w-full h-full object-cover"
                       loading="lazy"

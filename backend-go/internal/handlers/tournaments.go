@@ -158,36 +158,49 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 
 			for _, t := range tournaments {
 				if t.PageName == decodedID || t.Slug == decodedID || fmt.Sprintf("%d", t.ID) == decodedID {
-					return c.JSON(http.StatusOK, t)
+					enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
+					return c.JSON(http.StatusOK, enriched)
 				}
 			}
 		}
 	}
 
-	// Not found in cache — try on-demand fetch from all wikis
+	// Not found in cache — try on-demand fetch from all wikis.
+	// Build conditions: if ID is numeric, search by pageid; otherwise by pagename.
+	// Try both to maximize chance of finding the tournament.
+	_, isNumeric := strconv.Atoi(decodedID)
+	conditions := []string{fmt.Sprintf("[[pagename::%s]]", decodedID)}
+	if isNumeric == nil {
+		// Numeric ID — try pageid first (more likely), then pagename as fallback
+		conditions = []string{fmt.Sprintf("[[pageid::%s]]", decodedID), fmt.Sprintf("[[pagename::%s]]", decodedID)}
+	}
+
 	for _, wiki := range allWikis {
-		cacheKey := cache.LiqTournamentKey(wiki, decodedID)
-		params := url.Values{}
-		params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", decodedID))
-		params.Set("limit", "1")
+		for _, condition := range conditions {
+			cacheKey := cache.LiqTournamentKey(wiki, decodedID)
+			params := url.Values{}
+			params.Set("conditions", condition)
+			params.Set("limit", "1")
 
-		data, err := h.liqService.MakeRequest(ctx, wiki, "tournament", params, cacheKey, services.TTLTournamentDetail)
-		if err != nil {
-			continue
+			data, err := h.liqService.MakeRequest(ctx, wiki, "tournament", params, cacheKey, services.TTLTournamentDetail)
+			if err != nil {
+				continue
+			}
+
+			resp, err := services.ParseResponse(data)
+			if err != nil || len(resp.Result) == 0 {
+				continue
+			}
+
+			var liqT models.LiqTournament
+			if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
+				continue
+			}
+
+			normalized := models.NormalizeLiqTournament(liqT, wiki)
+			enriched := h.enrichTournamentWithMatches(ctx, normalized, wiki)
+			return c.JSON(http.StatusOK, enriched)
 		}
-
-		resp, err := services.ParseResponse(data)
-		if err != nil || len(resp.Result) == 0 {
-			continue
-		}
-
-		var liqT models.LiqTournament
-		if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
-			continue
-		}
-
-		normalized := models.NormalizeLiqTournament(liqT, wiki)
-		return c.JSON(http.StatusOK, normalized)
 	}
 
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "tournament not found"})
@@ -326,6 +339,181 @@ func (h *TournamentHandler) FilterTournaments(c echo.Context) error {
 }
 
 // --- Helpers ---
+
+// enrichTournamentWithMatches fetches all matches for a tournament from Liquipedia,
+// extracts teams from match opponents, and returns an enriched detail response.
+// Unlike the list endpoints, this does NOT filter by HasTwoNamedOpponents because
+// tournament brackets often contain TBD/upcoming match slots.
+func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tournament models.NormalizedTournament, wiki string) models.EnrichedTournamentDetail {
+	cacheKey := cache.LiqTournamentMatchesKey(wiki, tournament.PageName)
+	params := url.Values{}
+	// Use [[parent::PageName]] because the match's "tournament" field is a display name,
+	// while "parent" contains the actual pagename matching the tournament's pagename.
+	condition := fmt.Sprintf("[[parent::%s]]", tournament.PageName)
+	params.Set("conditions", condition)
+	params.Set("order", "date ASC")
+	params.Set("limit", "5000")
+	params.Set("rawstreams", "true")
+	params.Set("streamurls", "true")
+
+	h.log.WithFields(logrus.Fields{
+		"wiki":      wiki,
+		"pagename":  tournament.PageName,
+		"condition": condition,
+	}).Info("Enriching tournament with matches")
+
+	var matches []models.NormalizedMatch
+
+	data, err := h.liqService.MakeRequest(ctx, wiki, "match", params, cacheKey, services.TTLTournamentDetail)
+	if err != nil {
+		h.log.WithError(err).WithFields(logrus.Fields{
+			"wiki":       wiki,
+			"tournament": tournament.PageName,
+		}).Warn("Failed to fetch tournament matches")
+		matches = []models.NormalizedMatch{}
+	} else {
+		// Parse all matches without opponent filter (tournament detail shows all matches)
+		resp, parseErr := services.ParseResponse(data)
+		if parseErr != nil {
+			h.log.WithError(parseErr).Warn("Failed to parse tournament matches response")
+			matches = []models.NormalizedMatch{}
+		} else {
+			h.log.WithFields(logrus.Fields{
+				"wiki":       wiki,
+				"tournament": tournament.PageName,
+				"rawCount":   len(resp.Result),
+			}).Info("Tournament matches API response")
+
+			seen := make(map[string]bool)
+			for _, raw := range resp.Result {
+				var m models.LiqMatch
+				if err := json.Unmarshal(raw, &m); err != nil {
+					continue
+				}
+				key := m.UniqueKey()
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				matches = append(matches, models.NormalizeLiqMatch(m, wiki, ""))
+			}
+		}
+	}
+
+	if matches == nil {
+		matches = []models.NormalizedMatch{}
+	}
+
+	// Filter out stale TBD matches: past/invalid date + no real opponents (0-0 placeholders)
+	now := time.Now().UTC()
+	filtered := make([]models.NormalizedMatch, 0, len(matches))
+	for _, m := range matches {
+		// Check if match has no real opponents (TBD vs TBD or empty)
+		hasOpponents := false
+		for _, opp := range m.Opponents {
+			if opp.Opponent != nil && opp.Opponent.Name != "" && !strings.EqualFold(opp.Opponent.Name, "tbd") {
+				hasOpponents = true
+				break
+			}
+		}
+
+		// If opponents are set, always keep the match
+		if hasOpponents {
+			filtered = append(filtered, m)
+			continue
+		}
+
+		// No real opponents — check if the date is valid and in the future
+		matchTime := time.Time{}
+		if m.BeginAt != nil {
+			if t, err := time.Parse(time.RFC3339, *m.BeginAt); err == nil {
+				matchTime = t
+			}
+		} else if m.ScheduledAt != nil {
+			if t, err := time.Parse(time.RFC3339, *m.ScheduledAt); err == nil {
+				matchTime = t
+			}
+		}
+
+		// Keep TBD matches only if date is valid (year >= 2000) and in the future
+		if !matchTime.IsZero() && matchTime.Year() >= 2000 && matchTime.After(now) {
+			filtered = append(filtered, m)
+		}
+	}
+	matches = filtered
+
+	teams, rosters := models.ExtractTeamsAndRostersFromMatches(matches)
+
+	// Collect unique team templates for batch squad fetch (lowercase for Liquipedia matching)
+	var teamTemplates []string
+	templateSeen := make(map[string]bool)
+	for _, roster := range rosters {
+		if roster.Team != nil {
+			tmpl := ""
+			for _, t := range teams {
+				if t.ID == roster.Team.ID && t.Template != "" {
+					tmpl = t.Template
+					break
+				}
+			}
+			if tmpl == "" {
+				tmpl = roster.Team.Name
+			}
+			lower := strings.ToLower(tmpl)
+			if lower != "" && !templateSeen[lower] {
+				templateSeen[lower] = true
+				teamTemplates = append(teamTemplates, tmpl)
+			}
+		}
+	}
+
+	// Batch fetch squad players for all teams in 1 API call
+	if len(teamTemplates) > 0 {
+		squadCacheKey := cache.LiqTournamentSquadsKey(wiki, tournament.PageName)
+		playersByTeam := h.liqService.FetchBatchSquadPlayers(ctx, wiki, teamTemplates, squadCacheKey, services.TTLTournamentDetail)
+
+		// Attach players to their roster entries (match by lowercase template)
+		for i, roster := range rosters {
+			if roster.Team == nil {
+				continue
+			}
+			tmpl := ""
+			for _, t := range teams {
+				if t.ID == roster.Team.ID && t.Template != "" {
+					tmpl = strings.ToLower(t.Template)
+					break
+				}
+			}
+			if players, ok := playersByTeam[tmpl]; ok && len(players) > 0 {
+				rosters[i].Players = players
+			} else if players, ok := playersByTeam[strings.ToLower(roster.Team.Name)]; ok && len(players) > 0 {
+				rosters[i].Players = players
+			}
+		}
+
+		h.log.WithFields(logrus.Fields{
+			"wiki":       wiki,
+			"tournament": tournament.PageName,
+			"templates":  len(teamTemplates),
+			"teamsFound": len(playersByTeam),
+		}).Info("Batch squad fetch complete")
+	}
+
+	h.log.WithFields(logrus.Fields{
+		"wiki":       wiki,
+		"tournament": tournament.PageName,
+		"matches":    len(matches),
+		"teams":      len(teams),
+		"rosters":    len(rosters),
+	}).Info("Tournament enrichment complete")
+
+	return models.EnrichedTournamentDetail{
+		NormalizedTournament: tournament,
+		Matches:             matches,
+		Teams:               teams,
+		ExpectedRoster:      rosters,
+	}
+}
 
 // readTournamentsFromCache reads tournaments from Redis for one or more wikis,
 // parses and normalizes them, and deduplicates.

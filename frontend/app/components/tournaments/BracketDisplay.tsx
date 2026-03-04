@@ -1,6 +1,7 @@
 'use client';
 
 import { PandaTournament, PandaMatch } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
 import Card from '../ui/Card';
 
 interface BracketDisplayProps {
@@ -165,7 +166,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                                 <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
                                   {opponent1.opponent.image_url ? (
                                     <img
-                                      src={opponent1.opponent.image_url}
+                                      src={proxyImageUrl(opponent1.opponent.image_url)}
                                       alt={opponent1.opponent.name}
                                       className="w-full h-full object-cover"
                                       loading="lazy"
@@ -218,7 +219,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                                 <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
                                   {opponent2.opponent.image_url ? (
                                     <img
-                                      src={opponent2.opponent.image_url}
+                                      src={proxyImageUrl(opponent2.opponent.image_url)}
                                       alt={opponent2.opponent.name}
                                       className="w-full h-full object-cover"
                                       loading="lazy"

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { Trophy } from 'lucide-react';
 import { PandaTournament } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
@@ -41,13 +42,6 @@ const formatDateCompact = (dateString: string) => {
     day: 'numeric',
     month: 'short',
   });
-};
-
-const proxyImageUrl = (url: string): string => {
-  if (!url) return '';
-  if (!url.includes('liquipedia.net')) return url;
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-  return `${backendUrl}/api/proxy/image?url=${encodeURIComponent(url)}`;
 };
 
 const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBadge = false }) => {

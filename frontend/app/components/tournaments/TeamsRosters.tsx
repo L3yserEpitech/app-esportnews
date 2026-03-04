@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { PandaTournament, PandaPlayer } from '../../types';
 import { Users, MapPin, Trophy, Zap } from 'lucide-react';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface TeamsRostersProps {
   tournament: PandaTournament;
@@ -79,7 +80,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                     <div className="w-16 h-16 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center flex-shrink-0 overflow-hidden group-hover:border-[#F44576]/40 transition-colors">
                       {team.image_url ? (
                         <img
-                          src={team.image_url}
+                          src={proxyImageUrl(team.image_url)}
                           alt={team.name}
                           className="w-full h-full object-contain p-1"
                           loading="lazy"
@@ -146,7 +147,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
                                 <div className="w-full aspect-square rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/player:border-text-accent group-hover/player:shadow-lg group-hover/player:shadow-text-accent/20">
                                   {player.image_url ? (
                                     <img
-                                      src={player.image_url}
+                                      src={proxyImageUrl(player.image_url)}
                                       alt={player.name}
                                       className="w-full h-full object-cover object-center"
                                       loading="lazy"

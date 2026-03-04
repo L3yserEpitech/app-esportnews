@@ -98,30 +98,30 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
         });
         setTournament(data);
 
-        // Charger les détails complets de chaque match
-        if (data.matches && data.matches.length > 0) {
-          console.log(`[Tournament Detail] 📦 Loading match details for ${data.matches.length} matches...`, {
-            matchIds: data.matches.map(m => m.id),
-          });
+        // The backend now enriches matches directly via [[parent::PageName]].
+        // Only attempt re-enrichment if ALL matches lack opponents (backend didn't enrich).
+        // Some TBD bracket matches naturally have empty opponents — that's expected.
+        const allMatchesLackOpponents = data.matches?.every(m => !m.opponents || m.opponents.length === 0);
+        if (data.matches && data.matches.length > 0 && allMatchesLackOpponents) {
+          console.log(`[Tournament Detail] 📦 No matches have opponents — attempting re-enrichment for ${data.matches.length} matches...`);
           const matchIds = data.matches.map((m) => m.id);
 
           try {
             const enrichedMatches = await matchService.getMatchesByIds(matchIds);
-            // Remplacer les matchs avec les données enrichies
-            setTournament((prevTournament) => {
-              if (!prevTournament) return prevTournament;
-              return {
-                ...prevTournament,
-                matches: enrichedMatches,
-              };
-            });
-            console.log(`[Tournament Detail] ✅ All ${enrichedMatches.length} match details loaded`, enrichedMatches);
+            if (enrichedMatches.length > 0) {
+              setTournament((prevTournament) => {
+                if (!prevTournament) return prevTournament;
+                return {
+                  ...prevTournament,
+                  matches: enrichedMatches,
+                };
+              });
+            }
           } catch (matchError) {
             console.error('[Tournament Detail] ⚠️ Error loading match details, using basic tournament data:', matchError);
-            // On continue avec les données de base du tournoi si le chargement détaillé échoue
           }
-        } else {
-          console.log(`[Tournament Detail] ℹ️ No matches found for this tournament`);
+        } else if (data.matches && data.matches.length > 0) {
+          console.log(`[Tournament Detail] ✅ Matches enriched from backend (${data.matches.length} matches)`);
         }
 
         // Charger les articles liés au tournoi

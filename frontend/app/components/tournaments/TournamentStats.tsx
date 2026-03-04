@@ -16,6 +16,7 @@ import {
   Flame,
 } from 'lucide-react';
 import { PandaTournament } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface TournamentStatsProps {
   tournament: PandaTournament;
@@ -316,7 +317,7 @@ export default function TournamentStats({ tournament }: TournamentStatsProps) {
                           <div className="w-16 h-16 mx-auto bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 rounded-xl flex items-center justify-center border border-yellow-500/20">
                             {winner.image_url ? (
                               <img
-                                src={winner.image_url}
+                                src={proxyImageUrl(winner.image_url)}
                                 alt={winner.name}
                                 className="w-12 h-12 object-contain"
                                 loading="lazy"

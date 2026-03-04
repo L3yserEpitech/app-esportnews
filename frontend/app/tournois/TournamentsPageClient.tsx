@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, Check } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
@@ -121,6 +121,12 @@ const TournamentsPage: React.FC = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Dropdown state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
   const memoizedGames = useMemo(() => games, [games]);
   const memoizedAds = useMemo(() => ads, [ads]);
@@ -213,6 +219,20 @@ const TournamentsPage: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Client-side tier filtering
   const filteredTournaments = useMemo(() => {
@@ -314,28 +334,171 @@ const TournamentsPage: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="flex gap-8">
             <div className="flex-1 min-w-0">
-              {/* ── Header: Title + Search ── */}
-              <div className="flex items-center justify-between pt-7 mb-4">
+              {/* ── Header ── */}
+              <div className="pt-7 mb-3 space-y-3">
+                {/* Title */}
                 <div className="flex items-baseline gap-2.5">
                   <h1 className="text-2xl font-bold text-text-primary tracking-tight">Tournois</h1>
                   <span className="text-xs text-text-muted tabular-nums">
                     {loading ? '···' : filteredTournaments.length}
                   </span>
                 </div>
-                <button
-                  onClick={() => setIsSearchModalOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-text-muted bg-bg-secondary/30 border border-border-primary/30 rounded-lg hover:border-border-primary/60 hover:text-text-secondary transition-all"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline text-xs">{t('pages_detail.tournaments.search.placeholder')}</span>
-                  <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold text-text-muted bg-bg-tertiary border border-border-primary/40 rounded">
-                    ⌘K
-                  </kbd>
-                </button>
+
+                {/* Status tabs + Actions */}
+                <div className="flex items-center justify-between gap-3">
+                  {/* Left: Status tabs with underline */}
+                  <div className="flex items-center">
+                    {(['running', 'upcoming', 'finished'] as const).map((s) => {
+                      const isActive = !selectedDate && status === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => handleStatusChange(s)}
+                          className={`relative px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            isActive ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
+                          }`}
+                        >
+                          {t(`pages_detail.tournaments.status_${s}`)}
+                          {isActive && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-[#F22E62] rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {selectedDate && (
+                      <span className="ml-2 text-xs text-[#F22E62] font-medium">
+                        {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Right: Filtrer + Trier + Search + Refresh */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Filtrer dropdown */}
+                    <div className="relative" ref={filterRef}>
+                      <button
+                        onClick={() => { setIsFilterOpen(prev => !prev); setIsSortOpen(false); }}
+                        className={`flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                          isFilterOpen || tierFilters.tiers.length > 0
+                            ? 'text-[#F22E62] border-[#F22E62]/30 bg-[#F22E62]/5'
+                            : 'text-text-muted border-border-primary/20 bg-bg-secondary/30 hover:border-border-primary/50 hover:text-text-secondary'
+                        }`}
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span className="hidden sm:inline">Filtrer</span>
+                        {tierFilters.tiers.length > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-[#F22E62] text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                            {tierFilters.tiers.length}
+                          </span>
+                        )}
+                      </button>
+
+                      {isFilterOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-primary/95 backdrop-blur-md border border-border-primary/40 rounded-xl p-3 shadow-2xl shadow-black/30 min-w-[220px]">
+                          <p className="text-[10px] uppercase tracking-widest text-text-muted font-semibold mb-2.5 px-0.5">Tier</p>
+                          <div className="flex gap-1.5">
+                            {(['s', 'a', 'b', 'c', 'd'] as const).map((tier) => {
+                              const isActive = tierFilters.tiers.includes(tier);
+                              return (
+                                <button
+                                  key={tier}
+                                  onClick={() => handleTierToggle(tier)}
+                                  className={`w-9 h-9 rounded-lg text-xs font-extrabold uppercase transition-all ${
+                                    isActive
+                                      ? 'text-white ring-1 ring-white/10 shadow-md'
+                                      : 'text-text-muted bg-bg-tertiary/30 border border-border-primary/20 hover:bg-bg-tertiary/60'
+                                  }`}
+                                  style={isActive ? { backgroundColor: `var(--color-tier-${tier})` } : undefined}
+                                >
+                                  {tier.toUpperCase()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {tierFilters.tiers.length > 0 && (
+                            <button
+                              onClick={() => setTierFilters({ tiers: [] })}
+                              className="mt-2.5 text-[10px] text-text-muted hover:text-[#F22E62] transition-colors w-full text-left px-0.5"
+                            >
+                              Réinitialiser les filtres
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Trier dropdown */}
+                    <div className="relative" ref={sortRef}>
+                      <button
+                        onClick={() => { setIsSortOpen(prev => !prev); setIsFilterOpen(false); }}
+                        className={`flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                          isSortOpen
+                            ? 'text-[#F22E62] border-[#F22E62]/30 bg-[#F22E62]/5'
+                            : 'text-text-muted border-border-primary/20 bg-bg-secondary/30 hover:border-border-primary/50 hover:text-text-secondary'
+                        }`}
+                      >
+                        <ArrowUpDown className="w-3 h-3" />
+                        <span className="hidden sm:inline">Trier</span>
+                      </button>
+
+                      {isSortOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-primary/95 backdrop-blur-md border border-border-primary/40 rounded-xl py-1.5 shadow-2xl shadow-black/30 min-w-[180px]">
+                          {([
+                            { value: 'tier' as const, label: 'Tier (S → D)' },
+                            { value: '-tier' as const, label: 'Tier (D → S)' },
+                            { value: '-begin_at' as const, label: 'Date (récent)' },
+                            { value: 'begin_at' as const, label: 'Date (ancien)' },
+                          ]).map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => { setSortBy(opt.value); setIsSortOpen(false); }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                                sortBy === opt.value
+                                  ? 'text-[#F22E62] bg-[#F22E62]/5'
+                                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/30'
+                              }`}
+                            >
+                              <Check className={`w-3 h-3 flex-shrink-0 ${sortBy === opt.value ? 'opacity-100' : 'opacity-0'}`} />
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-px h-4 bg-border-primary/20 mx-0.5" />
+
+                    {/* Search */}
+                    <button
+                      onClick={() => setIsSearchModalOpen(true)}
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-text-secondary rounded-lg transition-colors"
+                      title="Rechercher (⌘K)"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Refresh */}
+                    <button
+                      onClick={handleRefresh}
+                      disabled={loading}
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-[#F22E62] disabled:opacity-30 rounded-lg transition-colors"
+                      title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
+                    >
+                      <svg
+                        className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* ── Calendar ── */}
-              <div className="mb-4">
+              <div className="mb-5">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrevRange}
@@ -389,106 +552,6 @@ const TournamentsPage: React.FC = () => {
                     className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Controls bar ── */}
-              <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-                {/* Left: Status segmented control + date indicator */}
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex items-center bg-bg-secondary/50 rounded-lg p-0.5 border border-border-primary/20">
-                    {(['running', 'upcoming', 'finished'] as const).map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleStatusChange(s)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                          !selectedDate && status === s
-                            ? 'bg-[#F22E62] text-white shadow-sm shadow-[#F22E62]/25'
-                            : 'text-text-muted hover:text-text-secondary'
-                        }`}
-                      >
-                        {t(`pages_detail.tournaments.status_${s}`)}
-                      </button>
-                    ))}
-                  </div>
-                  {selectedDate && (
-                    <span className="text-xs text-[#F22E62] font-medium">
-                      {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </span>
-                  )}
-                </div>
-
-                {/* Right: Tier pills + Sort + Refresh */}
-                <div className="flex items-center gap-1.5">
-                  {/* Tier filter pills */}
-                  {([
-                    { value: 's', label: 'S' },
-                    { value: 'a', label: 'A' },
-                    { value: 'b', label: 'B' },
-                    { value: 'c', label: 'C' },
-                    { value: 'd', label: 'D' },
-                  ] as const).map((tier) => {
-                    const isActive = tierFilters.tiers.includes(tier.value);
-                    return (
-                      <button
-                        key={tier.value}
-                        onClick={() => handleTierToggle(tier.value)}
-                        className={`w-7 h-7 rounded-md text-[10px] font-extrabold uppercase transition-all ${
-                          isActive
-                            ? 'text-white ring-1 ring-white/10'
-                            : 'text-text-muted bg-bg-tertiary/30 border border-border-primary/20 hover:bg-bg-tertiary/60'
-                        }`}
-                        style={isActive ? { backgroundColor: `var(--color-tier-${tier.value})` } : undefined}
-                        title={`Tier ${tier.label}`}
-                      >
-                        {tier.label}
-                      </button>
-                    );
-                  })}
-
-                  {/* Clear tier filters */}
-                  {tierFilters.tiers.length > 0 && (
-                    <button
-                      onClick={() => setTierFilters({ tiers: [] })}
-                      className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-[#F22E62] transition-colors"
-                      title="Réinitialiser les filtres"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {/* Divider */}
-                  <div className="w-px h-5 bg-border-primary/30 mx-1" />
-
-                  {/* Sort dropdown */}
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
-                    className="h-7 px-2 text-[11px] font-medium bg-bg-secondary/50 border border-border-primary/20 text-text-muted rounded-lg cursor-pointer hover:text-text-secondary transition-colors"
-                    title="Trier"
-                  >
-                    <option value="tier">Tier ↓</option>
-                    <option value="-tier">Tier ↑</option>
-                    <option value="begin_at">Date ↑</option>
-                    <option value="-begin_at">Date ↓</option>
-                  </select>
-
-                  {/* Refresh */}
-                  <button
-                    onClick={handleRefresh}
-                    disabled={loading}
-                    className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-[#F22E62] disabled:opacity-30 rounded-lg transition-colors"
-                    title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
                   </button>
                 </div>
               </div>
