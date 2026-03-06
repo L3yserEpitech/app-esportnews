@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -36,6 +37,9 @@ func (h *TeamHandler) getDB() *gorm.DB {
 
 func (h *TeamHandler) RegisterRoutes(g RouterGroup) {
 	g.GET("/teams/search", h.SearchTeams)
+	g.GET("/teams/by-template", h.GetTeamByTemplate)
+	g.GET("/teams/:id/detail", h.GetTeamDetail)
+	g.GET("/teams/:id/matches", h.GetTeamMatches)
 	g.GET("/teams/:id", h.GetTeam)
 	g.GET("/users/favorite-teams/ids", h.GetFavoriteTeamIDs)
 	g.GET("/users/favorite-teams", h.GetFavoriteTeams)
@@ -77,6 +81,34 @@ func (h *TeamHandler) SearchTeams(c echo.Context) error {
 	return c.JSON(http.StatusOK, teams)
 }
 
+// GetTeamByTemplate retrieves a team by its Liquipedia template/pagename on a specific wiki.
+// GET /api/teams/by-template?template=xxx&wiki=yyy
+func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
+	template := c.QueryParam("template")
+	if template == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "template query parameter required")
+	}
+	wiki := c.QueryParam("wiki")
+	if wiki == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "wiki query parameter required")
+	}
+
+	// Resolve wiki name if acronym was passed
+	if resolved, ok := models.GameWikiMapping[wiki]; ok {
+		wiki = resolved
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
+	defer cancel()
+
+	team, err := h.liquipediaService.GetTeamByTemplate(ctx, wiki, template)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+	}
+
+	return c.JSON(http.StatusOK, team)
+}
+
 // GetTeam retrieves a single team by pageid with roster.
 // GET /api/teams/:id
 func (h *TeamHandler) GetTeam(c echo.Context) error {
@@ -95,6 +127,77 @@ func (h *TeamHandler) GetTeam(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, team)
+}
+
+// GetTeamDetail returns comprehensive team details including enriched info and roster.
+// GET /api/teams/:id/detail
+func (h *TeamHandler) GetTeamDetail(c echo.Context) error {
+	idParam := c.Param("id")
+	pageID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid team ID")
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 20*time.Second)
+	defer cancel()
+
+	detail, err := h.liquipediaService.GetTeamDetailByPageID(ctx, pageID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+	}
+
+	return c.JSON(http.StatusOK, detail)
+}
+
+// GetTeamMatches returns recent and upcoming matches for a team (lazy loaded).
+// GET /api/teams/:id/matches?wiki=valorant&template=fnatic
+// The template param is the Liquipedia team template (available from GET /teams/:id/detail).
+func (h *TeamHandler) GetTeamMatches(c echo.Context) error {
+	wiki := c.QueryParam("wiki")
+	if wiki == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "wiki query parameter required")
+	}
+
+	template := c.QueryParam("template")
+	if template == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "template query parameter required")
+	}
+
+	// Resolve acronym to wiki name if needed
+	if resolved, ok := models.GameWikiMapping[wiki]; ok {
+		wiki = resolved
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
+	defer cancel()
+
+	// Fetch recent and upcoming matches in parallel
+	var recent, upcoming []models.NormalizedMatch
+	var recentErr, upcomingErr error
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		recent, recentErr = h.liquipediaService.FetchTeamMatches(ctx, wiki, template, "recent")
+	}()
+	go func() {
+		defer wg.Done()
+		upcoming, upcomingErr = h.liquipediaService.FetchTeamMatches(ctx, wiki, template, "upcoming")
+	}()
+	wg.Wait()
+
+	if recent == nil || recentErr != nil {
+		recent = []models.NormalizedMatch{}
+	}
+	if upcoming == nil || upcomingErr != nil {
+		upcoming = []models.NormalizedMatch{}
+	}
+
+	return c.JSON(http.StatusOK, models.TeamMatchesResponse{
+		Recent:   recent,
+		Upcoming: upcoming,
+	})
 }
 
 // GetFavoriteTeamIDs returns the raw list of favorite team IDs from DB.

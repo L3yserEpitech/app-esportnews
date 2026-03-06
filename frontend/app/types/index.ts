@@ -217,6 +217,7 @@ export interface PandaTeam {
   image_url?: string | null;
   players?: PandaPlayer[];
   location?: string | null;
+  template?: string | null;
 }
 
 export interface PandaSerie {

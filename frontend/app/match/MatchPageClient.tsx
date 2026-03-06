@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Search, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
@@ -109,10 +109,8 @@ const MatchPage: React.FC = () => {
   // Mémoriser les données du jeu sélectionné
   const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
 
-  // Mémoriser les données pour éviter les re-rendus inutiles
-  const memoizedMatches = useMemo(() => matches, [matches]);
-  const memoizedAds = useMemo(() => ads, [ads]);
-  const memoizedGames = useMemo(() => games, [games]);
+  // AbortController pour annuler les requêtes en cours lors de changements rapides
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Générer la plage de dates (décalage basé sur le nombre de dates visibles)
   const dateRange = useMemo(
@@ -123,9 +121,13 @@ const MatchPage: React.FC = () => {
   // Charger les matchs
   const loadMatches = useCallback(async () => {
     if (isLoadingGames || games.length === 0) {
-      console.log('[MatchPage] Games not loaded yet, skipping...');
       return;
     }
+
+    // Annuler la requête précédente si elle est encore en cours
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     setLoading(true);
     setError(null);
@@ -133,15 +135,11 @@ const MatchPage: React.FC = () => {
     try {
       const gameAcronym = selectedGameData?.acronym;
       const dateStr = formatDateToYYYYMMDD(selectedDate);
-      console.log('[MatchPage] Loading matches:', {
-        date: dateStr,
-        selectedGame,
-        gameAcronym,
-        gamesCount: games.length,
-      });
 
       const fetchedMatches = await matchService.getMatchesByDate(dateStr, gameAcronym);
-      console.log('[MatchPage] Fetched matches:', fetchedMatches.length);
+
+      // Ignorer si cette requête a été annulée entre-temps
+      if (controller.signal.aborted) return;
 
       // Filter matches to only show those with both teams defined AND exclude banned games
       const validMatches = Array.isArray(fetchedMatches)
@@ -160,14 +158,16 @@ const MatchPage: React.FC = () => {
           })
         : [];
 
-      console.log('[MatchPage] Valid matches (with both teams, excluding banned games):', validMatches.length);
       setMatches(validMatches);
     } catch (err) {
+      if (controller.signal.aborted) return;
       console.error('Error loading matches:', err);
       setError(t('pages_detail.match.error_loading'));
       setMatches([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [selectedDate, selectedGame, selectedGameData, games, isLoadingGames, t]);
 
@@ -187,9 +187,11 @@ const MatchPage: React.FC = () => {
   // Charger les matchs au montage du composant et quand les dépendances changent
   useEffect(() => {
     if (!isLoadingGames && games.length > 0) {
-      console.log('[MatchPage] Loading matches - selectedGame:', selectedGame, 'selectedDate:', selectedDate);
       loadMatches();
     }
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [loadMatches, isLoadingGames, games.length]);
 
   // Charger les publicités au démarrage
@@ -218,11 +220,11 @@ const MatchPage: React.FC = () => {
   // Filtrer les matchs selon la recherche
   const filteredMatches = useMemo(() => {
     if (!searchQuery.trim()) {
-      return memoizedMatches;
+      return matches;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return memoizedMatches.filter((match) => {
+    return matches.filter((match) => {
       const nameMatch = match.name?.toLowerCase().includes(query);
       const slugMatch = match.slug?.toLowerCase().includes(query);
       const statusMatch = match.status?.toLowerCase().includes(query);
@@ -236,7 +238,7 @@ const MatchPage: React.FC = () => {
 
       return nameMatch || slugMatch || statusMatch || tournamentMatch || leagueMatch || gameMatch || opponentsMatch;
     });
-  }, [memoizedMatches, searchQuery]);
+  }, [matches, searchQuery]);
 
   // Mémoriser les handlers
   const handleRefresh = useCallback(() => {
@@ -278,7 +280,7 @@ const MatchPage: React.FC = () => {
 
     const grouped = new Map<string, LiveMatch[]>();
 
-    memoizedMatches.forEach((match) => {
+    matches.forEach((match) => {
       const gameName = match.videogame?.name || 'Autres';
       const gameSlug = match.videogame?.slug || 'others';
       const key = `${gameSlug}::${gameName}`;
@@ -290,7 +292,7 @@ const MatchPage: React.FC = () => {
     });
 
     return grouped;
-  }, [memoizedMatches, selectedGame]);
+  }, [matches, selectedGame]);
 
   // Mémoriser la grille des matchs
   const matchesGrid = useMemo(() => {
@@ -308,7 +310,7 @@ const MatchPage: React.FC = () => {
                 {gameName}
               </h2>
               <span className="ml-auto text-sm text-text-muted">
-                {matches.length} {matches.length > 1 ? 'matchs' : 'match'}
+                {matches.length} {matches.length > 1 ? t('pages_detail.match.card_match_plural') : t('pages_detail.match.card_match_singular')}
               </span>
             </div>
 
@@ -324,17 +326,17 @@ const MatchPage: React.FC = () => {
     }
 
     // Mode normal (jeu sélectionné)
-    return memoizedMatches.map((match) => (
+    return matches.map((match) => (
       <LiveMatchCard key={match.id} match={match} showGames={true} />
     ));
-  }, [memoizedMatches, selectedGame, matchesByGame, games]);
+  }, [matches, selectedGame, matchesByGame, games]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      {/* Game Selector - Desktop seulement */}
-      <div className="pt-20 hidden md:block">
+      {/* Game Selector */}
+      <div className="pt-20">
         <GameSelector
-          games={memoizedGames}
+          games={games}
           selectedGame={selectedGame}
           onSelectionChange={setSelectedGame}
           isLoading={isLoadingGames}
@@ -342,7 +344,7 @@ const MatchPage: React.FC = () => {
       </div>
 
       {/* Layout principal avec sidebar publicitaire (desktop) */}
-      <div className="pb-8 pt-20 md:pt-0">
+      <div className="pb-8">
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <div className="flex gap-6">
             {/* Contenu principal */}
@@ -358,7 +360,7 @@ const MatchPage: React.FC = () => {
               <p className="text-text-secondary text-sm">
                 {loading
                   ? t('pages_detail.match.loading')
-                  : t('pages_detail.match.count', { count: memoizedMatches.length })}
+                  : t('pages_detail.match.count', { count: matches.length })}
               </p>
             </div>
 
@@ -471,7 +473,7 @@ const MatchPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {loadingSkeletons}
             </div>
-          ) : memoizedMatches.length === 0 ? (
+          ) : matches.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-text-muted text-lg">
                 {t('pages_detail.match.no_matches')}
@@ -492,7 +494,7 @@ const MatchPage: React.FC = () => {
             {!isSubscribed && (
               <div className="hidden xl:block">
                 <div className="sticky top-24">
-                  <AdColumn ads={memoizedAds} isLoading={isLoadingAds} />
+                  <AdColumn ads={ads} isLoading={isLoadingAds} />
                 </div>
               </div>
             )}
@@ -559,7 +561,7 @@ const MatchPage: React.FC = () => {
                 <div className="text-center">
                   <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
                   <p className="text-text-secondary text-lg mb-2">{t('pages_detail.match.search_no_results')}</p>
-                  <p className="text-text-muted text-sm">Essayez avec d'autres mots-clés</p>
+                  <p className="text-text-muted text-sm">{t('pages_detail.match.search_try_other')}</p>
                 </div>
               </div>
             ) : (

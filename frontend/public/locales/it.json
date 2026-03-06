@@ -356,7 +356,15 @@
       "filter_all_games": "Tutti i giochi",
       "prev_dates": "Date precedenti",
       "next_dates": "Date successive",
-      "today": "Oggi"
+      "today": "Oggi",
+      "card_status_live": "LIVE",
+      "card_status_finished": "Conclusa",
+      "card_status_upcoming": "Prossima",
+      "card_watch": "Guarda",
+      "card_game_label": "Game {number}",
+      "card_match_singular": "partita",
+      "card_match_plural": "partite",
+      "search_try_other": "Prova con altre parole chiave"
     },
     "news": {
       "aucune_actualite": "Nessuna notizia disponibile",
@@ -528,6 +536,10 @@
       "info_wiki": "Wiki",
       "info_live_supported": "Live supportato",
       "info_live_opens_at": "Apertura live",
+      "info_section": "Fase",
+      "info_prizepool": "Montepremi",
+      "info_original_date": "Data originale",
+      "rescheduled": "Riprogrammato",
       "yes": "Sì",
       "no": "No",
       "stat_rescheduled": "Riprogrammato"

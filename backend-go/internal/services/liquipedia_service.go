@@ -2,11 +2,14 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -34,8 +37,11 @@ const (
 	TTLTournamentsUpcoming = 20 * time.Minute
 	TTLTournamentsFinished = 1 * time.Hour
 	TTLMatchDetail         = 5 * time.Minute
+	TTLMatchDetailFinished = 24 * time.Hour
+	TTLMatchesByDatePast   = 6 * time.Hour
 	TTLTournamentDetail    = 10 * time.Minute
-	TTLTeam                = 30 * time.Minute
+	TTLTeam                = 2 * time.Hour
+	TTLTeamMatches         = 15 * time.Minute
 	TTLStale               = 1 * time.Hour // stale-while-revalidate fallback
 )
 
@@ -107,14 +113,44 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 		}
 	}
 
+	httpClient := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+
+	// Liquipedia API (api.liquipedia.net) is only properly accessible via IPv6.
+	// The IPv4 address serves the main website cert (liquipedia.net), not the API cert.
+	// Docker containers often prefer IPv4 via Happy Eyeballs, hitting the wrong server.
+	// Fix: use a custom DialContext that forces IPv6 ("tcp6") for Liquipedia connections,
+	// falling back to IPv4 only for other hosts (Redis, Postgres, etc.).
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		host, _, _ := net.SplitHostPort(addr)
+		if host == "api.liquipedia.net" {
+			conn, err := dialer.DialContext(ctx, "tcp6", addr)
+			if err != nil {
+				// IPv6 failed — fall back to IPv4 (will likely fail TLS but worth trying)
+				logger.WithError(err).Warn("IPv6 connection to Liquipedia failed, falling back to IPv4")
+				return dialer.DialContext(ctx, "tcp4", addr)
+			}
+			return conn, nil
+		}
+		return dialer.DialContext(ctx, network, addr)
+	}
+
+	if os.Getenv("LIQUIPEDIA_SKIP_TLS") == "true" {
+		logger.Warn("TLS verification disabled for Liquipedia API (LIQUIPEDIA_SKIP_TLS=true)")
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	httpClient.Transport = transport
+
 	return &LiquipediaService{
-		apiKey: apiKey,
-		cache:  redisCache,
-		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
-		},
-		budgets: budgets,
-		log:     logger,
+		apiKey:     apiKey,
+		cache:      redisCache,
+		httpClient: httpClient,
+		budgets:    budgets,
+		log:        logger,
 	}
 }
 
@@ -396,6 +432,35 @@ func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (
 	return nil, fmt.Errorf("team with pageid %d not found", pageID)
 }
 
+// GetTeamByTemplate fetches a single team by its Liquipedia template/pagename on a specific wiki.
+// Returns the team with its active roster (from /squadplayer).
+func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string) (*models.NormalizedTeam, error) {
+	cacheKey := cache.LiqTeamKey(wiki, template)
+	params := url.Values{}
+	params.Set("wiki", wiki)
+	params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", template))
+	params.Set("limit", "1")
+
+	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil || len(resp.Result) == 0 {
+		return nil, fmt.Errorf("team %q not found in wiki %s", template, wiki)
+	}
+
+	var team models.LiqTeam
+	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+		return nil, fmt.Errorf("failed to parse team %q from wiki %s: %w", template, wiki, err)
+	}
+
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	normalized := models.NormalizeLiqTeam(team, wiki, players)
+	return &normalized, nil
+}
+
 // GetTeamsByPageIDs fetches multiple teams by their Liquipedia pageids.
 // Uses parallel goroutines for efficiency.
 func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int64) []models.NormalizedTeam {
@@ -548,6 +613,107 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 	}
 
 	return result
+}
+
+// GetTeamDetailByPageID fetches comprehensive team details for the team detail page.
+// Returns enriched team info + roster (2 API calls max, both cached 2h).
+func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64) (*models.EnrichedTeamDetail, error) {
+	pageIDStr := fmt.Sprintf("%d", pageID)
+
+	for _, wiki := range s.getAllWikis() {
+		cacheKey := cache.LiqTeamKey(wiki, pageIDStr)
+		params := url.Values{}
+		params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
+		params.Set("limit", "1")
+
+		data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+		if err != nil {
+			continue
+		}
+
+		resp, err := ParseResponse(data)
+		if err != nil || len(resp.Result) == 0 {
+			continue
+		}
+
+		var team models.LiqTeam
+		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+			continue
+		}
+
+		// Fetch roster (cached 2h via TTLTeam)
+		players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+
+		detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+		return &detail, nil
+	}
+
+	return nil, fmt.Errorf("team with pageid %d not found", pageID)
+}
+
+// FetchTeamMatches fetches recent or upcoming matches for a team from Liquipedia.
+// matchType: "recent" (finished, desc) or "upcoming" (not started, asc).
+// Uses [[opponent::teamTemplate]] condition to filter by team.
+func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemplate, matchType string) ([]models.NormalizedMatch, error) {
+	var conditions string
+	var order string
+	var cacheKey string
+
+	if matchType == "recent" {
+		conditions = fmt.Sprintf("[[opponent::%s]] AND [[finished::1]]", teamTemplate)
+		order = "date DESC"
+		cacheKey = cache.LiqTeamMatchesRecentKey(wiki, teamTemplate)
+	} else {
+		now := time.Now().UTC().Format("2006-01-02 15:04:05")
+		conditions = fmt.Sprintf("[[opponent::%s]] AND [[finished::0]] AND [[date::>%s]]", teamTemplate, now)
+		order = "date ASC"
+		cacheKey = cache.LiqTeamMatchesUpcomingKey(wiki, teamTemplate)
+	}
+
+	params := url.Values{}
+	params.Set("conditions", conditions)
+	params.Set("order", order)
+	params.Set("limit", "10")
+
+	data, err := s.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLTeamMatches)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch %s matches for team %s: %w", matchType, teamTemplate, err)
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]models.NormalizedMatch, 0, len(resp.Result))
+	seen := make(map[string]bool)
+	for _, raw := range resp.Result {
+		var m models.LiqMatch
+		if err := json.Unmarshal(raw, &m); err != nil {
+			continue
+		}
+
+		key := m.UniqueKey()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		if !m.HasTwoNamedOpponents() {
+			continue
+		}
+
+		statusHint := ""
+		if matchType == "recent" {
+			statusHint = "finished"
+		} else {
+			statusHint = "not_started"
+		}
+
+		matches = append(matches, models.NormalizeLiqMatch(m, wiki, statusHint))
+	}
+
+	return matches, nil
 }
 
 // getAllWikis returns a list of all known Liquipedia wiki names.

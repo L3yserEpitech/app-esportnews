@@ -66,6 +66,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # External APIs
       LIQUIPEDIA_API_KEY: ${LIQUIPEDIA_API_KEY}
+      LIQUIPEDIA_SKIP_TLS: "false"
       # Stripe
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_SECRET_KEY_LIVE: ${STRIPE_SECRET_KEY_LIVE}
@@ -122,6 +123,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
       - NEXT_PUBLIC_API_URL=http://localhost:4000/api
+      - BACKEND_INTERNAL_URL=http://backend:4000
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -146,3 +148,8 @@ volumes:
 networks:
   esportnews:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: "192.168.97.0/24"
+        - subnet: "fd00:db8:1::/64"

@@ -110,7 +110,7 @@ const TournamentsPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
 
   // Date calendar
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [dateRangeOffset, setDateRangeOffset] = useState(0);
   const visibleDatesCount = useVisibleDatesCount();
 

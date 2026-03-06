@@ -1,4 +1,5 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
+import { getApiBaseUrl } from '../lib/apiConfig';
 
 class ArticleService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -91,7 +92,7 @@ class ArticleService {
 
   async getArticleBySlug(slug: string): Promise<Article | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/articles/${slug}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/articles/${slug}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

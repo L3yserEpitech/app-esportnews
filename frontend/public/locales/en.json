@@ -354,7 +354,15 @@
       "filter_all_games": "All games",
       "prev_dates": "Previous dates",
       "next_dates": "Next dates",
-      "today": "Today"
+      "today": "Today",
+      "card_status_live": "LIVE",
+      "card_status_finished": "Finished",
+      "card_status_upcoming": "Upcoming",
+      "card_watch": "Watch",
+      "card_game_label": "Game {number}",
+      "card_match_singular": "match",
+      "card_match_plural": "matches",
+      "search_try_other": "Try other keywords"
     },
     "news": {
       "aucune_actualite": "No news available",
@@ -527,6 +535,10 @@
       "info_wiki": "Wiki",
       "info_live_supported": "Live supported",
       "info_live_opens_at": "Live opens at",
+      "info_section": "Stage",
+      "info_prizepool": "Prize Pool",
+      "info_original_date": "Original date",
+      "rescheduled": "Rescheduled",
       "yes": "Yes",
       "no": "No",
       "stat_rescheduled": "Rescheduled"
