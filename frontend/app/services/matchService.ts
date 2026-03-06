@@ -1,11 +1,12 @@
 // Import types from the types file
 import { LiveMatch as LiveMatchType } from '../types';
+import { getApiBaseUrl } from '../lib/apiConfig';
 
 // Re-export for backward compatibility
 export type LiveMatch = LiveMatchType;
 export type Match = LiveMatchType;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 export const matchService = {
   /**
@@ -18,8 +19,6 @@ export const matchService = {
       if (gameAcronym) {
         url += `?game=${encodeURIComponent(gameAcronym)}`;
       }
-      console.log('[matchService] Fetching running matches:', { gameAcronym, url });
-
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -44,8 +43,6 @@ export const matchService = {
       if (gameAcronym) {
         url += `?game=${encodeURIComponent(gameAcronym)}`;
       }
-      console.log('[matchService] Fetching upcoming matches:', { gameAcronym, url });
-
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -70,8 +67,6 @@ export const matchService = {
       if (gameAcronym) {
         url += `?game=${encodeURIComponent(gameAcronym)}`;
       }
-      console.log('[matchService] Fetching past matches:', { gameAcronym, url });
-
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -111,12 +106,11 @@ export const matchService = {
    */
   async getMatchById(matchId: string, wiki?: string): Promise<Match> {
     try {
-      let url = `${API_BASE_URL}/api/matches/${matchId}`;
+      const baseUrl = getApiBaseUrl();
+      let url = `${baseUrl}/api/matches/${matchId}`;
       if (wiki) {
         url += `?wiki=${encodeURIComponent(wiki)}`;
       }
-      console.log('[matchService] Fetching match by ID:', { matchId, wiki, url });
-
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -158,7 +152,6 @@ export const matchService = {
   async getMatchesByDate(date: string, gameAcronym?: string): Promise<Match[]> {
     try {
       const url = `${API_BASE_URL}/api/matches/by-date`;
-      console.log('[matchService] Fetching matches by date:', { date, gameAcronym, url });
 
       // Use URLSearchParams for application/x-www-form-urlencoded
       const params = new URLSearchParams();

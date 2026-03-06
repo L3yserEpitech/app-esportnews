@@ -32,6 +32,35 @@ export interface Team {
   };
 }
 
+export interface TeamLinks {
+  website?: string;
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  youtube?: string;
+  discord?: string;
+  twitch?: string;
+}
+
+export interface EnrichedTeamDetail extends Team {
+  status: string;
+  create_date?: string;
+  disband_date?: string;
+  earnings?: string;
+  earnings_by_year?: Record<string, string>;
+  links?: TeamLinks;
+  textless_logo_url?: string;
+  textless_logo_dark_url?: string;
+  region?: string;
+  wiki?: string;
+  template?: string;
+}
+
+export interface TeamMatchesResponse {
+  recent: import('../types').PandaMatch[];
+  upcoming: import('../types').PandaMatch[];
+}
+
 class TeamService {
   /**
    * Rechercher des équipes par nom
@@ -174,6 +203,30 @@ class TeamService {
   }
 
   /**
+   * Récupère une équipe par son template Liquipedia (pagename) + wiki
+   */
+  async getTeamByTemplate(template: string, wiki: string): Promise<Team> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/teams/by-template?template=${encodeURIComponent(template)}&wiki=${encodeURIComponent(wiki)}`,
+        {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch team ${template}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching team by template ${template}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Récupère les détails complets d'une équipe avec ses joueurs
    */
   async getTeamById(teamId: number | string): Promise<Team> {
@@ -211,6 +264,41 @@ class TeamService {
       console.error('Error fetching multiple teams:', error);
       throw error;
     }
+  }
+
+  /**
+   * Récupère les détails enrichis d'une équipe (team detail page)
+   * GET /api/teams/:id/detail
+   */
+  async getTeamDetail(teamId: number | string): Promise<EnrichedTeamDetail> {
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/detail`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team detail ${teamId}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Récupère les matchs récents et à venir d'une équipe (lazy loaded)
+   * GET /api/teams/:id/matches?wiki=xxx&template=yyy
+   */
+  async getTeamMatches(teamId: number | string, wiki: string, template: string): Promise<TeamMatchesResponse> {
+    const params = new URLSearchParams({ wiki, template });
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/matches?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team matches: ${response.statusText}`);
+    }
+
+    return await response.json();
   }
 }
 

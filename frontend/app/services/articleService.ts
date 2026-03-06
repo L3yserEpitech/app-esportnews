@@ -1,4 +1,5 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
+import { getApiBaseUrl } from '../lib/apiConfig';
 
 function parseTags(tags: string | string[] | null | undefined): string[] {
   if (!tags) return [];
@@ -102,7 +103,7 @@ class ArticleService {
 
   async getArticleBySlug(slug: string): Promise<Article | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/articles/${slug}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/articles/${slug}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

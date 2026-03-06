@@ -2,15 +2,18 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { PandaMatch } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface PandaMatchCardProps {
   match: PandaMatch;
   tournamentName?: string;
 }
 
-export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: PandaMatchCardProps) {
+export default function PandaMatchCard({ match, tournamentName }: PandaMatchCardProps) {
+  const t = useTranslations('pages_detail.match');
   // Récupérer les équipes depuis les opponents
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -46,7 +49,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
   const hasStream = mainStream?.raw_url && isLive;
 
   return (
-    <Link href={`/match/${match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
+    <Link href={`/match/${match.match2id || match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
       <div className="group relative h-full cursor-pointer">
         {/* Background glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -68,9 +71,9 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
               isFinished ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30' :
               'bg-blue-500/20 text-blue-300 border border-blue-500/30'
             }`}>
-              {isLive && <><Zap className="w-3 h-3 inline mr-1" />LIVE</> }
-              {isFinished && 'Terminé'}
-              {isUpcoming && 'À venir'}
+              {isLive && <><Zap className="w-3 h-3 inline mr-1" />{t('card_status_live')}</> }
+              {isFinished && t('card_status_finished')}
+              {isUpcoming && t('card_status_upcoming')}
             </div>
           </div>
         </div>
@@ -84,7 +87,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
                 {homeTeam?.image_url ? (
                   <img
-                    src={homeTeam.image_url}
+                    src={proxyImageUrl(homeTeam.image_url)}
                     alt={homeTeam.name}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
@@ -126,7 +129,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
                 {awayTeam?.image_url ? (
                   <img
-                    src={awayTeam.image_url}
+                    src={proxyImageUrl(awayTeam.image_url)}
                     alt={awayTeam.name}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
@@ -136,7 +139,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-primary truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight">
                   {awayTeam?.acronym || awayTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>
@@ -169,7 +172,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-[#F44576] to-[#F44576] hover:from-[#F44576]/90 hover:to-[#F44576]/80 text-white rounded-lg font-semibold transition-all duration-200 text-sm shadow-lg shadow-[#F44576]/20 hover:shadow-[#F44576]/40"
             >
               <Play className="w-4 h-4 fill-current" />
-              Regarder
+              {t('card_watch')}
             </button>
           )}
 
@@ -178,7 +181,7 @@ export default function PandaMatchCard({ match, tournamentName = 'Tournoi' }: Pa
             <div className="space-y-1 pt-2 border-t border-[#182859]/20">
               {match.games.slice(0, 3).map((game, idx) => (
                 <div key={game.id} className="flex items-center justify-between text-xs px-2 py-1 bg-[#182859]/10 rounded">
-                  <span className="text-gray-500">Game {idx + 1}</span>
+                  <span className="text-gray-500">{t('card_game_label', { number: idx + 1 })}</span>
                   <span className={`font-medium ${
                     game.status === 'finished' ? 'text-green-400' :
                     game.status === 'running' ? 'text-[#F44576]' :

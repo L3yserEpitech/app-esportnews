@@ -1,7 +1,7 @@
 import { Advertisement } from '../types';
 
 class AdvertisementService {
-  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   async getActiveAdvertisements(): Promise<Advertisement[]> {
     try {

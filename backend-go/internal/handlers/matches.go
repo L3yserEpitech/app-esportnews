@@ -157,6 +157,13 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		date, nextDay,
 	)
 
+	// Adaptive TTL: past dates won't change, cache them much longer
+	cacheTTL := 10 * time.Minute
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	if dateTime.Before(today) {
+		cacheTTL = services.TTLMatchesByDatePast
+	}
+
 	type wikiResult struct {
 		wiki    string
 		matches []models.LiqMatch
@@ -175,7 +182,7 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 			params.Set("rawstreams", "true")
 			params.Set("streamurls", "true")
 
-			data, fetchErr := h.liqService.MakeRequest(ctx, w, "match", params, cacheKey, 10*time.Minute)
+			data, fetchErr := h.liqService.MakeRequest(ctx, w, "match", params, cacheKey, cacheTTL)
 			if fetchErr != nil {
 				results <- wikiResult{wiki: w, err: fetchErr}
 				return
@@ -279,12 +286,14 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
 }
 
-// fetchMatchFromWiki fetches a single match by PageID from a specific wiki.
+// fetchMatchFromWiki fetches a single match by match2id from a specific wiki.
+// match2id is the unique identifier for each match (e.g. "BAS26LCQD6_0001").
+// Uses adaptive TTL: finished matches are cached for 24h, others for 5min.
 func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matchID string) (*models.NormalizedMatch, error) {
 	cacheKey := cache.LiqMatchKey(wiki, matchID)
 	params := url.Values{}
 	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[pageid::%s]]", matchID))
+	params.Set("conditions", fmt.Sprintf("[[match2id::%s]]", matchID))
 	params.Set("limit", "1")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
@@ -306,6 +315,12 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 	var match models.LiqMatch
 	if err := json.Unmarshal(resp.Result[0], &match); err != nil {
 		return nil, fmt.Errorf("failed to parse match from wiki %s: %w", wiki, err)
+	}
+
+	// Adaptive TTL: extend cache duration for finished matches since they won't change
+	if match.Finished == 1 {
+		_ = h.redisCache.Set(ctx, cacheKey, string(data), services.TTLMatchDetailFinished)
+		_ = h.redisCache.Set(ctx, cache.StaleKey(cacheKey), string(data), services.TTLMatchDetailFinished)
 	}
 
 	normalized := models.NormalizeLiqMatch(match, wiki, "")

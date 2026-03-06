@@ -230,6 +230,172 @@ func NormalizeLiqSquadPlayers(players []LiqSquadPlayer) []NormalizedPlayer {
 	return result
 }
 
+// --- Enriched team detail structs ---
+
+// TeamLinks represents parsed social media links from the team's links JSON.
+type TeamLinks struct {
+	Website   string `json:"website,omitempty"`
+	Twitter   string `json:"twitter,omitempty"`
+	Facebook  string `json:"facebook,omitempty"`
+	Instagram string `json:"instagram,omitempty"`
+	YouTube   string `json:"youtube,omitempty"`
+	Discord   string `json:"discord,omitempty"`
+	Twitch    string `json:"twitch,omitempty"`
+}
+
+// EnrichedTeamDetail is the comprehensive team detail response.
+// Returned by GET /api/teams/:id/detail.
+type EnrichedTeamDetail struct {
+	// Base team fields (backward compatible with NormalizedTeam)
+	ID               int                 `json:"id"`
+	Name             string              `json:"name"`
+	Location         string              `json:"location"`
+	Slug             string              `json:"slug"`
+	ModifiedAt       string              `json:"modified_at"`
+	Acronym          string              `json:"acronym"`
+	ImageURL         string              `json:"image_url"`
+	DarkModeImageURL *string             `json:"dark_mode_image_url"`
+	CurrentVideogame *NormalizedVideogame `json:"current_videogame,omitempty"`
+
+	// Enriched team fields from LiqTeam
+	Status              string            `json:"status"`
+	CreateDate          *string           `json:"create_date,omitempty"`
+	DisbandDate         *string           `json:"disband_date,omitempty"`
+	Earnings            *string           `json:"earnings,omitempty"`
+	EarningsByYear      map[string]string `json:"earnings_by_year,omitempty"`
+	Links               *TeamLinks        `json:"links,omitempty"`
+	TextlessLogoURL     string            `json:"textless_logo_url,omitempty"`
+	TextlessLogoDarkURL string            `json:"textless_logo_dark_url,omitempty"`
+	Region              string            `json:"region,omitempty"`
+	Wiki                string            `json:"wiki,omitempty"`
+	Template            string            `json:"template,omitempty"`
+
+	// Roster from /squadplayer
+	Players []NormalizedPlayer `json:"players"`
+}
+
+// NormalizeLiqTeamDetail converts a Liquipedia team to an enriched detail response.
+func NormalizeLiqTeamDetail(t LiqTeam, wiki string, players []NormalizedPlayer) EnrichedTeamDetail {
+	if players == nil {
+		players = []NormalizedPlayer{}
+	}
+
+	// Reuse base team normalization for shared fields
+	base := NormalizeLiqTeam(t, wiki, players)
+
+	// Parse optional date fields
+	var createDate *string
+	if t.CreateDate != "" {
+		createDate = &t.CreateDate
+	}
+	var disbandDate *string
+	if t.DisbandDate != "" {
+		disbandDate = &t.DisbandDate
+	}
+
+	return EnrichedTeamDetail{
+		// Base fields
+		ID:               base.ID,
+		Name:             base.Name,
+		Location:         base.Location,
+		Slug:             base.Slug,
+		ModifiedAt:       base.ModifiedAt,
+		Acronym:          base.Acronym,
+		ImageURL:         base.ImageURL,
+		DarkModeImageURL: base.DarkModeImageURL,
+		CurrentVideogame: base.CurrentVideogame,
+		Players:          base.Players,
+
+		// Enriched fields
+		Status:              t.Status,
+		CreateDate:          createDate,
+		DisbandDate:         disbandDate,
+		Earnings:            formatPrizePool(t.Earnings),
+		EarningsByYear:      ParseEarningsByYear(t.EarningsByYear),
+		Links:               ParseTeamLinks(t.Links),
+		TextlessLogoURL:     t.TextlessLogoURL,
+		TextlessLogoDarkURL: t.TextlessLogoDarkURL,
+		Region:              t.Region,
+		Wiki:                wiki,
+		Template:            t.Template,
+	}
+}
+
+// ParseTeamLinks parses the raw links JSON from Liquipedia into a TeamLinks struct.
+func ParseTeamLinks(raw json.RawMessage) *TeamLinks {
+	if raw == nil || string(raw) == "null" || string(raw) == "" || string(raw) == "[]" {
+		return nil
+	}
+
+	// Liquipedia links can be a flat object: {"twitter": "url", "website": "url", ...}
+	var linksMap map[string]string
+	if err := json.Unmarshal(raw, &linksMap); err != nil {
+		return nil
+	}
+
+	if len(linksMap) == 0 {
+		return nil
+	}
+
+	links := &TeamLinks{
+		Website:   linksMap["website"],
+		Twitter:   linksMap["twitter"],
+		Facebook:  linksMap["facebook"],
+		Instagram: linksMap["instagram"],
+		YouTube:   linksMap["youtube"],
+		Discord:   linksMap["discord"],
+		Twitch:    linksMap["twitch"],
+	}
+
+	// Return nil if all fields are empty
+	if links.Website == "" && links.Twitter == "" && links.Facebook == "" &&
+		links.Instagram == "" && links.YouTube == "" && links.Discord == "" && links.Twitch == "" {
+		return nil
+	}
+
+	return links
+}
+
+// ParseEarningsByYear parses the raw earningsbyyear JSON into a formatted map.
+// Input: {"2024": 500000, "2023": 300000} → Output: {"2024": "$500,000", "2023": "$300,000"}
+func ParseEarningsByYear(raw json.RawMessage) map[string]string {
+	if raw == nil || string(raw) == "null" || string(raw) == "" || string(raw) == "{}" {
+		return nil
+	}
+
+	var yearMap map[string]json.Number
+	if err := json.Unmarshal(raw, &yearMap); err != nil {
+		return nil
+	}
+
+	if len(yearMap) == 0 {
+		return nil
+	}
+
+	result := make(map[string]string, len(yearMap))
+	for year, amount := range yearMap {
+		formatted := formatPrizePool(amount)
+		if formatted != nil {
+			result[year] = *formatted
+		} else {
+			// Include year even if earnings are 0
+			result[year] = "$0"
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+
+	return result
+}
+
+// TeamMatchesResponse is the response for GET /api/teams/:id/matches.
+type TeamMatchesResponse struct {
+	Recent   []NormalizedMatch `json:"recent"`
+	Upcoming []NormalizedMatch `json:"upcoming"`
+}
+
 // --- Helpers ---
 
 // splitName splits a full name into first name and last name.

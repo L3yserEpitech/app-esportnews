@@ -36,7 +36,7 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
       : 'bg-blue-500';
 
   return (
-    <Link href={`/match/${match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
+    <Link href={`/match/${match.match2id || match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
       <div className="group relative w-full flex items-stretch rounded-lg overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50 hover:border-[var(--color-accent)]/30 transition-all duration-200 cursor-pointer">
         {/* Left accent bar */}
         <div className={`w-[3px] flex-shrink-0 ${accentBar}`} />

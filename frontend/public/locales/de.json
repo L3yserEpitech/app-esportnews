@@ -356,7 +356,15 @@
       "filter_all_games": "Alle Spiele",
       "prev_dates": "Vorherige Daten",
       "next_dates": "Nächste Daten",
-      "today": "Heute"
+      "today": "Heute",
+      "card_status_live": "LIVE",
+      "card_status_finished": "Beendet",
+      "card_status_upcoming": "Bevorstehend",
+      "card_watch": "Ansehen",
+      "card_game_label": "Game {number}",
+      "card_match_singular": "Spiel",
+      "card_match_plural": "Spiele",
+      "search_try_other": "Versuchen Sie andere Suchbegriffe"
     },
     "news": {
       "aucune_actualite": "Keine Nachrichten verfügbar",
@@ -528,6 +536,10 @@
       "info_wiki": "Wiki",
       "info_live_supported": "Live unterstützt",
       "info_live_opens_at": "Live öffnet",
+      "info_section": "Phase",
+      "info_prizepool": "Preisgeld",
+      "info_original_date": "Ursprüngliches Datum",
+      "rescheduled": "Verschoben",
       "yes": "Ja",
       "no": "Nein",
       "stat_rescheduled": "Verschoben"

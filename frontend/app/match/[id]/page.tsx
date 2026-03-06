@@ -61,5 +61,14 @@ export default async function MatchDetailPage({ params, searchParams }: MatchPag
   const { id } = await params;
   const { wiki } = await searchParams;
 
-  return <MatchDetailPageClient matchId={id} wiki={wiki} />;
+  // Fetch match server-side to avoid double fetch (SSR metadata already fetched it,
+  // but Next.js deduplicates fetch calls within the same render pass)
+  let initialMatch = null;
+  try {
+    initialMatch = await matchService.getMatchById(id, wiki);
+  } catch (error) {
+    // Client component will handle the error state
+  }
+
+  return <MatchDetailPageClient matchId={id} wiki={wiki} initialMatch={initialMatch} />;
 }

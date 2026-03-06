@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Gamepad2,
-  Radio,
   Trophy,
   Users,
   AlertCircle,
@@ -12,43 +11,31 @@ import {
   Calendar,
   Info,
   ExternalLink,
+  Tv,
+  ChevronRight,
+  Swords,
+  Shield,
+  MapPin,
+  DollarSign,
+  RefreshCw,
+  Globe,
 } from 'lucide-react';
-import { PandaMatch, LiveMatch, Advertisement, PandaPlayer } from '../../types';
+import { LiveMatch, Advertisement, PandaPlayer } from '../../types';
 import { matchService } from '../../services/matchService';
 import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
 import AdColumn from '../../components/ads/AdColumn';
-import Card from '../../components/ui/Card';
 import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
 import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
+import { proxyImageUrl } from '../../lib/imageProxy';
 
 interface MatchDetailPageClientProps {
   matchId: string;
   wiki?: string;
+  initialMatch?: LiveMatch | null;
 }
 
 // --- Helpers ---
-
-const getTierClasses = (tier: string | null | undefined): string => {
-  const t = tier?.toLowerCase();
-  const map: Record<string, string> = {
-    s: 'bg-[var(--color-tier-s)]/20 text-[var(--color-tier-s)] border border-[var(--color-tier-s)]/40',
-    a: 'bg-[var(--color-tier-a)]/20 text-[var(--color-tier-a)] border border-[var(--color-tier-a)]/40',
-    b: 'bg-[var(--color-tier-b)]/20 text-[var(--color-tier-b)] border border-[var(--color-tier-b)]/40',
-    c: 'bg-[var(--color-tier-c)]/20 text-[var(--color-tier-c)] border border-[var(--color-tier-c)]/40',
-    d: 'bg-[var(--color-tier-d)]/20 text-[var(--color-tier-d)] border border-[var(--color-tier-d)]/40',
-  };
-  return t ? map[t] || map['d'] : map['d'];
-};
-
-const getStatusClasses = (status: string | null | undefined): string => {
-  const map: Record<string, string> = {
-    running: 'bg-[var(--color-status-live)]/20 text-[var(--color-status-live)] border border-[var(--color-status-live)]/40',
-    not_started: 'bg-[var(--color-status-upcoming)]/20 text-[var(--color-status-upcoming)] border border-[var(--color-status-upcoming)]/40',
-    finished: 'bg-[var(--color-status-finished)]/20 text-[var(--color-status-finished)] border border-[var(--color-status-finished)]/40',
-  };
-  return map[status || 'not_started'] || map['not_started'];
-};
 
 const parseGameWinner = (winner: unknown): { id: number | null; type: string } | null => {
   if (!winner) return null;
@@ -61,17 +48,24 @@ const parseGameWinner = (winner: unknown): { id: number | null; type: string } |
   return null;
 };
 
-const InfoRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-center justify-between px-5 py-3">
-    <span className="text-text-muted text-sm">{label}</span>
-    <span className="text-text-primary text-sm font-medium text-right max-w-[60%] truncate">{value}</span>
-  </div>
-);
+const getRoleBadgeStyle = (role?: string | null): string => {
+  if (!role) return '';
+  const r = role.toLowerCase();
+  if (r.includes('captain') || r.includes('igl')) return 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25';
+  if (r.includes('coach')) return 'text-amber-400 bg-amber-500/10 border-amber-500/25';
+  if (r.includes('mid')) return 'text-blue-400 bg-blue-500/10 border-blue-500/25';
+  if (r.includes('adc') || r.includes('bot')) return 'text-green-400 bg-green-500/10 border-green-500/25';
+  if (r.includes('support') || r.includes('sup')) return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25';
+  if (r.includes('top')) return 'text-red-400 bg-red-500/10 border-red-500/25';
+  if (r.includes('jungl') || r.includes('jgl')) return 'text-purple-400 bg-purple-500/10 border-purple-500/25';
+  if (r.includes('awp') || r.includes('sniper')) return 'text-orange-400 bg-orange-500/10 border-orange-500/25';
+  return 'text-text-secondary bg-[var(--color-bg-tertiary)]/30 border-[var(--color-border-primary)]/40';
+};
 
-export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPageClientProps) {
+export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: MatchDetailPageClientProps) {
   const t = useTranslations('pages_detail.match_detail');
-  const [match, setMatch] = useState<LiveMatch | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [match, setMatch] = useState<LiveMatch | null>(initialMatch || null);
+  const [loading, setLoading] = useState(!initialMatch);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
@@ -79,7 +73,6 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
   const [selectedStreamIdx, setSelectedStreamIdx] = useState(0);
   const [teamsData, setTeamsData] = useState<any[]>([]);
 
-  // Load ads
   useEffect(() => {
     const loadAds = async () => {
       try {
@@ -95,25 +88,48 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
     loadAds();
   }, []);
 
-  // Load match
   useEffect(() => {
+    const loadTeams = async (data: LiveMatch) => {
+      if (data.opponents && data.opponents.length === 2) {
+        const matchWiki = data.wiki || wiki;
+        const opponents = data.opponents.filter(o => o.opponent);
+        if (opponents.length === 0) return;
+
+        try {
+          const teamPromises = opponents.map(async (o) => {
+            const template = o.opponent?.template;
+            if (template && matchWiki) {
+              try {
+                return await teamService.getTeamByTemplate(template, matchWiki);
+              } catch {
+                // Fallback to ID-based if template fails
+              }
+            }
+            try {
+              return await teamService.getTeamById(o.opponent!.id);
+            } catch {
+              return null;
+            }
+          });
+
+          const teams = (await Promise.all(teamPromises)).filter(Boolean);
+          setTeamsData(teams);
+        } catch (teamError) {
+          console.error('Error loading team details:', teamError);
+        }
+      }
+    };
+    if (match) loadTeams(match);
+  }, [match]);
+
+  useEffect(() => {
+    if (initialMatch) return;
+
     const loadMatch = async () => {
       try {
         setLoading(true);
         const data = await matchService.getMatchById(matchId, wiki);
         setMatch(data);
-
-        if (data.opponents && data.opponents.length === 2) {
-          try {
-            const teamIds = data.opponents
-              .filter(o => o.opponent)
-              .map(o => o.opponent!.id);
-            const teams = await teamService.getTeamsByIds(teamIds);
-            setTeamsData(teams);
-          } catch (teamError) {
-            console.error('Error loading team details:', teamError);
-          }
-        }
       } catch (err) {
         console.error('Error loading match:', err);
         setError(err instanceof Error ? err.message : 'Erreur lors du chargement du match');
@@ -122,26 +138,18 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
       }
     };
     if (matchId) loadMatch();
-  }, [matchId]);
+  }, [matchId, initialMatch]);
 
   const memoizedAds = useMemo(() => ads, [ads]);
 
-  // Format utilities
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDuration = (seconds: number) => {
@@ -154,44 +162,46 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
     return `${minutes}m`;
   };
 
-  // --- Loading state ---
+  // --- Loading ---
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-text-accent border-t-text-accent/30 rounded-full animate-spin mb-4" />
-          <p className="text-text-secondary">{t('loading')}</p>
+          <div className="relative w-14 h-14 mx-auto mb-5">
+            <div className="absolute inset-0 border border-border-primary rounded-xl" />
+            <div className="absolute inset-0 border border-transparent border-t-accent rounded-xl animate-spin" />
+            <Swords className="absolute inset-0 m-auto w-5 h-5 text-accent/50" />
+          </div>
+          <p className="text-text-muted text-xs uppercase tracking-[0.2em] font-semibold">{t('loading')}</p>
         </div>
       </div>
     );
   }
 
-  // --- Error state ---
+  // --- Error ---
   if (error || !match) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-        <Card variant="outlined" className="p-8 max-w-md">
-          <div className="flex items-start gap-4">
-            <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
-            <div>
-              <p className="text-red-400 font-medium mb-2">{t('error_title')}</p>
-              <p className="text-text-secondary text-sm">
-                {error || t('not_found')}
-              </p>
-            </div>
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4">
+        <div className="max-w-sm w-full bg-bg-secondary border border-border-primary rounded-xl p-8 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-red-400" />
           </div>
-        </Card>
+          <p className="text-red-400 font-bold text-base mb-1.5">{t('error_title')}</p>
+          <p className="text-text-muted text-xs">{error || t('not_found')}</p>
+        </div>
       </div>
     );
   }
 
-  // --- Data extraction ---
+  // --- Data ---
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
   const homeScore = match.results?.find(r => r.team_id === homeTeam?.id)?.score;
   const awayScore = match.results?.find(r => r.team_id === awayTeam?.id)?.score;
-  const isHomeWinnerOverall = homeScore !== undefined && awayScore !== undefined && homeScore > awayScore;
-  const isAwayWinnerOverall = homeScore !== undefined && awayScore !== undefined && awayScore > homeScore;
+  const isHomeWinner = homeScore !== undefined && awayScore !== undefined && homeScore > awayScore;
+  const isAwayWinner = homeScore !== undefined && awayScore !== undefined && awayScore > homeScore;
+  const isLive = match.status === 'running';
+  const isFinished = match.status === 'finished';
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
   const matchUrl = `${siteUrl}/match/${matchId}`;
@@ -202,9 +212,8 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
     { name: `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`, url: matchUrl },
   ]);
 
-  const statusKey = match.status === 'running' ? 'status_running' : match.status === 'finished' ? 'status_finished' : 'status_upcoming';
+  const statusKey = isLive ? 'status_running' : isFinished ? 'status_finished' : 'status_upcoming';
 
-  // Streams sorted
   const sortedStreams = [...(match.streams_list || [])].sort((a, b) => {
     if (a.official && !b.official) return -1;
     if (!a.official && b.official) return 1;
@@ -226,9 +235,41 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
     return m ? m[1] : '';
   };
 
+  // Team logo component
+  const TeamLogo = ({ team, size = 'lg', highlight = false }: { team: typeof homeTeam; size?: 'sm' | 'md' | 'lg'; highlight?: boolean }) => {
+    const sizeClasses = {
+      sm: 'w-7 h-7',
+      md: 'w-12 h-12',
+      lg: 'w-18 h-18 md:w-24 md:h-24',
+    };
+    return (
+      <div className={`relative ${sizeClasses[size]} flex-shrink-0 group/logo`}>
+        {highlight && <div className="absolute -inset-2 bg-[var(--color-accent)]/10 rounded-2xl blur-xl" />}
+        <div className={`relative ${sizeClasses[size]} rounded-xl bg-[var(--color-bg-primary)]/80 border ${
+          highlight ? 'border-[var(--color-accent)]/30' : 'border-[var(--color-border-primary)]/40'
+        } flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/logo:border-[var(--color-accent)]/20`}>
+          {team?.image_url ? (
+            <img src={proxyImageUrl(team.image_url)} alt={team.name} className="w-3/4 h-3/4 object-contain" loading="lazy" />
+          ) : (
+            <Shield className="w-1/3 h-1/3 text-text-muted/60" />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Section header component
+  const SectionHeader = ({ icon: Icon, title, extra }: { icon: any; title: string; extra?: React.ReactNode }) => (
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-1 h-5 rounded-full bg-accent" />
+      <Icon className="w-[18px] h-[18px] text-accent" />
+      <h2 className="text-xs font-bold text-text-primary uppercase tracking-[0.15em]">{title}</h2>
+      {extra && <div className="ml-auto">{extra}</div>}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-bg-primary">
-      {/* SEO Structured Data */}
       <SportsEventSchema
         name={`${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`}
         description={`${match.videogame?.name || 'Esport'} - ${match.league?.name || ''}`}
@@ -243,315 +284,352 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
         ]}
       />
       <BreadcrumbSchema items={breadcrumbs} />
-
-      {/* Hidden H1 for SEO */}
       <h1 className="sr-only">
         {homeTeam?.name || 'Match'} vs {awayTeam?.name || 'Match'} - {match.videogame?.name} - {match.tournament?.name}
       </h1>
 
-      {/* ============================================ */}
-      {/* HERO SECTION - Full bleed                    */}
-      {/* ============================================ */}
-      <section className="relative w-full overflow-hidden pt-20 pb-8 md:pb-12">
-        {/* Background layers */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#091626] via-bg-primary to-bg-primary" />
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-[#F22E62]/8 rounded-full blur-[120px]" />
-          <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-[#182859]/20 rounded-full blur-[120px]" />
+      {/* ================================================================ */}
+      {/* HERO — SCOREBOARD                                                */}
+      {/* ================================================================ */}
+      <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">
+        {/* Background: arena split effect */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-[var(--color-bg-secondary)]" />
+          {/* Diagonal stripe pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 40px, currentColor 40px, currentColor 41px)',
+            }}
+          />
+          {/* Left team subtle tint */}
+          <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[var(--color-accent)]/[0.02] to-transparent" />
+          {/* Right team subtle tint */}
+          <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-[var(--color-bg-tertiary)]/[0.06] to-transparent" />
+          {/* Center divider glow */}
+          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-gradient-to-b from-transparent via-[var(--color-accent)]/15 to-transparent hidden md:block" />
+          {/* Top accent line */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/25 to-transparent" />
         </div>
 
         <div className="relative container mx-auto px-4">
-          {/* Row 1: Status badges */}
-          <div className="flex items-center justify-center gap-2 flex-wrap mb-8 pt-4">
-            {/* Match status */}
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${getStatusClasses(match.status)}`}>
-              {match.status === 'running' && <span className="w-2 h-2 bg-current rounded-full animate-pulse" />}
+          {/* Context pills */}
+          <div className="flex items-center justify-center gap-2 mb-7 flex-wrap">
+            {/* Status */}
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-[0.15em] border ${
+              isLive
+                ? 'bg-[var(--color-status-live)]/10 text-[var(--color-status-live)] border-[var(--color-status-live)]/25'
+                : isFinished
+                  ? 'bg-[var(--color-status-finished)]/10 text-[var(--color-status-finished)] border-[var(--color-status-finished)]/25'
+                  : 'bg-[var(--color-status-upcoming)]/10 text-[var(--color-status-upcoming)] border-[var(--color-status-upcoming)]/25'
+            }`}>
+              {isLive && <span className="w-1.5 h-1.5 bg-[var(--color-status-live)] rounded-full animate-pulse" />}
               {t(statusKey)}
-            </span>
-            {/* Tournament tier */}
-            {match.tournament?.tier && (
-              <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${getTierClasses(match.tournament.tier)}`}>
-                {t('tier_label')} {match.tournament.tier.toUpperCase()}
-              </span>
-            )}
+            </div>
+
             {/* Game */}
             {match.videogame?.name && (
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-bg-tertiary/50 text-text-secondary border border-border-primary">
+              <span className="text-[10px] text-text-secondary font-semibold bg-[var(--color-bg-primary)]/60 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/30">
                 {match.videogame.name}
               </span>
             )}
+
+            {/* Tier */}
+            {match.tournament?.tier && (
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                match.tournament.tier.toLowerCase() === 's' ? 'bg-[var(--color-tier-s)]/10 text-[var(--color-tier-s)] border-[var(--color-tier-s)]/25' :
+                match.tournament.tier.toLowerCase() === 'a' ? 'bg-[var(--color-tier-a)]/10 text-[var(--color-tier-a)] border-[var(--color-tier-a)]/25' :
+                match.tournament.tier.toLowerCase() === 'b' ? 'bg-[var(--color-tier-b)]/10 text-[var(--color-tier-b)] border-[var(--color-tier-b)]/25' :
+                'bg-[var(--color-status-finished)]/10 text-text-muted border-[var(--color-status-finished)]/25'
+              }`}>
+                {t('tier_label')} {match.tournament.tier.toUpperCase()}
+              </span>
+            )}
+
+            {/* BO */}
+            {match.number_of_games && (
+              <span className="text-[10px] text-text-muted font-bold bg-[var(--color-bg-primary)]/40 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/20">
+                {t('bo_prefix')}{match.number_of_games}
+              </span>
+            )}
+
+            {/* Section */}
+            {match.section && (
+              <span className="text-[10px] text-text-secondary font-medium bg-[var(--color-bg-primary)]/40 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/20">
+                {match.section}
+              </span>
+            )}
+
             {/* Rescheduled */}
             {match.rescheduled && (
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                {t('badge_rescheduled')}
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-status-upcoming)] bg-[var(--color-status-upcoming)]/8 px-2.5 py-1 rounded-md border border-[var(--color-status-upcoming)]/20">
+                <RefreshCw className="w-2.5 h-2.5" />
+                {t('rescheduled')}
               </span>
             )}
           </div>
 
-          {/* Row 2: Team vs Team Matchup */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 mb-8">
-            {/* Home team */}
-            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-5 flex-1 justify-center md:justify-end">
-              <div className="text-center md:text-right order-2 md:order-1">
-                <p className="text-xl md:text-3xl font-black text-text-primary leading-tight">
+          {/* === MAIN SCOREBOARD === */}
+          <div className="flex items-center justify-center gap-4 md:gap-0 mb-6">
+
+            {/* HOME TEAM */}
+            <div className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5">
+              <div className="text-center md:text-right order-2 md:order-1 min-w-0">
+                <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
+                  isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                }`}>
                   {homeTeam?.name || '-'}
                 </p>
-                {homeTeam?.acronym && homeTeam.acronym !== homeTeam.name && (
-                  <p className="text-sm text-text-accent font-semibold">{homeTeam.acronym}</p>
-                )}
-                {homeTeam?.location && (
-                  <p className="text-xs text-text-muted mt-1">{homeTeam.location}</p>
+                {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
+                  <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
                 )}
               </div>
-              <div className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-bg-secondary border flex items-center justify-center overflow-hidden order-1 md:order-2 transition-colors ${isHomeWinnerOverall ? 'border-text-accent/50 shadow-lg shadow-text-accent/10' : 'border-border-primary'}`}>
-                {homeTeam?.image_url ? (
-                  <img src={homeTeam.image_url} alt={homeTeam.name} className="w-full h-full object-contain p-2" loading="lazy" />
-                ) : (
-                  <Trophy className="w-10 h-10 text-text-muted" />
-                )}
-              </div>
+              <TeamLogo team={homeTeam} highlight={isHomeWinner} />
             </div>
 
-            {/* Score */}
-            <div className="flex flex-col items-center gap-2 px-4 md:px-8 flex-shrink-0">
-              {match.status === 'finished' && homeScore !== undefined && awayScore !== undefined ? (
-                <>
-                  <div className="text-5xl md:text-7xl font-black tracking-tight">
-                    <span className={isHomeWinnerOverall ? 'text-text-accent' : 'text-text-primary'}>
-                      {homeScore}
+            {/* SCORE CENTER */}
+            <div className="flex flex-col items-center px-5 md:px-12 flex-shrink-0">
+              {isFinished && homeScore !== undefined && awayScore !== undefined ? (
+                <div className="flex items-baseline gap-3 md:gap-5">
+                  <span className={`text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight ${isHomeWinner ? 'text-accent' : 'text-text-primary/30'}`}>
+                    {homeScore}
+                  </span>
+                  <span className="text-xl md:text-2xl font-thin text-text-muted/30 select-none">:</span>
+                  <span className={`text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight ${isAwayWinner ? 'text-accent' : 'text-text-primary/30'}`}>
+                    {awayScore}
+                  </span>
+                </div>
+              ) : isLive ? (
+                <div className="flex flex-col items-center">
+                  <div className="flex items-baseline gap-3 md:gap-5">
+                    <span className="text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight text-accent">
+                      {homeScore ?? 0}
                     </span>
-                    <span className="text-text-muted mx-2 md:mx-4">:</span>
-                    <span className={isAwayWinnerOverall ? 'text-text-accent' : 'text-text-primary'}>
-                      {awayScore}
+                    <span className="text-xl md:text-2xl font-thin text-accent/30 select-none">:</span>
+                    <span className="text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight text-accent">
+                      {awayScore ?? 0}
                     </span>
                   </div>
-                  {match.winner && (
-                    <p className="text-xs text-text-accent font-semibold flex items-center gap-1">
-                      <Trophy className="w-3 h-3" />
-                      {match.winner.name || match.winner.acronym} {t('wins')}
-                    </p>
-                  )}
-                </>
-              ) : match.status === 'running' ? (
-                <>
-                  <div className="text-5xl md:text-7xl font-black tracking-tight">
-                    <span className="text-text-accent">{homeScore ?? 0}</span>
-                    <span className="text-text-muted mx-2 md:mx-4">:</span>
-                    <span className="text-text-accent">{awayScore ?? 0}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[var(--color-status-live)]">
-                    <span className="w-2.5 h-2.5 bg-[var(--color-status-live)] rounded-full animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-wider">{t('status_running')}</span>
-                  </div>
-                </>
+                </div>
               ) : (
-                <>
-                  <div className="text-4xl md:text-6xl font-black text-text-muted">VS</div>
-                  <p className="text-xs text-[var(--color-status-upcoming)] font-semibold">{t('status_upcoming')}</p>
-                </>
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl md:text-4xl lg:text-5xl font-black text-text-muted/20 tracking-[-0.05em] select-none">VS</span>
+                </div>
               )}
-              {match.number_of_games && (
-                <span className="text-xs text-text-muted bg-bg-tertiary/50 px-3 py-1 rounded-full mt-1">
-                  {t('bo_prefix')}{match.number_of_games}
-                </span>
+
+              {/* Winner label */}
+              {isFinished && match.winner && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Trophy className="w-3 h-3 text-accent" />
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-[0.15em]">
+                    {match.winner.name || match.winner.acronym} {t('wins')}
+                  </span>
+                </div>
+              )}
+
+              {/* Series progress dots */}
+              {match.games && match.games.length > 1 && (
+                <div className="flex items-center gap-1.5 mt-3">
+                  {match.games.map((game, idx) => {
+                    const w = parseGameWinner(game.winner);
+                    const isGHomeWin = w?.id === homeTeam?.id;
+                    const isGAwayWin = w?.id === awayTeam?.id;
+                    const isGameLive = game.status === 'running';
+                    return (
+                      <div
+                        key={idx}
+                        title={`Game ${game.position}`}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          isGameLive
+                            ? 'bg-[var(--color-status-live)] animate-pulse scale-125'
+                            : isGHomeWin
+                              ? 'bg-accent'
+                              : isGAwayWin
+                                ? 'bg-[var(--color-bg-tertiary)]'
+                                : 'border border-[var(--color-border-primary)]/50'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
               )}
             </div>
 
-            {/* Away team */}
-            <div className="flex flex-col md:flex-row-reverse items-center gap-3 md:gap-5 flex-1 justify-center md:justify-end">
-              <div className="text-center md:text-left order-2 md:order-1">
-                <p className="text-xl md:text-3xl font-black text-text-primary leading-tight">
+            {/* AWAY TEAM */}
+            <div className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5">
+              <TeamLogo team={awayTeam} highlight={isAwayWinner} />
+              <div className="text-center md:text-left min-w-0">
+                <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
+                  isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                }`}>
                   {awayTeam?.name || '-'}
                 </p>
-                {awayTeam?.acronym && awayTeam.acronym !== awayTeam.name && (
-                  <p className="text-sm text-text-accent font-semibold">{awayTeam.acronym}</p>
-                )}
-                {awayTeam?.location && (
-                  <p className="text-xs text-text-muted mt-1">{awayTeam.location}</p>
-                )}
-              </div>
-              <div className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl bg-bg-secondary border flex items-center justify-center overflow-hidden order-1 md:order-2 transition-colors ${isAwayWinnerOverall ? 'border-text-accent/50 shadow-lg shadow-text-accent/10' : 'border-border-primary'}`}>
-                {awayTeam?.image_url ? (
-                  <img src={awayTeam.image_url} alt={awayTeam.name} className="w-full h-full object-contain p-2" loading="lazy" />
-                ) : (
-                  <Trophy className="w-10 h-10 text-text-muted" />
+                {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
+                  <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Row 3: Context pills */}
-          <div className="flex items-center justify-center gap-2 flex-wrap text-xs">
-            {/* Tournament */}
+          {/* Context info bar */}
+          <div className="flex items-center justify-center gap-3 flex-wrap text-[11px] text-text-muted">
             {match.tournament?.name && (
-              <div className="flex items-center gap-2 bg-bg-secondary/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border-primary">
+              <div className="flex items-center gap-1.5">
                 {(match.tournament as any)?.icon_url && (
-                  <img src={(match.tournament as any).icon_url} alt="" className="w-4 h-4 object-contain" />
+                  <img src={proxyImageUrl((match.tournament as any).icon_url)} alt="" className="w-3.5 h-3.5 object-contain opacity-60" />
                 )}
-                <span className="text-text-muted">{t('info_tournament')}:</span>
-                <span className="text-text-primary font-medium">{match.tournament.name}</span>
+                <span className="text-text-secondary font-medium">{match.tournament.name}</span>
               </div>
             )}
-            {/* League */}
-            {match.league && (
-              <div className="flex items-center gap-2 bg-bg-secondary/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border-primary">
-                {match.league.image_url && (
-                  <img src={match.league.image_url} alt="" className="w-4 h-4 object-contain" />
-                )}
-                <span className="text-text-muted">{t('info_league')}:</span>
-                <span className="text-text-primary font-medium">{match.league.name}</span>
-              </div>
+            {match.league && match.league.name !== match.tournament?.name && (
+              <>
+                <ChevronRight className="w-3 h-3 text-border-primary/60" />
+                <div className="flex items-center gap-1.5">
+                  {match.league.image_url && (
+                    <img src={proxyImageUrl(match.league.image_url)} alt="" className="w-3.5 h-3.5 object-contain opacity-60 rounded-sm" />
+                  )}
+                  <span>{match.league.name}</span>
+                </div>
+              </>
             )}
-            {/* Region */}
             {match.tournament?.region && (
-              <div className="flex items-center gap-2 bg-bg-secondary/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border-primary">
-                <span className="text-text-muted">{t('info_region')}:</span>
-                <span className="text-text-primary font-medium">{match.tournament.region}</span>
-              </div>
+              <>
+                <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-accent/50" />
+                  <span>{match.tournament.region}</span>
+                </div>
+              </>
             )}
-            {/* Date / Time */}
+            {match.tournament?.prizepool && (
+              <>
+                <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
+                <div className="flex items-center gap-1">
+                  <DollarSign className="w-3 h-3 text-accent/50" />
+                  <span className="text-text-secondary font-medium">{match.tournament.prizepool}</span>
+                </div>
+              </>
+            )}
             {match.begin_at && (
-              <div className="flex items-center gap-2 bg-bg-secondary/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border-primary">
-                <Calendar className="w-3.5 h-3.5 text-text-accent" />
-                <span className="text-text-primary font-medium">{formatDate(match.begin_at)}</span>
-                <span className="text-text-muted">-</span>
-                <span className="text-text-primary font-medium">{formatTime(match.begin_at)}</span>
-              </div>
+              <>
+                <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-accent/50" />
+                  <span>{formatDate(match.begin_at)}</span>
+                  <span className="text-text-muted/40">/</span>
+                  <span>{formatTime(match.begin_at)}</span>
+                </div>
+              </>
             )}
-            {/* Serie */}
-            {match.serie?.full_name && (
-              <div className="flex items-center gap-2 bg-bg-secondary/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border-primary">
-                <span className="text-text-muted">{t('info_series')}:</span>
-                <span className="text-text-primary font-medium line-clamp-1">{match.serie.full_name}</span>
-              </div>
+            {match.rescheduled && match.original_scheduled_at && (
+              <>
+                <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
+                <div className="flex items-center gap-1 text-[var(--color-status-upcoming)]">
+                  <RefreshCw className="w-3 h-3" />
+                  <span className="line-through opacity-50">{formatDate(match.original_scheduled_at)} {formatTime(match.original_scheduled_at)}</span>
+                </div>
+              </>
             )}
           </div>
         </div>
+
+        {/* Bottom accent line */}
+        <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--color-border-primary)]/40 to-transparent" />
       </section>
 
-      {/* ============================================ */}
-      {/* MAIN CONTENT + AD COLUMN                     */}
-      {/* ============================================ */}
-      <main className="container mx-auto px-4 pb-12">
+      {/* ================================================================ */}
+      {/* MAIN CONTENT + AD COLUMN                                         */}
+      {/* ================================================================ */}
+      <main className="container mx-auto px-4 pb-16">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 space-y-10">
 
-            {/* ======================================= */}
-            {/* STATS STRIP                             */}
-            {/* ======================================= */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* Format */}
-              {match.number_of_games && (
-                <div className="bg-bg-secondary rounded-xl p-4 border border-border-primary text-center">
-                  <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('stat_format')}</p>
-                  <p className="text-2xl font-black text-text-accent">BO{match.number_of_games}</p>
-                </div>
-              )}
-              {/* Games Played */}
-              {match.games && match.games.length > 0 && (
-                <div className="bg-bg-secondary rounded-xl p-4 border border-border-primary text-center">
-                  <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('stat_games_played')}</p>
-                  <p className="text-2xl font-black text-text-primary">
-                    {match.games.filter(g => g.finished).length}
-                    <span className="text-text-muted text-sm font-normal"> / {match.number_of_games}</span>
-                  </p>
-                </div>
-              )}
-              {/* Winner */}
-              {match.winner && (
-                <div className="bg-bg-secondary rounded-xl p-4 border border-border-primary text-center">
-                  <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('stat_winner')}</p>
-                  <p className="text-lg font-black text-text-accent truncate">{match.winner.acronym || match.winner.name}</p>
-                </div>
-              )}
-              {/* Total Duration */}
-              {match.games && match.games.some(g => g.length) && (
-                <div className="bg-bg-secondary rounded-xl p-4 border border-border-primary text-center">
-                  <p className="text-text-muted text-xs uppercase tracking-wider mb-1">{t('stat_total_duration')}</p>
-                  <p className="text-2xl font-black text-text-primary">
-                    {formatDuration(match.games.reduce((acc, g) => acc + (g.length || 0), 0))}
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* ======================================= */}
-            {/* GAME / MAP BREAKDOWN                    */}
-            {/* ======================================= */}
+            {/* ============================================================ */}
+            {/* GAME-BY-GAME RESULTS                                         */}
+            {/* ============================================================ */}
             {match.games && match.games.length > 0 && (
               <section>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-text-accent to-text-accent rounded-lg flex items-center justify-center shadow-lg shadow-text-accent/20">
-                    <Gamepad2 className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-text-primary">{t('section_game_details')}</h2>
-                </div>
+                <SectionHeader
+                  icon={Gamepad2}
+                  title={t('section_game_details')}
+                  extra={match.number_of_games ? (
+                    <span className="text-[10px] text-text-muted font-mono tracking-wide">
+                      {match.games.filter(g => g.finished).length}/{match.number_of_games} {t('stat_games_played')}
+                    </span>
+                  ) : undefined}
+                />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {match.games.map((game) => {
+                <div className="rounded-xl border border-[var(--color-border-primary)]/30 overflow-hidden bg-[var(--color-bg-secondary)]/40">
+                  {match.games.map((game, idx) => {
                     const winnerData = parseGameWinner(game.winner);
                     const gameWinnerTeam = winnerData?.id
                       ? match.opponents?.find(o => o.opponent?.id === winnerData.id)?.opponent
                       : null;
                     const isHomeWin = gameWinnerTeam?.id === homeTeam?.id;
                     const isAwayWin = gameWinnerTeam?.id === awayTeam?.id;
+                    const isGameLive = game.status === 'running';
+                    const isGameFinished = game.finished;
+                    const isLast = idx === match.games!.length - 1;
 
                     return (
-                      <div key={game.id} className="bg-bg-secondary rounded-xl border border-border-primary overflow-hidden">
-                        {/* Game header */}
-                        <div className={`px-4 py-2.5 flex items-center justify-between ${
-                          game.finished ? 'bg-green-500/5' :
-                          game.status === 'running' ? 'bg-[var(--color-status-live)]/5' :
-                          'bg-bg-tertiary/20'
+                      <div
+                        key={game.id}
+                        className={`flex items-center gap-3 px-4 md:px-5 py-3 transition-colors hover:bg-[var(--color-bg-hover)] ${
+                          !isLast ? 'border-b border-[var(--color-border-primary)]/15' : ''
+                        } ${isGameLive ? 'border-l-2 border-l-[var(--color-status-live)] bg-[var(--color-status-live)]/[0.03]' : 'border-l-2 border-l-transparent'}`}
+                      >
+                        {/* Game badge */}
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                          isGameLive
+                            ? 'bg-[var(--color-status-live)]/12 text-[var(--color-status-live)] ring-1 ring-[var(--color-status-live)]/25'
+                            : isGameFinished
+                              ? 'bg-[var(--color-bg-primary)]/60 text-text-primary/70 ring-1 ring-[var(--color-border-primary)]/30'
+                              : 'bg-[var(--color-bg-primary)]/30 text-text-muted/50 ring-1 ring-[var(--color-border-primary)]/15'
                         }`}>
-                          <span className="text-sm font-bold text-text-primary">
-                            {t('game_label')} {game.position}
-                          </span>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            game.finished ? 'bg-green-500/15 text-green-400' :
-                            game.status === 'running' ? 'bg-[var(--color-status-live)]/15 text-[var(--color-status-live)]' :
-                            'bg-text-muted/15 text-text-muted'
-                          }`}>
-                            {t(game.finished ? 'game_status_finished' : game.status === 'running' ? 'game_status_running' : 'game_status_upcoming')}
-                          </span>
+                          {game.position}
                         </div>
 
-                        {/* Game body: mini matchup */}
-                        <div className="p-4 flex items-center justify-between gap-3">
-                          {/* Home */}
-                          <div className={`flex items-center gap-2 flex-1 min-w-0 ${isHomeWin ? 'opacity-100' : game.finished ? 'opacity-40' : 'opacity-80'}`}>
-                            {homeTeam?.image_url && (
-                              <img src={homeTeam.image_url} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
-                            )}
-                            <span className={`text-sm font-semibold truncate ${isHomeWin ? 'text-text-accent' : 'text-text-primary'}`}>
-                              {homeTeam?.acronym || homeTeam?.name}
-                            </span>
-                          </div>
-
-                          {/* Winner indicator */}
-                          {gameWinnerTeam ? (
-                            <Trophy className="w-4 h-4 text-text-accent flex-shrink-0" />
-                          ) : (
-                            <span className="text-text-muted text-sm flex-shrink-0">-</span>
+                        {/* Home side */}
+                        <div className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
+                          {homeTeam?.image_url && (
+                            <img src={proxyImageUrl(homeTeam.image_url)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
                           )}
-
-                          {/* Away */}
-                          <div className={`flex items-center gap-2 flex-1 justify-end min-w-0 ${isAwayWin ? 'opacity-100' : game.finished ? 'opacity-40' : 'opacity-80'}`}>
-                            <span className={`text-sm font-semibold truncate text-right ${isAwayWin ? 'text-text-accent' : 'text-text-primary'}`}>
-                              {awayTeam?.acronym || awayTeam?.name}
-                            </span>
-                            {awayTeam?.image_url && (
-                              <img src={awayTeam.image_url} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
-                            )}
-                          </div>
+                          <span className={`text-sm font-semibold truncate ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
+                            {homeTeam?.acronym || homeTeam?.name || '-'}
+                          </span>
                         </div>
 
-                        {/* Game footer */}
-                        <div className="px-4 py-2 border-t border-border-primary/50 flex items-center justify-between text-xs text-text-muted">
-                          <span>{game.begin_at ? formatTime(game.begin_at) : '-'}</span>
-                          {game.length ? <span>{formatDuration(game.length)}</span> : null}
-                          {game.forfeit && (
-                            <span className="text-orange-400 font-semibold">{t('game_forfeit')}</span>
+                        {/* Center indicator */}
+                        <div className="flex-shrink-0 w-8 flex items-center justify-center">
+                          {isGameLive ? (
+                            <span className="w-2 h-2 bg-[var(--color-status-live)] rounded-full animate-pulse" />
+                          ) : gameWinnerTeam ? (
+                            <Trophy className="w-3.5 h-3.5 text-accent" />
+                          ) : (
+                            <span className="w-3 h-px bg-[var(--color-border-primary)]/40" />
+                          )}
+                        </div>
+
+                        {/* Away side */}
+                        <div className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
+                          <span className={`text-sm font-semibold truncate text-right ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
+                            {awayTeam?.acronym || awayTeam?.name || '-'}
+                          </span>
+                          {awayTeam?.image_url && (
+                            <img src={proxyImageUrl(awayTeam.image_url)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                          )}
+                        </div>
+
+                        {/* Duration / Status */}
+                        <div className="flex-shrink-0 w-14 text-right">
+                          {isGameLive ? (
+                            <span className="text-[10px] font-bold text-[var(--color-status-live)] uppercase tracking-wider">{t('game_status_running')}</span>
+                          ) : game.length ? (
+                            <span className="text-[10px] text-text-muted font-mono">{formatDuration(game.length)}</span>
+                          ) : isGameFinished ? (
+                            <span className="text-[10px] text-text-muted">{t('game_status_finished')}</span>
+                          ) : (
+                            <span className="text-[10px] text-text-muted/30">—</span>
                           )}
                         </div>
                       </div>
@@ -561,199 +639,201 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
               </section>
             )}
 
-            {/* ======================================= */}
-            {/* STREAMING                               */}
-            {/* ======================================= */}
+            {/* ============================================================ */}
+            {/* STREAMING                                                    */}
+            {/* ============================================================ */}
             {sortedStreams.length > 0 && (
               <section>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-text-accent to-text-accent rounded-lg flex items-center justify-center shadow-lg shadow-text-accent/20">
-                    <Radio className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-text-primary">{t('section_streaming')}</h2>
-                  {match.status === 'running' && (
-                    <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-status-live)] font-semibold">
-                      <span className="w-2 h-2 bg-[var(--color-status-live)] rounded-full animate-pulse" />
+                <SectionHeader
+                  icon={Tv}
+                  title={t('section_streaming')}
+                  extra={isLive ? (
+                    <span className="flex items-center gap-1.5 text-[10px] text-[var(--color-status-live)] font-bold uppercase tracking-[0.15em]">
+                      <span className="w-1.5 h-1.5 bg-[var(--color-status-live)] rounded-full animate-pulse" />
                       {t('stream_live_now')}
                     </span>
-                  )}
-                </div>
+                  ) : undefined}
+                />
 
                 {/* Embedded player */}
                 {(isTwitch || isYoutube) && selectedStream && (
-                  <div className="relative w-full bg-black rounded-2xl overflow-hidden border border-border-primary shadow-2xl shadow-black/50 mb-4">
-                    <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                  <div className="relative w-full rounded-xl overflow-hidden border border-[var(--color-border-primary)]/30 mb-4 group transition-all duration-300 hover:border-[var(--color-accent)]/15">
+                    <div className="relative bg-black rounded-xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
                       {isTwitch ? (
                         <iframe
                           src={`https://player.twitch.tv/?channel=${getTwitchChannel(selectedStream.raw_url)}&parent=${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}`}
-                          height="100%"
-                          width="100%"
-                          allowFullScreen
-                          className="absolute top-0 left-0 w-full h-full"
+                          height="100%" width="100%" allowFullScreen
+                          className="absolute inset-0 w-full h-full"
                           allow="autoplay"
                         />
                       ) : isYoutube ? (
                         <iframe
-                          width="100%"
-                          height="100%"
+                          width="100%" height="100%"
                           src={`https://www.youtube.com/embed/${getYoutubeId(selectedStream.raw_url)}`}
                           title="YouTube video player"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                           allowFullScreen
-                          className="absolute top-0 left-0 w-full h-full border-none"
+                          className="absolute inset-0 w-full h-full border-none"
                         />
                       ) : null}
                     </div>
                   </div>
                 )}
 
-                {/* Stream selector pills */}
+                {/* Stream selector */}
                 <div className="flex flex-wrap gap-2">
-                  {sortedStreams.map((stream, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedStreamIdx(idx)}
-                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-accent ${
-                        selectedStreamIdx === idx
-                          ? 'bg-text-accent/15 border-text-accent/50 text-text-accent'
-                          : 'bg-bg-secondary border-border-primary text-text-secondary hover:border-text-accent/30 hover:text-text-primary'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        stream.official ? 'bg-text-accent' :
-                        stream.main ? 'bg-[var(--color-status-live)]' :
-                        'bg-text-muted'
-                      } ${(stream.official || stream.main) ? 'animate-pulse' : ''}`} />
-                      <span>
-                        {stream.official ? t('stream_official') + ' ' : ''}
-                        {stream.main && !stream.official ? t('stream_main') + ' ' : ''}
-                        {stream.language?.toUpperCase() || ''}
-                      </span>
-                      <span className="text-text-muted text-xs">
-                        {stream.raw_url?.includes('twitch') ? 'Twitch' :
-                         stream.raw_url?.includes('youtube') ? 'YouTube' :
-                         t('stream_fallback')}
-                      </span>
-                      {selectedStreamIdx === idx && (
-                        <Play className="w-3 h-3 text-text-accent fill-text-accent" />
-                      )}
-                    </button>
-                  ))}
+                  {sortedStreams.map((stream, idx) => {
+                    const platform = stream.raw_url?.includes('twitch') ? 'Twitch' :
+                                     stream.raw_url?.includes('youtube') ? 'YouTube' :
+                                     t('stream_fallback');
+                    const isSelected = selectedStreamIdx === idx;
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedStreamIdx(idx)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-200 border cursor-pointer ${
+                          isSelected
+                            ? 'bg-accent/10 border-accent/30 text-accent'
+                            : 'bg-[var(--color-bg-secondary)]/50 border-[var(--color-border-primary)]/25 text-text-secondary hover:border-accent/15 hover:text-text-primary'
+                        }`}
+                      >
+                        {isSelected && <Play className="w-3 h-3 fill-current" />}
+                        <span>{stream.official ? t('stream_official') : stream.main ? t('stream_main') : ''} {platform}</span>
+                        {stream.language && (
+                          <span className="text-[9px] text-text-muted uppercase tracking-wider opacity-60 ml-0.5">{stream.language}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Fallback external link */}
                 {(!isTwitch && !isYoutube) && selectedStream && (
                   <a
                     href={selectedStream.raw_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 mt-4 bg-gradient-to-r from-text-accent to-text-accent/80 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-accent text-white rounded-lg text-xs font-bold hover:bg-[var(--color-accent-hover)] transition-colors"
                   >
-                    <ExternalLink className="w-5 h-5" />
+                    <ExternalLink className="w-3.5 h-3.5" />
                     {t('stream_link_text')} {selectedStream.raw_url.split('/')[2]}
                   </a>
                 )}
               </section>
             )}
 
-            {/* ======================================= */}
-            {/* TEAM ROSTERS                            */}
-            {/* ======================================= */}
+            {/* ============================================================ */}
+            {/* TEAM ROSTERS                                                 */}
+            {/* ============================================================ */}
             {match.opponents && match.opponents.length === 2 && teamsData.length > 0 && (
               <section>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-text-accent to-text-accent rounded-lg flex items-center justify-center shadow-lg shadow-text-accent/20">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-text-primary">{t('section_teams_rosters')}</h2>
-                </div>
+                <SectionHeader icon={Users} title={t('section_teams_rosters')} />
 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-5 lg:grid-cols-2">
                   {teamsData.map((teamDetail: any) => {
-                    const players: PandaPlayer[] = teamDetail.players || [];
+                    const allPlayers: PandaPlayer[] = teamDetail.players || [];
+                    const activePlayers = allPlayers.filter(p => !p.role?.toLowerCase().includes('coach'));
+                    const coaches = allPlayers.filter(p => p.role?.toLowerCase().includes('coach'));
+                    const isWinnerTeam = match.winner_id === teamDetail.id;
 
                     return (
-                      <div key={teamDetail.id} className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
+                      <div key={teamDetail.id} className={`rounded-xl border overflow-hidden transition-colors ${
+                        isWinnerTeam
+                          ? 'border-[var(--color-accent)]/25 bg-[var(--color-bg-secondary)]/50'
+                          : 'border-[var(--color-border-primary)]/25 bg-[var(--color-bg-secondary)]/40'
+                      }`}>
                         {/* Team header */}
-                        <div className="p-4 border-b border-border-primary/50 bg-bg-tertiary/15 flex items-center gap-4">
-                          <div className="w-14 h-14 rounded-xl bg-bg-primary border border-border-primary flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <div className="px-4 py-3 flex items-center gap-3 border-b border-[var(--color-border-primary)]/15">
+                          <div className="w-9 h-9 rounded-lg bg-[var(--color-bg-primary)]/80 border border-[var(--color-border-primary)]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
                             {teamDetail.image_url ? (
-                              <img src={teamDetail.image_url} alt={teamDetail.name} className="w-full h-full object-contain p-1.5" loading="lazy" />
+                              <img src={proxyImageUrl(teamDetail.image_url)} alt={teamDetail.name} className="w-6 h-6 object-contain" loading="lazy" />
                             ) : (
-                              <Trophy className="w-7 h-7 text-text-muted" />
+                              <Shield className="w-4 h-4 text-text-muted/50" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-text-primary truncate">{teamDetail.name}</h3>
-                            <div className="flex items-center gap-2 text-xs text-text-secondary flex-wrap">
-                              {teamDetail.acronym && (
-                                <span className="text-text-accent font-semibold">{teamDetail.acronym}</span>
-                              )}
-                              {teamDetail.location && (
-                                <>
-                                  <span className="text-text-muted">-</span>
-                                  <span>{teamDetail.location}</span>
-                                </>
-                              )}
-                              <span className="text-text-muted">-</span>
-                              <span>{players.length} {players.length > 1 ? t('player_plural') : t('player_singular')}</span>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="text-sm font-bold text-text-primary truncate">{teamDetail.name}</h3>
+                              {isWinnerTeam && <Trophy className="w-3 h-3 text-accent flex-shrink-0" />}
                             </div>
+                            <p className="text-[10px] text-text-muted">
+                              {allPlayers.length} {allPlayers.length > 1 ? t('player_plural') : t('player_singular')}
+                            </p>
                           </div>
                         </div>
 
                         {/* Players */}
-                        <div className="p-4">
-                          {players.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {players.map((player) => (
+                        <div className="p-2.5">
+                          {activePlayers.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {activePlayers.map((player) => (
                                 <div
                                   key={player.id}
-                                  className={`group/p relative rounded-xl overflow-hidden border transition-colors ${
-                                    player.active !== false
-                                      ? 'border-border-primary hover:border-text-accent/30'
-                                      : 'border-border-primary/50 opacity-60'
-                                  }`}
+                                  className="group/player flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[var(--color-bg-hover)] transition-colors"
                                 >
-                                  {/* Avatar */}
-                                  <div className="aspect-square bg-bg-primary flex items-center justify-center overflow-hidden relative">
+                                  {/* Circular avatar */}
+                                  <div className="w-8 h-8 rounded-full bg-[var(--color-bg-primary)]/80 ring-1 ring-[var(--color-border-primary)]/30 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/player:ring-accent/20 transition-all">
                                     {player.image_url ? (
-                                      <img
-                                        src={player.image_url}
-                                        alt={player.name}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                      />
+                                      <img src={proxyImageUrl(player.image_url)} alt={player.name} className="w-full h-full object-cover" loading="lazy" />
                                     ) : (
-                                      <div className="text-2xl font-bold text-text-muted">
-                                        {player.name.charAt(0).toUpperCase()}
-                                      </div>
-                                    )}
-                                    {/* Hover overlay */}
-                                    {player.role && (
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/p:opacity-100 transition-opacity flex items-end justify-center pb-3">
-                                        <span className="text-xs font-bold text-text-accent">{player.role}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Info */}
-                                  <div className="p-2 text-center bg-bg-secondary">
-                                    <p className="text-xs font-bold text-text-primary truncate">{player.name}</p>
-                                    {player.nationality && (
-                                      <p className="text-xs text-text-muted truncate">{player.nationality}</p>
-                                    )}
-                                    {player.role && (
-                                      <span className="inline-block mt-1 text-xs text-text-accent bg-text-accent/10 px-2 py-0.5 rounded-full">
-                                        {player.role}
+                                      <span className="text-[10px] font-bold text-text-muted/60">
+                                        {player.name.slice(0, 2).toUpperCase()}
                                       </span>
                                     )}
                                   </div>
+                                  {/* Name */}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-text-primary truncate">{player.name}</p>
+                                    {player.nationality && (
+                                      <p className="text-[10px] text-text-muted/70 truncate">{player.nationality}</p>
+                                    )}
+                                  </div>
+                                  {/* Role badge */}
+                                  {player.role && (
+                                    <span className={`text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border flex-shrink-0 ${getRoleBadgeStyle(player.role)}`}>
+                                      {player.role}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           ) : (
                             <div className="text-center py-6">
-                              <Trophy className="w-8 h-8 text-text-muted mx-auto mb-2" />
-                              <p className="text-text-secondary text-sm">{t('empty_no_players')}</p>
+                              <Shield className="w-5 h-5 text-border-primary/50 mx-auto mb-1.5" />
+                              <p className="text-text-muted text-[10px]">{t('empty_no_players')}</p>
+                            </div>
+                          )}
+
+                          {/* Coaches separator */}
+                          {coaches.length > 0 && activePlayers.length > 0 && (
+                            <div className="mx-3 my-2 h-px bg-[var(--color-border-primary)]/15" />
+                          )}
+
+                          {/* Coaches */}
+                          {coaches.length > 0 && (
+                            <div className="space-y-0.5">
+                              {coaches.map((player) => (
+                                <div
+                                  key={player.id}
+                                  className="group/player flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[var(--color-bg-hover)] transition-colors"
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-[var(--color-bg-primary)]/80 ring-1 ring-[var(--color-border-primary)]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {player.image_url ? (
+                                      <img src={proxyImageUrl(player.image_url)} alt={player.name} className="w-full h-full object-cover" loading="lazy" />
+                                    ) : (
+                                      <span className="text-[10px] font-bold text-text-muted/60">
+                                        {player.name.slice(0, 2).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-text-primary truncate">{player.name}</p>
+                                  </div>
+                                  <span className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border text-amber-400 bg-amber-500/10 border-amber-500/25 flex-shrink-0">
+                                    {player.role}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -764,43 +844,35 @@ export default function MatchDetailPageClient({ matchId, wiki }: MatchDetailPage
               </section>
             )}
 
-            {/* ======================================= */}
-            {/* MATCH INFO FOOTER                       */}
-            {/* ======================================= */}
+            {/* ============================================================ */}
+            {/* MATCH DETAILS                                                */}
+            {/* ============================================================ */}
             <section>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-text-accent to-text-accent rounded-lg flex items-center justify-center shadow-lg shadow-text-accent/20">
-                  <Info className="w-5 h-5 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-text-primary">{t('section_match_info')}</h2>
-              </div>
+              <SectionHeader icon={Info} title={t('section_match_info')} />
 
-              <div className="bg-bg-secondary rounded-2xl border border-border-primary divide-y divide-border-primary/50 overflow-hidden">
-                <InfoRow label={t('info_match_id')} value={String(match.id)} />
-                {(match as any).match2id && (
-                  <InfoRow label={t('info_match2id')} value={(match as any).match2id} />
-                )}
-                {match.slug && (
-                  <InfoRow label={t('info_slug')} value={match.slug} />
-                )}
-                {match.match_type && (
-                  <InfoRow label={t('info_match_type')} value={match.match_type} />
-                )}
-                {match.scheduled_at && (
-                  <InfoRow label={t('info_scheduled_at')} value={`${formatDate(match.scheduled_at)} ${formatTime(match.scheduled_at)}`} />
-                )}
-                {match.end_at && (
-                  <InfoRow label={t('info_end_at')} value={`${formatDate(match.end_at)} ${formatTime(match.end_at)}`} />
-                )}
-                {(match as any).wiki && (
-                  <InfoRow label={t('info_wiki')} value={(match as any).wiki} />
-                )}
-                {match.live?.supported !== undefined && (
-                  <InfoRow label={t('info_live_supported')} value={match.live.supported ? t('yes') : t('no')} />
-                )}
-                {match.live?.opens_at && (
-                  <InfoRow label={t('info_live_opens_at')} value={match.live.opens_at} />
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  { label: t('info_match_id'), value: String(match.id) },
+                  match.match2id ? { label: t('info_match2id'), value: match.match2id } : null,
+                  match.slug ? { label: t('info_slug'), value: match.slug } : null,
+                  match.match_type ? { label: t('info_match_type'), value: match.match_type } : null,
+                  match.section ? { label: t('info_section'), value: match.section } : null,
+                  match.tournament?.region ? { label: t('info_region'), value: match.tournament.region } : null,
+                  match.tournament?.prizepool ? { label: t('info_prizepool'), value: match.tournament.prizepool } : null,
+                  match.scheduled_at ? { label: t('info_scheduled_at'), value: `${formatDate(match.scheduled_at)} ${formatTime(match.scheduled_at)}` } : null,
+                  match.rescheduled && match.original_scheduled_at ? { label: t('info_original_date'), value: `${formatDate(match.original_scheduled_at)} ${formatTime(match.original_scheduled_at)}` } : null,
+                  match.end_at ? { label: t('info_end_at'), value: `${formatDate(match.end_at)} ${formatTime(match.end_at)}` } : null,
+                  match.wiki ? { label: t('info_wiki'), value: match.wiki } : null,
+                  match.live?.supported !== undefined ? { label: t('info_live_supported'), value: match.live.supported ? t('yes') : t('no') } : null,
+                ].filter(Boolean).map((row, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-[var(--color-bg-secondary)]/40 border border-[var(--color-border-primary)]/15 hover:border-[var(--color-border-primary)]/30 transition-colors"
+                  >
+                    <span className="text-[10px] text-text-muted uppercase tracking-wider font-semibold flex-shrink-0">{row!.label}</span>
+                    <span className="text-xs text-text-primary font-medium text-right truncate font-mono">{row!.value}</span>
+                  </div>
+                ))}
               </div>
             </section>
 
