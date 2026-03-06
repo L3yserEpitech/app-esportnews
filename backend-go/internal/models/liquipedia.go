@@ -32,7 +32,7 @@ var GameWikiMapping = map[string]string{
 	"codmw":        "callofduty",
 	"r6siege":      "rainbowsix",
 	"ow":           "overwatch",
-	"fifa":         "fifa",
+	"fifa":         "easportsfc",
 	"lol-wild-rift": "wildrift",
 }
 
