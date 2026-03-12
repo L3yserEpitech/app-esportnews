@@ -11,7 +11,9 @@ import {
 import { teamService, EnrichedTeamDetail, Team, Player, TeamMatchesResponse, TeamPlacement } from '../../services/teamService';
 import { proxyImageUrl } from '../../lib/imageProxy';
 import TournamentMatchCard from '../../components/tournaments/TournamentMatchCard';
-import { PandaMatch } from '../../types';
+import AdColumn from '../../components/ads/AdColumn';
+import { PandaMatch, Advertisement } from '../../types';
+import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface TeamDetailPageClientProps {
@@ -178,6 +180,16 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFormer, setShowFormer] = useState(false);
+  const [ads, setAds] = useState<Advertisement[]>([]);
+  const [isLoadingAds, setIsLoadingAds] = useState(true);
+
+  // ── Load ads ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    advertisementService.getActiveAdvertisements()
+      .then(setAds)
+      .catch(() => {})
+      .finally(() => setIsLoadingAds(false));
+  }, []);
 
   // ── Load team ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -278,7 +290,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
     const loadPlacements = async () => {
       setPlacementsLoading(true);
       try {
-        const data = await teamService.getTeamPlacements(team.id, resolvedWiki, team.name, 20);
+        const data = await teamService.getTeamPlacements(team.id, resolvedWiki, team.name, 50);
         setPlacements(data.placements || []);
       } catch (err) {
         console.error('[TeamPlacements] Error:', err);
@@ -342,6 +354,8 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
         .filter(({ url }) => !!url) as { key: string; url: string }[]
     : [];
 
+  const podiums = placements.filter(p => { const n = parseInt(p.placement); return !isNaN(n) && n <= 3; }).slice(0, 5);
+
   return (
     <>
       <style>{`
@@ -360,8 +374,8 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
         {/* ════════════════════════════════ HERO ════════════════════════════════ */}
         <div className="relative overflow-hidden border-b border-[var(--color-border-primary)]/40 bg-[var(--color-bg-primary)]">
 
-          {/* Ambient glows — subtle, theme-neutral via low opacity */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Ambient glows — hidden on mobile */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden hidden md:block">
             <div
               className="absolute -top-28 -left-28 w-96 h-96 rounded-full blur-[100px]"
               style={{ background: 'var(--color-bg-tertiary)', animation: 'ambientPulse 6s ease-in-out infinite' }}
@@ -375,7 +389,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
           <div className="relative max-w-6xl mx-auto px-4 py-8 md:py-12">
 
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-1.5 text-xs mb-8 text-[var(--color-text-muted)]">
+            <nav className="hidden sm:flex items-center gap-1.5 text-xs mb-8 text-[var(--color-text-muted)]">
               <Link href="/" className="hover:text-[var(--color-text-primary)] transition-colors">Accueil</Link>
               <span>/</span>
               <Link href="/match" className="hover:text-[var(--color-text-primary)] transition-colors">Matchs</Link>
@@ -383,16 +397,15 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
               <span className="text-[var(--color-text-secondary)] truncate max-w-48">{team.name}</span>
             </nav>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 md:gap-10">
+            <div className="flex flex-col items-center text-center sm:text-left sm:flex-row sm:items-center gap-5 md:gap-10">
 
               {/* Logo */}
               <div className="relative flex-shrink-0">
                 <div
-                  className="w-24 h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50"
-                  style={{ boxShadow: '0 0 40px rgba(242,46,98,0.1)' }}
+                  className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50"
                 >
                   {pickThemeLogo(isDark, team.image_url, team.dark_mode_image_url) ? (
-                    <img src={proxyImageUrl(pickThemeLogo(isDark, team.image_url, team.dark_mode_image_url)!)} alt={team.name} className="w-16 h-16 md:w-20 md:h-20 object-contain" />
+                    <img src={proxyImageUrl(pickThemeLogo(isDark, team.image_url, team.dark_mode_image_url)!)} alt={team.name} className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain" />
                   ) : (
                     <Shield className="w-10 h-10 text-[var(--color-text-muted)]" />
                   )}
@@ -407,10 +420,10 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
 
               {/* Team info */}
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-3 mb-3">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-3">
                   <h1
                     className="font-black text-[var(--color-text-primary)] leading-none"
-                    style={{ fontSize: 'clamp(1.75rem, 4.5vw, 2.75rem)', letterSpacing: '-0.035em' }}
+                    style={{ fontSize: 'clamp(1.5rem, 4.5vw, 2.75rem)', letterSpacing: '-0.035em' }}
                   >
                     {team.name}
                   </h1>
@@ -430,7 +443,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                 </div>
 
                 {/* Meta pills */}
-                <div className="flex flex-wrap gap-3 md:gap-5 text-sm">
+                <div className="flex flex-wrap justify-center sm:justify-start gap-3 md:gap-5 text-sm">
                   {(enrichedTeam.region || team.location) && (
                     <div className="flex items-center gap-1.5 text-[var(--color-text-secondary)]">
                       <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#F22E62' }} />
@@ -467,7 +480,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
 
                 {/* Social links */}
                 {socialLinks.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-4">
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-4">
                     {socialLinks.map(({ key, url }) => (
                       <a
                         key={key}
@@ -489,7 +502,9 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
         </div>
 
         {/* ════════════════════════════════ CONTENT ════════════════════════════ */}
-        <div className="max-w-6xl mx-auto px-4 py-10 space-y-12">
+        <div className="container mx-auto px-4 py-10">
+          <div className="flex gap-8">
+          <div className="flex-1 min-w-0 space-y-12">
 
           {/* ── ROSTER ── */}
           <section>
@@ -559,21 +574,30 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
             )}
           </section>
 
-          {/* ── PLACEMENTS ── */}
-          {(placementsLoading || placements.length > 0) && (
+          {/* ── PLACEMENTS (top 3 only) ── */}
+          {(placementsLoading || podiums.length > 0) && (
             <section>
-              <div className="mb-5">
+              <div className="flex items-center justify-between mb-5">
                 <SectionTitle
                   label={t('placements')}
-                  count={placements.length || undefined}
+                  count={podiums.length || undefined}
                   accentColor="#fbbf24"
                 />
+                <Link
+                  href={`/equipe/${encodeURIComponent(teamId)}/resultats?${new URLSearchParams({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki || '', name: team?.name || '', ...(team && 'acronym' in team && (team as any).acronym ? { acronym: (team as any).acronym } : {}), ...(team && 'image_url' in team && (team as any).image_url ? { logo: (team as any).image_url } : {}) }).toString()}`}
+                  className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                >
+                  <span className="hidden sm:inline">{t('see_all_results_short')}</span>
+                  <span className="sm:hidden">{t('see_all_short')}</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
               </div>
               {placementsLoading ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#fbbf24' }} />
                 </div>
               ) : (
+                <>
                 <div className="rounded-xl overflow-hidden border border-[var(--color-border-primary)]/30 bg-[var(--color-bg-secondary)]">
                   {/* Header */}
                   <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 items-center px-4 py-2 border-b border-[var(--color-border-primary)]/30 bg-[var(--color-bg-primary)]/50">
@@ -584,7 +608,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                     <span className="w-20 text-right text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Date</span>
                   </div>
                   {/* Rows */}
-                  {placements.map((p, i) => {
+                  {podiums.map((p, i) => {
                     const isTop3 = p.placement === '1' || p.placement === '2' || p.placement === '3';
                     const placementColor = p.placement === '1' ? '#fbbf24' : p.placement === '2' ? '#94a3b8' : p.placement === '3' ? '#cd7f32' : 'var(--color-text-secondary)';
                     const dateFormatted = p.date ? (() => {
@@ -675,6 +699,8 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                     );
                   })}
                 </div>
+
+                </>
               )}
             </section>
           )}
@@ -737,6 +763,10 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
             </section>
           </div>
 
+          </div>{/* end flex-1 */}
+
+          <AdColumn ads={ads} isLoading={isLoadingAds} />
+          </div>{/* end flex */}
         </div>
       </div>
     </>

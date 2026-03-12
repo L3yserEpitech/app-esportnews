@@ -562,7 +562,18 @@
       "links": "Links",
       "status_active": "Aktiv",
       "view_team": "Team ansehen",
-      "placements": "Turnierergebnisse"
+      "placements": "Turnierergebnisse",
+      "see_all_results": "Alle Ergebnisse anzeigen ({count})",
+      "all_results_title": "Alle Turnierergebnisse",
+      "col_place": "Platz",
+      "col_tournament": "Turnier",
+      "col_tier": "Tier",
+      "col_earnings": "Einnahmen",
+      "col_date": "Datum",
+      "total_earnings": "Gesamteinnahmen",
+      "total_tournaments": "Turniere",
+      "see_all_results_short": "Alle Ergebnisse anzeigen",
+      "see_all_short": "Alle"
     }
   }
 }

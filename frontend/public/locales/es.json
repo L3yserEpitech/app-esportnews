@@ -560,7 +560,18 @@
       "links": "Enlaces",
       "status_active": "Activo",
       "view_team": "Ver equipo",
-      "placements": "Resultados en torneos"
+      "placements": "Resultados en torneos",
+      "see_all_results": "Ver todos los resultados ({count})",
+      "all_results_title": "Todos los resultados en torneos",
+      "col_place": "Puesto",
+      "col_tournament": "Torneo",
+      "col_tier": "Tier",
+      "col_earnings": "Ganancias",
+      "col_date": "Fecha",
+      "total_earnings": "Ganancias totales",
+      "total_tournaments": "Torneos",
+      "see_all_results_short": "Ver todos los resultados",
+      "see_all_short": "Ver todo"
     }
   }
 }

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -18,13 +17,13 @@ import (
 const (
 	proxyUserAgent     = "EsportNews/1.0 (contact@esportnews.fr)"
 	proxyMaxBytes      = 5 * 1024 * 1024 // 5 MB max
-	proxyCacheSecs     = 86400           // 24h browser cache
+	proxyCacheSecs     = 604800          // 7 days browser cache — logos rarely change
 	proxyTimeout       = 10 * time.Second
-	maxConcurrentProxy = 2               // max concurrent outbound image fetches
+	maxConcurrentProxy = 50              // tournament/match pages load 30-60 logos at once
 	memoryCacheMaxSize = 500             // max images to keep in memory cache
 	throttleBackoff    = 10 * time.Second // backoff when upstream returns 429
-	fetchInterval      = 200 * time.Millisecond // min delay between upstream fetches (5 req/s max)
-	semaphoreWait      = 3 * time.Second // max time to wait for semaphore before returning placeholder
+	fetchInterval      = 30 * time.Millisecond // min delay between upstream fetches (~33 req/s max)
+	semaphoreWait      = 15 * time.Second // max time to wait for semaphore before returning placeholder
 )
 
 // allowedHosts restricts which domains can be proxied (security).
@@ -56,22 +55,14 @@ type ImageProxyHandler struct {
 }
 
 func NewImageProxyHandler() *ImageProxyHandler {
-	// Custom dialer that prefers IPv6 — Liquipedia rate-limits IPv4 more aggressively
-	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: -1, // disable keep-alive
-	}
+	// Simple IPv4 dialer — IPv6 is unreachable from Docker and wastes time
+	// on every redirect (Special:FilePath URLs do 2 redirects).
 	transport := &http.Transport{
 		DisableKeepAlives: true,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Try IPv6 first
-			conn, err := dialer.DialContext(ctx, "tcp6", addr)
-			if err == nil {
-				return conn, nil
-			}
-			// Fallback to IPv4
-			return dialer.DialContext(ctx, "tcp4", addr)
-		},
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: -1,
+		}).DialContext,
 	}
 
 	return &ImageProxyHandler{
@@ -135,9 +126,9 @@ func (h *ImageProxyHandler) ProxyImage(c echo.Context) error {
 	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(rawURL)))
 	if cached, ok := h.cache.Load(cacheKey); ok {
 		img := cached.(*cachedImage)
-		if time.Since(img.cachedAt) < 24*time.Hour {
+		if time.Since(img.cachedAt) < 7*24*time.Hour {
 			c.Response().Header().Set("Content-Type", img.contentType)
-			c.Response().Header().Set("Cache-Control", "public, max-age=86400, immutable")
+			c.Response().Header().Set("Cache-Control", "public, max-age=604800, immutable")
 			c.Response().Header().Set("Access-Control-Allow-Origin", "*")
 			c.Response().Header().Set("X-Cache", "HIT")
 			return c.Blob(http.StatusOK, img.contentType, img.data)
@@ -219,7 +210,7 @@ func (h *ImageProxyHandler) ProxyImage(c echo.Context) error {
 
 	// Stream response with caching headers
 	c.Response().Header().Set("Content-Type", ct)
-	c.Response().Header().Set("Cache-Control", "public, max-age=86400, immutable")
+	c.Response().Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	c.Response().Header().Set("Access-Control-Allow-Origin", "*")
 	c.Response().Header().Set("X-Cache", "MISS")
 	return c.Blob(http.StatusOK, ct, data)

@@ -254,11 +254,11 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
     const sizeClasses = {
       sm: 'w-7 h-7',
       md: 'w-12 h-12',
-      lg: 'w-18 h-18 md:w-24 md:h-24',
+      lg: 'w-14 h-14 sm:w-18 sm:h-18 md:w-24 md:h-24',
     };
     return (
       <div className={`relative ${sizeClasses[size]} flex-shrink-0 group/logo`}>
-        {highlight && <div className="absolute -inset-2 bg-[var(--color-accent)]/10 rounded-2xl blur-xl" />}
+        {highlight && <div className="absolute -inset-2 bg-[var(--color-accent)]/10 rounded-2xl blur-xl hidden sm:block" />}
         <div className={`relative ${sizeClasses[size]} rounded-xl bg-[var(--color-bg-primary)]/80 border ${
           highlight ? 'border-[var(--color-accent)]/30' : 'border-[var(--color-border-primary)]/40'
         } flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/logo:border-[var(--color-accent)]/20`}>
@@ -384,82 +384,75 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
           </div>
 
           {/* === MAIN SCOREBOARD === */}
-          <div className="flex items-center justify-center gap-4 md:gap-0 mb-6">
+          <div className="flex items-center justify-center mb-6">
 
             {/* HOME TEAM */}
-            {getTeamUrl(homeTeam) ? (
-              <Link href={getTeamUrl(homeTeam)!} className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5 group/home">
-                <div className="text-center md:text-right order-2 md:order-1 min-w-0">
-                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors group-hover/home:text-accent ${
-                    isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                  }`}>
-                    {homeTeam?.name || '-'}
-                  </p>
-                  {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
-                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
-                  )}
+            {(() => {
+              const homeContent = (isLink: boolean) => (
+                <div className={`flex-1 flex flex-col items-center gap-2 sm:gap-3 sm:flex-row sm:justify-end sm:gap-5 min-w-0 ${isLink ? 'group/home' : ''}`}>
+                  <div className="text-center sm:text-right order-2 sm:order-1 min-w-0 max-w-full">
+                    <p className={`text-base sm:text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${isLink ? 'group-hover/home:text-accent' : ''} ${
+                      isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                    }`}>
+                      {homeTeam?.name || '-'}
+                    </p>
+                    {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
+                      <p className="text-[9px] sm:text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5 hidden sm:block">{homeTeam.acronym}</p>
+                    )}
+                  </div>
+                  <div className="order-1 sm:order-2">
+                    <TeamLogo team={homeTeam} highlight={isHomeWinner} />
+                  </div>
                 </div>
-                <TeamLogo team={homeTeam} highlight={isHomeWinner} />
-              </Link>
-            ) : (
-              <div className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5">
-                <div className="text-center md:text-right order-2 md:order-1 min-w-0">
-                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
-                    isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                  }`}>
-                    {homeTeam?.name || '-'}
-                  </p>
-                  {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
-                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
-                  )}
-                </div>
-                <TeamLogo team={homeTeam} highlight={isHomeWinner} />
-              </div>
-            )}
+              );
+              return getTeamUrl(homeTeam)
+                ? <Link href={getTeamUrl(homeTeam)!} className="flex-1 min-w-0">{homeContent(true)}</Link>
+                : <div className="flex-1 min-w-0">{homeContent(false)}</div>;
+            })()}
 
             {/* SCORE CENTER */}
-            <div className="flex flex-col items-center px-5 md:px-12 flex-shrink-0">
+            <div className="flex flex-col items-center px-2 sm:px-5 md:px-12 flex-shrink-0">
               {isFinished && homeScore !== undefined && awayScore !== undefined ? (
-                <div className="flex items-baseline gap-3 md:gap-5">
-                  <span className={`text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight ${isHomeWinner ? 'text-accent' : 'text-text-primary/30'}`}>
+                <div className="flex items-baseline gap-2 sm:gap-3 md:gap-5">
+                  <span className={`text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tabular-nums tracking-tight ${isHomeWinner ? 'text-accent' : 'text-text-primary/30'}`}>
                     {homeScore}
                   </span>
-                  <span className="text-xl md:text-2xl font-thin text-text-muted/30 select-none">:</span>
-                  <span className={`text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight ${isAwayWinner ? 'text-accent' : 'text-text-primary/30'}`}>
+                  <span className="text-xl sm:text-2xl md:text-3xl font-thin text-text-muted/30 select-none">:</span>
+                  <span className={`text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tabular-nums tracking-tight ${isAwayWinner ? 'text-accent' : 'text-text-primary/30'}`}>
                     {awayScore}
                   </span>
                 </div>
               ) : isLive ? (
                 <div className="flex flex-col items-center">
-                  <div className="flex items-baseline gap-3 md:gap-5">
-                    <span className="text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight text-accent">
+                  <div className="flex items-baseline gap-2 sm:gap-3 md:gap-5">
+                    <span className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tabular-nums tracking-tight text-accent">
                       {homeScore ?? 0}
                     </span>
-                    <span className="text-xl md:text-2xl font-thin text-accent/30 select-none">:</span>
-                    <span className="text-5xl md:text-7xl lg:text-8xl font-black tabular-nums tracking-tight text-accent">
+                    <span className="text-xl sm:text-2xl md:text-3xl font-thin text-accent/30 select-none">:</span>
+                    <span className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tabular-nums tracking-tight text-accent">
                       {awayScore ?? 0}
                     </span>
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl md:text-4xl lg:text-5xl font-black text-text-muted/20 tracking-[-0.05em] select-none">VS</span>
+                  <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-text-muted/20 tracking-[-0.05em] select-none">VS</span>
                 </div>
               )}
 
               {/* Winner label */}
               {isFinished && match.winner && (
-                <div className="flex items-center gap-1.5 mt-2">
+                <div className="flex items-center gap-1.5 mt-1.5 sm:mt-2">
                   <Trophy className="w-3 h-3 text-accent" />
-                  <span className="text-[10px] font-bold text-accent uppercase tracking-[0.15em]">
-                    {match.winner.name || match.winner.acronym} {t('wins')}
+                  <span className="text-[9px] sm:text-[10px] font-bold text-accent uppercase tracking-[0.15em]">
+                    {match.winner.acronym || match.winner.name} {t('wins')}
                   </span>
                 </div>
               )}
 
               {/* Series progress dots */}
               {match.games && match.games.length > 1 && (
-                <div className="flex items-center gap-1.5 mt-3">
+                <div className="flex items-center gap-1.5 mt-2 sm:mt-3">
                   {match.games.map((game, idx) => {
                     const w = parseGameWinner(game.winner);
                     const isGHomeWin = w?.id === homeTeam?.id;
@@ -486,39 +479,30 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
             </div>
 
             {/* AWAY TEAM */}
-            {getTeamUrl(awayTeam) ? (
-              <Link href={getTeamUrl(awayTeam)!} className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5 group/away">
-                <TeamLogo team={awayTeam} highlight={isAwayWinner} />
-                <div className="text-center md:text-left min-w-0">
-                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors group-hover/away:text-accent ${
-                    isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                  }`}>
-                    {awayTeam?.name || '-'}
-                  </p>
-                  {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
-                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
-                  )}
+            {(() => {
+              const awayContent = (isLink: boolean) => (
+                <div className={`flex-1 flex flex-col items-center gap-2 sm:gap-3 sm:flex-row sm:justify-start sm:gap-5 min-w-0 ${isLink ? 'group/away' : ''}`}>
+                  <TeamLogo team={awayTeam} highlight={isAwayWinner} />
+                  <div className="text-center sm:text-left min-w-0 max-w-full">
+                    <p className={`text-base sm:text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${isLink ? 'group-hover/away:text-accent' : ''} ${
+                      isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                    }`}>
+                      {awayTeam?.name || '-'}
+                    </p>
+                    {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
+                      <p className="text-[9px] sm:text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5 hidden sm:block">{awayTeam.acronym}</p>
+                    )}
+                  </div>
                 </div>
-              </Link>
-            ) : (
-              <div className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5">
-                <TeamLogo team={awayTeam} highlight={isAwayWinner} />
-                <div className="text-center md:text-left min-w-0">
-                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
-                    isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                  }`}>
-                    {awayTeam?.name || '-'}
-                  </p>
-                  {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
-                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
-                  )}
-                </div>
-              </div>
-            )}
+              );
+              return getTeamUrl(awayTeam)
+                ? <Link href={getTeamUrl(awayTeam)!} className="flex-1 min-w-0">{awayContent(true)}</Link>
+                : <div className="flex-1 min-w-0">{awayContent(false)}</div>;
+            })()}
           </div>
 
           {/* Context info bar */}
-          <div className="flex items-center justify-center gap-3 flex-wrap text-[11px] text-text-muted">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap text-[10px] sm:text-[11px] text-text-muted">
             {match.tournament?.name && (
               <div className="flex items-center gap-1.5">
                 {pickThemeLogo(isDark, (match.tournament as any)?.icon_url, (match.tournament as any)?.icon_dark_url) && (
@@ -586,7 +570,7 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
       {/* ================================================================ */}
       {/* MAIN CONTENT + AD COLUMN                                         */}
       {/* ================================================================ */}
-      <main className="container mx-auto px-4 pb-16">
+      <main className="container mx-auto px-4 pt-8 md:pt-10 pb-16">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 space-y-10">
 
@@ -616,90 +600,103 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
                     const isGameLive = game.status === 'running';
                     const isGameFinished = game.finished;
                     const isLast = idx === match.games!.length - 1;
+                    const homeMapScore = game.scores?.[0];
+                    const awayMapScore = game.scores?.[1];
+                    const hasScores = homeMapScore !== undefined && awayMapScore !== undefined;
 
                     return (
                       <div
                         key={game.id}
-                        className={`flex items-center gap-3 px-4 md:px-5 py-3 transition-colors hover:bg-[var(--color-bg-hover)] ${
+                        className={`px-4 md:px-5 py-3.5 transition-colors hover:bg-[var(--color-bg-hover)] ${
                           !isLast ? 'border-b border-[var(--color-border-primary)]/15' : ''
                         } ${isGameLive ? 'border-l-2 border-l-[var(--color-status-live)] bg-[var(--color-status-live)]/[0.03]' : 'border-l-2 border-l-transparent'}`}
                       >
-                        {/* Game badge */}
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                          isGameLive
-                            ? 'bg-[var(--color-status-live)]/12 text-[var(--color-status-live)] ring-1 ring-[var(--color-status-live)]/25'
-                            : isGameFinished
-                              ? 'bg-[var(--color-bg-primary)]/60 text-text-primary/70 ring-1 ring-[var(--color-border-primary)]/30'
-                              : 'bg-[var(--color-bg-primary)]/30 text-text-muted/50 ring-1 ring-[var(--color-border-primary)]/15'
-                        }`}>
-                          {game.position}
-                        </div>
+                        <div className="flex items-center gap-3">
+                          {/* Game badge */}
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                            isGameLive
+                              ? 'bg-[var(--color-status-live)]/12 text-[var(--color-status-live)] ring-1 ring-[var(--color-status-live)]/25'
+                              : isGameFinished
+                                ? 'bg-[var(--color-bg-primary)]/60 text-text-primary/70 ring-1 ring-[var(--color-border-primary)]/30'
+                                : 'bg-[var(--color-bg-primary)]/30 text-text-muted/50 ring-1 ring-[var(--color-border-primary)]/15'
+                          }`}>
+                            {game.position}
+                          </div>
 
-                        {/* Home side */}
-                        {getTeamUrl(homeTeam) ? (
-                          <Link href={getTeamUrl(homeTeam)!} className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity group/gh ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
-                            {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) && (
-                              <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
-                            )}
-                            <span className={`text-sm font-semibold truncate group-hover/gh:text-accent transition-colors ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
-                              {homeTeam?.acronym || homeTeam?.name || '-'}
-                            </span>
-                          </Link>
-                        ) : (
-                          <div className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
-                            {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) && (
-                              <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
-                            )}
+                          {/* Home team + score */}
+                          <div className={`flex items-center gap-2.5 flex-1 min-w-0 transition-opacity ${isGameFinished && !isHomeWin ? 'opacity-40' : ''}`}>
+                            <div className="w-7 h-7 rounded-lg bg-[var(--color-bg-primary)]/60 border border-[var(--color-border-primary)]/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
+                                <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-5 h-5 object-contain" loading="lazy" />
+                              ) : (
+                                <Shield className="w-3.5 h-3.5 text-text-muted/40" />
+                              )}
+                            </div>
                             <span className={`text-sm font-semibold truncate ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
                               {homeTeam?.acronym || homeTeam?.name || '-'}
                             </span>
-                          </div>
-                        )}
-
-                        {/* Center indicator */}
-                        <div className="flex-shrink-0 w-8 flex items-center justify-center">
-                          {isGameLive ? (
-                            <span className="w-2 h-2 bg-[var(--color-status-live)] rounded-full animate-pulse" />
-                          ) : gameWinnerTeam ? (
-                            <Trophy className="w-3.5 h-3.5 text-accent" />
-                          ) : (
-                            <span className="w-3 h-px bg-[var(--color-border-primary)]/40" />
-                          )}
-                        </div>
-
-                        {/* Away side */}
-                        {getTeamUrl(awayTeam) ? (
-                          <Link href={getTeamUrl(awayTeam)!} className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity group/ga ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
-                            <span className={`text-sm font-semibold truncate text-right group-hover/ga:text-accent transition-colors ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
-                              {awayTeam?.acronym || awayTeam?.name || '-'}
-                            </span>
-                            {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) && (
-                              <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            {hasScores && (
+                              <span className={`text-lg font-black tabular-nums ml-auto ${isHomeWin ? 'text-accent' : 'text-text-primary/50'}`}>
+                                {homeMapScore}
+                              </span>
                             )}
-                          </Link>
-                        ) : (
-                          <div className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
+                          </div>
+
+                          {/* Center: map name or indicator */}
+                          <div className="flex-shrink-0 flex flex-col items-center justify-center min-w-[4rem] sm:min-w-[5rem]">
+                            {game.map ? (
+                              <span className="text-[11px] font-semibold text-text-secondary">{game.map}</span>
+                            ) : isGameLive ? (
+                              <span className="w-2 h-2 bg-[var(--color-status-live)] rounded-full animate-pulse" />
+                            ) : gameWinnerTeam ? (
+                              <Trophy className="w-3.5 h-3.5 text-accent" />
+                            ) : (
+                              <span className="w-3 h-px bg-[var(--color-border-primary)]/40" />
+                            )}
+                          </div>
+
+                          {/* Away team + score */}
+                          <div className={`flex items-center gap-2.5 flex-1 min-w-0 justify-end transition-opacity ${isGameFinished && !isAwayWin ? 'opacity-40' : ''}`}>
+                            {hasScores && (
+                              <span className={`text-lg font-black tabular-nums mr-auto ${isAwayWin ? 'text-accent' : 'text-text-primary/50'}`}>
+                                {awayMapScore}
+                              </span>
+                            )}
                             <span className={`text-sm font-semibold truncate text-right ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
                               {awayTeam?.acronym || awayTeam?.name || '-'}
                             </span>
-                            {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) && (
-                              <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            <div className="w-7 h-7 rounded-lg bg-[var(--color-bg-primary)]/60 border border-[var(--color-border-primary)]/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
+                                <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-5 h-5 object-contain" loading="lazy" />
+                              ) : (
+                                <Shield className="w-3.5 h-3.5 text-text-muted/40" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Duration / Status */}
+                          <div className="flex-shrink-0 w-14 text-right">
+                            {isGameLive ? (
+                              <span className="text-[10px] font-bold text-[var(--color-status-live)] uppercase tracking-wider">{t('game_status_running')}</span>
+                            ) : game.length ? (
+                              <span className="text-[10px] text-text-muted font-mono">{formatDuration(game.length)}</span>
+                            ) : isGameFinished ? (
+                              <span className="text-[10px] text-text-muted">{t('game_status_finished')}</span>
+                            ) : (
+                              <span className="text-[10px] text-text-muted/30">—</span>
                             )}
                           </div>
-                        )}
-
-                        {/* Duration / Status */}
-                        <div className="flex-shrink-0 w-14 text-right">
-                          {isGameLive ? (
-                            <span className="text-[10px] font-bold text-[var(--color-status-live)] uppercase tracking-wider">{t('game_status_running')}</span>
-                          ) : game.length ? (
-                            <span className="text-[10px] text-text-muted font-mono">{formatDuration(game.length)}</span>
-                          ) : isGameFinished ? (
-                            <span className="text-[10px] text-text-muted">{t('game_status_finished')}</span>
-                          ) : (
-                            <span className="text-[10px] text-text-muted/30">—</span>
-                          )}
                         </div>
+
+                        {/* Winner indicator for this map (when scores are available) */}
+                        {isGameFinished && hasScores && gameWinnerTeam && (
+                          <div className="flex items-center justify-center mt-1.5">
+                            <div className="flex items-center gap-1">
+                              <Trophy className="w-2.5 h-2.5 text-accent/60" />
+                              <span className="text-[9px] font-bold text-accent/60 uppercase tracking-wider">{gameWinnerTeam.acronym || gameWinnerTeam.name}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

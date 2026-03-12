@@ -305,6 +305,8 @@ export interface PandaGame {
     id: number | null;
     type: string;
   };
+  map?: string;
+  scores?: number[];
 }
 
 export interface PandaMapPick {
