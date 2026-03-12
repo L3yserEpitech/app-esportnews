@@ -331,12 +331,19 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		}
 	}
 
-	// League info: use series page as the "league"
+	// Fix #12: League ID should derive from SeriesPage, not tournament PageID
+	// Fix #11: League URL points to the Liquipedia series page
 	var league *NormalizedLeague
 	if t.SeriesPage != "" {
+		var leagueURL *string
+		if wiki != "" {
+			u := "https://liquipedia.net/" + wiki + "/" + strings.ReplaceAll(t.SeriesPage, " ", "_")
+			leagueURL = &u
+		}
 		league = &NormalizedLeague{
-			ID:       t.PageID,
+			ID:       hashStringToInt(t.SeriesPage),
 			Name:     t.SeriesPage,
+			URL:      leagueURL,
 			Slug:     pageNameToSlug(t.SeriesPage),
 			ImageURL: t.IconURL,
 		}
@@ -360,6 +367,9 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		name = t.PageName
 	}
 
+	// Fix #9: Extract winner from extradata if available
+	winnerID := extractTournamentWinnerID(t.ExtraData)
+
 	return NormalizedTournament{
 		ID:             t.PageID,
 		Name:           name,
@@ -371,13 +381,13 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		EndAt:          endAt,
 		Region:         region,
 		PrizePool:      prizePool,
-		HasBracket:     true,
+		HasBracket:     t.Format != "",
 		Videogame:      vg,
 		League:         league,
 		Teams:          []NormalizedTeamCompact{},
 		Matches:        []NormalizedMatchCompact{},
 		ExpectedRoster: []interface{}{},
-		WinnerID:       nil,
+		WinnerID:       winnerID,
 		PageName:       t.PageName,
 		BannerURL:      t.BannerURL,
 		BannerDarkURL:  t.BannerDarkURL,
@@ -425,6 +435,28 @@ type NormalizedRosterPlayer struct {
 	FirstName   *string `json:"first_name,omitempty"`
 	LastName    *string `json:"last_name,omitempty"`
 	Nationality *string `json:"nationality,omitempty"`
+}
+
+// extractTournamentWinnerID tries to extract a winner ID from tournament extradata.
+// Liquipedia stores winner info in extradata as "winner" (team name string).
+// We hash the name to produce a stable numeric ID matching our opponent IDs.
+func extractTournamentWinnerID(extradata json.RawMessage) *int {
+	if extradata == nil || string(extradata) == "null" || string(extradata) == "{}" {
+		return nil
+	}
+
+	var ed map[string]interface{}
+	if err := json.Unmarshal(extradata, &ed); err != nil {
+		return nil
+	}
+
+	// Try "winner" key (team name or page name)
+	if winner, ok := ed["winner"].(string); ok && winner != "" && winner != "TBD" {
+		id := hashStringToInt(winner)
+		return &id
+	}
+
+	return nil
 }
 
 // ExtractTeamsAndRostersFromMatches extracts unique teams from match opponents

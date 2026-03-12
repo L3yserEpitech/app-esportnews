@@ -22,6 +22,7 @@ const (
 	LiqTournamentsRunning  = "liq:tournaments:running:%s"
 	LiqTournamentsUpcoming = "liq:tournaments:upcoming:%s"
 	LiqTournamentsFinished = "liq:tournaments:finished:%s"
+	LiqTournamentsByDate   = "liq:tournaments:date:%s:%s"    // %s = wiki, %s = YYYY-MM-DD
 	LiqTournament          = "liq:tournament:%s:%s"          // %s = wiki, %s = tournament id/page
 	LiqTournamentMatches   = "liq:tournament:matches:%s:%s" // %s = wiki, %s = tournament pagename
 	LiqTournamentSquads    = "liq:tournament:squads:%s:%s" // %s = wiki, %s = tournament pagename
@@ -116,6 +117,10 @@ func LiqTournamentsUpcomingKey(wiki string) string {
 
 func LiqTournamentsFinishedKey(wiki string) string {
 	return fmt.Sprintf(LiqTournamentsFinished, wiki)
+}
+
+func LiqTournamentsByDateKey(wiki, date string) string {
+	return fmt.Sprintf(LiqTournamentsByDate, wiki, date)
 }
 
 func LiqTournamentKey(wiki, tournamentID string) string {
