@@ -176,6 +176,8 @@ type NormalizedGameEntry struct {
 	MatchID       int             `json:"match_id"`
 	WinnerType    string          `json:"winner_type"`
 	Winner        json.RawMessage `json:"winner"`
+	Map           string          `json:"map,omitempty"`
+	Scores        []int           `json:"scores,omitempty"`
 }
 
 // NormalizedLive represents the live status embedded in a match.
@@ -594,15 +596,50 @@ func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []Norma
 			winnerJSON = json.RawMessage(`{"id":null,"type":"team"}`)
 		}
 
+		// Extract map name
+		mapName := ""
+		if v, ok := gameData["map"].(string); ok {
+			mapName = v
+		}
+
+		// Extract scores array (Liquipedia sends scores as ["2","1"] or [2,1])
+		var scores []int
+		if rawScores, ok := gameData["scores"].([]interface{}); ok {
+			for _, s := range rawScores {
+				switch sv := s.(type) {
+				case float64:
+					scores = append(scores, int(sv))
+				case string:
+					if n, err := strconv.Atoi(sv); err == nil {
+						scores = append(scores, n)
+					}
+				}
+			}
+		}
+
+		// Extract length (duration in seconds)
+		var length *int
+		if v, ok := gameData["length"].(float64); ok && v > 0 {
+			l := int(v)
+			length = &l
+		} else if v, ok := gameData["length"].(string); ok {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				length = &n
+			}
+		}
+
 		games = append(games, NormalizedGameEntry{
 			Complete:   finished,
 			ID:         matchPageID*100 + i + 1,
 			Position:   i + 1,
 			Status:     status,
+			Length:     length,
 			Finished:   finished,
 			MatchID:    matchPageID,
 			WinnerType: "team",
 			Winner:     winnerJSON,
+			Map:        mapName,
+			Scores:     scores,
 		})
 	}
 

@@ -70,7 +70,7 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
         <div className={`w-[3px] flex-shrink-0 ${accentBar}`} />
 
         {/* Grid: 1fr [score] 1fr → score always dead center */}
-        <div className="flex-1 grid grid-cols-[1fr_auto_1fr] items-center py-2.5 px-2 sm:py-3 sm:px-4">
+        <div className="flex-1 grid grid-cols-[1fr_auto_1fr] items-center py-3 px-3 sm:py-3 sm:px-4">
 
           {/* ── Left half: time + home team ── */}
           <div className="flex items-center gap-1 sm:gap-3 min-w-0">
@@ -106,41 +106,41 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
               <span className={`hidden sm:block text-sm font-semibold truncate hover:text-[var(--color-accent)] transition-colors ${isFinished ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-primary)]'}`}>
                 {homeTeam?.name || 'TBD'}
               </span>
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-9 h-9 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
-                  <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" loading="lazy" />
+                  <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-6 h-6 sm:w-6 sm:h-6 object-contain" loading="lazy" />
                 ) : (
-                  <Trophy className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                  <Trophy className="w-4 h-4 text-[var(--color-text-muted)]" />
                 )}
               </div>
             </div>
           </div>
 
           {/* ── Score — dead center ── */}
-          <div className="w-14 sm:w-20 flex items-center justify-center mx-1 sm:mx-2">
+          <div className="w-16 sm:w-20 flex items-center justify-center mx-1 sm:mx-2">
             {isFinished || isLive ? (
-              <div className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg font-bold tabular-nums text-[#F22E62]">
-                <span className="w-4 sm:w-5 text-right">{homeScore}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 text-lg sm:text-lg font-bold tabular-nums text-[#F22E62]">
+                <span className="w-5 sm:w-5 text-right">{homeScore}</span>
                 <span className="text-[var(--color-text-muted)] text-xs sm:text-sm">-</span>
-                <span className="w-4 sm:w-5 text-left">{awayScore}</span>
+                <span className="w-5 sm:w-5 text-left">{awayScore}</span>
               </div>
             ) : (
-              <span className="text-[10px] sm:text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">VS</span>
+              <span className="text-xs sm:text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">VS</span>
             )}
           </div>
 
           {/* ── Right half: away team + tournament ── */}
-          <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             {/* Away team */}
             <div
               className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer"
               onClick={teamClick(awayTeam)}
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-9 h-9 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
-                  <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" loading="lazy" />
+                  <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-6 h-6 sm:w-6 sm:h-6 object-contain" loading="lazy" />
                 ) : (
-                  <Trophy className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                  <Trophy className="w-4 h-4 text-[var(--color-text-muted)]" />
                 )}
               </div>
               <span className={`hidden sm:block text-sm font-semibold truncate hover:text-[var(--color-accent)] transition-colors ${isFinished ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-primary)]'}`}>

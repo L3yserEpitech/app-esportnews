@@ -59,6 +59,17 @@ func (h *MatchHandler) GetRunningMatches(c echo.Context) error {
 		h.log.WithError(err).Warn("Error reading running matches from cache")
 	}
 
+	// Fallback to stale cache if fresh cache is empty
+	if len(matches) == 0 {
+		staleMatches, staleErr := h.readAndNormalizeMatches(ctx, func(wiki string) string {
+			return cache.StaleKey(cache.LiqMatchesRunningKey(wiki))
+		}, wikis, "running")
+		if staleErr == nil && len(staleMatches) > 0 {
+			h.log.Debug("Using stale cache for running matches")
+			matches = staleMatches
+		}
+	}
+
 	// Additional time-window filter: date between now-12h and now+6h
 	now := time.Now().UTC()
 	filtered := make([]models.NormalizedMatch, 0, len(matches))
@@ -76,6 +87,10 @@ func (h *MatchHandler) GetRunningMatches(c echo.Context) error {
 	}
 
 	sortNormalizedMatchesAsc(filtered)
+
+	if filtered == nil {
+		filtered = []models.NormalizedMatch{}
+	}
 
 	return c.JSON(http.StatusOK, filtered)
 }
@@ -151,6 +166,20 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
+	// Optimization: for today's date, use poller caches (running+upcoming+past)
+	// instead of making direct Liquipedia API calls. Zero budget cost.
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	requestedDate := dateTime.Truncate(24 * time.Hour)
+
+	if requestedDate.Equal(today) {
+		if cached, ok := h.getMatchesForTodayFromCache(ctx, wikis, date); ok {
+			sortNormalizedMatchesAsc(cached)
+			h.log.WithField("count", len(cached)).Debug("Served today's matches from poller cache")
+			return c.JSON(http.StatusOK, cached)
+		}
+		h.log.Debug("Poller cache empty for today, falling back to on-demand API")
+	}
+
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
 	conditions := fmt.Sprintf(
 		"[[date::>%s 00:00:00]] AND [[date::<%s 00:00:00]]",
@@ -159,7 +188,6 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 
 	// Adaptive TTL: past dates won't change, cache them much longer
 	cacheTTL := 10 * time.Minute
-	today := time.Now().UTC().Truncate(24 * time.Hour)
 	if dateTime.Before(today) {
 		cacheTTL = services.TTLMatchesByDatePast
 	}
@@ -197,17 +225,22 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 	var allMatches []models.NormalizedMatch
 	globalSeen := make(map[string]bool)
 	for i := 0; i < len(wikis); i++ {
-		res := <-results
-		if res.err != nil {
-			h.log.WithError(res.err).Warn("Error fetching matches by date for a wiki")
-			continue
-		}
-		for _, m := range res.matches {
-			key := m.UniqueKey()
-			if !globalSeen[key] {
-				globalSeen[key] = true
-				allMatches = append(allMatches, models.NormalizeLiqMatch(m, res.wiki, ""))
+		select {
+		case res := <-results:
+			if res.err != nil {
+				h.log.WithError(res.err).Warn("Error fetching matches by date for a wiki")
+				continue
 			}
+			for _, m := range res.matches {
+				key := m.UniqueKey()
+				if !globalSeen[key] {
+					globalSeen[key] = true
+					allMatches = append(allMatches, models.NormalizeLiqMatch(m, res.wiki, ""))
+				}
+			}
+		case <-ctx.Done():
+			h.log.Warn("Context deadline exceeded in GetMatchesByDate")
+			break
 		}
 	}
 
@@ -277,9 +310,13 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	}
 
 	for i := 0; i < len(allWikis); i++ {
-		res := <-results
-		if res.normalized != nil {
-			return c.JSON(http.StatusOK, res.normalized)
+		select {
+		case res := <-results:
+			if res.normalized != nil {
+				return c.JSON(http.StatusOK, res.normalized)
+			}
+		case <-ctx.Done():
+			return c.JSON(http.StatusGatewayTimeout, map[string]string{"error": "search timeout"})
 		}
 	}
 
@@ -325,6 +362,89 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 
 	normalized := models.NormalizeLiqMatch(match, wiki, "")
 	return &normalized, nil
+}
+
+// getMatchesForTodayFromCache combines poller caches (running + upcoming + past)
+// to serve today's matches without any Liquipedia API call.
+// Returns (matches, true) if cache had data, or (nil, false) to signal fallback.
+func (h *MatchHandler) getMatchesForTodayFromCache(ctx context.Context, wikis []string, dateStr string) ([]models.NormalizedMatch, bool) {
+	type cacheSource struct {
+		keyFunc func(string) string
+	}
+	sources := []cacheSource{
+		{cache.LiqMatchesRunningKey},
+		{cache.LiqMatchesUpcomingKey},
+		{cache.LiqMatchesPastKey},
+	}
+
+	type parsed struct {
+		match models.LiqMatch
+		wiki  string
+	}
+
+	var allParsed []parsed
+	seen := make(map[string]bool)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	foundAny := false
+
+	for _, src := range sources {
+		for _, wiki := range wikis {
+			wg.Add(1)
+			go func(w string, kf func(string) string) {
+				defer wg.Done()
+
+				key := kf(w)
+				data, err := h.redisCache.Get(ctx, key)
+				if err != nil || data == "" {
+					return
+				}
+
+				mu.Lock()
+				foundAny = true
+				mu.Unlock()
+
+				matches, err := parseAndFilterMatches([]byte(data), nil)
+				if err != nil {
+					return
+				}
+
+				mu.Lock()
+				for _, m := range matches {
+					t, err := m.ParsedDate()
+					if err != nil {
+						continue
+					}
+					if t.UTC().Format("2006-01-02") != dateStr {
+						continue
+					}
+					uk := m.UniqueKey()
+					if !seen[uk] {
+						seen[uk] = true
+						allParsed = append(allParsed, parsed{match: m, wiki: w})
+					}
+				}
+				mu.Unlock()
+			}(wiki, src.keyFunc)
+		}
+	}
+
+	wg.Wait()
+
+	if !foundAny {
+		return nil, false
+	}
+
+	result := make([]models.NormalizedMatch, 0, len(allParsed))
+	for _, p := range allParsed {
+		result = append(result, models.NormalizeLiqMatch(p.match, p.wiki, ""))
+	}
+
+	if result == nil {
+		result = []models.NormalizedMatch{}
+	}
+
+	return result, true
 }
 
 // --- Helpers ---

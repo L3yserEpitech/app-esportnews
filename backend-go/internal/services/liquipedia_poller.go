@@ -108,7 +108,9 @@ type LiquipediaPoller struct {
 
 	// webhooksEnabled controls whether to use dirty-flag mode (true) or blind polling (false).
 	// Set to true once webhooks are confirmed working.
+	// Protected by webhooksMu for concurrent access from pollGame goroutines.
 	webhooksEnabled bool
+	webhooksMu      sync.RWMutex
 }
 
 // NewLiquipediaPoller creates a poller. Pass dirtyTracker from the WebhookHandler.
@@ -123,7 +125,16 @@ func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker,
 
 // SetWebhooksEnabled toggles webhook-driven mode on/off.
 func (p *LiquipediaPoller) SetWebhooksEnabled(enabled bool) {
+	p.webhooksMu.Lock()
+	defer p.webhooksMu.Unlock()
 	p.webhooksEnabled = enabled
+}
+
+// isWebhooksEnabled returns the current webhooksEnabled state (thread-safe).
+func (p *LiquipediaPoller) isWebhooksEnabled() bool {
+	p.webhooksMu.RLock()
+	defer p.webhooksMu.RUnlock()
+	return p.webhooksEnabled
 }
 
 // Start launches background polling goroutines for all known games.
@@ -186,32 +197,32 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 			return
 
 		case <-tickerRunning.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshMatchesRunning(ctx, wiki)
 			}
 
 		case <-tickerUpcoming.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshMatchesUpcoming(ctx, wiki)
 			}
 
 		case <-tickerPast.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshMatchesPast(ctx, wiki)
 			}
 
 		case <-tickerTourRunning.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshTournamentsRunning(ctx, wiki)
 			}
 
 		case <-tickerTourUpcoming.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshTournamentsUpcoming(ctx, wiki)
 			}
 
 		case <-tickerTourFinished.C:
-			if !p.webhooksEnabled {
+			if !p.isWebhooksEnabled() {
 				p.refreshTournamentsFinished(ctx, wiki)
 			}
 		}
@@ -231,7 +242,7 @@ func (p *LiquipediaPoller) consumeDirtyFlags(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if !p.webhooksEnabled || !p.dirtyTracker.HasAnyDirty() {
+			if !p.isWebhooksEnabled() || !p.dirtyTracker.HasAnyDirty() {
 				continue
 			}
 

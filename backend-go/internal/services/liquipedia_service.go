@@ -202,21 +202,23 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 	// Liquipedia API (api.liquipedia.net) is only properly accessible via IPv6.
 	// The IPv4 address serves the main website cert (liquipedia.net), not the API cert.
 	// Docker containers often prefer IPv4 via Happy Eyeballs, hitting the wrong server.
-	// Fix: use a custom DialContext that forces IPv6 ("tcp6") for Liquipedia connections,
+	// Fix: use a custom DialContext that tries IPv6 ("tcp6") first with a short timeout,
 	// falling back to IPv4 only for other hosts (Redis, Postgres, etc.).
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		dialer := &net.Dialer{Timeout: 10 * time.Second}
 		host, _, _ := net.SplitHostPort(addr)
 		if host == "api.liquipedia.net" {
-			conn, err := dialer.DialContext(ctx, "tcp6", addr)
+			// Short IPv6 probe — if IPv6 works, it connects in <1s
+			ipv6Dialer := &net.Dialer{Timeout: 3 * time.Second}
+			conn, err := ipv6Dialer.DialContext(ctx, "tcp6", addr)
 			if err != nil {
-				// IPv6 failed — fall back to IPv4 (will likely fail TLS but worth trying)
 				logger.WithError(err).Warn("IPv6 connection to Liquipedia failed, falling back to IPv4")
-				return dialer.DialContext(ctx, "tcp4", addr)
+				ipv4Dialer := &net.Dialer{Timeout: 8 * time.Second}
+				return ipv4Dialer.DialContext(ctx, "tcp4", addr)
 			}
 			return conn, nil
 		}
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
 		return dialer.DialContext(ctx, network, addr)
 	}
 
@@ -415,10 +417,14 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	// Limit concurrent wiki searches to avoid flooding Liquipedia API
+	sem := make(chan struct{}, 4)
 	for _, wiki := range s.getAllWikis() {
 		wg.Add(1)
 		go func(w string) {
 			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
 
 			cacheKey := cache.LiqTeamSearchKey(w, queryLower)
 			params := url.Values{}
@@ -552,10 +558,14 @@ func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	// Limit concurrent team fetches to avoid flooding Liquipedia API
+	sem := make(chan struct{}, 4)
 	for _, pid := range pageIDs {
 		wg.Add(1)
 		go func(id int64) {
 			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
 			team, err := s.GetTeamByPageID(ctx, id)
 			if err != nil {
 				s.log.WithError(err).WithField("pageid", id).Debug("Failed to fetch team for favorites")
