@@ -370,23 +370,44 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 			acronym = &a
 		}
 
+		// Resolve light and dark image URLs separately.
+		// Liquipedia match opponents often only have an "icon" filename (no icondarkurl).
+		// We derive the dark variant from the naming convention:
+		//   *lightmode.png  → replace with *darkmode.png
+		//   *allmode.png    → same URL works for both themes
 		var imageURL *string
-		if opp.IconDarkURL != "" {
-			imageURL = &opp.IconDarkURL
-		} else if opp.IconURL != "" {
+		var darkImageURL *string
+		if opp.IconURL != "" {
 			imageURL = &opp.IconURL
 		} else if opp.Icon != "" {
 			u := liquipediaFileURL + url.PathEscape(opp.Icon)
 			imageURL = &u
 		}
+		if opp.IconDarkURL != "" {
+			darkImageURL = &opp.IconDarkURL
+		} else if opp.IconDark != "" {
+			u := liquipediaFileURL + url.PathEscape(opp.IconDark)
+			darkImageURL = &u
+		} else if opp.Icon != "" && strings.Contains(strings.ToLower(opp.Icon), "lightmode") {
+			// Derive dark icon from light icon filename convention
+			darkName := strings.Replace(opp.Icon, "lightmode", "darkmode", 1)
+			darkName = strings.Replace(darkName, "Lightmode", "Darkmode", 1)
+			u := liquipediaFileURL + url.PathEscape(darkName)
+			darkImageURL = &u
+		}
+		// If no light URL but dark exists, use dark as fallback
+		if imageURL == nil && darkImageURL != nil {
+			imageURL = darkImageURL
+		}
 
 		team := &NormalizedTeamCompact{
-			ID:       teamID,
-			Name:     opp.Name,
-			Slug:     pageNameToSlug(opp.Name),
-			Acronym:  acronym,
-			ImageURL: imageURL,
-			Template: opp.Template,
+			ID:           teamID,
+			Name:         opp.Name,
+			Slug:         pageNameToSlug(opp.Name),
+			Acronym:      acronym,
+			ImageURL:     imageURL,
+			DarkImageURL: darkImageURL,
+			Template:     opp.Template,
 		}
 
 		normalized = append(normalized, NormalizedOpponent{

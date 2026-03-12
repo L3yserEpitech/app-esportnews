@@ -6,7 +6,7 @@ export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> },
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const baseUrl_api = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+  const baseUrl_api = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
   const { id } = await params;
 
   try {

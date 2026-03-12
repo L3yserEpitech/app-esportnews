@@ -61,6 +61,25 @@ export interface TeamMatchesResponse {
   upcoming: import('../types').PandaMatch[];
 }
 
+export interface TeamPlacement {
+  tournament: string;
+  tournament_page: string;
+  placement: string;
+  date: string;
+  prize_money: number;
+  tier: string;
+  tier_type: string;
+  type: string;
+  icon_url: string;
+  icon_dark_url: string;
+  last_vs_name?: string;
+  last_vs_score?: number;
+}
+
+export interface TeamPlacementsResponse {
+  placements: TeamPlacement[];
+}
+
 class TeamService {
   /**
    * Rechercher des équipes par nom
@@ -285,10 +304,11 @@ class TeamService {
 
   /**
    * Récupère les matchs récents et à venir d'une équipe (lazy loaded)
-   * GET /api/teams/:id/matches?wiki=xxx&template=yyy
+   * GET /api/teams/:id/matches?wiki=xxx&template=yyy&name=zzz
    */
-  async getTeamMatches(teamId: number | string, wiki: string, template: string): Promise<TeamMatchesResponse> {
+  async getTeamMatches(teamId: number | string, wiki: string, template: string, name?: string): Promise<TeamMatchesResponse> {
     const params = new URLSearchParams({ wiki, template });
+    if (name) params.set('name', name);
     const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/matches?${params.toString()}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
@@ -296,6 +316,24 @@ class TeamService {
 
     if (!response.ok) {
       throw new Error(`Failed to fetch team matches: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Récupère les placements/résultats de tournois d'une équipe
+   * GET /api/teams/:id/placements?wiki=xxx&name=yyy
+   */
+  async getTeamPlacements(teamId: number | string, wiki: string, name: string, limit: number = 20): Promise<TeamPlacementsResponse> {
+    const params = new URLSearchParams({ wiki, name, limit: String(limit) });
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/placements?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team placements: ${response.statusText}`);
     }
 
     return await response.json();

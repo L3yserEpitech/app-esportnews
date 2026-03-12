@@ -157,6 +157,7 @@ export interface PandaTournament {
   banner_dark_url?: string | null;
   icon_url?: string | null;
   icon_dark_url?: string | null;
+  wiki?: string | null;
 }
 
 export interface PandaMatchResult {
@@ -215,6 +216,7 @@ export interface PandaTeam {
   slug: string;
   acronym?: string | null;
   image_url?: string | null;
+  dark_image_url?: string | null;
   players?: PandaPlayer[];
   location?: string | null;
   template?: string | null;

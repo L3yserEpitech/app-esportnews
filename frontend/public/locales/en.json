@@ -542,6 +542,26 @@
       "yes": "Yes",
       "no": "No",
       "stat_rescheduled": "Rescheduled"
+    },
+    "team_detail": {
+      "loading": "Loading team...",
+      "not_found": "Team not found",
+      "not_found_description": "The team you are looking for does not exist.",
+      "back_to_matches": "Back to matches",
+      "breadcrumb_home": "Home",
+      "breadcrumb_matches": "Matches",
+      "roster": "Roster",
+      "recent_matches": "Recent matches",
+      "upcoming_matches": "Upcoming matches",
+      "no_matches": "No recent matches available",
+      "no_upcoming_matches": "No upcoming matches",
+      "created": "Created on",
+      "earnings": "Earnings",
+      "region": "Region",
+      "links": "Links",
+      "status_active": "Active",
+      "view_team": "View team",
+      "placements": "Tournament results"
     }
   }
 }

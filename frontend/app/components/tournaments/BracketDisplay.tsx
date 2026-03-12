@@ -3,6 +3,7 @@
 import { PandaTournament, PandaMatch } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
 import Card from '../ui/Card';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface BracketDisplayProps {
   tournament: PandaTournament;
@@ -10,6 +11,7 @@ interface BracketDisplayProps {
 }
 
 const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className = '' }) => {
+  const isDark = useIsDarkTheme();
   // Organiser les matchs par phase avec une logique plus intelligente
   const organizeMatchesByPhase = () => {
     const phases: { [key: string]: PandaMatch[] } = {};
@@ -164,9 +166,9 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                               }`}>
                                 {/* Logo équipe */}
                                 <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
-                                  {opponent1.opponent.image_url ? (
+                                  {pickThemeLogo(isDark, opponent1.opponent.image_url, opponent1.opponent.dark_image_url) ? (
                                     <img
-                                      src={proxyImageUrl(opponent1.opponent.image_url)}
+                                      src={proxyImageUrl(pickThemeLogo(isDark, opponent1.opponent.image_url, opponent1.opponent.dark_image_url)!)}
                                       alt={opponent1.opponent.name}
                                       className="w-full h-full object-cover"
                                       loading="lazy"
@@ -180,7 +182,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                                   ) : null}
                                   <span
                                     className="text-xs font-bold text-gray-200"
-                                    style={{ display: opponent1.opponent.image_url ? 'none' : 'block' }}
+                                    style={{ display: pickThemeLogo(isDark, opponent1.opponent.image_url, opponent1.opponent.dark_image_url) ? 'none' : 'block' }}
                                   >
                                     {getTeamInitials(opponent1.opponent.name)}
                                   </span>
@@ -217,9 +219,9 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                               }`}>
                                 {/* Logo équipe */}
                                 <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600 flex-shrink-0 overflow-hidden">
-                                  {opponent2.opponent.image_url ? (
+                                  {pickThemeLogo(isDark, opponent2.opponent.image_url, opponent2.opponent.dark_image_url) ? (
                                     <img
-                                      src={proxyImageUrl(opponent2.opponent.image_url)}
+                                      src={proxyImageUrl(pickThemeLogo(isDark, opponent2.opponent.image_url, opponent2.opponent.dark_image_url)!)}
                                       alt={opponent2.opponent.name}
                                       className="w-full h-full object-cover"
                                       loading="lazy"
@@ -233,7 +235,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                                   ) : null}
                                   <span
                                     className="text-xs font-bold text-gray-200"
-                                    style={{ display: opponent2.opponent.image_url ? 'none' : 'block' }}
+                                    style={{ display: pickThemeLogo(isDark, opponent2.opponent.image_url, opponent2.opponent.dark_image_url) ? 'none' : 'block' }}
                                   >
                                     {getTeamInitials(opponent2.opponent.name)}
                                   </span>

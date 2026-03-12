@@ -15,13 +15,14 @@ import (
 
 // Polling intervals — Scenario B (without webhooks, fallback).
 // With webhooks active, these serve as a safety net only.
+// Budget: 60 req/wiki/hour. Poller uses ~27 req/hour, leaving ~33 for on-demand.
 const (
-	PollIntervalMatchesRunning      = 2 * time.Minute
-	PollIntervalMatchesUpcoming     = 10 * time.Minute
-	PollIntervalMatchesPast         = 15 * time.Minute
-	PollIntervalTournamentsRunning  = 10 * time.Minute
-	PollIntervalTournamentsUpcoming = 15 * time.Minute
-	PollIntervalTournamentsFinished = 30 * time.Minute
+	PollIntervalMatchesRunning      = 5 * time.Minute  // was 2m: saves 18 req/hour/wiki for on-demand team/match lookups
+	PollIntervalMatchesUpcoming     = 15 * time.Minute // was 10m
+	PollIntervalMatchesPast         = 30 * time.Minute // was 15m
+	PollIntervalTournamentsRunning  = 15 * time.Minute // was 10m
+	PollIntervalTournamentsUpcoming = 20 * time.Minute // was 15m
+	PollIntervalTournamentsFinished = 60 * time.Minute // was 30m
 
 	// How often the poller checks dirty flags from webhooks
 	DirtyCheckInterval = 2 * time.Minute
@@ -175,7 +176,7 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 
 	p.log.WithFields(logrus.Fields{"game": acronym, "wiki": wiki}).Info("Poller started for game")
 
-	// Initial fetch on startup (staggered to avoid burst)
+	// Initial fetch on startup — only running matches (avoid burst across all wikis)
 	time.Sleep(time.Duration(len(acronym)%5) * 2 * time.Second) // simple stagger
 	p.refreshMatchesRunning(ctx, wiki)
 
