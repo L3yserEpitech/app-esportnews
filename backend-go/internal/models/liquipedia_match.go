@@ -246,7 +246,7 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 	tournament := buildMatchTournament(m, vg)
 
 	// League (derived from series/parent)
-	league := buildMatchLeague(m)
+	league := buildMatchLeague(m, wiki)
 
 	// Winner
 	var winnerID *int
@@ -281,18 +281,45 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		}
 	}
 
+	// Fix #6: EndAt — estimate from game durations for finished matches, else same as beginAt
+	var endAt *string
+	if m.Finished == 1 && beginAt != nil {
+		endAt = estimateEndAt(*beginAt, games)
+	}
+
+	// Fix #7: match_type from BestOf (e.g. "best_of_3")
+	var matchType *string
+	if m.BestOf > 0 {
+		mt := fmt.Sprintf("best_of_%d", m.BestOf)
+		matchType = &mt
+	}
+
+	// Fix #8: Serie from Series/Parent
+	var serie interface{}
+	if m.Series != "" {
+		serie = map[string]interface{}{
+			"id":        hashStringToInt(m.Series),
+			"name":      m.Series,
+			"slug":      pageNameToSlug(m.Series),
+			"full_name": m.Series,
+		}
+	}
+
 	return NormalizedMatch{
 		ID:            m.PageID,
 		Name:          name,
 		Slug:          &slug,
 		Status:        &status,
 		BeginAt:       beginAt,
+		EndAt:         endAt,
 		ScheduledAt:   beginAt,
+		MatchType:     matchType,
 		NumberOfGames: numGames,
 		Tournament:    tournament,
 		Opponents:     opponents,
 		Results:       results,
 		League:        league,
+		Serie:         serie,
 		StreamsList:   streams,
 		Games:         games,
 		WinnerID:      winnerID,
@@ -528,7 +555,8 @@ func buildStreamEmbedURL(platform, rawVal string) string {
 			parts := strings.Split(strings.TrimRight(rawVal, "/"), "/")
 			channel = parts[len(parts)-1]
 		}
-		return "https://player.twitch.tv/?channel=" + channel + "&parent=esportnews.fr"
+		// Fix #19: Don't hardcode parent — frontend sets it dynamically via window.location.hostname
+		return "https://player.twitch.tv/?channel=" + channel
 	case "youtube":
 		videoID := rawVal
 		if strings.Contains(rawVal, "watch?v=") {
@@ -678,7 +706,9 @@ func buildMatchTournament(m LiqMatch, vg *NormalizedVideogame) *NormalizedTourna
 }
 
 // buildMatchLeague creates a NormalizedLeague from match series/parent data.
-func buildMatchLeague(m LiqMatch) *NormalizedLeague {
+// Fix #11: wiki parameter used to build Liquipedia URL for the league.
+// Fix #12: League ID uses hash of series name, not tournament PageID.
+func buildMatchLeague(m LiqMatch, wiki string) *NormalizedLeague {
 	if m.Series == "" && m.Parent == "" {
 		return nil
 	}
@@ -688,15 +718,48 @@ func buildMatchLeague(m LiqMatch) *NormalizedLeague {
 		name = m.Parent
 	}
 
+	var leagueURL *string
+	if wiki != "" {
+		u := "https://liquipedia.net/" + wiki + "/" + strings.ReplaceAll(name, " ", "_")
+		leagueURL = &u
+	}
+
 	return &NormalizedLeague{
 		ID:       hashStringToInt(name),
 		Name:     name,
+		URL:      leagueURL,
 		Slug:     pageNameToSlug(name),
 		ImageURL: m.IconURL,
 	}
 }
 
 // --- Helpers ---
+
+// estimateEndAt computes an end time for a finished match.
+// If games have length data, it sums them and adds to beginAt.
+// Otherwise, falls back to beginAt (at least signals the match ended).
+func estimateEndAt(beginAt string, games []NormalizedGameEntry) *string {
+	t, err := time.Parse(time.RFC3339, beginAt)
+	if err != nil {
+		return &beginAt
+	}
+
+	var totalSeconds int
+	for _, g := range games {
+		if g.Length != nil && *g.Length > 0 {
+			totalSeconds += *g.Length
+		}
+	}
+
+	if totalSeconds > 0 {
+		endTime := t.Add(time.Duration(totalSeconds) * time.Second)
+		iso := endTime.Format(time.RFC3339)
+		return &iso
+	}
+
+	// No duration data — return beginAt as fallback
+	return &beginAt
+}
 
 // parseScore converts a score value (string or number) to int.
 // Liquipedia uses -1 to indicate "no score yet"; we clamp to 0.

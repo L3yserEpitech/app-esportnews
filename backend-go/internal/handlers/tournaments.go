@@ -244,7 +244,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 
 	for _, wiki := range wikis {
 		go func(w string) {
-			cacheKey := fmt.Sprintf("liq:tournaments:date:%s:%s", w, date)
+			cacheKey := cache.LiqTournamentsByDateKey(w, date)
 			params := url.Values{}
 			params.Set("conditions", conditions)
 			params.Set("order", "liquipediatier ASC, startdate ASC")

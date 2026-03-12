@@ -312,8 +312,9 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		return s.getStaleOrError(ctx, cacheKey, wiki)
 	}
 
-	// 8. Read body
-	body, err := io.ReadAll(resp.Body)
+	// 8. Read body (Fix #15: limit to 10MB to prevent memory exhaustion)
+	const maxResponseSize = 10 * 1024 * 1024 // 10MB
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("reading response body: %w", err)
 	}
@@ -485,36 +486,59 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 }
 
 // GetTeamByPageID fetches a single team by its Liquipedia pageid across all wikis.
+// Fix #18: Searches all wikis in parallel for faster lookups.
 // Returns the team with its active roster (from /squadplayer).
 func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (*models.NormalizedTeam, error) {
 	pageIDStr := fmt.Sprintf("%d", pageID)
 
-	for _, wiki := range s.getAllWikis() {
-		cacheKey := cache.LiqTeamKey(wiki, pageIDStr)
-		params := url.Values{}
-		params.Set("wiki", wiki)
-		params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
-		params.Set("limit", "1")
+	type result struct {
+		team *models.NormalizedTeam
+	}
 
-		data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
-		if err != nil {
-			continue
+	allWikis := s.getAllWikis()
+	results := make(chan result, len(allWikis))
+
+	for _, wiki := range allWikis {
+		go func(w string) {
+			cacheKey := cache.LiqTeamKey(w, pageIDStr)
+			params := url.Values{}
+			params.Set("wiki", w)
+			params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
+			params.Set("limit", "1")
+
+			data, err := s.MakeRequest(ctx, w, "team", params, cacheKey, TTLTeam)
+			if err != nil {
+				results <- result{nil}
+				return
+			}
+
+			resp, err := ParseResponse(data)
+			if err != nil || len(resp.Result) == 0 {
+				results <- result{nil}
+				return
+			}
+
+			var team models.LiqTeam
+			if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+				results <- result{nil}
+				return
+			}
+
+			players := s.fetchSquadPlayers(ctx, w, team.PageName)
+			normalized := models.NormalizeLiqTeam(team, w, players)
+			results <- result{&normalized}
+		}(wiki)
+	}
+
+	for i := 0; i < len(allWikis); i++ {
+		select {
+		case res := <-results:
+			if res.team != nil {
+				return res.team, nil
+			}
+		case <-ctx.Done():
+			return nil, fmt.Errorf("team search timeout for pageid %d", pageID)
 		}
-
-		resp, err := ParseResponse(data)
-		if err != nil || len(resp.Result) == 0 {
-			continue
-		}
-
-		var team models.LiqTeam
-		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
-			continue
-		}
-
-		// Fetch roster
-		players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
-		normalized := models.NormalizeLiqTeam(team, wiki, players)
-		return &normalized, nil
 	}
 
 	return nil, fmt.Errorf("team with pageid %d not found", pageID)

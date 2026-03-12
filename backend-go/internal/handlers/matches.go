@@ -160,6 +160,12 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid date format, expected YYYY-MM-DD"})
 	}
 
+	// Fix #17: Validate date is within ±1 year to prevent abuse
+	now := time.Now().UTC()
+	if dateTime.Before(now.AddDate(-1, 0, 0)) || dateTime.After(now.AddDate(1, 0, 0)) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "date must be within ±1 year"})
+	}
+
 	gameAcronym := c.FormValue("game")
 	wikis, err := resolveWikis(gameAcronym)
 	if err != nil {

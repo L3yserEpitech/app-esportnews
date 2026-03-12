@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -9,6 +10,14 @@ import (
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 )
+
+// Valid webhook event types from LiquipediaDB
+var validWebhookEvents = map[string]bool{
+	"edit":   true,
+	"delete": true,
+	"move":   true,
+	"purge":  true,
+}
 
 // WebhookHandler receives LiquipediaDB webhook events and marks dirty flags
 // for the poller to consume. It never calls the API directly — the debounce
@@ -35,10 +44,25 @@ func (h *WebhookHandler) RegisterRoutes(g RouterGroup) {
 // It parses the event, marks the wiki as dirty, and returns 200 immediately.
 // The actual API fetching happens asynchronously in the poller.
 func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
+	// Fix #14: Optional webhook secret validation via LIQUIPEDIA_WEBHOOK_SECRET env var
+	if secret := os.Getenv("LIQUIPEDIA_WEBHOOK_SECRET"); secret != "" {
+		headerSecret := c.Request().Header.Get("X-Webhook-Secret")
+		if headerSecret != secret {
+			h.log.Warn("Webhook rejected: invalid or missing secret")
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
+		}
+	}
+
 	var event models.LiquipediaWebhookEvent
 	if err := c.Bind(&event); err != nil {
 		h.log.WithError(err).Warn("Invalid webhook payload")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+	}
+
+	// Fix #14: Validate event type
+	if event.Event != "" && !validWebhookEvents[event.Event] {
+		h.log.WithField("event", event.Event).Warn("Unknown webhook event type")
+		return c.NoContent(http.StatusOK)
 	}
 
 	// Ignore events outside main content and teamtemplates namespaces
@@ -46,8 +70,12 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}
 
-	// Ignore if wiki is empty or unknown
+	// Fix #14: Validate wiki is known
 	if event.Wiki == "" {
+		return c.NoContent(http.StatusOK)
+	}
+	if _, known := models.WikiToAcronym[event.Wiki]; !known {
+		h.log.WithField("wiki", event.Wiki).Debug("Webhook from unknown wiki, ignoring")
 		return c.NoContent(http.StatusOK)
 	}
 

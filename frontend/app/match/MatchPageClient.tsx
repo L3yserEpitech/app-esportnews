@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Search, X, ChevronLeft, ChevronRight, ArrowUpDown, Check, Calendar, Trophy, Star } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { LiveMatch, Advertisement } from '../types';
@@ -61,9 +61,12 @@ const getDayName = (date: Date, locale: string): string => {
   const dayNames: { [key: string]: string[] } = {
     fr: ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'],
     en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+    es: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+    de: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+    it: ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'],
   };
-  const lang = locale.startsWith('fr') ? 'fr' : 'en';
-  return dayNames[lang][date.getDay()];
+  const lang = locale.substring(0, 2);
+  return (dayNames[lang] || dayNames['en'])[date.getDay()];
 };
 
 const getMonthName = (date: Date, locale: string): string => {
@@ -99,6 +102,7 @@ const generateDateRange = (centerDate: Date, offset: number = 0, visibleCount: n
 
 const MatchPage: React.FC = () => {
   const t = useTranslations();
+  const locale = useLocale();
   const { selectedGame, games, isLoadingGames, setSelectedGame, getSelectedGameData } = useGame();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,8 +123,7 @@ const MatchPage: React.FC = () => {
   // Nombre de dates visibles selon la taille d'écran
   const visibleDatesCount = useVisibleDatesCount();
 
-  // Mémoriser les données du jeu sélectionné
-  const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
+  const selectedGameData = getSelectedGameData();
 
   // Compteur pour forcer un rechargement (refresh manuel)
   const [refreshKey, setRefreshKey] = useState(0);
@@ -508,7 +511,7 @@ const MatchPage: React.FC = () => {
                   {/* Left: selected date display */}
                   <div className="flex items-center">
                     <span className="text-xs text-[#F22E62] font-medium">
-                      {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {selectedDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
                   </div>
 
@@ -623,13 +626,13 @@ const MatchPage: React.FC = () => {
                           `}
                         >
                           <span className="text-xs uppercase mb-1">
-                            {getDayName(date, 'fr')}
+                            {getDayName(date, locale)}
                           </span>
                           <span className="text-lg font-bold">
                             {date.getDate()}
                           </span>
                           <span className="text-xs capitalize">
-                            {getMonthName(date, 'fr')}
+                            {getMonthName(date, locale)}
                           </span>
                         </button>
                       );

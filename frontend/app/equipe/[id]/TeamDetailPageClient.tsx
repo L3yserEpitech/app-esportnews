@@ -404,8 +404,8 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                 <div
                   className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50"
                 >
-                  {pickThemeLogo(isDark, team.image_url, team.dark_mode_image_url) ? (
-                    <img src={proxyImageUrl(pickThemeLogo(isDark, team.image_url, team.dark_mode_image_url)!)} alt={team.name} className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain" />
+                  {pickThemeLogo(isDark, enrichedTeam.textless_logo_url || team.image_url || urlLogo, enrichedTeam.textless_logo_dark_url || team.dark_mode_image_url) ? (
+                    <img src={proxyImageUrl(pickThemeLogo(isDark, enrichedTeam.textless_logo_url || team.image_url || urlLogo, enrichedTeam.textless_logo_dark_url || team.dark_mode_image_url)!)} alt={team.name} className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain" />
                   ) : (
                     <Shield className="w-10 h-10 text-[var(--color-text-muted)]" />
                   )}

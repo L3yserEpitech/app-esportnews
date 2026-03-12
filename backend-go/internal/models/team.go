@@ -132,9 +132,17 @@ func NormalizeLiqTeam(t LiqTeam, wiki string, players []NormalizedPlayer) Normal
 		}
 	}
 
-	// Dark mode logo
+	// Logo: prefer textless logo (emblem used in match cards) over wordmark logo
+	imageURL := t.TextlessLogoURL
+	if imageURL == "" {
+		imageURL = t.LogoURL
+	}
+
+	// Dark mode logo: prefer textless dark, fallback to regular dark
 	var darkURL *string
-	if t.LogoDarkURL != "" {
+	if t.TextlessLogoDarkURL != "" {
+		darkURL = &t.TextlessLogoDarkURL
+	} else if t.LogoDarkURL != "" {
 		darkURL = &t.LogoDarkURL
 	}
 
@@ -165,7 +173,7 @@ func NormalizeLiqTeam(t LiqTeam, wiki string, players []NormalizedPlayer) Normal
 		Players:          players,
 		ModifiedAt:       time.Now().UTC().Format(time.RFC3339),
 		Acronym:          acronym,
-		ImageURL:         t.LogoURL,
+		ImageURL:         imageURL,
 		DarkModeImageURL: darkURL,
 		CurrentVideogame: vg,
 	}
@@ -489,7 +497,20 @@ type TeamPlacementsResponse struct {
 // --- Helpers ---
 
 // splitName splits a full name into first name and last name.
+// Handles "Last, First" format (common in databases) and "First Last" format.
 func splitName(fullName string) (string, string) {
+	// Handle "LastName, FirstName" format
+	if strings.Contains(fullName, ",") {
+		parts := strings.SplitN(fullName, ",", 2)
+		if len(parts) == 2 {
+			first := strings.TrimSpace(parts[1])
+			last := strings.TrimSpace(parts[0])
+			if first != "" {
+				return first, last
+			}
+		}
+	}
+
 	parts := strings.Fields(fullName)
 	if len(parts) == 0 {
 		return "", ""
