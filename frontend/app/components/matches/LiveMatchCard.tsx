@@ -2,10 +2,12 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { LiveMatch } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface LiveMatchCardProps {
   match: LiveMatch;
@@ -14,6 +16,8 @@ interface LiveMatchCardProps {
 
 export default function LiveMatchCard({ match, showGames = true }: LiveMatchCardProps) {
   const t = useTranslations('pages_detail.match');
+  const router = useRouter();
+  const isDark = useIsDarkTheme();
   // Get teams from opponents array
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -83,12 +87,15 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
           {/* Teams and Score */}
           <div className="flex items-center justify-between gap-2">
             {/* Home Team */}
-            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+            <div
+              className="flex-1 flex flex-col items-center gap-2 min-w-0 cursor-pointer"
+              onClick={(e) => { if (homeTeam?.template && match.wiki) { e.preventDefault(); e.stopPropagation(); const params = new URLSearchParams({ wiki: match.wiki }); if (homeTeam.name) params.set('name', homeTeam.name); if (homeTeam.acronym) params.set('acronym', homeTeam.acronym); if (homeTeam.image_url) params.set('logo', homeTeam.image_url); router.push(`/equipe/${encodeURIComponent(homeTeam.template)}?${params.toString()}`); } }}
+            >
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {homeTeam?.image_url ? (
+                {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
                   <img
-                    src={proxyImageUrl(homeTeam.image_url)}
-                    alt={homeTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)}
+                    alt={homeTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />
@@ -97,7 +104,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-text-primary truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight hover:text-[#F44576] transition-colors">
                   {homeTeam?.acronym || homeTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{homeTeam?.name?.slice(0, 12) || '-'}</p>
@@ -127,12 +134,15 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
             </div>
 
             {/* Away Team */}
-            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+            <div
+              className="flex-1 flex flex-col items-center gap-2 min-w-0 cursor-pointer"
+              onClick={(e) => { if (awayTeam?.template && match.wiki) { e.preventDefault(); e.stopPropagation(); const params = new URLSearchParams({ wiki: match.wiki }); if (awayTeam.name) params.set('name', awayTeam.name); if (awayTeam.acronym) params.set('acronym', awayTeam.acronym); if (awayTeam.image_url) params.set('logo', awayTeam.image_url); router.push(`/equipe/${encodeURIComponent(awayTeam.template)}?${params.toString()}`); } }}
+            >
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {awayTeam?.image_url ? (
+                {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
                   <img
-                    src={proxyImageUrl(awayTeam.image_url)}
-                    alt={awayTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)}
+                    alt={awayTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />
@@ -141,7 +151,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-text-primary truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight hover:text-[#F44576] transition-colors">
                   {awayTeam?.acronym || awayTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>

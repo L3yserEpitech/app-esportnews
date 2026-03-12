@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { PandaMatch } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface PandaMatchCardProps {
   match: PandaMatch;
@@ -14,6 +15,7 @@ interface PandaMatchCardProps {
 
 export default function PandaMatchCard({ match, tournamentName }: PandaMatchCardProps) {
   const t = useTranslations('pages_detail.match');
+  const isDark = useIsDarkTheme();
   // Récupérer les équipes depuis les opponents
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -85,10 +87,10 @@ export default function PandaMatchCard({ match, tournamentName }: PandaMatchCard
             {/* Home Team */}
             <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {homeTeam?.image_url ? (
+                {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
                   <img
-                    src={proxyImageUrl(homeTeam.image_url)}
-                    alt={homeTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)}
+                    alt={homeTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />
@@ -127,10 +129,10 @@ export default function PandaMatchCard({ match, tournamentName }: PandaMatchCard
             {/* Away Team */}
             <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {awayTeam?.image_url ? (
+                {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
                   <img
-                    src={proxyImageUrl(awayTeam.image_url)}
-                    alt={awayTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)}
+                    alt={awayTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />

@@ -541,6 +541,26 @@
       "yes": "Sí",
       "no": "No",
       "stat_rescheduled": "Reprogramado"
+    },
+    "team_detail": {
+      "loading": "Cargando equipo...",
+      "not_found": "Equipo no encontrado",
+      "not_found_description": "El equipo que buscas no existe.",
+      "back_to_matches": "Volver a los partidos",
+      "breadcrumb_home": "Inicio",
+      "breadcrumb_matches": "Partidos",
+      "roster": "Roster",
+      "recent_matches": "Partidos recientes",
+      "upcoming_matches": "Próximos partidos",
+      "no_matches": "No hay partidos recientes disponibles",
+      "no_upcoming_matches": "No hay próximos partidos",
+      "created": "Creado el",
+      "earnings": "Ganancias",
+      "region": "Región",
+      "links": "Enlaces",
+      "status_active": "Activo",
+      "view_team": "Ver equipo",
+      "placements": "Resultados en torneos"
     }
   }
 }

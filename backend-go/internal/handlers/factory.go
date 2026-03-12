@@ -83,12 +83,14 @@ func NewAuthHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtS
 	}
 }
 
-// NewTeamHandler creates a new team handler with Liquipedia service, AuthService and GORM DB
-func NewTeamHandler(liquipediaService *services.LiquipediaService, authService *services.AuthService, gormDB interface{}) *TeamHandler {
+// NewTeamHandler creates a new team handler with Liquipedia service, AuthService, GORM DB and Redis cache
+func NewTeamHandler(liquipediaService *services.LiquipediaService, authService *services.AuthService, gormDB interface{}, redisCache *cache.RedisCache, logger *logrus.Logger) *TeamHandler {
 	return &TeamHandler{
 		liquipediaService: liquipediaService,
 		authService:       authService,
 		gormDB:            gormDB,
+		redisCache:        redisCache,
+		log:               logger,
 	}
 }
 

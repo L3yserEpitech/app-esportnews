@@ -173,7 +173,7 @@ func NormalizeLiqTeam(t LiqTeam, wiki string, players []NormalizedPlayer) Normal
 
 // NormalizeLiqSquadPlayer converts a Liquipedia squad player to a frontend-compatible NormalizedPlayer.
 func NormalizeLiqSquadPlayer(sp LiqSquadPlayer) NormalizedPlayer {
-	isActive := sp.Status == "active" && sp.Type == "player"
+	isActive := strings.EqualFold(sp.Status, "active") && sp.Type == "player"
 
 	// Split real name into first/last
 	firstName, lastName := splitName(sp.Name)
@@ -208,7 +208,7 @@ func NormalizeLiqSquadPlayer(sp LiqSquadPlayer) NormalizedPlayer {
 }
 
 // NormalizeLiqSquadPlayers normalizes a slice of squad players with deduplication.
-// Only players (type=player) are included, both active and inactive.
+// Only current roster members (type=player, status != former) are included.
 func NormalizeLiqSquadPlayers(players []LiqSquadPlayer) []NormalizedPlayer {
 	result := make([]NormalizedPlayer, 0, len(players))
 	seen := make(map[string]bool)
@@ -216,6 +216,10 @@ func NormalizeLiqSquadPlayers(players []LiqSquadPlayer) []NormalizedPlayer {
 	for _, sp := range players {
 		// Only include players (not staff, coaches, etc.)
 		if sp.Type != "player" {
+			continue
+		}
+		// Exclude former players — only keep active and inactive roster members
+		if strings.EqualFold(sp.Status, "former") {
 			continue
 		}
 
@@ -394,6 +398,92 @@ func ParseEarningsByYear(raw json.RawMessage) map[string]string {
 type TeamMatchesResponse struct {
 	Recent   []NormalizedMatch `json:"recent"`
 	Upcoming []NormalizedMatch `json:"upcoming"`
+}
+
+// --- Placement structs ---
+
+// LiqPlacement represents a placement entry from the Liquipedia API v3 /placement endpoint.
+type LiqPlacement struct {
+	PageID               int             `json:"pageid"`
+	PageName             string          `json:"pagename"`
+	ObjectName           string          `json:"objectname"`
+	Tournament           string          `json:"tournament"`
+	Series               string          `json:"series"`
+	Parent               string          `json:"parent"`
+	ImageURL             string          `json:"imageurl"`
+	ImageDarkURL         string          `json:"imagedarkurl"`
+	StartDate            string          `json:"startdate"`
+	Date                 string          `json:"date"`
+	Placement            string          `json:"placement"`
+	PrizeMoney           float64         `json:"prizemoney"`
+	IndividualPrizeMoney float64         `json:"individualprizemoney"`
+	PrizePoolIndex       int             `json:"prizepoolindex"`
+	Weight               float64         `json:"weight"`
+	Mode                 string          `json:"mode"`
+	Type                 string          `json:"type"`
+	LiquipediaTier       string          `json:"liquipediatier"`
+	LiquipediaTierType   string          `json:"liquipediatiertype"`
+	PublisherTier        string          `json:"publishertier"`
+	IconURL              string          `json:"iconurl"`
+	IconDarkURL          string          `json:"icondarkurl"`
+	Game                 string          `json:"game"`
+	LastVsData           json.RawMessage `json:"lastvsdata"`
+	OpponentName         string          `json:"opponentname"`
+	OpponentTemplate     string          `json:"opponenttemplate"`
+	OpponentType         string          `json:"opponenttype"`
+	Qualifier            string          `json:"qualifier"`
+	Wiki                 string          `json:"wiki"`
+}
+
+// NormalizedPlacement is the frontend-ready placement object.
+type NormalizedPlacement struct {
+	Tournament     string  `json:"tournament"`
+	TournamentPage string  `json:"tournament_page"`
+	Placement      string  `json:"placement"`
+	Date           string  `json:"date"`
+	PrizeMoney     float64 `json:"prize_money"`
+	Tier           string  `json:"tier"`
+	TierType       string  `json:"tier_type"`
+	Type           string  `json:"type"`
+	IconURL        string  `json:"icon_url"`
+	IconDarkURL    string  `json:"icon_dark_url"`
+	LastVsName     string  `json:"last_vs_name,omitempty"`
+	LastVsScore    *int    `json:"last_vs_score,omitempty"`
+}
+
+// NormalizeLiqPlacement converts a raw Liquipedia placement to a frontend-ready struct.
+func NormalizeLiqPlacement(p LiqPlacement) NormalizedPlacement {
+	np := NormalizedPlacement{
+		Tournament:     p.Tournament,
+		TournamentPage: p.PageName,
+		Placement:      p.Placement,
+		Date:           p.Date,
+		PrizeMoney:     p.PrizeMoney,
+		Tier:           p.LiquipediaTier,
+		TierType:       p.LiquipediaTierType,
+		Type:           p.Type,
+		IconURL:        p.IconURL,
+		IconDarkURL:    p.IconDarkURL,
+	}
+
+	// Parse lastvsdata for final opponent info
+	if p.LastVsData != nil && string(p.LastVsData) != "null" {
+		var vs struct {
+			OpponentName string `json:"opponentname"`
+			Score        *int   `json:"score"`
+		}
+		if err := json.Unmarshal(p.LastVsData, &vs); err == nil {
+			np.LastVsName = vs.OpponentName
+			np.LastVsScore = vs.Score
+		}
+	}
+
+	return np
+}
+
+// TeamPlacementsResponse is the response for GET /api/teams/:id/placements.
+type TeamPlacementsResponse struct {
+	Placements []NormalizedPlacement `json:"placements"`
 }
 
 // --- Helpers ---

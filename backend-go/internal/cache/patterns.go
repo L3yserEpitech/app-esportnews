@@ -30,6 +30,7 @@ const (
 	LiqTeamSquad           = "liq:team:squad:%s:%s"        // %s = wiki, %s = team pagename
 	LiqTeamMatchesRecent   = "liq:team:matches:recent:%s:%s"   // %s = wiki, %s = team template
 	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
+	LiqTeamPlacements      = "liq:team:placements:%s:%s"       // %s = wiki, %s = team name
 
 	// Stale cache suffix — appended to any key above for stale-while-revalidate
 	LiqStaleSuffix = ":stale"
@@ -147,6 +148,10 @@ func LiqTeamMatchesRecentKey(wiki, teamTemplate string) string {
 
 func LiqTeamMatchesUpcomingKey(wiki, teamTemplate string) string {
 	return fmt.Sprintf(LiqTeamMatchesUpcoming, wiki, teamTemplate)
+}
+
+func LiqTeamPlacementsKey(wiki, teamName string) string {
+	return fmt.Sprintf(LiqTeamPlacements, wiki, teamName)
 }
 
 // StaleKey returns the stale-while-revalidate variant of any cache key.

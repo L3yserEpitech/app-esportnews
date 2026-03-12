@@ -32,7 +32,7 @@ const (
 const (
 	TTLMatchesRunning      = 3 * time.Minute
 	TTLMatchesUpcoming     = 15 * time.Minute
-	TTLMatchesPast         = 20 * time.Minute
+	TTLMatchesPast         = 35 * time.Minute // must be > PollIntervalMatchesPast (30m)
 	TTLTournamentsRunning  = 15 * time.Minute
 	TTLTournamentsUpcoming = 20 * time.Minute
 	TTLTournamentsFinished = 1 * time.Hour
@@ -40,18 +40,33 @@ const (
 	TTLMatchDetailFinished = 24 * time.Hour
 	TTLMatchesByDatePast   = 6 * time.Hour
 	TTLTournamentDetail    = 10 * time.Minute
-	TTLTeam                = 2 * time.Hour
+	TTLTeam                = 6 * time.Hour  // roster data changes infrequently
 	TTLTeamMatches         = 15 * time.Minute
-	TTLStale               = 1 * time.Hour // stale-while-revalidate fallback
+	TTLTeamPlacements      = 1 * time.Hour
+	TTLStale               = 2 * time.Hour // stale-while-revalidate fallback
 )
 
 // RequestBudget tracks API usage per wiki (game) to enforce the 60 req/hour limit.
+// The counter is persisted in Redis so restarts don't reset the count within a live hour.
+// Includes exponential backoff on 429 responses to avoid hammering.
 type RequestBudget struct {
 	Wiki    string
 	Used    int
 	Limit   int
 	ResetAt time.Time
 	mu      sync.Mutex
+
+	// Backoff: when we receive a 429, stop making requests until this time
+	blockedUntil time.Time
+
+	// Redis persistence (optional — best-effort)
+	redisCache *cache.RedisCache
+}
+
+// budgetRedisKey returns the Redis key for this wiki's current hour budget.
+func (b *RequestBudget) budgetRedisKey() string {
+	hour := time.Now().UTC().Truncate(time.Hour).Format("2006010215")
+	return fmt.Sprintf("liq:budget:%s:%s", b.Wiki, hour)
 }
 
 // CanMakeRequest checks if there's budget remaining for this wiki.
@@ -59,15 +74,72 @@ func (b *RequestBudget) CanMakeRequest() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.maybeReset()
+	// Respect backoff from 429
+	if time.Now().Before(b.blockedUntil) {
+		return false
+	}
 	return b.Used < b.Limit
 }
 
-// RecordRequest increments the usage counter.
+// Record429 marks a 429 response — sets the budget to exhausted and applies backoff.
+// Each consecutive 429 doubles the backoff: 5min, 10min, 20min, capped at 30min.
+func (b *RequestBudget) Record429() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.Used = b.Limit // mark as exhausted
+
+	now := time.Now()
+	remaining := time.Until(b.blockedUntil)
+	if remaining <= 0 {
+		// First 429 in this cycle — backoff 5 minutes
+		b.blockedUntil = now.Add(5 * time.Minute)
+	} else {
+		// Consecutive 429 — double the backoff, cap at 30 minutes
+		newBackoff := remaining * 2
+		if newBackoff > 30*time.Minute {
+			newBackoff = 30 * time.Minute
+		}
+		b.blockedUntil = now.Add(newBackoff)
+	}
+}
+
+// RecordRequest increments the usage counter (in-memory + Redis best-effort).
 func (b *RequestBudget) RecordRequest() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.maybeReset()
 	b.Used++
+	// Persist to Redis (best-effort, async)
+	if b.redisCache != nil {
+		key := b.budgetRedisKey()
+		used := b.Used
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			ttl := time.Until(b.ResetAt) + 2*time.Minute // slightly beyond reset
+			_ = b.redisCache.Set(ctx, key, fmt.Sprintf("%d", used), ttl)
+		}()
+	}
+}
+
+// loadFromRedis initializes the in-memory counter from Redis (called once at startup).
+func (b *RequestBudget) loadFromRedis(ctx context.Context) {
+	if b.redisCache == nil {
+		return
+	}
+	val, err := b.redisCache.Get(ctx, b.budgetRedisKey())
+	if err != nil || val == "" {
+		return
+	}
+	var used int
+	if _, err := fmt.Sscanf(val, "%d", &used); err == nil && used > 0 {
+		b.mu.Lock()
+		b.maybeReset()
+		if used > b.Used {
+			b.Used = used
+		}
+		b.mu.Unlock()
+	}
 }
 
 // Status returns a snapshot of the budget state (for monitoring endpoint).
@@ -107,9 +179,19 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 	budgets := make(map[string]*RequestBudget, len(models.GameWikiMapping))
 	for _, wiki := range models.GameWikiMapping {
 		budgets[wiki] = &RequestBudget{
-			Wiki:    wiki,
-			Limit:   budgetLimitPerWiki,
-			ResetAt: time.Now().Truncate(time.Hour).Add(time.Hour),
+			Wiki:       wiki,
+			Limit:      budgetLimitPerWiki,
+			ResetAt:    time.Now().Truncate(time.Hour).Add(time.Hour),
+			redisCache: redisCache,
+		}
+	}
+
+	// Load persisted budget counts from Redis (survives restarts within the same hour)
+	if redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for _, b := range budgets {
+			b.loadFromRedis(ctx)
 		}
 	}
 
@@ -210,10 +292,10 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 	}
 	defer resp.Body.Close()
 
-	// 6. Handle rate limit (429)
+	// 6. Handle rate limit (429) — backoff to stop hammering
 	if resp.StatusCode == http.StatusTooManyRequests {
 		s.log.WithField("wiki", wiki).Warn("Rate limited by Liquipedia (429)")
-		budget.RecordRequest() // still count it
+		budget.Record429()
 		return s.getStaleOrError(ctx, cacheKey, wiki)
 	}
 
@@ -432,13 +514,15 @@ func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (
 	return nil, fmt.Errorf("team with pageid %d not found", pageID)
 }
 
-// GetTeamByTemplate fetches a single team by its Liquipedia template/pagename on a specific wiki.
+// GetTeamByTemplate fetches a single team by its Liquipedia template shortname on a specific wiki.
+// The template param is the team's shortname (e.g. "genone"), which maps to the `template` field
+// in Liquipedia's team cargo table — NOT to pagename (e.g. "Gen.ONE").
 // Returns the team with its active roster (from /squadplayer).
 func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string) (*models.NormalizedTeam, error) {
 	cacheKey := cache.LiqTeamKey(wiki, template)
 	params := url.Values{}
 	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", template))
+	params.Set("conditions", fmt.Sprintf("[[template::%s]]", template))
 	params.Set("limit", "1")
 
 	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
@@ -492,8 +576,8 @@ func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPag
 	cacheKey := cache.LiqTeamSquadKey(wiki, teamPageName)
 	params := url.Values{}
 	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[pagename::%s]] AND [[type::player]]", teamPageName))
-	params.Set("limit", "20")
+	params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", teamPageName))
+	params.Set("limit", "100")
 
 	data, err := s.MakeRequest(ctx, wiki, "squadplayer", params, cacheKey, TTLTeam)
 	if err != nil {
@@ -714,6 +798,47 @@ func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemp
 	}
 
 	return matches, nil
+}
+
+// FetchTeamPlacements fetches tournament placements for a team from the Liquipedia /placement endpoint.
+// Returns the most recent placements with actual results (non-empty placement string).
+func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamName string, limit int) ([]models.NormalizedPlacement, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	cacheKey := cache.LiqTeamPlacementsKey(wiki, teamName)
+
+	conditions := fmt.Sprintf("[[opponentname::%s]]", teamName)
+	params := url.Values{}
+	params.Set("conditions", conditions)
+	params.Set("order", "date DESC")
+	params.Set("limit", fmt.Sprintf("%d", limit))
+
+	data, err := s.MakeRequest(ctx, wiki, "placement", params, cacheKey, TTLTeamPlacements)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch placements for team %s: %w", teamName, err)
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	placements := make([]models.NormalizedPlacement, 0, len(resp.Result))
+	for _, raw := range resp.Result {
+		var p models.LiqPlacement
+		if err := json.Unmarshal(raw, &p); err != nil {
+			continue
+		}
+		// Only include entries that have an actual placement result
+		if p.Placement == "" {
+			continue
+		}
+		placements = append(placements, models.NormalizeLiqPlacement(p))
+	}
+
+	return placements, nil
 }
 
 // getAllWikis returns a list of all known Liquipedia wiki names.

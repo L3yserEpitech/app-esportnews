@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
   Gamepad2,
@@ -28,6 +29,7 @@ import AdColumn from '../../components/ads/AdColumn';
 import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
 import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface MatchDetailPageClientProps {
   matchId: string;
@@ -64,6 +66,7 @@ const getRoleBadgeStyle = (role?: string | null): string => {
 
 export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: MatchDetailPageClientProps) {
   const t = useTranslations('pages_detail.match_detail');
+  const isDark = useIsDarkTheme();
   const [match, setMatch] = useState<LiveMatch | null>(initialMatch || null);
   const [loading, setLoading] = useState(!initialMatch);
   const [error, setError] = useState<string | null>(null);
@@ -226,6 +229,17 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
   const isTwitch = selectedStream?.raw_url?.includes('twitch');
   const isYoutube = selectedStream?.raw_url?.includes('youtube');
 
+  const getTeamUrl = (team: typeof homeTeam) => {
+    if (!team) return null;
+    const p = new URLSearchParams();
+    if (match.wiki) p.set('wiki', match.wiki);
+    if (team.name) p.set('name', team.name);
+    if (team.acronym) p.set('acronym', team.acronym);
+    if (team.image_url) p.set('logo', team.image_url);
+    const slug = team.template || team.slug || String(team.id);
+    return `/equipe/${encodeURIComponent(slug)}?${p.toString()}`;
+  };
+
   const getTwitchChannel = (url: string) => {
     const m = url.match(/twitch\.tv\/([^/?]+)/);
     return m ? m[1] : '';
@@ -248,8 +262,8 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
         <div className={`relative ${sizeClasses[size]} rounded-xl bg-[var(--color-bg-primary)]/80 border ${
           highlight ? 'border-[var(--color-accent)]/30' : 'border-[var(--color-border-primary)]/40'
         } flex items-center justify-center overflow-hidden transition-all duration-300 group-hover/logo:border-[var(--color-accent)]/20`}>
-          {team?.image_url ? (
-            <img src={proxyImageUrl(team.image_url)} alt={team.name} className="w-3/4 h-3/4 object-contain" loading="lazy" />
+          {pickThemeLogo(isDark, team?.image_url, team?.dark_image_url) ? (
+            <img src={proxyImageUrl(pickThemeLogo(isDark, team?.image_url, team?.dark_image_url)!)} alt={team?.name || ''} className="w-3/4 h-3/4 object-contain" loading="lazy" />
           ) : (
             <Shield className="w-1/3 h-1/3 text-text-muted/60" />
           )}
@@ -373,19 +387,35 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
           <div className="flex items-center justify-center gap-4 md:gap-0 mb-6">
 
             {/* HOME TEAM */}
-            <div className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5">
-              <div className="text-center md:text-right order-2 md:order-1 min-w-0">
-                <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
-                  isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                }`}>
-                  {homeTeam?.name || '-'}
-                </p>
-                {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
-                  <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
-                )}
+            {getTeamUrl(homeTeam) ? (
+              <Link href={getTeamUrl(homeTeam)!} className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5 group/home">
+                <div className="text-center md:text-right order-2 md:order-1 min-w-0">
+                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors group-hover/home:text-accent ${
+                    isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                  }`}>
+                    {homeTeam?.name || '-'}
+                  </p>
+                  {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
+                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
+                  )}
+                </div>
+                <TeamLogo team={homeTeam} highlight={isHomeWinner} />
+              </Link>
+            ) : (
+              <div className="flex-1 flex flex-col md:flex-row items-center md:justify-end gap-3 md:gap-5">
+                <div className="text-center md:text-right order-2 md:order-1 min-w-0">
+                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
+                    isHomeWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                  }`}>
+                    {homeTeam?.name || '-'}
+                  </p>
+                  {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== homeTeam.name.toUpperCase() && (
+                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{homeTeam.acronym}</p>
+                  )}
+                </div>
+                <TeamLogo team={homeTeam} highlight={isHomeWinner} />
               </div>
-              <TeamLogo team={homeTeam} highlight={isHomeWinner} />
-            </div>
+            )}
 
             {/* SCORE CENTER */}
             <div className="flex flex-col items-center px-5 md:px-12 flex-shrink-0">
@@ -456,27 +486,43 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
             </div>
 
             {/* AWAY TEAM */}
-            <div className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5">
-              <TeamLogo team={awayTeam} highlight={isAwayWinner} />
-              <div className="text-center md:text-left min-w-0">
-                <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
-                  isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
-                }`}>
-                  {awayTeam?.name || '-'}
-                </p>
-                {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
-                  <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
-                )}
+            {getTeamUrl(awayTeam) ? (
+              <Link href={getTeamUrl(awayTeam)!} className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5 group/away">
+                <TeamLogo team={awayTeam} highlight={isAwayWinner} />
+                <div className="text-center md:text-left min-w-0">
+                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors group-hover/away:text-accent ${
+                    isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                  }`}>
+                    {awayTeam?.name || '-'}
+                  </p>
+                  {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
+                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="flex-1 flex flex-col md:flex-row items-center md:justify-start gap-3 md:gap-5">
+                <TeamLogo team={awayTeam} highlight={isAwayWinner} />
+                <div className="text-center md:text-left min-w-0">
+                  <p className={`text-lg md:text-2xl lg:text-3xl font-black leading-tight truncate transition-colors ${
+                    isAwayWinner ? 'text-text-primary' : isFinished ? 'text-text-muted/50' : 'text-text-primary'
+                  }`}>
+                    {awayTeam?.name || '-'}
+                  </p>
+                  {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== awayTeam.name.toUpperCase() && (
+                    <p className="text-[10px] text-accent/70 font-bold tracking-[0.2em] uppercase mt-0.5">{awayTeam.acronym}</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Context info bar */}
           <div className="flex items-center justify-center gap-3 flex-wrap text-[11px] text-text-muted">
             {match.tournament?.name && (
               <div className="flex items-center gap-1.5">
-                {(match.tournament as any)?.icon_url && (
-                  <img src={proxyImageUrl((match.tournament as any).icon_url)} alt="" className="w-3.5 h-3.5 object-contain opacity-60" />
+                {pickThemeLogo(isDark, (match.tournament as any)?.icon_url, (match.tournament as any)?.icon_dark_url) && (
+                  <img src={proxyImageUrl(pickThemeLogo(isDark, (match.tournament as any)?.icon_url, (match.tournament as any)?.icon_dark_url)!)} alt="" className="w-3.5 h-3.5 object-contain opacity-60" />
                 )}
                 <span className="text-text-secondary font-medium">{match.tournament.name}</span>
               </div>
@@ -590,14 +636,25 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
                         </div>
 
                         {/* Home side */}
-                        <div className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
-                          {homeTeam?.image_url && (
-                            <img src={proxyImageUrl(homeTeam.image_url)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
-                          )}
-                          <span className={`text-sm font-semibold truncate ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
-                            {homeTeam?.acronym || homeTeam?.name || '-'}
-                          </span>
-                        </div>
+                        {getTeamUrl(homeTeam) ? (
+                          <Link href={getTeamUrl(homeTeam)!} className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity group/gh ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
+                            {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) && (
+                              <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            )}
+                            <span className={`text-sm font-semibold truncate group-hover/gh:text-accent transition-colors ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
+                              {homeTeam?.acronym || homeTeam?.name || '-'}
+                            </span>
+                          </Link>
+                        ) : (
+                          <div className={`flex items-center gap-2 flex-1 min-w-0 transition-opacity ${isGameFinished && !isHomeWin ? 'opacity-30' : ''}`}>
+                            {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) && (
+                              <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            )}
+                            <span className={`text-sm font-semibold truncate ${isHomeWin ? 'text-accent' : 'text-text-primary'}`}>
+                              {homeTeam?.acronym || homeTeam?.name || '-'}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Center indicator */}
                         <div className="flex-shrink-0 w-8 flex items-center justify-center">
@@ -611,14 +668,25 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
                         </div>
 
                         {/* Away side */}
-                        <div className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
-                          <span className={`text-sm font-semibold truncate text-right ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
-                            {awayTeam?.acronym || awayTeam?.name || '-'}
-                          </span>
-                          {awayTeam?.image_url && (
-                            <img src={proxyImageUrl(awayTeam.image_url)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
-                          )}
-                        </div>
+                        {getTeamUrl(awayTeam) ? (
+                          <Link href={getTeamUrl(awayTeam)!} className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity group/ga ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
+                            <span className={`text-sm font-semibold truncate text-right group-hover/ga:text-accent transition-colors ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
+                              {awayTeam?.acronym || awayTeam?.name || '-'}
+                            </span>
+                            {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) && (
+                              <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            )}
+                          </Link>
+                        ) : (
+                          <div className={`flex items-center gap-2 flex-1 min-w-0 justify-end transition-opacity ${isGameFinished && !isAwayWin ? 'opacity-30' : ''}`}>
+                            <span className={`text-sm font-semibold truncate text-right ${isAwayWin ? 'text-accent' : 'text-text-primary'}`}>
+                              {awayTeam?.acronym || awayTeam?.name || '-'}
+                            </span>
+                            {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) && (
+                              <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-4.5 h-4.5 object-contain flex-shrink-0" loading="lazy" />
+                            )}
+                          </div>
+                        )}
 
                         {/* Duration / Status */}
                         <div className="flex-shrink-0 w-14 text-right">
@@ -743,24 +811,25 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
                           : 'border-[var(--color-border-primary)]/25 bg-[var(--color-bg-secondary)]/40'
                       }`}>
                         {/* Team header */}
-                        <div className="px-4 py-3 flex items-center gap-3 border-b border-[var(--color-border-primary)]/15">
+                        <Link href={(() => { const p = new URLSearchParams(); if (teamDetail.wiki || match.wiki) p.set('wiki', teamDetail.wiki || match.wiki || ''); if (teamDetail.name) p.set('name', teamDetail.name); if (teamDetail.acronym) p.set('acronym', teamDetail.acronym); if (teamDetail.image_url) p.set('logo', teamDetail.image_url); const slug = teamDetail.template || teamDetail.slug || String(teamDetail.id); return `/equipe/${encodeURIComponent(slug)}?${p.toString()}`; })()} className="block px-4 py-3 flex items-center gap-3 border-b border-[var(--color-border-primary)]/15 hover:bg-[var(--color-bg-primary)]/20 transition-colors">
                           <div className="w-9 h-9 rounded-lg bg-[var(--color-bg-primary)]/80 border border-[var(--color-border-primary)]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {teamDetail.image_url ? (
-                              <img src={proxyImageUrl(teamDetail.image_url)} alt={teamDetail.name} className="w-6 h-6 object-contain" loading="lazy" />
+                            {pickThemeLogo(isDark, teamDetail.image_url, teamDetail.dark_mode_image_url) ? (
+                              <img src={proxyImageUrl(pickThemeLogo(isDark, teamDetail.image_url, teamDetail.dark_mode_image_url)!)} alt={teamDetail.name} className="w-6 h-6 object-contain" loading="lazy" />
                             ) : (
                               <Shield className="w-4 h-4 text-text-muted/50" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <h3 className="text-sm font-bold text-text-primary truncate">{teamDetail.name}</h3>
+                              <h3 className="text-sm font-bold text-text-primary truncate hover:text-[var(--color-accent)] transition-colors">{teamDetail.name}</h3>
                               {isWinnerTeam && <Trophy className="w-3 h-3 text-accent flex-shrink-0" />}
+                              <ExternalLink className="w-3 h-3 text-text-muted/50 flex-shrink-0" />
                             </div>
                             <p className="text-[10px] text-text-muted">
                               {allPlayers.length} {allPlayers.length > 1 ? t('player_plural') : t('player_singular')}
                             </p>
                           </div>
-                        </div>
+                        </Link>
 
                         {/* Players */}
                         <div className="p-2.5">

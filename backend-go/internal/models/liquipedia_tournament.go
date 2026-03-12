@@ -149,12 +149,13 @@ type NormalizedLeague struct {
 }
 
 type NormalizedTeamCompact struct {
-	ID       int     `json:"id"`
-	Name     string  `json:"name"`
-	Slug     string  `json:"slug"`
-	Acronym  *string `json:"acronym"`
-	ImageURL *string `json:"image_url"`
-	Template string  `json:"template,omitempty"` // Liquipedia team template/pagename for squad fetching
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Slug         string  `json:"slug"`
+	Acronym      *string `json:"acronym"`
+	ImageURL     *string `json:"image_url"`
+	DarkImageURL *string `json:"dark_image_url,omitempty"`
+	Template     string  `json:"template,omitempty"` // Liquipedia team template/pagename for squad fetching
 }
 
 type NormalizedMatchCompact struct {
@@ -405,12 +406,13 @@ type NormalizedRosterEntry struct {
 
 // NormalizedRosterTeam matches the frontend PandaTeam for roster display.
 type NormalizedRosterTeam struct {
-	ID       int     `json:"id"`
-	Name     string  `json:"name"`
-	Slug     string  `json:"slug"`
-	Acronym  *string `json:"acronym"`
-	ImageURL *string `json:"image_url"`
-	Location *string `json:"location,omitempty"`
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Slug         string  `json:"slug"`
+	Acronym      *string `json:"acronym"`
+	ImageURL     *string `json:"image_url"`
+	DarkImageURL *string `json:"dark_image_url,omitempty"`
+	Location     *string `json:"location,omitempty"`
 }
 
 // NormalizedRosterPlayer matches the frontend PandaPlayer for roster display.
@@ -442,11 +444,12 @@ func ExtractTeamsAndRostersFromMatches(matches []NormalizedMatch) ([]NormalizedT
 			teams = append(teams, *opp.Opponent)
 
 			rosterTeam := &NormalizedRosterTeam{
-				ID:       opp.Opponent.ID,
-				Name:     opp.Opponent.Name,
-				Slug:     opp.Opponent.Slug,
-				Acronym:  opp.Opponent.Acronym,
-				ImageURL: opp.Opponent.ImageURL,
+				ID:           opp.Opponent.ID,
+				Name:         opp.Opponent.Name,
+				Slug:         opp.Opponent.Slug,
+				Acronym:      opp.Opponent.Acronym,
+				ImageURL:     opp.Opponent.ImageURL,
+				DarkImageURL: opp.Opponent.DarkImageURL,
 			}
 			rosters = append(rosters, NormalizedRosterEntry{
 				Team:    rosterTeam,

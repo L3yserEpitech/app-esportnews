@@ -170,7 +170,7 @@ func main() {
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
 	authHandler := handlers.NewAuthHandler(authService, storageService)
-	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB)
+	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB, redisClient, logger)
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)

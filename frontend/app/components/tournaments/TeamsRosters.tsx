@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { PandaTournament, PandaPlayer } from '../../types';
-import { Users, Trophy, ChevronDown, Shield } from 'lucide-react';
+import { Users, Trophy, ChevronDown, Shield, ExternalLink } from 'lucide-react';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface TeamsRostersProps {
   tournament: PandaTournament;
@@ -83,8 +85,9 @@ function PlayerRow({ player, index }: { player: PandaPlayer; index: number }) {
   );
 }
 
-function TeamCard({ team, players }: { team: NonNullable<import('../../types').PandaRoster['team']>; players: PandaPlayer[] }) {
+function TeamCard({ team, players, wiki }: { team: NonNullable<import('../../types').PandaRoster['team']>; players: PandaPlayer[]; wiki?: string | null }) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const isDark = useIsDarkTheme();
   const activePlayers = players.filter(p => !p.role?.toLowerCase().includes('coach'));
   const coaches = players.filter(p => p.role?.toLowerCase().includes('coach'));
 
@@ -97,9 +100,9 @@ function TeamCard({ team, players }: { team: NonNullable<import('../../types').P
       >
         {/* Team logo */}
         <div className="w-11 h-11 rounded-lg bg-[var(--color-bg-primary)]/80 border border-[var(--color-border-primary)]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {team.image_url ? (
+          {pickThemeLogo(isDark, team.image_url, team.dark_image_url) ? (
             <img
-              src={proxyImageUrl(team.image_url)}
+              src={proxyImageUrl(pickThemeLogo(isDark, team.image_url, team.dark_image_url)!)}
               alt={team.name}
               className="w-7 h-7 object-contain"
               loading="lazy"
@@ -111,7 +114,19 @@ function TeamCard({ team, players }: { team: NonNullable<import('../../types').P
 
         {/* Team info */}
         <div className="flex-1 min-w-0 text-left">
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)] truncate">{team.name}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)] truncate">{team.name}</h3>
+            {team.template && wiki && (
+              <Link
+                href={`/equipe/${encodeURIComponent(team.template)}?${new URLSearchParams({ wiki, name: team.name, ...(team.acronym ? { acronym: team.acronym } : {}), ...(team.image_url ? { logo: team.image_url } : {}) }).toString()}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                title={team.name}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             {team.location && (
               <span className="text-[11px] text-[var(--color-text-muted)]">{team.location}</span>
@@ -199,7 +214,7 @@ const TeamsRosters: React.FC<TeamsRostersProps> = ({ tournament, className = '' 
               const players = roster.players || [];
 
               return (
-                <TeamCard key={team.id} team={team} players={players} />
+                <TeamCard key={team.id} team={team} players={players} wiki={tournament.wiki} />
               );
             })}
         </div>

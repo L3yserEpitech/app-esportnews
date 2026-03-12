@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { GitBranch } from 'lucide-react';
 import { PandaMatch } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface TournamentBracketProps {
   matches: PandaMatch[];
@@ -62,6 +63,7 @@ function groupAndSortSections(matches: PandaMatch[]) {
 // ─── Match cell ──────────────────────────────────────────────────────
 
 function BracketMatchCell({ match }: { match: PandaMatch }) {
+  const isDark = useIsDarkTheme();
   const home = match.opponents?.[0]?.opponent;
   const away = match.opponents?.[1]?.opponent;
   const homeScore = match.results?.find(r => r.team_id === home?.id)?.score;
@@ -81,8 +83,8 @@ function BracketMatchCell({ match }: { match: PandaMatch }) {
         {/* Team 1 */}
         <div className={`flex items-center gap-2 px-2.5 py-1 border-b border-[var(--color-border-primary)]/30 ${homeWon ? 'bg-[#F22E62]/8' : ''}`}>
           <div className="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0 bg-[var(--color-bg-primary)]/40">
-            {home?.image_url ? (
-              <img src={proxyImageUrl(home.image_url)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" />
+            {pickThemeLogo(isDark, home?.image_url, home?.dark_image_url) ? (
+              <img src={proxyImageUrl(pickThemeLogo(isDark, home?.image_url, home?.dark_image_url)!)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" />
             ) : (
               <span className="text-[7px] font-bold text-[var(--color-text-muted)]">{home?.name?.slice(0, 2).toUpperCase() || '?'}</span>
             )}
@@ -97,8 +99,8 @@ function BracketMatchCell({ match }: { match: PandaMatch }) {
         {/* Team 2 */}
         <div className={`flex items-center gap-2 px-2.5 py-1 ${awayWon ? 'bg-[#F22E62]/8' : ''}`}>
           <div className="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0 bg-[var(--color-bg-primary)]/40">
-            {away?.image_url ? (
-              <img src={proxyImageUrl(away.image_url)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" />
+            {pickThemeLogo(isDark, away?.image_url, away?.dark_image_url) ? (
+              <img src={proxyImageUrl(pickThemeLogo(isDark, away?.image_url, away?.dark_image_url)!)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" />
             ) : (
               <span className="text-[7px] font-bold text-[var(--color-text-muted)]">{away?.name?.slice(0, 2).toUpperCase() || '?'}</span>
             )}
