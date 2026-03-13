@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
 	"sync"
 	"time"
 
@@ -15,17 +16,21 @@ import (
 
 // Polling intervals — Scenario B (without webhooks, fallback).
 // With webhooks active, these serve as a safety net only.
-// Budget: 60 req/wiki/hour. Poller uses ~27 req/hour, leaving ~33 for on-demand.
+// Budget: 60 req/wiki/hour. Poller uses ~17 req/hour, leaving ~43 for on-demand.
 const (
-	PollIntervalMatchesRunning      = 5 * time.Minute  // was 2m: saves 18 req/hour/wiki for on-demand team/match lookups
-	PollIntervalMatchesUpcoming     = 15 * time.Minute // was 10m
-	PollIntervalMatchesPast         = 30 * time.Minute // was 15m
-	PollIntervalTournamentsRunning  = 15 * time.Minute // was 10m
-	PollIntervalTournamentsUpcoming = 20 * time.Minute // was 15m
-	PollIntervalTournamentsFinished = 60 * time.Minute // was 30m
+	PollIntervalMatchesRunning      = 8 * time.Minute  // ~7.5 req/hr — live data, keep reasonably frequent
+	PollIntervalMatchesUpcoming     = 20 * time.Minute // ~3 req/hr
+	PollIntervalMatchesPast         = 45 * time.Minute // ~1.3 req/hr
+	PollIntervalTournamentsRunning  = 20 * time.Minute // ~3 req/hr
+	PollIntervalTournamentsUpcoming = 30 * time.Minute // ~2 req/hr
+	PollIntervalTournamentsFinished = 90 * time.Minute // ~0.7 req/hr
 
 	// How often the poller checks dirty flags from webhooks
 	DirtyCheckInterval = 2 * time.Minute
+
+	// Warmup: stagger between wikis at startup to avoid burst
+	WarmupStaggerInterval = 20 * time.Second // 10 wikis × 20s = ~3.3min total warmup
+	WarmupIntraDelay      = 2 * time.Second  // delay between API calls within a wiki
 )
 
 // DirtyFlag tracks which data types have been modified for a given wiki.
@@ -94,6 +99,20 @@ func (dt *DirtyTracker) HasAnyDirty() bool {
 	defer dt.mu.Unlock()
 	return len(dt.flags) > 0
 }
+
+// wikiSortedOrder returns wiki names in deterministic alphabetical order for warmup staggering.
+var wikiSortedOrder = func() []string {
+	seen := make(map[string]bool)
+	wikis := make([]string, 0, len(models.GameWikiMapping))
+	for _, wiki := range models.GameWikiMapping {
+		if !seen[wiki] {
+			seen[wiki] = true
+			wikis = append(wikis, wiki)
+		}
+	}
+	sort.Strings(wikis)
+	return wikis
+}()
 
 // LiquipediaPoller runs background goroutines that periodically fetch data
 // from Liquipedia and store it in Redis. It supports two modes:
@@ -167,11 +186,86 @@ func (p *LiquipediaPoller) Stop() {
 	p.log.Info("Liquipedia poller stopped")
 }
 
-// pollGame runs tickers for each endpoint type for a single game wiki.
-// This is the Scenario B (blind polling) fallback.
+// wikiIndex returns the deterministic index of a wiki in the sorted order (for warmup stagger).
+func (p *LiquipediaPoller) wikiIndex(wiki string) int {
+	for i, w := range wikiSortedOrder {
+		if w == wiki {
+			return i
+		}
+	}
+	return 0
+}
+
+// warmupWiki fetches all 6 data types for a single wiki at startup.
+// Uses 6 API calls (6/60 budget) with small delays between calls.
+func (p *LiquipediaPoller) warmupWiki(ctx context.Context, wiki string) {
+	type refreshFunc struct {
+		name string
+		fn   func(context.Context, string)
+	}
+
+	refreshFuncs := []refreshFunc{
+		{"matches_running", p.refreshMatchesRunning},
+		{"matches_upcoming", p.refreshMatchesUpcoming},
+		{"matches_past", p.refreshMatchesPast},
+		{"tournaments_running", p.refreshTournamentsRunning},
+		{"tournaments_upcoming", p.refreshTournamentsUpcoming},
+		{"tournaments_finished", p.refreshTournamentsFinished},
+	}
+
+	for _, rf := range refreshFuncs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		p.log.WithFields(logrus.Fields{
+			"wiki": wiki,
+			"type": rf.name,
+		}).Debug("Warmup: fetching")
+
+		rf.fn(ctx, wiki)
+
+		// Small delay between calls to avoid burst on same wiki
+		select {
+		case <-time.After(WarmupIntraDelay):
+		case <-ctx.Done():
+			return
+		}
+	}
+
+	p.log.WithField("wiki", wiki).Info("Warmup complete for wiki")
+}
+
+// pollGame runs a full cache warmup at startup, then tickers for each endpoint type.
+// Phase 1: Warmup — fetch all 6 data types with inter-wiki stagger (6 req/wiki).
+// Phase 2: Regular polling at reduced intervals (~17 req/wiki/hr).
 func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 	defer p.wg.Done()
 
+	p.log.WithFields(logrus.Fields{"game": acronym, "wiki": wiki}).Info("Poller started for game")
+
+	// Phase 1: Full warmup with inter-wiki stagger
+	wikiIdx := p.wikiIndex(wiki)
+	warmupDelay := time.Duration(wikiIdx) * WarmupStaggerInterval
+
+	p.log.WithFields(logrus.Fields{
+		"game":      acronym,
+		"wiki":      wiki,
+		"warmup_in": warmupDelay.String(),
+		"slot":      wikiIdx,
+	}).Info("Waiting for warmup slot")
+
+	select {
+	case <-time.After(warmupDelay):
+	case <-ctx.Done():
+		return
+	}
+
+	p.warmupWiki(ctx, wiki)
+
+	// Phase 2: Regular polling — create tickers AFTER warmup to avoid immediate re-fetch
 	tickerRunning := time.NewTicker(PollIntervalMatchesRunning)
 	tickerUpcoming := time.NewTicker(PollIntervalMatchesUpcoming)
 	tickerPast := time.NewTicker(PollIntervalMatchesPast)
@@ -184,12 +278,6 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 	defer tickerTourRunning.Stop()
 	defer tickerTourUpcoming.Stop()
 	defer tickerTourFinished.Stop()
-
-	p.log.WithFields(logrus.Fields{"game": acronym, "wiki": wiki}).Info("Poller started for game")
-
-	// Initial fetch on startup — only running matches (avoid burst across all wikis)
-	time.Sleep(time.Duration(len(acronym)%5) * 2 * time.Second) // simple stagger
-	p.refreshMatchesRunning(ctx, wiki)
 
 	for {
 		select {
