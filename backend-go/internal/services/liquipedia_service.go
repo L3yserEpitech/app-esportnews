@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
@@ -28,14 +29,15 @@ const (
 	budgetLimitPerWiki = 60
 )
 
-// Cache TTLs — aligned with polling intervals (TTL > poll interval)
+// Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
+// Aligned with reduced polling intervals (~17 req/wiki/hr).
 const (
-	TTLMatchesRunning      = 3 * time.Minute
-	TTLMatchesUpcoming     = 15 * time.Minute
-	TTLMatchesPast         = 35 * time.Minute // must be > PollIntervalMatchesPast (30m)
-	TTLTournamentsRunning  = 15 * time.Minute
-	TTLTournamentsUpcoming = 20 * time.Minute
-	TTLTournamentsFinished = 1 * time.Hour
+	TTLMatchesRunning      = 10 * time.Minute  // > PollIntervalMatchesRunning (8m)
+	TTLMatchesUpcoming     = 22 * time.Minute  // > PollIntervalMatchesUpcoming (20m)
+	TTLMatchesPast         = 50 * time.Minute  // > PollIntervalMatchesPast (45m)
+	TTLTournamentsRunning  = 22 * time.Minute  // > PollIntervalTournamentsRunning (20m)
+	TTLTournamentsUpcoming = 35 * time.Minute  // > PollIntervalTournamentsUpcoming (30m)
+	TTLTournamentsFinished = 100 * time.Minute // > PollIntervalTournamentsFinished (90m)
 	TTLMatchDetail         = 5 * time.Minute
 	TTLMatchDetailFinished = 24 * time.Hour
 	TTLMatchesByDatePast   = 6 * time.Hour
@@ -172,6 +174,7 @@ type LiquipediaService struct {
 	budgets    map[string]*RequestBudget // keyed by wiki name
 	log        *logrus.Logger
 	mu         sync.RWMutex
+	sfGroup    singleflight.Group // deduplicates concurrent API calls for the same cache key
 }
 
 // NewLiquipediaService creates the service with budget trackers for all known wikis.
@@ -239,101 +242,121 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 }
 
 // MakeRequest performs a cached, budget-aware GET to the Liquipedia API.
-// It handles: cache lookup → budget check → HTTP request → cache store + stale copy.
+// It handles: cache lookup → singleflight dedup → budget check → HTTP request → cache store + stale copy.
+// Singleflight ensures that N concurrent requests for the same cacheKey result in only 1 API call.
 // wiki: the Liquipedia wiki name (e.g. "valorant")
 // endpoint: the API path after the wiki (e.g. "match")
 // params: query parameters (conditions, limit, etc.)
 // cacheKey: Redis key for this data
 // cacheTTL: how long to cache the fresh data
 func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint string, params url.Values, cacheKey string, cacheTTL time.Duration) ([]byte, error) {
-	// 1. Check fresh cache
+	// 1. Check fresh cache (fast path, no dedup needed)
 	cached, err := s.cache.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
 		return []byte(cached), nil
 	}
 
-	// 2. Check budget
-	budget := s.getBudget(wiki)
-	if budget == nil {
-		return nil, fmt.Errorf("unknown wiki: %s", wiki)
-	}
+	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
+	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
+	v, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		// Re-check cache (another goroutine may have populated it while we waited)
+		if cached, cErr := s.cache.Get(ctx, cacheKey); cErr == nil && cached != "" {
+			return []byte(cached), nil
+		}
 
-	if !budget.CanMakeRequest() {
-		// Budget exhausted — try stale cache
+		// Check budget
+		budget := s.getBudget(wiki)
+		if budget == nil {
+			return nil, fmt.Errorf("unknown wiki: %s", wiki)
+		}
+
+		if !budget.CanMakeRequest() {
+			s.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"key":  cacheKey,
+			}).Warn("Budget exhausted, attempting stale cache")
+			return s.getStaleOrError(ctx, cacheKey, wiki)
+		}
+
+		// Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
+		fetchParams := params
+		if fetchParams == nil {
+			fetchParams = url.Values{}
+		}
+		fetchParams.Set("wiki", wiki)
+		encoded := strings.ReplaceAll(fetchParams.Encode(), "+", "%20")
+		reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, encoded)
+
+		// Build HTTP request
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+		if reqErr != nil {
+			return nil, fmt.Errorf("building request: %w", reqErr)
+		}
+		req.Header.Set("Authorization", "Apikey "+s.apiKey)
+		req.Header.Set("User-Agent", liquipediaUA)
+		req.Header.Set("Accept", "application/json")
+
+		// Execute
+		resp, doErr := s.httpClient.Do(req)
+		if doErr != nil {
+			s.log.WithError(doErr).WithField("wiki", wiki).Error("HTTP request failed")
+			return s.getStaleOrError(ctx, cacheKey, wiki)
+		}
+		defer resp.Body.Close()
+
+		// Handle rate limit (429)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			s.log.WithField("wiki", wiki).Warn("Rate limited by Liquipedia (429)")
+			budget.Record429()
+			return s.getStaleOrError(ctx, cacheKey, wiki)
+		}
+
+		// Handle other errors
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			s.log.WithFields(logrus.Fields{
+				"wiki":   wiki,
+				"status": resp.StatusCode,
+				"body":   string(body),
+			}).Error("Liquipedia API error")
+			return s.getStaleOrError(ctx, cacheKey, wiki)
+		}
+
+		// Read body (limit to 10MB to prevent memory exhaustion)
+		const maxResponseSize = 10 * 1024 * 1024
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+		if readErr != nil {
+			return nil, fmt.Errorf("reading response body: %w", readErr)
+		}
+
+		// Record the request in the budget
+		budget.RecordRequest()
+
+		// Store in cache (fresh + stale copy)
+		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
+		_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), TTLStale)
+
 		s.log.WithFields(logrus.Fields{
-			"wiki":  wiki,
-			"key":   cacheKey,
-		}).Warn("Budget exhausted, attempting stale cache")
-		return s.getStaleOrError(ctx, cacheKey, wiki)
-	}
+			"wiki":     wiki,
+			"endpoint": endpoint,
+			"key":      cacheKey,
+			"ttl":      cacheTTL.String(),
+		}).Debug("Liquipedia API request successful")
 
-	// 3. Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
-	if params == nil {
-		params = url.Values{}
-	}
-	params.Set("wiki", wiki)
-	// Liquipedia API requires %20 for spaces, not + (Go's default form-encoding)
-	encoded := strings.ReplaceAll(params.Encode(), "+", "%20")
-	reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, encoded)
+		return body, nil
+	})
 
-	// 4. Build HTTP request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Authorization", "Apikey "+s.apiKey)
-	req.Header.Set("User-Agent", liquipediaUA)
-	req.Header.Set("Accept", "application/json")
-
-	// 5. Execute
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		// Network error — try stale
-		s.log.WithError(err).WithField("wiki", wiki).Error("HTTP request failed")
-		return s.getStaleOrError(ctx, cacheKey, wiki)
-	}
-	defer resp.Body.Close()
-
-	// 6. Handle rate limit (429) — backoff to stop hammering
-	if resp.StatusCode == http.StatusTooManyRequests {
-		s.log.WithField("wiki", wiki).Warn("Rate limited by Liquipedia (429)")
-		budget.Record429()
-		return s.getStaleOrError(ctx, cacheKey, wiki)
-	}
-
-	// 7. Handle other errors
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+	if shared {
 		s.log.WithFields(logrus.Fields{
-			"wiki":   wiki,
-			"status": resp.StatusCode,
-			"body":   string(body),
-		}).Error("Liquipedia API error")
-		return s.getStaleOrError(ctx, cacheKey, wiki)
+			"wiki": wiki,
+			"key":  cacheKey,
+		}).Debug("Singleflight: shared result from concurrent request")
 	}
 
-	// 8. Read body (Fix #15: limit to 10MB to prevent memory exhaustion)
-	const maxResponseSize = 10 * 1024 * 1024 // 10MB
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+		return nil, err
 	}
-
-	// 9. Record the request in the budget
-	budget.RecordRequest()
-
-	// 10. Store in cache (fresh + stale copy)
-	_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
-	_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), TTLStale)
-
-	s.log.WithFields(logrus.Fields{
-		"wiki":     wiki,
-		"endpoint": endpoint,
-		"key":      cacheKey,
-		"ttl":      cacheTTL.String(),
-	}).Debug("Liquipedia API request successful")
-
-	return body, nil
+	return v.([]byte), nil
 }
 
 // getStaleOrError returns stale cached data, or an error if none available.
