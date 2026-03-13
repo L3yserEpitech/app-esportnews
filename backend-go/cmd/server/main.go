@@ -77,7 +77,8 @@ func main() {
 		"https://www.esportnews.fr",
 		"http://esportnews.fr",    // HTTP redirect support
 		"http://www.esportnews.fr", // HTTP redirect support
-		"https://esportnews-4skhma1nu-esport-news.vercel.app", // Vercel preview
+		"https://esportnews-4skhma1nu-esport-news.vercel.app",  // Vercel preview
+		"https://esportnews-amgpb7p1d-esport-news.vercel.app", // Vercel preview
 	}
 	if cfg.FrontendURL != "" {
 		corsOrigins = append(corsOrigins, cfg.FrontendURL)
