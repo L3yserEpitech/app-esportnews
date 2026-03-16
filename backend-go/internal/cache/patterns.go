@@ -33,6 +33,9 @@ const (
 	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
 	LiqTeamPlacements      = "liq:team:placements:%s:%s"       // %s = wiki, %s = team name
 
+	// Wiki hint — maps tournament/match ID to its wiki to avoid scanning all 10 wikis
+	LiqWikiHint = "liq:wikihint:%s" // %s = tournament/match ID
+
 	// Stale cache suffix — appended to any key above for stale-while-revalidate
 	LiqStaleSuffix = ":stale"
 
@@ -157,6 +160,11 @@ func LiqTeamMatchesUpcomingKey(wiki, teamTemplate string) string {
 
 func LiqTeamPlacementsKey(wiki, teamName string) string {
 	return fmt.Sprintf(LiqTeamPlacements, wiki, teamName)
+}
+
+// LiqWikiHintKey returns the Redis key for a tournament/match → wiki mapping.
+func LiqWikiHintKey(id string) string {
+	return fmt.Sprintf(LiqWikiHint, id)
 }
 
 // StaleKey returns the stale-while-revalidate variant of any cache key.

@@ -138,9 +138,8 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		decodedID = tournamentID
 	}
 
-	// Try to find the tournament in all running/upcoming/finished caches first
-	allWikis := getAllWikis()
-	for _, wiki := range allWikis {
+	// Helper: search tournament in poller caches for a given wiki
+	findInCache := func(wiki string) (*models.NormalizedTournament, bool) {
 		for _, keyFunc := range []func(string) string{
 			cache.LiqTournamentsRunningKey,
 			cache.LiqTournamentsUpcomingKey,
@@ -150,32 +149,26 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 			if err != nil || data == "" {
 				continue
 			}
-
 			tournaments, err := parseTournaments([]byte(data), wiki)
 			if err != nil {
 				continue
 			}
-
 			for _, t := range tournaments {
 				if t.PageName == decodedID || t.Slug == decodedID || fmt.Sprintf("%d", t.ID) == decodedID {
-					enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
-					return c.JSON(http.StatusOK, enriched)
+					return &t, true
 				}
 			}
 		}
+		return nil, false
 	}
 
-	// Not found in cache — try on-demand fetch from all wikis.
-	// Build conditions: if ID is numeric, search by pageid; otherwise by pagename.
-	// Try both to maximize chance of finding the tournament.
-	_, isNumeric := strconv.Atoi(decodedID)
-	conditions := []string{fmt.Sprintf("[[pagename::%s]]", decodedID)}
-	if isNumeric == nil {
-		// Numeric ID — try pageid first (more likely), then pagename as fallback
-		conditions = []string{fmt.Sprintf("[[pageid::%s]]", decodedID), fmt.Sprintf("[[pagename::%s]]", decodedID)}
-	}
-
-	for _, wiki := range allWikis {
+	// Helper: on-demand fetch from Liquipedia for a given wiki
+	fetchOnDemand := func(wiki string) (*models.NormalizedTournament, bool) {
+		_, isNumeric := strconv.Atoi(decodedID)
+		conditions := []string{fmt.Sprintf("[[pagename::%s]]", decodedID)}
+		if isNumeric == nil {
+			conditions = []string{fmt.Sprintf("[[pageid::%s]]", decodedID), fmt.Sprintf("[[pagename::%s]]", decodedID)}
+		}
 		for _, condition := range conditions {
 			cacheKey := cache.LiqTournamentKey(wiki, decodedID)
 			params := url.Values{}
@@ -186,20 +179,56 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 			if err != nil {
 				continue
 			}
-
 			resp, err := services.ParseResponse(data)
 			if err != nil || len(resp.Result) == 0 {
 				continue
 			}
-
 			var liqT models.LiqTournament
 			if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
 				continue
 			}
-
 			normalized := models.NormalizeLiqTournament(liqT, wiki)
-			enriched := h.enrichTournamentWithMatches(ctx, normalized, wiki)
-			return c.JSON(http.StatusOK, enriched)
+			return &normalized, true
+		}
+		return nil, false
+	}
+
+	// Helper: return enriched tournament + store wiki hint for future lookups
+	returnTournament := func(t models.NormalizedTournament, wiki string) error {
+		// Cache wiki hint so future requests skip the all-wiki scan (24h TTL)
+		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(decodedID), wiki, 24*time.Hour)
+		// Also store by numeric ID if available
+		if idStr := fmt.Sprintf("%d", t.ID); idStr != decodedID && t.ID > 0 {
+			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(idStr), wiki, 24*time.Hour)
+		}
+		enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
+		return c.JSON(http.StatusOK, enriched)
+	}
+
+	allWikis := getAllWikis()
+
+	// Step 1: Check wiki hint from Redis (avoids scanning all 10 wikis)
+	if hintWiki, err := h.redisCache.Get(ctx, cache.LiqWikiHintKey(decodedID)); err == nil && hintWiki != "" {
+		if t, found := findInCache(hintWiki); found {
+			return returnTournament(*t, hintWiki)
+		}
+		if t, found := fetchOnDemand(hintWiki); found {
+			return returnTournament(*t, hintWiki)
+		}
+		// Hint was stale — fall through to full scan
+	}
+
+	// Step 2: Search all poller caches (no API calls, just Redis reads)
+	for _, wiki := range allWikis {
+		if t, found := findInCache(wiki); found {
+			return returnTournament(*t, wiki)
+		}
+	}
+
+	// Step 3: On-demand fetch — try each wiki (costs 1-2 API calls per wiki)
+	for _, wiki := range allWikis {
+		if t, found := fetchOnDemand(wiki); found {
+			return returnTournament(*t, wiki)
 		}
 	}
 
