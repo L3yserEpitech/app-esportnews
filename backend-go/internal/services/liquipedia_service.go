@@ -45,7 +45,7 @@ const (
 	TTLTeam                = 6 * time.Hour  // roster data changes infrequently
 	TTLTeamMatches         = 15 * time.Minute
 	TTLTeamPlacements      = 1 * time.Hour
-	TTLStale               = 2 * time.Hour // stale-while-revalidate fallback
+	TTLStale               = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
 )
 
 // RequestBudget tracks API usage per wiki (game) to enforce the 60 req/hour limit.
@@ -159,9 +159,11 @@ func (b *RequestBudget) Status() map[string]interface{} {
 }
 
 // maybeReset resets the counter if the hour has elapsed. Must be called with lock held.
+// Also clears 429 backoff since Liquipedia's rate limit resets every hour.
 func (b *RequestBudget) maybeReset() {
 	if time.Now().After(b.ResetAt) {
 		b.Used = 0
+		b.blockedUntil = time.Time{} // clear 429 backoff on hourly reset
 		b.ResetAt = time.Now().Truncate(time.Hour).Add(time.Hour)
 	}
 }
@@ -202,24 +204,14 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 		Timeout: 15 * time.Second,
 	}
 
-	// Liquipedia API (api.liquipedia.net) is only properly accessible via IPv6.
-	// The IPv4 address serves the main website cert (liquipedia.net), not the API cert.
-	// Docker containers often prefer IPv4 via Happy Eyeballs, hitting the wrong server.
-	// Fix: use a custom DialContext that tries IPv6 ("tcp6") first with a short timeout,
-	// falling back to IPv4 only for other hosts (Redis, Postgres, etc.).
+	// Force IPv4 for Liquipedia API — IPv6 is unreachable on Railway/Docker.
+	// Without this, Go's Happy Eyeballs tries IPv6 first (3s timeout per request).
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, _, _ := net.SplitHostPort(addr)
 		if host == "api.liquipedia.net" {
-			// Short IPv6 probe — if IPv6 works, it connects in <1s
-			ipv6Dialer := &net.Dialer{Timeout: 3 * time.Second}
-			conn, err := ipv6Dialer.DialContext(ctx, "tcp6", addr)
-			if err != nil {
-				logger.WithError(err).Warn("IPv6 connection to Liquipedia failed, falling back to IPv4")
-				ipv4Dialer := &net.Dialer{Timeout: 8 * time.Second}
-				return ipv4Dialer.DialContext(ctx, "tcp4", addr)
-			}
-			return conn, nil
+			dialer := &net.Dialer{Timeout: 8 * time.Second}
+			return dialer.DialContext(ctx, "tcp4", addr)
 		}
 		dialer := &net.Dialer{Timeout: 10 * time.Second}
 		return dialer.DialContext(ctx, network, addr)

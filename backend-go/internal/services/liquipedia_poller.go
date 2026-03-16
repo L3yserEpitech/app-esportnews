@@ -15,7 +15,6 @@ import (
 )
 
 // Polling intervals — Scenario B (without webhooks, fallback).
-// With webhooks active, these serve as a safety net only.
 // Budget: 60 req/wiki/hour. Poller uses ~17 req/hour, leaving ~43 for on-demand.
 const (
 	PollIntervalMatchesRunning      = 8 * time.Minute  // ~7.5 req/hr — live data, keep reasonably frequent
@@ -265,7 +264,9 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 
 	p.warmupWiki(ctx, wiki)
 
-	// Phase 2: Regular polling — create tickers AFTER warmup to avoid immediate re-fetch
+	// Phase 2: Regular polling — create tickers AFTER warmup to avoid immediate re-fetch.
+	// When webhooks are enabled, tickers still fire as a safety net to guarantee
+	// cache is never empty (webhooks may not arrive for all wikis).
 	tickerRunning := time.NewTicker(PollIntervalMatchesRunning)
 	tickerUpcoming := time.NewTicker(PollIntervalMatchesUpcoming)
 	tickerPast := time.NewTicker(PollIntervalMatchesPast)
@@ -279,39 +280,66 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 	defer tickerTourUpcoming.Stop()
 	defer tickerTourFinished.Stop()
 
+	// Track last refresh time per type — when webhooks are enabled, only poll
+	// if the cache is about to expire (safety net, not regular polling).
+	lastRefresh := make(map[string]time.Time)
+	safetyMultiplier := time.Duration(3) // poll at 3× normal interval when webhooks active
+
+	shouldRefresh := func(name string, interval time.Duration) bool {
+		if !p.isWebhooksEnabled() {
+			return true // normal polling: always refresh on tick
+		}
+		// Safety net: refresh if last refresh was >3× the interval ago
+		last, ok := lastRefresh[name]
+		if !ok {
+			return true // never refreshed in this session
+		}
+		return time.Since(last) >= interval*safetyMultiplier
+	}
+
+	markRefreshed := func(name string) {
+		lastRefresh[name] = time.Now()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 
 		case <-tickerRunning.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("matches_running", PollIntervalMatchesRunning) {
 				p.refreshMatchesRunning(ctx, wiki)
+				markRefreshed("matches_running")
 			}
 
 		case <-tickerUpcoming.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("matches_upcoming", PollIntervalMatchesUpcoming) {
 				p.refreshMatchesUpcoming(ctx, wiki)
+				markRefreshed("matches_upcoming")
 			}
 
 		case <-tickerPast.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("matches_past", PollIntervalMatchesPast) {
 				p.refreshMatchesPast(ctx, wiki)
+				markRefreshed("matches_past")
 			}
 
 		case <-tickerTourRunning.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("tournaments_running", PollIntervalTournamentsRunning) {
 				p.refreshTournamentsRunning(ctx, wiki)
+				markRefreshed("tournaments_running")
 			}
 
 		case <-tickerTourUpcoming.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("tournaments_upcoming", PollIntervalTournamentsUpcoming) {
 				p.refreshTournamentsUpcoming(ctx, wiki)
+				markRefreshed("tournaments_upcoming")
 			}
 
 		case <-tickerTourFinished.C:
-			if !p.isWebhooksEnabled() {
+			if shouldRefresh("tournaments_finished", PollIntervalTournamentsFinished) {
 				p.refreshTournamentsFinished(ctx, wiki)
+				markRefreshed("tournaments_finished")
 			}
 		}
 	}

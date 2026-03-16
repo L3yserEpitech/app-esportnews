@@ -260,9 +260,12 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 }
 
 // GetMatch returns a single match by ID (on-demand, cache-aside).
-// The ID param is the Liquipedia PageID (integer), used in frontend URLs.
+// The ID param is the Liquipedia match2id, used in frontend URLs.
 // Optional ?wiki= query parameter to target a specific wiki (faster).
-// If wiki is omitted, searches all wikis in parallel.
+// If wiki is omitted, uses a 3-step approach to minimise API calls:
+//  1. Wiki hint from Redis (1 read, zero API calls)
+//  2. Scan poller caches running/upcoming/past (Redis only)
+//  3. On-demand fetch wiki-by-wiki (sequential, stops on first hit)
 func (h *MatchHandler) GetMatch(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
 	defer cancel()
@@ -289,40 +292,77 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
 		}
+		// Store wiki hint for future lookups
+		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
 		return c.JSON(http.StatusOK, normalized)
 	}
 
-	// No wiki provided — search all wikis in parallel
-	type wikiMatchResult struct {
-		wiki       string
-		normalized *models.NormalizedMatch
+	// --- No wiki provided — 3-step optimised lookup ---
+
+	allWikis := getAllWikis()
+
+	// Helper: search match in poller caches for a given wiki (zero API calls)
+	findInCache := func(wiki string) (*models.NormalizedMatch, bool) {
+		for _, keyFunc := range []func(string) string{
+			cache.LiqMatchesRunningKey,
+			cache.LiqMatchesUpcomingKey,
+			cache.LiqMatchesPastKey,
+		} {
+			data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+			if err != nil || data == "" {
+				continue
+			}
+			matches, err := parseAndFilterMatches([]byte(data), nil)
+			if err != nil {
+				continue
+			}
+			for _, m := range matches {
+				if m.Match2ID == matchID || fmt.Sprintf("%d", m.PageID) == matchID {
+					normalized := models.NormalizeLiqMatch(m, wiki, "")
+					return &normalized, true
+				}
+			}
+		}
+		return nil, false
 	}
 
-	allWikis := make([]string, 0, len(models.GameWikiMapping))
-	for _, wiki := range models.GameWikiMapping {
-		allWikis = append(allWikis, wiki)
+	// Helper: on-demand fetch from Liquipedia for a given wiki (1 API call)
+	fetchOnDemand := func(wiki string) (*models.NormalizedMatch, bool) {
+		normalized, err := h.fetchMatchFromWiki(ctx, wiki, matchID)
+		if err != nil || normalized == nil {
+			return nil, false
+		}
+		return normalized, true
 	}
 
-	results := make(chan wikiMatchResult, len(allWikis))
+	// Helper: return match + store wiki hint for future lookups
+	returnMatch := func(m models.NormalizedMatch, wiki string) error {
+		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
+		return c.JSON(http.StatusOK, m)
+	}
+
+	// Step 1: Check wiki hint from Redis (avoids scanning all 10 wikis)
+	if hintWiki, err := h.redisCache.Get(ctx, cache.LiqWikiHintKey(matchID)); err == nil && hintWiki != "" {
+		if m, found := findInCache(hintWiki); found {
+			return returnMatch(*m, hintWiki)
+		}
+		if m, found := fetchOnDemand(hintWiki); found {
+			return returnMatch(*m, hintWiki)
+		}
+		// Hint was stale — fall through to full scan
+	}
+
+	// Step 2: Search all poller caches (no API calls, just Redis reads)
 	for _, wiki := range allWikis {
-		go func(w string) {
-			normalized, err := h.fetchMatchFromWiki(ctx, w, matchID)
-			if err != nil || normalized == nil {
-				results <- wikiMatchResult{wiki: w, normalized: nil}
-				return
-			}
-			results <- wikiMatchResult{wiki: w, normalized: normalized}
-		}(wiki)
+		if m, found := findInCache(wiki); found {
+			return returnMatch(*m, wiki)
+		}
 	}
 
-	for i := 0; i < len(allWikis); i++ {
-		select {
-		case res := <-results:
-			if res.normalized != nil {
-				return c.JSON(http.StatusOK, res.normalized)
-			}
-		case <-ctx.Done():
-			return c.JSON(http.StatusGatewayTimeout, map[string]string{"error": "search timeout"})
+	// Step 3: On-demand fetch — try each wiki sequentially (costs 1 API call per wiki, stops on first hit)
+	for _, wiki := range allWikis {
+		if m, found := fetchOnDemand(wiki); found {
+			return returnMatch(*m, wiki)
 		}
 	}
 
