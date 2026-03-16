@@ -143,6 +143,10 @@ func main() {
 	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, redisClient, logger)
 	dirtyTracker := services.NewDirtyTracker()
 	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
+	if os.Getenv("LIQUIPEDIA_WEBHOOKS_ENABLED") == "true" {
+		liquipediaPoller.SetWebhooksEnabled(true)
+		logger.Info("Liquipedia webhooks mode enabled")
+	}
 
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
