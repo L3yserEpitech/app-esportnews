@@ -77,8 +77,6 @@ func main() {
 		"https://www.esportnews.fr",
 		"http://esportnews.fr",    // HTTP redirect support
 		"http://www.esportnews.fr", // HTTP redirect support
-		"https://esportnews-4skhma1nu-esport-news.vercel.app",  // Vercel preview
-		"https://esportnews-amgpb7p1d-esport-news.vercel.app", // Vercel preview
 	}
 	if cfg.FrontendURL != "" {
 		corsOrigins = append(corsOrigins, cfg.FrontendURL)
@@ -107,6 +105,10 @@ func main() {
 			}
 			// Navigateurs web - vérifier whitelist stricte
 			allowed := corsOriginsSet[origin]
+			// Autoriser tous les previews Vercel du projet esport-news
+			if !allowed && strings.HasSuffix(origin, "-esport-news.vercel.app") && strings.HasPrefix(origin, "https://") {
+				allowed = true
+			}
 			if !allowed {
 				logger.Warnf("CORS rejected origin: %s", origin)
 			}
