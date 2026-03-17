@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useToast } from '../../contexts/ToastContext';
 import {
   Gamepad2,
   Trophy,
   Users,
-  AlertCircle,
   Play,
   Calendar,
   Info,
@@ -66,7 +67,11 @@ const getRoleBadgeStyle = (role?: string | null): string => {
 
 export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: MatchDetailPageClientProps) {
   const t = useTranslations('pages_detail.match_detail');
+  const tToast = useTranslations('toast');
   const isDark = useIsDarkTheme();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const hasRedirected = useRef(false);
   const [match, setMatch] = useState<LiveMatch | null>(initialMatch || null);
   const [loading, setLoading] = useState(!initialMatch);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +140,17 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
         setMatch(data);
       } catch (err) {
         console.error('Error loading match:', err);
-        setError(err instanceof Error ? err.message : 'Erreur lors du chargement du match');
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          const liquipediaWiki = wiki || 'valorant';
+          showToast({
+            message: tToast('match_not_available'),
+            linkUrl: `https://liquipedia.net/${liquipediaWiki}/Main_Page`,
+            linkLabel: tToast('view_on_liquipedia'),
+            duration: 10000,
+          });
+          router.back();
+        }
       } finally {
         setLoading(false);
       }
@@ -181,16 +196,17 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
     );
   }
 
-  // --- Error ---
+  // --- Error / No data (redirect already triggered, show loading while navigating) ---
   if (error || !match) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4">
-        <div className="max-w-sm w-full bg-bg-secondary border border-border-primary rounded-xl p-8 text-center">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-            <AlertCircle className="w-6 h-6 text-red-400" />
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative w-14 h-14 mx-auto mb-5">
+            <div className="absolute inset-0 border border-border-primary rounded-xl" />
+            <div className="absolute inset-0 border border-transparent border-t-accent rounded-xl animate-spin" />
+            <Swords className="absolute inset-0 m-auto w-5 h-5 text-accent/50" />
           </div>
-          <p className="text-red-400 font-bold text-base mb-1.5">{t('error_title')}</p>
-          <p className="text-text-muted text-xs">{error || t('not_found')}</p>
+          <p className="text-text-muted text-xs uppercase tracking-[0.2em] font-semibold">{t('loading')}</p>
         </div>
       </div>
     );

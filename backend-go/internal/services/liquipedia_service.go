@@ -103,6 +103,7 @@ func (b *RequestBudget) Record429() {
 		}
 		b.blockedUntil = now.Add(newBackoff)
 	}
+	// Note: can't log here (no logger on budget struct), logged at call site
 }
 
 // RecordRequest increments the usage counter (in-memory + Redis best-effort).
@@ -224,13 +225,26 @@ func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *l
 
 	httpClient.Transport = transport
 
-	return &LiquipediaService{
+	svc := &LiquipediaService{
 		apiKey:     apiKey,
 		cache:      redisCache,
 		httpClient: httpClient,
 		budgets:    budgets,
 		log:        logger,
 	}
+
+	// Log startup budget status for all wikis
+	for wiki, budget := range budgets {
+		status := budget.Status()
+		logger.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"used":      status["used"],
+			"remaining": status["remaining"],
+			"resets_at": status["resets_at"],
+		}).Info("[BUDGET] Initial budget status at startup")
+	}
+
+	return svc
 }
 
 // MakeRequest performs a cached, budget-aware GET to the Liquipedia API.
@@ -245,14 +259,28 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 	// 1. Check fresh cache (fast path, no dedup needed)
 	cached, err := s.cache.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		s.log.WithFields(logrus.Fields{
+			"wiki": wiki,
+			"key":  cacheKey,
+			"size": len(cached),
+		}).Info("[MAKEREQ] Cache HIT — returning cached data")
 		return []byte(cached), nil
 	}
+	s.log.WithFields(logrus.Fields{
+		"wiki":     wiki,
+		"endpoint": endpoint,
+		"key":      cacheKey,
+	}).Info("[MAKEREQ] Cache MISS — entering singleflight")
 
 	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
 	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
 	v, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
 		// Re-check cache (another goroutine may have populated it while we waited)
 		if cached, cErr := s.cache.Get(ctx, cacheKey); cErr == nil && cached != "" {
+			s.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"key":  cacheKey,
+			}).Info("[MAKEREQ] Cache HIT after singleflight wait")
 			return []byte(cached), nil
 		}
 
@@ -263,12 +291,25 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		}
 
 		if !budget.CanMakeRequest() {
+			status := budget.Status()
 			s.log.WithFields(logrus.Fields{
-				"wiki": wiki,
-				"key":  cacheKey,
-			}).Warn("Budget exhausted, attempting stale cache")
+				"wiki":      wiki,
+				"key":       cacheKey,
+				"used":      status["used"],
+				"limit":     status["limit"],
+				"remaining": status["remaining"],
+				"resets_at": status["resets_at"],
+			}).Warn("[MAKEREQ] Budget EXHAUSTED — attempting stale cache")
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
+
+		budgetStatus := budget.Status()
+		s.log.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"endpoint":  endpoint,
+			"used":      budgetStatus["used"],
+			"remaining": budgetStatus["remaining"],
+		}).Info("[MAKEREQ] Budget OK — making API call")
 
 		// Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
 		fetchParams := params
@@ -289,16 +330,34 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		req.Header.Set("Accept", "application/json")
 
 		// Execute
+		s.log.WithFields(logrus.Fields{
+			"wiki":     wiki,
+			"endpoint": endpoint,
+			"url":      reqURL,
+		}).Info("[MAKEREQ] Sending HTTP request to Liquipedia")
+
 		resp, doErr := s.httpClient.Do(req)
 		if doErr != nil {
-			s.log.WithError(doErr).WithField("wiki", wiki).Error("HTTP request failed")
+			s.log.WithError(doErr).WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+			}).Error("[MAKEREQ] HTTP request FAILED — falling back to stale")
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
 		defer resp.Body.Close()
 
+		s.log.WithFields(logrus.Fields{
+			"wiki":     wiki,
+			"endpoint": endpoint,
+			"status":   resp.StatusCode,
+		}).Info("[MAKEREQ] HTTP response received")
+
 		// Handle rate limit (429)
 		if resp.StatusCode == http.StatusTooManyRequests {
-			s.log.WithField("wiki", wiki).Warn("Rate limited by Liquipedia (429)")
+			s.log.WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+			}).Warn("[MAKEREQ] 🚫 Rate limited (429) — recording backoff, falling back to stale")
 			budget.Record429()
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
@@ -307,10 +366,11 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			s.log.WithFields(logrus.Fields{
-				"wiki":   wiki,
-				"status": resp.StatusCode,
-				"body":   string(body),
-			}).Error("Liquipedia API error")
+				"wiki":     wiki,
+				"endpoint": endpoint,
+				"status":   resp.StatusCode,
+				"body":     string(body),
+			}).Error("[MAKEREQ] API error — falling back to stale")
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
 
@@ -323,17 +383,21 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 
 		// Record the request in the budget
 		budget.RecordRequest()
+		afterStatus := budget.Status()
 
 		// Store in cache (fresh + stale copy)
 		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
 		_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), TTLStale)
 
 		s.log.WithFields(logrus.Fields{
-			"wiki":     wiki,
-			"endpoint": endpoint,
-			"key":      cacheKey,
-			"ttl":      cacheTTL.String(),
-		}).Debug("Liquipedia API request successful")
+			"wiki":             wiki,
+			"endpoint":         endpoint,
+			"key":              cacheKey,
+			"ttl":              cacheTTL.String(),
+			"body_bytes":       len(body),
+			"budget_used":      afterStatus["used"],
+			"budget_remaining": afterStatus["remaining"],
+		}).Info("[MAKEREQ] ✅ API call success — data cached (fresh + stale)")
 
 		return body, nil
 	})
@@ -342,7 +406,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		s.log.WithFields(logrus.Fields{
 			"wiki": wiki,
 			"key":  cacheKey,
-		}).Debug("Singleflight: shared result from concurrent request")
+		}).Info("[MAKEREQ] Singleflight: shared result from concurrent request")
 	}
 
 	if err != nil {
@@ -353,14 +417,22 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 
 // getStaleOrError returns stale cached data, or an error if none available.
 func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki string) ([]byte, error) {
-	stale, err := s.cache.Get(ctx, cache.StaleKey(cacheKey))
+	staleKey := cache.StaleKey(cacheKey)
+	stale, err := s.cache.Get(ctx, staleKey)
 	if err == nil && stale != "" {
 		s.log.WithFields(logrus.Fields{
-			"wiki": wiki,
-			"key":  cacheKey,
-		}).Info("Returning stale data")
+			"wiki":      wiki,
+			"key":       cacheKey,
+			"stale_key": staleKey,
+			"size":      len(stale),
+		}).Info("[STALE] ♻️ Returning stale data as fallback")
 		return []byte(stale), nil
 	}
+	s.log.WithFields(logrus.Fields{
+		"wiki":      wiki,
+		"key":       cacheKey,
+		"stale_key": staleKey,
+	}).Error("[STALE] ❌ No stale data available — returning error")
 	return nil, fmt.Errorf("no data available for %s (budget exhausted, no stale cache)", wiki)
 }
 

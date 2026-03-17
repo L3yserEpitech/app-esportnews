@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useToast } from '../../contexts/ToastContext';
 import {
   Shield, Users, Trophy, Calendar, MapPin, ExternalLink,
-  ChevronLeft, Loader2, AlertCircle, Gamepad2, ChevronDown, ChevronUp,
+  Loader2, Gamepad2, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { teamService, EnrichedTeamDetail, Team, Player, TeamMatchesResponse, TeamPlacement } from '../../services/teamService';
 import { proxyImageUrl } from '../../lib/imageProxy';
@@ -165,7 +166,11 @@ const SOCIAL_ICONS: Record<string, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientProps) {
   const t = useTranslations('pages_detail.team_detail');
+  const tToast = useTranslations('toast');
   const isDark = useIsDarkTheme();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const hasRedirected = useRef(false);
   const searchParams = useSearchParams();
   const wiki = searchParams.get('wiki') || '';
   const urlName = searchParams.get('name') || '';
@@ -239,7 +244,17 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
             current_videogame: { id: 0, name: wiki, slug: wiki },
           });
         } else {
-          setError(t('not_found'));
+          if (!hasRedirected.current) {
+            hasRedirected.current = true;
+            const liquipediaWiki = wiki || 'commons';
+            showToast({
+              message: tToast('team_not_available'),
+              linkUrl: `https://liquipedia.net/${liquipediaWiki}/Main_Page`,
+              linkLabel: tToast('view_on_liquipedia'),
+              duration: 10000,
+            });
+            router.back();
+          }
         }
       } finally {
         setLoading(false);
@@ -321,22 +336,21 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
+  // ── Error / No data (redirect already triggered, show loading while navigating) ──
   if (error || !team) {
     return (
-      <div className="min-h-screen bg-[var(--color-bg-body)] flex items-center justify-center">
-        <div className="text-center px-4">
-          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-[#F22E62]" />
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">{t('not_found')}</h1>
-          <p className="text-sm mb-6 text-[var(--color-text-secondary)]">{t('not_found_description')}</p>
-          <Link
-            href="/match"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white text-sm"
-            style={{ background: '#F22E62' }}
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {t('back_to_matches')}
-          </Link>
+      <div className="min-h-screen bg-[var(--color-bg-body)] pt-20">
+        <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+          <div className="animate-pulse h-52 rounded-2xl bg-[var(--color-bg-secondary)]" />
+          <div className="grid grid-cols-1 gap-2">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse h-14 rounded-lg bg-[var(--color-bg-secondary)]"
+                style={{ animationDelay: `${i * 60}ms` }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );

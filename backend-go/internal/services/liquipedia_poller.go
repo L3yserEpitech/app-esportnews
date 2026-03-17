@@ -287,14 +287,40 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 
 	shouldRefresh := func(name string, interval time.Duration) bool {
 		if !p.isWebhooksEnabled() {
+			p.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"type": name,
+			}).Info("[POLLER] Tick fired — polling mode, will refresh")
 			return true // normal polling: always refresh on tick
 		}
 		// Safety net: refresh if last refresh was >3× the interval ago
 		last, ok := lastRefresh[name]
 		if !ok {
+			p.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"type": name,
+			}).Info("[POLLER] Tick fired — never refreshed yet, will refresh")
 			return true // never refreshed in this session
 		}
-		return time.Since(last) >= interval*safetyMultiplier
+		elapsed := time.Since(last)
+		threshold := interval * safetyMultiplier
+		if elapsed >= threshold {
+			p.log.WithFields(logrus.Fields{
+				"wiki":      wiki,
+				"type":      name,
+				"elapsed":   elapsed.Round(time.Second).String(),
+				"threshold": threshold.Round(time.Second).String(),
+			}).Info("[POLLER] Tick fired — safety net threshold reached, will refresh")
+			return true
+		}
+		p.log.WithFields(logrus.Fields{
+			"wiki":       wiki,
+			"type":       name,
+			"elapsed":    elapsed.Round(time.Second).String(),
+			"threshold":  threshold.Round(time.Second).String(),
+			"next_in":    (threshold - elapsed).Round(time.Second).String(),
+		}).Debug("[POLLER] Tick fired — webhooks active, skipping (within safety window)")
+		return false
 	}
 
 	markRefreshed := func(name string) {
@@ -358,12 +384,27 @@ func (p *LiquipediaPoller) consumeDirtyFlags(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if !p.isWebhooksEnabled() || !p.dirtyTracker.HasAnyDirty() {
+			if !p.isWebhooksEnabled() {
+				p.log.Debug("[DIRTY] Check skipped — webhooks not enabled")
+				continue
+			}
+			if !p.dirtyTracker.HasAnyDirty() {
+				p.log.Debug("[DIRTY] Check — no dirty flags set")
 				continue
 			}
 
 			dirtyWikis := p.dirtyTracker.GetAndResetDirty()
 			for wiki, flags := range dirtyWikis {
+				p.log.WithFields(logrus.Fields{
+					"wiki":             wiki,
+					"matches_running":  flags.MatchesRunning,
+					"matches_upcoming": flags.MatchesUpcoming,
+					"matches_past":     flags.MatchesPast,
+					"tournaments":      flags.Tournaments,
+					"teams":            flags.Teams,
+					"last_event":       flags.LastEvent.Format("15:04:05"),
+				}).Info("[DIRTY] Consuming dirty flags — triggering targeted refresh")
+
 				if flags.MatchesRunning {
 					go p.refreshMatchesRunning(ctx, wiki)
 				}
@@ -402,9 +443,12 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesRunning)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesRunning)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }
 
@@ -422,25 +466,34 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesUpcoming)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesUpcoming)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }
 
 func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqMatchesPastKey(wiki)
+	// Only fetch matches from the last 7 days — requesting ALL finished matches
+	// returns a dataset too large and causes timeout on Liquipedia's side.
+	cutoff := time.Now().UTC().Add(-7 * 24 * time.Hour).Format("2006-01-02 15:04:05")
 
 	params := url.Values{}
-	params.Set("conditions", "[[finished::1]]")
+	params.Set("conditions", fmt.Sprintf("[[finished::1]] AND [[date::>%s]]", cutoff))
 	params.Set("order", "date DESC")
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesPast)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesPast)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }
 
@@ -457,9 +510,12 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 	params.Set("order", "liquipediatier ASC, startdate ASC")
 	params.Set("limit", "5000")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsRunning)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsRunning)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }
 
@@ -475,22 +531,31 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 	params.Set("order", "startdate ASC")
 	params.Set("limit", "5000")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsUpcoming)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsUpcoming)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }
 
 func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsFinishedKey(wiki)
+	// Only fetch tournaments finished in the last 30 days — requesting ALL finished
+	// tournaments returns a dataset too large and risks timeout.
+	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
-	params.Set("conditions", "[[status::finished]]")
+	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff))
 	params.Set("order", "enddate DESC")
 	params.Set("limit", "5000")
 
-	_, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsFinished)
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsFinished)
 	if err != nil {
-		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished"}).WithError(err).Warn("Failed to refresh")
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
 	}
 }

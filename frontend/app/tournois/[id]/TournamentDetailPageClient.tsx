@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useToast } from '@/app/contexts/ToastContext';
 import {
   Gamepad2,
   Calendar,
@@ -84,6 +86,10 @@ function groupMatchesByDate(matches: PandaMatch[]): { dateKey: string; label: st
 
 export default function TournamentDetailPageClient({ tournamentId }: TournamentDetailPageClientProps) {
   const t = useTranslations('pages_detail.tournament_detail');
+  const tToast = useTranslations('toast');
+  const router = useRouter();
+  const { showToast } = useToast();
+  const hasRedirected = useRef(false);
   const [tournament, setTournament] = useState<PandaTournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +154,16 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
         }
       } catch (err) {
         console.error('[Tournament Detail] Error loading tournament:', err);
-        setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          showToast({
+            message: tToast('tournament_not_available'),
+            linkUrl: 'https://liquipedia.net',
+            linkLabel: tToast('view_on_liquipedia'),
+            duration: 10000,
+          });
+          router.back();
+        }
       } finally {
         setLoading(false);
       }
@@ -229,9 +244,10 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   if (error || !tournament) {
     return (
       <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
-        <Card variant="outlined" className="p-8 max-w-md">
-          <p className="text-red-500 text-center">{error || t('not_found')}</p>
-        </Card>
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[var(--color-text-secondary)]">{t('loading')}</p>
+        </div>
       </div>
     );
   }
