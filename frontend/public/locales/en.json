@@ -574,5 +574,11 @@
       "see_all_results_short": "See all results",
       "see_all_short": "See all"
     }
+  },
+  "toast": {
+    "match_not_available": "This match is not available at the moment. Please refer to the official Liquipedia website for match details.",
+    "tournament_not_available": "This tournament is not available at the moment. Please refer to the official Liquipedia website for tournament details.",
+    "team_not_available": "This team is not available at the moment. Please refer to the official Liquipedia website for team details.",
+    "view_on_liquipedia": "View on Liquipedia"
   }
 }

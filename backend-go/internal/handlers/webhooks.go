@@ -67,6 +67,11 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 
 	// Ignore events outside main content and teamtemplates namespaces
 	if event.Namespace != 0 && event.Namespace != -10 {
+		h.log.WithFields(logrus.Fields{
+			"wiki":      event.Wiki,
+			"namespace": event.Namespace,
+			"page":      event.Page,
+		}).Info("[WEBHOOK] Ignored — namespace not 0 or -10")
 		return c.NoContent(http.StatusOK)
 	}
 
@@ -84,10 +89,15 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 		"event":     event.Event,
 		"page":      event.Page,
 		"namespace": event.Namespace,
-	}).Info("Liquipedia webhook received")
+	}).Info("[WEBHOOK] ✅ Received and accepted — marking dirty")
 
 	// Mark dirty — the poller will fetch on its next cycle
 	h.dirtyTracker.MarkDirty(event)
+
+	h.log.WithFields(logrus.Fields{
+		"wiki":      event.Wiki,
+		"namespace": event.Namespace,
+	}).Info("[WEBHOOK] Dirty flags set — poller will consume on next cycle")
 
 	return c.NoContent(http.StatusOK)
 }
