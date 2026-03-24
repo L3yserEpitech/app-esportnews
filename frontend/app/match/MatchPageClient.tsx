@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Search, X, ChevronLeft, ChevronRight, ArrowUpDown, Check, Calendar, Trophy, Star } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
+import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { LiveMatch, Advertisement } from '../types';
 import { matchService } from '../services/matchService';
 import { advertisementService } from '../services/advertisementService';
@@ -504,6 +505,7 @@ const MatchPage: React.FC = () => {
                   <span className="text-xs text-text-muted tabular-nums">
                     {loading ? '···' : sortedMatches.length}
                   </span>
+                  <LiquipediaBadge className="ml-auto self-center" />
                 </div>
 
                 {/* Actions row: selected date + sort + search + refresh */}

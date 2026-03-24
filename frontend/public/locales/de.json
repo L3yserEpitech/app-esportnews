@@ -290,6 +290,8 @@
     }
   },
   "common": {
+    "data_from_liquipedia": "Liquipedia-Daten",
+    "powered_by_liquipedia": "Esport-Daten bereitgestellt von Liquipedia",
     "plan": "Plan",
     "price": "Preis",
     "loading": "Lädt",

@@ -153,6 +153,17 @@ func main() {
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 
+	// Initialize IAP service for mobile in-app purchases (iOS App Store + Google Play)
+	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
+		AppleKeyPath:     cfg.AppleIAPKeyPath,
+		AppleKeyID:       cfg.AppleIAPKeyID,
+		AppleIssuerID:    cfg.AppleIAPIssuerID,
+		AppleBundleID:    cfg.AppleIAPBundleID,
+		AppleEnvironment: cfg.AppleIAPEnvironment,
+		GoogleKeyPath:    cfg.GoogleIAPKeyPath,
+		GooglePackage:    cfg.GoogleIAPPackage,
+	})
+
 	// Initialize StorageService for Cloudflare R2
 	storageService, err := services.NewStorageService(
 		cfg.R2Endpoint,
@@ -182,6 +193,7 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
+	iapHandler := handlers.NewIAPHandler(iapService, authService, logger, gormDB.DB)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
 	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
 	imageProxyHandler := handlers.NewImageProxyHandler()
@@ -197,6 +209,7 @@ func main() {
 	notificationHandler.RegisterRoutes(apiGroup)
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
+	iapHandler.RegisterRoutes(apiGroup)        // Mobile IAP validation (iOS + Android)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
 	webhookHandler.RegisterRoutes(apiGroup)   // Liquipedia webhook endpoint
 	imageProxyHandler.RegisterRoutes(apiGroup) // Image proxy for Liquipedia assets

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useToast } from '../../contexts/ToastContext';
+import LiquipediaBadge from '../../components/common/LiquipediaBadge';
 import {
   Gamepad2,
   Trophy,
@@ -397,6 +398,9 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
                 {t('rescheduled')}
               </span>
             )}
+
+            {/* Liquipedia attribution */}
+            <LiquipediaBadge />
           </div>
 
           {/* === MAIN SCOREBOARD === */}

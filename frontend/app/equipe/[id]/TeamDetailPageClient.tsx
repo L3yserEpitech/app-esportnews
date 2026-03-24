@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useToast } from '../../contexts/ToastContext';
+import LiquipediaBadge from '../../components/common/LiquipediaBadge';
 import {
   Shield, Users, Trophy, Calendar, MapPin, ExternalLink,
   Loader2, Gamepad2, ChevronDown, ChevronUp,
@@ -490,6 +491,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                       </span>
                     </div>
                   )}
+                  <LiquipediaBadge />
                 </div>
 
                 {/* Social links */}

@@ -36,6 +36,12 @@ type User struct {
 	SubscriptionCurrentPeriodStart *time.Time `json:"subscription_current_period_start"`
 	SubscriptionCurrentPeriodEnd   *time.Time `json:"subscription_current_period_end"`
 	SubscriptionCanceledAt         *time.Time `json:"subscription_canceled_at"`
+
+	// IAP (In-App Purchase) — iOS App Store & Google Play
+	IAPPlatform      *string    `json:"iap_platform,omitempty" gorm:"column:iap_platform"`
+	IAPProductID     *string    `json:"iap_product_id,omitempty" gorm:"column:iap_product_id"`
+	IAPTransactionID *string    `json:"iap_transaction_id,omitempty" gorm:"column:iap_transaction_id;uniqueIndex"`
+	IAPExpiresAt     *time.Time `json:"iap_expires_at,omitempty" gorm:"column:iap_expires_at"`
 }
 
 // TableName specifies the table name for User

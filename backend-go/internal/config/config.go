@@ -49,6 +49,17 @@ type Config struct {
 	// App
 	MaxConnections int
 
+	// Apple IAP (In-App Purchase)
+	AppleIAPKeyPath     string
+	AppleIAPKeyID       string
+	AppleIAPIssuerID    string
+	AppleIAPBundleID    string
+	AppleIAPEnvironment string // "sandbox" or "production"
+
+	// Google IAP (In-App Purchase)
+	GoogleIAPKeyPath string
+	GoogleIAPPackage string
+
 	// Cloudflare R2
 	R2AccountID        string
 	R2AccessKeyID      string
@@ -81,6 +92,17 @@ func LoadConfig() *Config {
 		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
 		EmailFrom:        getEnv("EMAIL_FROM", "noreply@resend.dev"),
 		MaxConnections:   25,
+
+		// Apple IAP
+		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),
+		AppleIAPKeyID:       getEnv("APPLE_IAP_KEY_ID", ""),
+		AppleIAPIssuerID:    getEnv("APPLE_IAP_ISSUER_ID", ""),
+		AppleIAPBundleID:    getEnv("APPLE_IAP_BUNDLE_ID", "com.esportnews-app.mobile"),
+		AppleIAPEnvironment: getEnv("APPLE_IAP_ENVIRONMENT", "sandbox"),
+
+		// Google IAP
+		GoogleIAPKeyPath: getEnv("GOOGLE_IAP_KEY_PATH", ""),
+		GoogleIAPPackage: getEnv("GOOGLE_IAP_PACKAGE", "com.esportnewsapp.mobile"),
 
 		// Cloudflare R2
 		R2AccountID:       getEnv("CLOUDFLARE_ACCOUNT_ID", ""),

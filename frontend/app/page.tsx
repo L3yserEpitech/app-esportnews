@@ -11,6 +11,7 @@ import { liveMatchService } from './services/liveMatchService';
 import { advertisementService } from './services/advertisementService';
 import { articleService } from './services/articleService';
 import { useGame } from './contexts/GameContext';
+import LiquipediaBadge from './components/common/LiquipediaBadge';
 import { WebSiteSchema, OrganizationSchema } from './components/seo/StructuredData';
 
 
@@ -174,6 +175,9 @@ export default function HomePage() {
           <div className="flex-1 min-w-0 space-y-8">
             {/* Section Matchs en Direct */}
             <section aria-labelledby="live-matches">
+              <div className="flex items-center justify-end mb-2">
+                <LiquipediaBadge />
+              </div>
               <LiveMatchesCarousel
                 matches={memoizedLiveMatches}
                 isLoading={isLoadingMatches}

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useToast } from '@/app/contexts/ToastContext';
+import LiquipediaBadge from '@/app/components/common/LiquipediaBadge';
 import {
   Gamepad2,
   Calendar,
@@ -347,6 +348,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
             {tournament.prizepool && (
               <span className="font-bold text-[var(--color-accent)]">{tournament.prizepool}</span>
             )}
+            <LiquipediaBadge />
           </div>
         </div>
 
