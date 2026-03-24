@@ -214,7 +214,7 @@ func main() {
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	matchSubHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
-	iapHandler.RegisterRoutes(apiGroup)           // IAP validation (JWT required)
+	iapHandler.RegisterRoutes(apiGroup)       // IAP validation (JWT required)
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
 	webhookHandler.RegisterRoutes(apiGroup)       // Liquipedia webhook endpoint

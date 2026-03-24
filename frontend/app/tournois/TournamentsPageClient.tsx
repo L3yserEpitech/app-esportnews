@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, Check } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
+import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
 import { tournamentService } from '../services/tournamentService';
@@ -342,6 +343,7 @@ const TournamentsPage: React.FC = () => {
                   <span className="text-xs text-text-muted tabular-nums">
                     {loading ? '···' : filteredTournaments.length}
                   </span>
+                  <LiquipediaBadge className="ml-auto self-center" />
                 </div>
 
                 {/* Status tabs + Actions */}

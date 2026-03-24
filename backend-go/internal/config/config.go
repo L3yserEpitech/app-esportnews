@@ -54,12 +54,12 @@ type Config struct {
 	AppleIAPKeyID       string
 	AppleIAPIssuerID    string
 	AppleIAPBundleID    string
-	AppleIAPEnvironment string
+	AppleIAPEnvironment string // "sandbox" or "production"
 
 	// Google IAP (In-App Purchase)
-	GoogleIAPKeyPath    string
-	GoogleIAPPackage    string
-	GoogleWebhookToken  string // shared secret for Pub/Sub push URL auth
+	GoogleIAPKeyPath   string
+	GoogleIAPPackage   string
+	GoogleWebhookToken string // shared secret for Pub/Sub push URL auth
 
 	// Cloudflare R2
 	R2AccountID        string
