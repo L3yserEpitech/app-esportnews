@@ -15,6 +15,7 @@ import {
   ErrorCode,
 } from 'react-native-iap';
 import { useSubscriptionMock } from './useSubscriptionMock';
+import { subscriptionService } from '@/services';
 
 // =====================================================
 // Configuration Mode Mock (Développement sans appareil)
@@ -23,10 +24,10 @@ import { useSubscriptionMock } from './useSubscriptionMock';
 // ⚠️ DÉSACTIVER en production (mettre false)
 const USE_MOCK_SUBSCRIPTION = __DEV__ && Platform.OS === 'android' && false;
 
-// Product ID de ton abonnement App Store Connect
+// Product IDs par plateforme
 const SUBSCRIPTION_SKUS = Platform.select({
   ios: ['13801972972'],
-  android: [] as string[], // TODO: Ajouter le Product ID Android ici (ex: 'premium_monthly')
+  android: ['premium_monthly'],
 }) ?? [];
 
 export interface SubscriptionState {
@@ -98,10 +99,24 @@ export function useSubscription() {
 
       if (receipt) {
         try {
-          // Finaliser la transaction
+          // 1. Valider le reçu côté serveur pour synchroniser le statut premium en DB
+          try {
+            await subscriptionService.validateReceipt({
+              transactionId: purchase.transactionId,
+              productId: purchase.productId,
+              purchaseToken: purchase.purchaseToken,
+            });
+            console.log('[useSubscription] Backend validation successful');
+          } catch (backendError) {
+            // Si le backend échoue (réseau, serveur down), on continue quand même
+            // L'utilisateur a payé, le backend re-validera au prochain restore
+            console.warn('[useSubscription] Backend validation failed, continuing:', backendError);
+          }
+
+          // 2. Finaliser la transaction avec le store
           await finishTransaction({ purchase, isConsumable: false });
 
-          // Mettre à jour le statut
+          // 3. Mettre à jour le statut local
           setIsSubscribed(true);
           setPurchasing(false);
 
@@ -112,6 +127,10 @@ export function useSubscription() {
           );
         } catch (finishError) {
           console.error('Error finishing transaction:', finishError);
+          // Même en cas d'erreur de finishTransaction, marquer comme abonné
+          // car le paiement a été effectué
+          setIsSubscribed(true);
+          setPurchasing(false);
         }
       }
     });
@@ -171,15 +190,28 @@ export function useSubscription() {
 
     try {
       const purchases = await getAvailablePurchases();
-      const hasActiveSubscription = purchases.some(
+      const activePurchase = purchases.find(
         (purchase) => SUBSCRIPTION_SKUS.includes(purchase.productId)
       );
 
-      setIsSubscribed(hasActiveSubscription);
+      if (activePurchase) {
+        // Valider avec le backend pour synchroniser le statut premium en DB
+        try {
+          await subscriptionService.validateReceipt({
+            transactionId: activePurchase.transactionId,
+            productId: activePurchase.productId,
+            purchaseToken: activePurchase.purchaseToken,
+          });
+          console.log('[useSubscription] Backend restore validation successful');
+        } catch (backendError) {
+          // Le store dit que c'est valide, on continue même si le backend échoue
+          console.warn('[useSubscription] Backend restore validation failed:', backendError);
+        }
 
-      if (hasActiveSubscription) {
+        setIsSubscribed(true);
         Alert.alert('Succès', 'Votre abonnement a été restauré !');
       } else {
+        setIsSubscribed(false);
         Alert.alert('Info', 'Aucun abonnement actif trouvé');
       }
     } catch (err) {
