@@ -130,6 +130,7 @@ export interface User {
   email: string;
   avatar?: string;
   admin: boolean;
+  premium?: boolean;
   favorite_team?: any;
   created_at: string;
   age?: number;
