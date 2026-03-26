@@ -42,8 +42,6 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
     ? subscribedMatchIds.has(id)
     : subscribedTournamentIds.has(id);
 
-  if (hideWhenNotSubscribed && !isSubscribed) return null;
-
   const handlePress = useCallback(async () => {
     if (!isAuthenticated) {
       Alert.alert(
@@ -108,6 +106,8 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
       setIsLoading(false);
     }
   }, [isAuthenticated, isSubscribed, isLoading, type, id, meta, canSubscribeMatch, canSubscribeTournament, subscribeToMatch, unsubscribeFromMatch, subscribeToTournament, unsubscribeFromTournament, router]);
+
+  if (hideWhenNotSubscribed && !isSubscribed) return null;
 
   return (
     <Pressable
