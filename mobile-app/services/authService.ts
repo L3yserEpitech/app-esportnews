@@ -1,7 +1,7 @@
 import apiClient, { tokenManager } from './apiClient';
 import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types';
 
-export interface SignupData extends RegisterData {
+export interface SignupData extends Omit<RegisterData, 'age'> {
   age?: number;
 }
 

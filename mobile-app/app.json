@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.esportnews-app.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -36,7 +37,8 @@
       "expo-router",
       "expo-font",
       "react-native-nitro-modules",
-      "react-native-iap"
+      "react-native-iap",
+      "expo-notifications"
     ],
     "extra": {
       "router": {},

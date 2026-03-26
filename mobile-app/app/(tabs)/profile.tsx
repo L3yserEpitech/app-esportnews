@@ -193,6 +193,15 @@ export default function ProfileScreen() {
               />
               <View style={styles.divider} />
               <ProfileItem
+                icon="heart-outline"
+                title="Mes abonnements"
+                subtitle="Matchs et tournois suivis"
+                onPress={() => router.push('/profile/subscriptions' as any)}
+                iconBg="rgba(242, 46, 98, 0.15)"
+                color={COLORS.primary}
+              />
+              <View style={styles.divider} />
+              <ProfileItem
                 icon="person-outline"
                 title="Informations personnelles"
                 subtitle="Modifier votre nom, email et avatar"

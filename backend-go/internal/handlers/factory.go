@@ -125,3 +125,11 @@ func NewNotificationHandler(gormDB interface{}, authService *services.AuthServic
 		authService: authService,
 	}
 }
+
+// NewMatchSubHandler creates a new match/tournament subscription handler
+func NewMatchSubHandler(authService *services.AuthService, gormDB interface{}) *MatchSubHandler {
+	return &MatchSubHandler{
+		authService: authService,
+		gormDB:      gormDB,
+	}
+}

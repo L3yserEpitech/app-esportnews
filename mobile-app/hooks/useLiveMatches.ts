@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { liveMatchService } from '@/services';
-import { LiveMatch } from '@/types';
+import { PandaMatch } from '@/types';
 
 interface UseLiveMatchesOptions {
   gameAcronym?: string;
@@ -10,7 +10,7 @@ interface UseLiveMatchesOptions {
 }
 
 interface UseLiveMatchesReturn {
-  liveMatches: LiveMatch[];
+  liveMatches: PandaMatch[];
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -25,7 +25,7 @@ export const useLiveMatches = (
     enabled = true,
   } = options;
 
-  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
+  const [liveMatches, setLiveMatches] = useState<PandaMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

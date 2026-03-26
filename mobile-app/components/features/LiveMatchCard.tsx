@@ -4,15 +4,16 @@ import { Text, Surface } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Badge } from '@/components/ui';
+import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import { LiveMatch } from '@/types';
+import { PandaMatch } from '@/types';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
 
 interface LiveMatchCardProps {
-  match: LiveMatch;
+  match: PandaMatch;
   onPress?: () => void;
   fullWidth?: boolean;
 }
@@ -94,18 +95,32 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
               {match.videogame?.name || 'Live'}
             </Text>
           </View>
-          {statusInfo.isLive ? (
-            <Animated.View style={{ opacity: pulseAnim }}>
+          <View style={styles.headerRight}>
+            <SubscribeButton
+              type="match"
+              id={match.id}
+              meta={{
+                match_name: match.name || `${team1?.name || 'TBD'} vs ${team2?.name || 'TBD'}`,
+                tournament_name: match.tournament?.name || '',
+                game_acronym: match.videogame?.slug || '',
+                begin_at: match.begin_at || undefined,
+              }}
+              size={18}
+              hideWhenNotSubscribed
+            />
+            {statusInfo.isLive ? (
+              <Animated.View style={{ opacity: pulseAnim }}>
+                <Badge label={statusInfo.label} variant={statusInfo.variant} />
+              </Animated.View>
+            ) : (
               <Badge label={statusInfo.label} variant={statusInfo.variant} />
-            </Animated.View>
-          ) : (
-            <Badge label={statusInfo.label} variant={statusInfo.variant} />
-          )}
+            )}
+          </View>
         </View>
 
         <View style={styles.content}>
           <View style={styles.team}>
-            <Image source={{ uri: team1?.image_url }} style={styles.logo} contentFit="contain" />
+            <Image source={{ uri: team1?.image_url ?? undefined }} style={styles.logo} contentFit="contain" />
             <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
               {team1?.acronym || team1?.name || 'T1'}
             </Text>
@@ -123,7 +138,7 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
           </View>
 
           <View style={styles.team}>
-            <Image source={{ uri: team2?.image_url }} style={styles.logo} contentFit="contain" />
+            <Image source={{ uri: team2?.image_url ?? undefined }} style={styles.logo} contentFit="contain" />
             <Text variant="labelLarge" style={styles.teamName} numberOfLines={1}>
               {team2?.acronym || team2?.name || 'T2'}
             </Text>
@@ -163,6 +178,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   gameTag: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

@@ -7,5 +7,6 @@ export { useMatches } from './useMatches';
 export { useArticles } from './useArticles';
 export { useSubscription } from './useSubscription';
 export { useAdPopup } from './useAdPopup';
+export { useMatchSubscriptions } from './useMatchSubscriptions';
 export { useAd } from '@/contexts/AdContext';
 export { useLocale } from '@/contexts/LocaleContext';

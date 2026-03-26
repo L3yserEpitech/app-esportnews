@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { PandaTournament } from '@/types';
 
 interface TournamentCardProps {
@@ -82,6 +83,19 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
                 </View>
               )}
               <View style={styles.rightBadges}>
+                <SubscribeButton
+                  type="tournament"
+                  id={tournament.id}
+                  meta={{
+                    tournament_name: tournament.name || '',
+                    game_acronym: tournament.videogame?.slug || '',
+                    begin_at: tournament.begin_at || undefined,
+                    end_at: tournament.end_at || undefined,
+                    match_ids: tournament.matches?.map(m => m.id) || [],
+                  }}
+                  size={18}
+                  hideWhenNotSubscribed
+                />
                 <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
                   {statusInfo.label === 'LIVE' && <View style={styles.liveDot} />}
                   <Text style={[styles.statusText, { color: statusInfo.color }]}>

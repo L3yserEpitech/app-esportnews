@@ -139,6 +139,15 @@ func main() {
 	pandaScoreService := services.NewPandaScoreService(cfg.PandaScoreAPIKey, redisClient)
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
+	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
+		AppleKeyPath:     cfg.AppleIAPKeyPath,
+		AppleKeyID:       cfg.AppleIAPKeyID,
+		AppleIssuerID:    cfg.AppleIAPIssuerID,
+		AppleBundleID:    cfg.AppleIAPBundleID,
+		AppleEnvironment: cfg.AppleIAPEnvironment,
+		GoogleKeyPath:    cfg.GoogleIAPKeyPath,
+		GooglePackage:    cfg.GoogleIAPPackage,
+	})
 
 	// Initialize StorageService for Cloudflare R2
 	storageService, err := services.NewStorageService(
@@ -169,7 +178,9 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
+	matchSubHandler := handlers.NewMatchSubHandler(authService, gormDB)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
+	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -182,7 +193,9 @@ func main() {
 	notificationHandler.RegisterRoutes(apiGroup)
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
+	matchSubHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
+	iapHandler.RegisterRoutes(apiGroup)        // IAP validation (JWT required)
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
@@ -190,6 +203,12 @@ func main() {
 	articleHandler.RegisterAdminRoutes(adminGroup)
 	adHandler.RegisterAdminRoutes(adminGroup)
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
+
+	// Start notification scheduler (background goroutine)
+	expoPushService := services.NewExpoPushService(logger)
+	notifScheduler := services.NewNotificationScheduler(gormDB, redisClient, expoPushService, logger)
+	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
+	go notifScheduler.Start(schedulerCtx)
 
 	// Start server
 	go func() {
@@ -206,6 +225,9 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+
+	// Stop notification scheduler
+	schedulerCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

@@ -11,7 +11,7 @@ import { LiveMatchCard } from '@/components/features';
 import { useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import { LiveMatch } from '@/types';
+import { PandaMatch } from '@/types';
 import { matchService } from '@/services';
 
 // Utility functions for date manipulation
@@ -100,7 +100,7 @@ export default function MatchsScreen() {
   const { selectedGame } = useGame();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeOffset, setDateRangeOffset] = useState(0);
-  const [matches, setMatches] = useState<LiveMatch[]>([]);
+  const [matches, setMatches] = useState<PandaMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,7 +162,7 @@ export default function MatchsScreen() {
     setDateRangeOffset((prev) => prev + 1);
   };
 
-  const renderItem = ({ item }: { item: LiveMatch }) => (
+  const renderItem = ({ item }: { item: PandaMatch }) => (
     <View style={styles.cardWrapper}>
       <LiveMatchCard
         match={item}

@@ -9,6 +9,8 @@ export { notificationService } from './notificationService';
 export { adService } from './adService';
 export { adCooldownService } from './adCooldownService';
 export { subscriptionService } from './subscriptionService';
+export { pushTokenService } from './pushTokenService';
+export { matchSubscriptionService } from './matchSubscriptionService';
 
 // Export types
 export type { SignupData, LoginData, UserData } from './authService';

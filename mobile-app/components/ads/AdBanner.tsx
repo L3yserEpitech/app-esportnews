@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Image, TouchableOpacity, Linking, ActivityIndicator, DimensionValue } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Advertisement } from '@/types';
 import { COLORS } from '@/constants/colors';
@@ -14,7 +14,7 @@ interface AdBannerProps {
   /**
    * Largeur de la bannière (optionnel)
    */
-  width?: number | string;
+  width?: DimensionValue;
 
   /**
    * Hauteur de la bannière (optionnel)
@@ -92,7 +92,7 @@ export function AdBanner({
     >
       {/* Image de la pub */}
       <Image
-        source={{ uri: ad.url }}
+        source={{ uri: ad.url ?? undefined }}
         style={styles.image}
         resizeMode="cover"
         onLoadStart={() => setIsLoading(true)}

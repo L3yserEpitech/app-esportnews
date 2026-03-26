@@ -24,7 +24,7 @@ interface SocialMediaItemProps {
   handle: string;
   url: string;
   color: string;
-  gradient: string[];
+  gradient: [string, string, ...string[]];
 }
 
 const XLogo = ({ size = 24, color = 'white' }: { size?: number; color?: string }) => (
@@ -78,9 +78,9 @@ const SocialMediaItem = ({ icon, name, handle, url, color, gradient }: SocialMed
 export default function SocialMediaScreen() {
   const router = useRouter();
 
-  const socialMediaAccounts = [
+  const socialMediaAccounts: SocialMediaItemProps[] = [
     {
-      icon: 'logo-instagram' as const,
+      icon: 'logo-instagram',
       name: 'Instagram',
       handle: '@esportnewsfr',
       url: 'https://www.instagram.com/esportnewsfr?igsh=MXU3emV0cjZ6ZG9tMg%3D%3D&utm_source=qr',
@@ -88,7 +88,7 @@ export default function SocialMediaScreen() {
       gradient: ['#833AB4', '#FD1D1D', '#FCB045'],
     },
     {
-      icon: 'custom-x' as const,
+      icon: 'custom-x',
       name: 'X (Twitter)',
       handle: '@esportnews_off',
       url: 'https://x.com/esportnews_off?s=21&t=TUQ72qaoDYyvK9Drw0iIXg',
@@ -96,7 +96,7 @@ export default function SocialMediaScreen() {
       gradient: ['#000000', '#14171A'],
     },
     {
-      icon: 'logo-linkedin' as const,
+      icon: 'logo-linkedin',
       name: 'LinkedIn',
       handle: 'Esport News',
       url: 'https://www.linkedin.com/company/esportnews',
@@ -104,7 +104,7 @@ export default function SocialMediaScreen() {
       gradient: ['#0A66C2', '#004182'],
     },
     {
-      icon: 'logo-tiktok' as const,
+      icon: 'logo-tiktok',
       name: 'TikTok',
       handle: '@esport_news',
       url: 'https://www.tiktok.com/@esport_news?_r=1&_t=ZN-919p4b96KV5',
@@ -112,7 +112,7 @@ export default function SocialMediaScreen() {
       gradient: ['#000000', '#69C9D0'],
     },
     {
-      icon: 'logo-facebook' as const,
+      icon: 'logo-facebook',
       name: 'Facebook',
       handle: 'Esport News',
       url: 'https://www.facebook.com/share/1AVNMfAiZt/?mibextid=wwXIfr',

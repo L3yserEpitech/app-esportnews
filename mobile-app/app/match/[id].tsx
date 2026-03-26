@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Badge } from '@/components/ui';
+import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { matchService } from '@/services';
@@ -176,14 +177,25 @@ export default function MatchDetailScreen() {
             {match.tournament?.name}
           </Text>
         </View>
-        <View style={{ width: 44 }} />
+        <SubscribeButton
+          type="match"
+          id={Number(id)}
+          meta={{
+            match_name: match.name || `${team1?.acronym || team1?.name || 'TBD'} vs ${team2?.acronym || team2?.name || 'TBD'}`,
+            tournament_name: match.tournament?.name || '',
+            game_acronym: (match as any).videogame?.slug || '',
+            begin_at: match.begin_at || undefined,
+          }}
+          size={24}
+          style={styles.iconButton}
+        />
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={[
-          styles.scrollContent, 
+          styles.scrollContent,
           { paddingTop: insets.top + (spacing.lg * 3) }
-        ]} 
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Match Hero Section */}

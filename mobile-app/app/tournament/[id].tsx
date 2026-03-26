@@ -9,6 +9,7 @@ import { Image } from 'expo-image';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui';
 import { LiveMatchCard } from '@/components/features';
+import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { tournamentService } from '@/services/tournamentService';
@@ -217,14 +218,26 @@ export default function TournamentDetailScreen() {
              {tournament.tier ? `TIER ${tournament.tier.toUpperCase()}` : 'PRO LEAGUE'}
           </Text>
         </View>
-        <View style={{ width: 44 }} />
+        <SubscribeButton
+          type="tournament"
+          id={Number(id)}
+          meta={{
+            tournament_name: tournament.name || '',
+            game_acronym: tournament.videogame?.slug || '',
+            begin_at: tournament.begin_at || undefined,
+            end_at: tournament.end_at || undefined,
+            match_ids: tournament.matches?.map((m) => m.id),
+          }}
+          size={24}
+          style={styles.iconButton}
+        />
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={[
-          styles.scrollContent, 
+          styles.scrollContent,
           { paddingTop: insets.top + (spacing.lg * 3) }
-        ]} 
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Tournament Hero Section */}

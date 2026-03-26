@@ -102,9 +102,9 @@ export function useSubscription() {
           // 1. Valider le reçu côté serveur pour synchroniser le statut premium en DB
           try {
             await subscriptionService.validateReceipt({
-              transactionId: purchase.transactionId,
+              transactionId: purchase.transactionId ?? undefined,
               productId: purchase.productId,
-              purchaseToken: purchase.purchaseToken,
+              purchaseToken: purchase.purchaseToken ?? undefined,
             });
             console.log('[useSubscription] Backend validation successful');
           } catch (backendError) {
@@ -198,9 +198,9 @@ export function useSubscription() {
         // Valider avec le backend pour synchroniser le statut premium en DB
         try {
           await subscriptionService.validateReceipt({
-            transactionId: activePurchase.transactionId,
+            transactionId: activePurchase.transactionId ?? undefined,
             productId: activePurchase.productId,
-            purchaseToken: activePurchase.purchaseToken,
+            purchaseToken: activePurchase.purchaseToken ?? undefined,
           });
           console.log('[useSubscription] Backend restore validation successful');
         } catch (backendError) {
