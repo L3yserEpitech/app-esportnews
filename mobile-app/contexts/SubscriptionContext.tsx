@@ -132,15 +132,18 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       next.delete(matchId);
       return next;
     });
+    const removedItem = matchSubscriptions.find(s => s.match_id === matchId);
+    setMatchSubscriptions(prev => prev.filter(s => s.match_id !== matchId));
 
     try {
       await matchSubscriptionService.unsubscribeFromMatch(matchId);
     } catch (error) {
       // Rollback on failure
       setSubscribedMatchIds(prev => new Set(prev).add(matchId));
+      if (removedItem) setMatchSubscriptions(prev => [...prev, removedItem]);
       throw error;
     }
-  }, []);
+  }, [matchSubscriptions]);
 
   const subscribeToTournament = useCallback(async (tournamentId: number, meta: SubscribeTournamentMeta) => {
     // Optimistic update
@@ -163,24 +166,46 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const unsubscribeFromTournament = useCallback(async (tournamentId: number) => {
-    // Optimistic update
+    // Optimistic update — remove tournament
     setSubscribedTournamentIds(prev => {
       const next = new Set(prev);
       next.delete(tournamentId);
       return next;
     });
+    const removedTournament = tournamentSubscriptions.find(s => s.tournament_id === tournamentId);
+    setTournamentSubscriptions(prev => prev.filter(s => s.tournament_id !== tournamentId));
+
+    // Optimistic update — remove auto-created match subs from this tournament
+    const removedMatches = matchSubscriptions.filter(s => s.from_tournament === tournamentId);
+    if (removedMatches.length > 0) {
+      setMatchSubscriptions(prev => prev.filter(s => s.from_tournament !== tournamentId));
+      setSubscribedMatchIds(prev => {
+        const next = new Set(prev);
+        removedMatches.forEach(m => next.delete(m.match_id));
+        return next;
+      });
+    }
 
     try {
       await matchSubscriptionService.unsubscribeFromTournament(tournamentId);
-      // Also refresh match IDs since tournament unsub removes auto-created match subs
+      // Refresh match IDs from server to stay in sync
       const matchIds = await matchSubscriptionService.getMatchSubscriptionIds();
       setSubscribedMatchIds(new Set(matchIds));
     } catch (error) {
       // Rollback on failure
       setSubscribedTournamentIds(prev => new Set(prev).add(tournamentId));
+      if (removedTournament) setTournamentSubscriptions(prev => [...prev, removedTournament]);
+      if (removedMatches.length > 0) {
+        setMatchSubscriptions(prev => [...prev, ...removedMatches]);
+        setSubscribedMatchIds(prev => {
+          const next = new Set(prev);
+          removedMatches.forEach(m => next.add(m.match_id));
+          return next;
+        });
+      }
       throw error;
     }
-  }, []);
+  }, [tournamentSubscriptions, matchSubscriptions]);
 
   const refreshSubscriptions = useCallback(async () => {
     await loadSubscriptionIds();

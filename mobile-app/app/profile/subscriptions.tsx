@@ -69,7 +69,11 @@ export default function SubscriptionsScreen() {
   };
 
   const renderMatchItem = ({ item }: { item: MatchSubscriptionData }) => (
-    <View style={styles.subCard}>
+    <TouchableOpacity
+      style={styles.subCard}
+      activeOpacity={0.7}
+      onPress={() => router.push(`/match/${item.match_id}`)}
+    >
       <View style={styles.subCardContent}>
         <View style={styles.subCardHeader}>
           <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
@@ -106,11 +110,15 @@ export default function SubscriptionsScreen() {
       >
         <Ionicons name="heart" size={22} color={COLORS.primary} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderTournamentItem = ({ item }: { item: TournamentSubscriptionData }) => (
-    <View style={styles.subCard}>
+    <TouchableOpacity
+      style={styles.subCard}
+      activeOpacity={0.7}
+      onPress={() => router.push(`/tournament/${item.tournament_id}`)}
+    >
       <View style={styles.subCardContent}>
         <View style={styles.subCardHeader}>
           <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
@@ -144,7 +152,7 @@ export default function SubscriptionsScreen() {
       >
         <Ionicons name="heart" size={22} color={COLORS.primary} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderEmptyState = () => (
