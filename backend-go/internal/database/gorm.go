@@ -85,7 +85,17 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 
-	// Auto migrate models only in development (tables already exist in production/Supabase)
+	// Always migrate new tables (not present in legacy Supabase schema)
+	if err := db.AutoMigrate(
+		&models.PushToken{},
+		&models.MatchSubscription{},
+		&models.TournamentSubscription{},
+	); err != nil {
+		return nil, fmt.Errorf("failed to run new table migrations: %w", err)
+	}
+	log.Info("New table migrations completed (push_token, match_subscription, tournament_subscription)")
+
+	// Auto migrate legacy models only in development (tables already exist in production/Supabase)
 	if env == "development" {
 		if err := db.AutoMigrate(
 			&models.User{},
@@ -94,15 +104,10 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 			&models.Ad{},
 			&models.Notification{},
 			&models.PageView{},
-			&models.PushToken{},
-			&models.MatchSubscription{},
-			&models.TournamentSubscription{},
 		); err != nil {
-			return nil, fmt.Errorf("failed to run migrations: %w", err)
+			return nil, fmt.Errorf("failed to run dev migrations: %w", err)
 		}
-		log.Info("Database migrations completed")
-	} else {
-		log.Info("Skipping migrations (production mode)")
+		log.Info("Development migrations completed")
 	}
 
 	return &Database{DB: db}, nil
