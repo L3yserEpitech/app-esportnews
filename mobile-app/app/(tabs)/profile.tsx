@@ -222,15 +222,6 @@ export default function ProfileScreen() {
 
             <Section title="Préférences">
               <ProfileItem
-                icon="notifications-outline"
-                title="Notifications"
-                subtitle="Gérer vos alertes matchs et news"
-                onPress={() => router.push('/profile/notifications' as any)}
-                iconBg="rgba(255, 149, 0, 0.15)"
-                color="#FF9500"
-              />
-              <View style={styles.divider} />
-              <ProfileItem
                 icon="language-outline"
                 title="Langue"
                 subtitle="Français"

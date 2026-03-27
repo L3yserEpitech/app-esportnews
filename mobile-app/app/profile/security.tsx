@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Alert, 
-  TouchableOpacity, 
+import React, { useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
   Dimensions,
   StatusBar,
   Platform,
   KeyboardAvoidingView
 } from 'react-native';
-import { Text, TextInput, Switch, ActivityIndicator } from 'react-native-paper';
+import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks';
 import { authService } from '@/services';
@@ -34,70 +33,7 @@ export default function SecurityScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricType, setBiometricType] = useState<string>('');
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingBiometric, setIsCheckingBiometric] = useState(true);
-
-  useEffect(() => {
-    checkBiometricAvailability();
-  }, []);
-
-  const checkBiometricAvailability = async () => {
-    try {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      const available = compatible && enrolled;
-
-      setBiometricAvailable(available);
-
-      if (available) {
-        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          setBiometricType('Face ID');
-        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          setBiometricType('Touch ID');
-        } else {
-          setBiometricType('Biométrie');
-        }
-      }
-    } catch (error) {
-      console.error('Error checking biometric availability:', error);
-    } finally {
-      setIsCheckingBiometric(false);
-    }
-  };
-
-  const authenticateBiometric = async () => {
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authentification requise',
-        fallbackLabel: 'Utiliser le mot de passe',
-        disableDeviceFallback: false,
-      });
-      return result.success;
-    } catch (error) {
-      console.error('Error authenticating:', error);
-      return false;
-    }
-  };
-
-  const handleToggleBiometric = async (value: boolean) => {
-    if (value) {
-      const success = await authenticateBiometric();
-      if (success) {
-        setBiometricEnabled(true);
-        Alert.alert('Succès', `${biometricType} activé`);
-      } else {
-        Alert.alert('Échec', 'Authentification échouée');
-      }
-    } else {
-      setBiometricEnabled(false);
-      Alert.alert('Désactivé', `${biometricType} désactivé`);
-    }
-  };
 
   const handleChangePassword = async () => {
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
@@ -168,35 +104,6 @@ export default function SecurityScreen() {
             <Text style={styles.navTitle}>Sécurité</Text>
             <View style={{ width: 44 }} />
           </View>
-
-          {/* Biometric Section */}
-          {!isCheckingBiometric && biometricAvailable && (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Authentification rapide</Text>
-              <BlurView intensity={10} tint="light" style={styles.glassCard}>
-                <View style={styles.settingItem}>
-                  <View style={styles.settingInfo}>
-                    <View style={styles.settingHeader}>
-                      <Ionicons 
-                        name={biometricType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'} 
-                        size={22} 
-                        color={COLORS.primary} 
-                      />
-                      <Text style={styles.settingTitle}>{biometricType}</Text>
-                    </View>
-                    <Text style={styles.settingDescription}>
-                      Accédez plus rapidement à votre compte
-                    </Text>
-                  </View>
-                  <Switch
-                    value={biometricEnabled}
-                    onValueChange={handleToggleBiometric}
-                    color={COLORS.primary}
-                  />
-                </View>
-              </BlurView>
-            </View>
-          )}
 
           {/* Password Section */}
           <View style={styles.section}>
@@ -370,32 +277,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     padding: spacing.md,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-  },
-  settingInfo: {
-    flex: 1,
-    paddingRight: spacing.md,
-  },
-  settingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: spacing.sm,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  settingDescription: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    lineHeight: 18,
   },
   inputWrapper: {
     marginBottom: spacing.xs,
