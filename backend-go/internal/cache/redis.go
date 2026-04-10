@@ -75,6 +75,11 @@ func (rc *RedisCache) Expire(ctx context.Context, key string, expiration time.Du
 	return rc.client.Expire(ctx, key, expiration).Err()
 }
 
+// TTL returns the remaining TTL of a key (-1 if no expiry, -2 if key doesn't exist)
+func (rc *RedisCache) TTL(ctx context.Context, key string) (time.Duration, error) {
+	return rc.client.TTL(ctx, key).Result()
+}
+
 // Close closes the Redis connection
 func (rc *RedisCache) Close() error {
 	return rc.client.Close()

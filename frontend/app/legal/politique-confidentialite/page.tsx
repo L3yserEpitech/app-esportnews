@@ -79,6 +79,7 @@ export default function PolitiqueConfidentialitePage() {
                 <h3 className="text-lg font-semibold text-white mb-2">Lors de l'abonnement Premium :</h3>
                 <ul className="list-disc list-inside ml-2 space-y-1">
                   <li>Informations de paiement (traitées exclusivement par Stripe — nous ne conservons aucune donnée bancaire)</li>
+                  <li>Sur mobile : les paiements de l'abonnement ESPORT NEWS Premium (0,99 €/mois) sont gérés exclusivement par Apple (App Store) ou Google (Google Play). Nous ne collectons ni ne stockons aucune donnée bancaire ou de paiement.</li>
                   <li>Historique de facturation</li>
                   <li>Statut de l'abonnement</li>
                 </ul>
@@ -173,8 +174,7 @@ export default function PolitiqueConfidentialitePage() {
               <div>
                 <h3 className="text-lg font-semibold text-white mb-2">Fournisseurs de données esport :</h3>
                 <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><strong className="text-white">PandaScore :</strong> Fournit les données de tournois, matchs et équipes (aucune donnée utilisateur partagée)</li>
-                  <li><strong className="text-white">SportDevs :</strong> Fournit les flux de matchs en direct et actualités (aucune donnée utilisateur partagée)</li>
+                  <li><strong className="text-white">PandaScore :</strong> Fournit les données de tournois, matchs (y compris en direct), équipes et statistiques (aucune donnée utilisateur partagée)</li>
                 </ul>
               </div>
 

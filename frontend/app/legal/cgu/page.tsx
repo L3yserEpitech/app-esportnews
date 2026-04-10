@@ -229,8 +229,7 @@ export default function CGUPage() {
                 <h3 className="text-lg font-semibold text-white mb-2">7.1 Fournisseurs de données</h3>
                 <p>ESPORT NEWS agrège des données provenant de sources tierces :</p>
                 <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><strong className="text-white">PandaScore :</strong> Tournois, matchs, équipes, statistiques</li>
-                  <li><strong className="text-white">SportDevs :</strong> Matchs en direct, actualités esport</li>
+                  <li><strong className="text-white">PandaScore :</strong> Tournois, matchs (y compris en direct), équipes, statistiques</li>
                 </ul>
               </div>
 
@@ -376,10 +375,74 @@ export default function CGUPage() {
             </div>
           </section>
 
-          {/* Article 13 */}
+          {/* Article 13 - Abonnement Premium */}
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">
-              Article 13 - Contact
+              Article 13 - Abonnement Premium
+            </h2>
+            <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">13.1 Description de l'abonnement</h3>
+                <p>ESPORT NEWS propose un abonnement auto-renouvelable intitulé <strong className="text-white">ESPORT NEWS Premium</strong>, disponible sur iOS et Android.</p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">13.2 Tarif et durée</h3>
+                <div className="bg-[#060B13] rounded-lg p-4 border border-[#182859]/30">
+                  <p><strong className="text-white">Durée :</strong> 1 mois</p>
+                  <p><strong className="text-white">Prix :</strong> 0,99 € par mois (toutes taxes comprises)</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">13.3 Renouvellement automatique</h3>
+                <p>L'abonnement ESPORT NEWS Premium est automatiquement renouvelé chaque mois, sauf résiliation de votre part avant la fin de la période en cours. Le montant de <strong className="text-white">0,99 €</strong> est débité sur votre compte Apple ID ou Google Play selon votre plateforme, à chaque renouvellement.</p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">13.4 Comment annuler</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="font-semibold text-white mb-2">Sur iOS (iPhone / iPad) :</p>
+                    <ul className="list-disc list-inside ml-2 space-y-1 text-sm">
+                      <li>Ouvrez Réglages</li>
+                      <li>Appuyez sur votre nom (Apple ID)</li>
+                      <li>Appuyez sur Abonnements</li>
+                      <li>Sélectionnez ESPORT NEWS Premium</li>
+                      <li>Appuyez sur Annuler l'abonnement</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-2">Sur Android :</p>
+                    <ul className="list-disc list-inside ml-2 space-y-1 text-sm">
+                      <li>Ouvrez le Google Play Store</li>
+                      <li>Appuyez sur votre photo de profil en haut à droite</li>
+                      <li>Appuyez sur Abonnements</li>
+                      <li>Sélectionnez ESPORT NEWS Premium</li>
+                      <li>Appuyez sur Annuler l'abonnement</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400 mt-3">
+                  L'annulation prend effet à la fin de la période d'abonnement en cours. Vous conservez l'accès Premium jusqu'à cette date.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">13.5 Politique de remboursement</h3>
+                <p>Conformément à la réglementation européenne (Directive 2011/83/UE), vous disposez d'un droit de rétractation de <strong className="text-white">14 jours</strong> à compter de la souscription de l'abonnement. Toutefois, en accédant immédiatement au contenu numérique, vous reconnaissez renoncer expressément à ce droit de rétractation.</p>
+                <ul className="list-disc list-inside ml-2 space-y-1 text-sm mt-3">
+                  <li><strong className="text-white">Sur iOS :</strong> les demandes de remboursement sont gérées par Apple. Rendez-vous sur reportaproblem.apple.com.</li>
+                  <li><strong className="text-white">Sur Android :</strong> les demandes de remboursement sont gérées par Google. Rendez-vous sur play.google.com/store/account/subscriptions.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Article 14 */}
+          <section>
+            <h2 className="text-2xl font-semibold text-white mb-4">
+              Article 14 - Contact
             </h2>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-3">
               <p>Pour toute question concernant les présentes CGU :</p>

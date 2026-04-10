@@ -28,9 +28,14 @@ func RateLimitMiddleware(redisCache *cache.RedisCache) echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			// Always ensure the key has a TTL (guards against keys stuck without expiry)
 			if count == 1 {
-				// First request, set expiration
 				redisCache.Expire(ctx, key, 1*time.Minute)
+			} else {
+				ttl, ttlErr := redisCache.TTL(ctx, key)
+				if ttlErr == nil && ttl < 0 {
+					redisCache.Expire(ctx, key, 1*time.Minute)
+				}
 			}
 
 			if count > RateLimitPerMinute {

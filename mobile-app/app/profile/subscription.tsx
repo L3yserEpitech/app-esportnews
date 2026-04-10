@@ -102,18 +102,6 @@ export default function SubscriptionScreen() {
                             <View style={styles.checkIcon}>
                                 <Ionicons name="checkmark" size={16} color={COLORS.primary} />
                             </View>
-                            <Text style={styles.featureText}>Support prioritaire</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <View style={styles.checkIcon}>
-                                <Ionicons name="checkmark" size={16} color={COLORS.primary} />
-                            </View>
-                            <Text style={styles.featureText}>Badge exclusif sur votre profil</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <View style={styles.checkIcon}>
-                                <Ionicons name="checkmark" size={16} color={COLORS.primary} />
-                            </View>
                             <Text style={styles.featureText}>Soutenez le développement de l'app</Text>
                         </View>
                     </View>
@@ -150,6 +138,22 @@ export default function SubscriptionScreen() {
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
+
+                        <View style={styles.legalLinks}>
+                            <TouchableOpacity
+                                onPress={() => router.push('/legal/cgu')}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.legalLinkText}>Conditions d'utilisation (EULA)</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.legalSeparator}>•</Text>
+                            <TouchableOpacity
+                                onPress={() => router.push('/legal/politique-confidentialite')}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.legalLinkText}>Politique de confidentialité</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         <TouchableOpacity
                             onPress={restorePurchases}
@@ -329,6 +333,23 @@ const styles = StyleSheet.create({
     },
     buttonDisabled: {
         opacity: 0.6,
+    },
+    legalLinks: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        marginBottom: spacing.sm,
+    },
+    legalLinkText: {
+        color: COLORS.textMuted,
+        fontSize: 13,
+        textDecorationLine: 'underline',
+    },
+    legalSeparator: {
+        color: COLORS.textMuted,
+        fontSize: 13,
+        marginHorizontal: spacing.sm,
     },
     restoreButton: {
         alignItems: 'center',

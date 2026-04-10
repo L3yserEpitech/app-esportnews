@@ -27,7 +27,7 @@ class AuthService {
         user: user as UserData,
       };
     } catch (error: any) {
-      const message = error.response?.data?.error || "Erreur lors de l'inscription";
+      const message = error.response?.data?.message || error.response?.data?.error || "Erreur lors de l'inscription";
       throw new Error(message);
     }
   }
@@ -49,7 +49,7 @@ class AuthService {
         user: user as UserData,
       };
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Email ou mot de passe incorrect';
+      const message = error.response?.data?.message || error.response?.data?.error || 'Email ou mot de passe incorrect';
       throw new Error(message);
     }
   }
@@ -96,7 +96,7 @@ class AuthService {
       const response = await apiClient.post<UserData>('/api/auth/me', data);
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Impossible de mettre à jour le profil';
+      const message = error.response?.data?.message || error.response?.data?.error || 'Impossible de mettre à jour le profil';
       throw new Error(message);
     }
   }
@@ -130,7 +130,7 @@ class AuthService {
 
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Impossible d\'uploader la photo';
+      const message = error.response?.data?.message || error.response?.data?.error || 'Impossible d\'uploader la photo';
       throw new Error(message);
     }
   }
@@ -146,7 +146,7 @@ class AuthService {
       });
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Impossible de changer le mot de passe';
+      const message = error.response?.data?.message || error.response?.data?.error || 'Impossible de changer le mot de passe';
       throw new Error(message);
     }
   }

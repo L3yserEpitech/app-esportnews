@@ -25,6 +25,11 @@ export default function PolitiqueConfidentialiteScreen() {
         <BulletPoint>Équipes favorites</BulletPoint>
         <BulletPoint>Préférences de notifications</BulletPoint>
         <BulletPoint>Historique de lecture (compteur uniquement)</BulletPoint>
+        <BulletPoint>Statut d'abonnement Premium (actif/inactif)</BulletPoint>
+
+        <InfoBox type="info">
+          Les paiements de l'abonnement ESPORT NEWS Premium (0,99 €/mois) sont gérés exclusivement par Apple (App Store) ou Google (Google Play). Nous ne collectons ni ne stockons aucune donnée bancaire ou de paiement.
+        </InfoBox>
 
         <InfoBox type="success">
           Nous ne collectons AUCUNE donnée de navigation comportementale à des fins publicitaires.
@@ -61,6 +66,7 @@ export default function PolitiqueConfidentialiteScreen() {
         <BulletPoint><Text style={{ fontWeight: '600' }}>Compte inactif :</Text> Suppression après 3 ans d'inactivité</BulletPoint>
         <BulletPoint><Text style={{ fontWeight: '600' }}>Logs de sécurité :</Text> 12 mois maximum</BulletPoint>
         <BulletPoint><Text style={{ fontWeight: '600' }}>Factures :</Text> 10 ans (obligation légale)</BulletPoint>
+        <BulletPoint><Text style={{ fontWeight: '600' }}>Données d'abonnement :</Text> Conservées pendant la durée de l'abonnement + 3 ans après résiliation</BulletPoint>
       </Section>
 
       <Section title="Sécurité">
