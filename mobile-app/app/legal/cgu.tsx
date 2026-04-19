@@ -129,9 +129,71 @@ export default function CGUScreen() {
         <BulletPoint><Text style={{ fontWeight: '600' }}>Sur Android :</Text> les demandes de remboursement sont gérées par Google. Rendez-vous sur play.google.com/store/account/subscriptions.</BulletPoint>
       </Section>
 
+      <Section title="Clauses spécifiques Apple (application iOS)">
+        <Paragraph>
+          Les présentes dispositions s'appliquent uniquement à l'application iOS d'ESPORT NEWS obtenue via l'Apple App Store. En cas de conflit entre cette section et toute autre disposition des présentes CGU concernant l'application iOS, la présente section prévaudra.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Reconnaissance{'\n'}</Text>
+          Vous reconnaissez que les présentes CGU sont conclues uniquement entre vous et ESPORT NEWS, et non avec Apple Inc. ESPORT NEWS, et non Apple, est seule responsable de l'application iOS et de son contenu. Apple n'a aucune obligation de fournir un quelconque service de maintenance ou de support pour l'application.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Étendue de la licence{'\n'}</Text>
+          La licence qui vous est accordée pour l'application iOS est une licence limitée, non transférable, d'utilisation de l'application sur tout produit de marque Apple que vous possédez ou contrôlez, dans les conditions prévues par les Règles d'utilisation (« Usage Rules ») des Apple Media Services Terms and Conditions. L'application peut être accédée et utilisée par d'autres comptes associés à l'acheteur via le Partage familial ou l'achat en volume.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Maintenance et support{'\n'}</Text>
+          ESPORT NEWS est seule responsable de la fourniture des services de maintenance et de support relatifs à l'application iOS. Apple n'a aucune obligation de fournir des services de maintenance et de support pour l'application.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Garantie{'\n'}</Text>
+          ESPORT NEWS est seule responsable des garanties produit, qu'elles soient expresses ou implicites en vertu de la loi, dans la mesure où elles ne sont pas valablement exclues. En cas de non-conformité de l'application iOS à toute garantie applicable, vous pouvez le notifier à Apple, qui vous remboursera le prix d'achat de l'application (le cas échéant). Dans toute la mesure permise par la loi applicable, Apple n'aura aucune autre obligation de garantie concernant l'application, et toute réclamation, perte, responsabilité, dommage, coût ou dépense imputable à un défaut de conformité à une garantie sera à la seule charge d'ESPORT NEWS.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Réclamations produit{'\n'}</Text>
+          ESPORT NEWS, et non Apple, est responsable du traitement de toute réclamation formulée par vous ou un tiers concernant l'application iOS ou votre possession et/ou utilisation de celle-ci, y compris : (i) les réclamations en responsabilité du fait des produits ; (ii) toute réclamation selon laquelle l'application ne respecterait pas une exigence légale ou réglementaire applicable ; et (iii) les réclamations relatives à la protection des consommateurs, à la vie privée ou à toute législation similaire, y compris en lien avec l'utilisation par l'application des frameworks HealthKit et HomeKit, le cas échéant.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Droits de propriété intellectuelle{'\n'}</Text>
+          En cas de réclamation d'un tiers alléguant que l'application iOS ou votre possession et utilisation de celle-ci porte atteinte à ses droits de propriété intellectuelle, ESPORT NEWS, et non Apple, sera seule responsable de l'enquête, de la défense, du règlement et de la décharge de toute réclamation pour contrefaçon.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Conformité légale{'\n'}</Text>
+          Vous déclarez et garantissez que (i) vous ne vous trouvez pas dans un pays faisant l'objet d'un embargo du gouvernement des États-Unis ou désigné comme « pays soutenant le terrorisme » par ledit gouvernement ; et (ii) vous ne figurez sur aucune liste de parties interdites ou restreintes établie par le gouvernement des États-Unis.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Nom et coordonnées du développeur{'\n'}</Text>
+          Toute question, plainte ou réclamation relative à l'application iOS doit être adressée à :{'\n'}
+          ESPORT NEWS, 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France{'\n'}
+          Téléphone : +33 7 69 36 08 84{'\n'}
+          Email : juleslordet@proton.me
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Conditions des tiers{'\n'}</Text>
+          Vous devez respecter les conditions applicables des tiers lorsque vous utilisez l'application iOS.
+        </Paragraph>
+
+        <Paragraph>
+          <Text style={{ fontWeight: '600' }}>Tiers bénéficiaire{'\n'}</Text>
+          Vous reconnaissez et acceptez qu'Apple et ses filiales sont des tiers bénéficiaires des présentes CGU, et qu'après votre acceptation des présentes, Apple aura le droit (et sera réputée avoir accepté ce droit) de faire appliquer les présentes CGU à votre encontre en tant que tiers bénéficiaire.
+        </Paragraph>
+      </Section>
+
       <Section title="Contact">
         <Paragraph>
-          Pour toute question : contact@esportnews.fr
+          Pour toute question concernant les présentes CGU :{'\n'}
+          Email : juleslordet@proton.me{'\n'}
+          Téléphone : +33 7 69 36 08 84{'\n'}
+          Courrier : ESPORT NEWS, 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France
         </Paragraph>
       </Section>
     </LegalPageTemplate>

@@ -394,3 +394,67 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 
 	return nil
 }
+
+// DeleteAccount permanently deletes a user account after password verification
+func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password string) error {
+	// Use GORM if available
+	if s.gormDB != nil {
+		var user models.User
+		if err := s.gormDB.WithContext(ctx).First(&user, userID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return fmt.Errorf("user not found")
+			}
+			return fmt.Errorf("failed to query user: %w", err)
+		}
+
+		// Verify password
+		if err := utils.VerifyPassword(user.Password, password); err != nil {
+			return fmt.Errorf("incorrect password")
+		}
+
+		// Delete user (hard delete)
+		if err := s.gormDB.WithContext(ctx).Unscoped().Delete(&models.User{}, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete user: %w", err)
+		}
+
+		// Clear cached tokens
+		cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+
+		return nil
+	}
+
+	// Fallback to pgxpool
+	var currentHashedPassword string
+	err := s.db.QueryRow(ctx,
+		`SELECT password FROM public.users WHERE id = $1`,
+		userID,
+	).Scan(&currentHashedPassword)
+
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Verify password
+	if err := utils.VerifyPassword(currentHashedPassword, password); err != nil {
+		return fmt.Errorf("incorrect password")
+	}
+
+	// Delete user
+	_, err = s.db.Exec(ctx,
+		`DELETE FROM public.users WHERE id = $1`,
+		userID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	// Clear cached tokens
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+
+	return nil
+}

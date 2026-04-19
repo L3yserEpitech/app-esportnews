@@ -1,9 +1,7 @@
 import apiClient, { tokenManager } from './apiClient';
 import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types';
 
-export interface SignupData extends Omit<RegisterData, 'age'> {
-  age?: number;
-}
+export type SignupData = RegisterData;
 
 export interface LoginData extends LoginCredentials {}
 
@@ -147,6 +145,20 @@ class AuthService {
       return response.data;
     } catch (error: any) {
       const message = error.response?.data?.message || error.response?.data?.error || 'Impossible de changer le mot de passe';
+      throw new Error(message);
+    }
+  }
+  /**
+   * Suppression définitive du compte utilisateur
+   */
+  async deleteAccount(password: string): Promise<void> {
+    try {
+      await apiClient.delete('/api/auth/account', {
+        data: { password },
+      });
+      await this.removeToken();
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.response?.data?.error || 'Impossible de supprimer le compte';
       throw new Error(message);
     }
   }

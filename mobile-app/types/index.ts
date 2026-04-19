@@ -306,7 +306,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  age: number;
+  age?: number;
 }
 
 export interface AuthResponse {

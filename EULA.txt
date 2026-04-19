@@ -1,0 +1,276 @@
+Terms of Use (EULA)
+Last updated: 04/07/2026
+
+These Terms of Use (hereinafter "Terms" or "EULA") govern access to and use of the ESPORT NEWS platform, accessible via the website www.esportnews.fr and the iOS/Android mobile application.
+
+
+Article 1 - Purpose
+
+ESPORT NEWS is a news and information platform dedicated to esports, offering:
+- Real-time tracking of live esports matches (multi-game)
+- News and editorial articles about esports
+- Information on tournaments, teams, and competitions
+- An upcoming match calendar
+- Personalization features (favorite teams, notifications)
+
+Use of the platform implies full and unconditional acceptance of these Terms. If you do not accept these Terms, please do not use our services.
+
+
+Article 2 - Publisher
+
+Company name: ESPORT NEWS
+Legal form: Simplified Joint Stock Company (SAS)
+Share capital: EUR 1,000.00
+Registered office: 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France
+SIRET: 987 953 247 | SIREN: 98795324700010
+Email: contact@esportnews.fr
+
+
+Article 3 - Access to the Platform
+
+3.1 Free Access
+The majority of ESPORT NEWS content is freely accessible, without mandatory registration.
+
+3.2 Account Creation
+Some features require the creation of a user account (favorite teams, personalized notifications). Account creation is free.
+Requirements: be at least 13 years old, provide accurate and up-to-date information.
+
+3.3 Availability
+ESPORT NEWS strives to ensure platform accessibility 24/7, but does not guarantee continuous availability (maintenance, updates, technical incidents).
+
+3.4 Technical Requirements
+- Recent web browser (Chrome, Firefox, Safari, Edge)
+- Stable internet connection
+- For the mobile app: iOS 13+ or Android 8.0+
+
+
+Article 4 - Account Creation and Management
+
+4.1 Registration
+To create an account, you must provide:
+- First and last name
+- Valid email address (unique identifier)
+- Secure password
+- Date of birth (minimum age verification)
+
+4.2 Account Responsibility
+You are solely responsible for keeping your login credentials confidential. Any use of your account is presumed to have been made by you.
+In the event of fraudulent use or account theft, contact contact@esportnews.fr immediately.
+
+4.3 Accuracy of Information
+You agree to provide accurate, complete, and up-to-date information. ESPORT NEWS reserves the right to suspend or delete any account created with false or fraudulent information.
+
+4.4 One Account Per Person
+Creating multiple accounts by the same person is prohibited, unless expressly authorized in writing by ESPORT NEWS.
+
+4.5 Account Deletion
+You may delete your account at any time from your user profile. Deletion results in the permanent erasure of your personal data (except where legally required to retain it).
+
+
+Article 5 - Acceptable Use of the Platform
+
+By using ESPORT NEWS, you agree to:
+
+5.1 Prohibited Conduct
+- Not use the platform for illegal or fraudulent purposes
+- Not attempt to access other users' accounts
+- Not collect or extract data in bulk (unauthorized scraping or crawling)
+- Not circumvent security measures
+- Not distribute viruses, malware, or malicious code
+- Not impersonate another person or entity
+- Not post defamatory, abusive, racist, discriminatory, or illegal content
+- Not spam or send unsolicited communications
+- Not create automated accounts (bots)
+
+5.2 Penalties
+In the event of non-compliance with these rules, ESPORT NEWS reserves the right to:
+- Issue a warning
+- Temporarily suspend your account
+- Permanently delete your account
+- Take legal action if necessary
+
+
+Article 6 - Intellectual Property
+
+6.1 Protected Content
+All content on the ESPORT NEWS platform is protected by copyright and database law:
+- Editorial articles (texts, titles, descriptions)
+- Images, photographs, videos
+- ESPORT NEWS logo and brand
+- User interface design
+- Platform source code
+- Databases (tournaments, matches, teams)
+
+6.2 Granted Usage Rights
+Use of the platform grants you only a personal, private, and non-commercial right of access to the content.
+You may view and share content via native features (share buttons), but any reproduction, representation, extraction, or reuse for commercial purposes is strictly prohibited without prior written authorization.
+
+6.3 Third-Party Content
+Some content (team images, game logos, match videos) belongs to third parties (game publishers, tournament organizers, esports teams).
+ESPORT NEWS uses this content under the right of quotation and reporting. Credits are systematically indicated when required.
+
+6.4 Reporting Infringement
+If you believe that content infringes your intellectual property rights, contact us at contact@esportnews.fr with:
+- Precise identification of the disputed content (URL)
+- Proof of your ownership of the rights
+- Your full contact details
+
+
+Article 7 - Match Data and Third-Party Information
+
+7.1 Data Providers
+ESPORT NEWS aggregates data from third-party sources:
+- PandaScore: Tournaments, matches (including live), teams, statistics
+
+7.2 Accuracy of Information
+ESPORT NEWS strives to ensure the accuracy and reliability of the information displayed, but cannot guarantee its completeness or freedom from errors.
+Match schedules, results, and rankings are provided for informational purposes only. ESPORT NEWS shall not be held liable for errors or omissions from third-party sources.
+
+7.3 External Links (Streams)
+The platform provides links to live broadcasts (Twitch, YouTube, etc.). These links open in a new tab and redirect you to third-party platforms.
+ESPORT NEWS is not responsible for the content of these streams or the terms of use of third-party platforms.
+
+
+Article 8 - Advertising
+
+8.1 Internal Advertising
+ESPORT NEWS displays advertising banners managed internally (without third-party ad networks such as Google AdSense or Meta Ads).
+
+8.2 Ad Display
+- Desktop version: Advertising column visible to all users (including Premium subscribers)
+- Mobile version: Advertising popups disabled for Premium subscribers only
+
+8.3 No Advertising Tracking
+- No third-party advertising cookies
+- No behavioral tracking
+- Simple display of images/videos provided by commercial partners
+
+8.4 Liability
+ESPORT NEWS is not responsible for the content of advertisements or the websites to which they redirect.
+
+
+Article 9 - Personal Data
+
+The collection, processing, and protection of your personal data are governed by our Privacy Policy, in compliance with the GDPR.
+By using ESPORT NEWS, you accept the data processing described in this policy.
+You have rights regarding your data (access, rectification, deletion, portability, objection). To exercise them, consult the "Your Rights" section of our Privacy Policy.
+
+
+Article 10 - Limitation of Liability
+
+10.1 Service Availability
+ESPORT NEWS does not guarantee uninterrupted availability of the platform. The service may be suspended for maintenance, updates, or technical incidents.
+
+10.2 Content Accuracy
+ESPORT NEWS strives to provide accurate and up-to-date information, but cannot be held liable for errors, omissions, or inaccuracies in the content (schedules, results, rankings).
+
+10.3 Third-Party Content and Services
+ESPORT NEWS is not responsible for content, products, or services offered by third parties via external links or integrations (streams, advertising, APIs).
+
+10.4 Indirect Damages
+ESPORT NEWS shall not be held liable for indirect damages, data loss, loss of profit, or damages resulting from the use or inability to use the platform.
+
+10.5 Force Majeure
+ESPORT NEWS cannot be held liable for failure to fulfill its obligations in the event of force majeure (natural disaster, widespread internet outage, act of war, etc.).
+
+
+Article 11 - Modification of Terms
+
+ESPORT NEWS reserves the right to modify these Terms at any time.
+Any substantial modification will be notified to registered users by email or platform notification, at least 30 days before it takes effect.
+Continued use of the platform after modification constitutes acceptance of the new Terms. If you do not accept the modifications, you must stop using the platform.
+
+
+Article 12 - Governing Law and Jurisdiction
+
+These Terms are governed by French law.
+Any dispute relating to the interpretation or execution of these Terms shall be submitted to the competent courts of Creteil, unless mandatory provisions apply (particularly for consumers residing in the European Union).
+
+Consumer Mediation
+In accordance with Article L.612-1 of the French Consumer Code, in the event of a dispute, you may seek free mediation before taking legal action.
+
+
+Article 13 - Premium Subscription
+
+13.1 Subscription Description
+ESPORT NEWS offers an auto-renewable subscription called ESPORT NEWS Premium, available on iOS and Android.
+
+13.2 Price and Duration
+- Duration: 1 month
+- Price: EUR 0.99 per month (VAT included)
+
+13.3 Automatic Renewal
+The ESPORT NEWS Premium subscription automatically renews every month unless cancelled before the end of the current period. The amount of EUR 0.99 is charged to your Apple ID or Google Play account depending on your platform, at each renewal.
+
+13.4 How to Cancel
+
+On iOS (iPhone / iPad):
+1. Open Settings
+2. Tap your name (Apple ID)
+3. Tap Subscriptions
+4. Select ESPORT NEWS Premium
+5. Tap Cancel Subscription
+
+On Android:
+1. Open the Google Play Store
+2. Tap your profile picture in the top right corner
+3. Tap Subscriptions
+4. Select ESPORT NEWS Premium
+5. Tap Cancel Subscription
+
+Cancellation takes effect at the end of the current subscription period. You retain Premium access until that date.
+
+13.5 Refund Policy
+In accordance with European regulations (Directive 2011/83/EU), you have a 14-day right of withdrawal from the date of subscription. However, by immediately accessing the digital content, you expressly acknowledge waiving this right of withdrawal.
+
+- On iOS: Refund requests are handled by Apple. Visit reportaproblem.apple.com.
+- On Android: Refund requests are handled by Google. Visit play.google.com/store/account/subscriptions.
+
+
+Article 14 - Apple-Specific Terms (iOS App)
+
+The following provisions apply solely to the ESPORT NEWS iOS application obtained through the Apple App Store. In the event of any conflict between this Article and any other provision of these Terms with respect to the iOS application, this Article shall prevail.
+
+14.1 Acknowledgment
+You acknowledge that these Terms are concluded between you and ESPORT NEWS only, and not with Apple Inc. ("Apple"). ESPORT NEWS, not Apple, is solely responsible for the iOS application and its content. Apple has no obligation whatsoever to furnish any maintenance or support services with respect to the application.
+
+14.2 Scope of License
+The license granted to you for the iOS application is a limited, non-transferable license to use the application on any Apple-branded product that you own or control and as permitted by the Usage Rules set forth in the Apple Media Services Terms and Conditions, except that the application may be accessed and used by other accounts associated with you via Family Sharing or volume purchasing.
+
+14.3 Maintenance and Support
+ESPORT NEWS is solely responsible for providing any maintenance and support services with respect to the iOS application, as specified in these Terms, or as required under applicable law. You acknowledge that Apple has no obligation whatsoever to furnish any maintenance and support services with respect to the application.
+
+14.4 Warranty
+ESPORT NEWS is solely responsible for any product warranties, whether express or implied by law, to the extent not effectively disclaimed. In the event of any failure of the iOS application to conform to any applicable warranty, you may notify Apple, and Apple will refund the purchase price for the application (if any) to you. To the maximum extent permitted by applicable law, Apple will have no other warranty obligation whatsoever with respect to the application. Any claims, losses, liabilities, damages, costs, or expenses attributable to any failure to conform to any warranty will be the sole responsibility of ESPORT NEWS.
+
+14.5 Product Claims
+ESPORT NEWS, not Apple, is responsible for addressing any claims by you or any third party relating to the iOS application or your possession and/or use of it, including but not limited to: (i) product liability claims; (ii) any claim that the application fails to conform to any applicable legal or regulatory requirement; and (iii) claims arising under consumer protection, privacy, or similar legislation, including in connection with the application's use of HealthKit and HomeKit frameworks, if applicable.
+
+14.6 Intellectual Property Rights
+In the event of any third-party claim that the iOS application or your possession and use of the application infringes that third party's intellectual property rights, ESPORT NEWS, not Apple, will be solely responsible for the investigation, defense, settlement, and discharge of any such intellectual property infringement claim.
+
+14.7 Legal Compliance
+You represent and warrant that (i) you are not located in a country that is subject to a U.S. Government embargo, or that has been designated by the U.S. Government as a "terrorist supporting" country; and (ii) you are not listed on any U.S. Government list of prohibited or restricted parties.
+
+14.8 Developer Name and Address
+Any questions, complaints, or claims with respect to the iOS application should be directed to:
+ESPORT NEWS, 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France
+Telephone: +33 7 69 36 08 84
+Email: juleslordet@proton.me
+
+14.9 Third-Party Terms of Agreement
+You must comply with applicable third-party terms of agreement when using the iOS application.
+
+14.10 Third-Party Beneficiary
+You acknowledge and agree that Apple, and Apple's subsidiaries, are third-party beneficiaries of these Terms, and that, upon your acceptance of these Terms, Apple will have the right (and will be deemed to have accepted the right) to enforce these Terms against you as a third-party beneficiary thereof.
+
+
+Article 15 - Contact
+
+For any questions regarding these Terms:
+
+Email: contact@esportnews.fr
+Mail: ESPORT NEWS, 15 Rue d'Estienne d'Orves, 94220 Charenton-le-Pont, France
+
+
+By using the ESPORT NEWS platform, you acknowledge that you have read, understood, and accepted these Terms of Use.

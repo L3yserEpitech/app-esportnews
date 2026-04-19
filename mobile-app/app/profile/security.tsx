@@ -24,7 +24,7 @@ const { width } = Dimensions.get('window');
 
 export default function SecurityScreen() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -34,6 +34,9 @@ export default function SecurityScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleChangePassword = async () => {
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
@@ -71,6 +74,41 @@ export default function SecurityScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    if (!deletePassword.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe pour confirmer la suppression');
+      return;
+    }
+
+    Alert.alert(
+      'Supprimer mon compte',
+      'Cette action est irréversible. Toutes vos données seront définitivement supprimées. Êtes-vous sûr ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer définitivement',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              await authService.deleteAccount(deletePassword);
+              await logout();
+              Alert.alert(
+                'Compte supprimé',
+                'Votre compte a été supprimé avec succès.',
+                [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+              );
+            } catch (error: any) {
+              Alert.alert('Erreur', error.message || 'Impossible de supprimer le compte');
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -222,6 +260,54 @@ export default function SecurityScreen() {
             <Text style={styles.cancelButtonText}>Retour</Text>
           </TouchableOpacity>
 
+          {/* Delete Account Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: '#FF453A' }]}>Zone de danger</Text>
+            <BlurView intensity={10} tint="light" style={[styles.glassCard, { borderColor: 'rgba(255, 69, 58, 0.2)' }]}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Confirmez votre mot de passe</Text>
+                <TextInput
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  mode="flat"
+                  placeholder="Entrez votre mot de passe"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showDeletePassword}
+                  textColor={COLORS.text}
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor="#FF453A"
+                  left={<TextInput.Icon icon="lock-outline" color={COLORS.textMuted} />}
+                  right={
+                    <TextInput.Icon
+                      icon={showDeletePassword ? 'eye-off' : 'eye'}
+                      color={COLORS.textMuted}
+                      onPress={() => setShowDeletePassword(!showDeletePassword)}
+                    />
+                  }
+                />
+              </View>
+            </BlurView>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleDeleteAccount}
+            disabled={isDeleting || !deletePassword}
+            activeOpacity={0.8}
+            style={{ marginBottom: spacing.md }}
+          >
+            <View style={[styles.deleteButton, (isDeleting || !deletePassword) && { opacity: 0.5 }]}>
+              {isDeleting ? (
+                <ActivityIndicator color="#FF453A" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={20} color="#FF453A" />
+                  <Text style={styles.deleteButtonText}>Supprimer mon compte</Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -327,5 +413,21 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteButton: {
+    height: 56,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 58, 0.3)',
+  },
+  deleteButtonText: {
+    color: '#FF453A',
+    fontSize: 16,
+    fontWeight: 'bold',
   }
 });

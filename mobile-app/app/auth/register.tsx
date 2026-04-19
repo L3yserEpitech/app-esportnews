@@ -41,15 +41,18 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     setError('');
 
-    if (!name || !email || !age || !password || !confirmPassword) {
+    if (!name || !email || !password || !confirmPassword) {
       setError('Veuillez remplir tous le champs');
       return;
     }
 
-    const ageNum = parseInt(age);
-    if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
-      setError('Veuillez entrer un âge valide (minimum 13 ans)');
-      return;
+    let ageNum: number | undefined;
+    if (age.trim()) {
+      ageNum = parseInt(age);
+      if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
+        setError('Veuillez entrer un âge valide (minimum 13 ans)');
+        return;
+      }
     }
 
     if (name.trim().length < 2) {
@@ -80,7 +83,7 @@ export default function RegisterScreen() {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        age: ageNum,
+        ...(ageNum !== undefined && { age: ageNum }),
       });
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -192,7 +195,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Âge</Text>
+                <Text style={styles.inputLabel}>Âge <Text style={{ color: COLORS.textMuted, fontWeight: '400' }}>(Optionnel)</Text></Text>
                 <TextInput
                   value={age}
                   onChangeText={setAge}

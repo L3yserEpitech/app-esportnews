@@ -31,6 +31,7 @@ func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
 	g.POST("/auth/change-password", h.ChangePassword)   // Change password
 	g.POST("/auth/logout", h.Logout)
 	g.POST("/auth/refresh", h.RefreshToken)
+	g.DELETE("/auth/account", h.DeleteAccount)
 }
 
 func (h *AuthHandler) Signup(c echo.Context) error {
@@ -302,6 +303,44 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"access_token": newAccessToken})
+}
+
+func (h *AuthHandler) DeleteAccount(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tokenString := extractToken(c)
+	if tokenString == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Missing token")
+	}
+
+	claims, err := h.authService.VerifyToken(tokenString)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	var input models.DeleteAccountInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	if input.Password == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Password is required")
+	}
+
+	// Blacklist the access token before deleting the user (prevents race window)
+	if err := h.authService.Logout(ctx, claims.ID); err != nil {
+		c.Logger().Warnf("Failed to blacklist JWT for user %d during account deletion: %v", claims.UserID, err)
+	}
+
+	if err := h.authService.DeleteAccount(ctx, claims.UserID, input.Password); err != nil {
+		if err.Error() == "incorrect password" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Incorrect password")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Account deleted successfully"})
 }
 
 // Helper functions

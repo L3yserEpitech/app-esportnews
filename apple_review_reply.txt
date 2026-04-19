@@ -1,0 +1,22 @@
+Hello,
+
+Thank you for your feedback regarding Guideline 3.1.2(c).
+
+We have submitted a new build (version 1.0.0, build 16) that addresses the issue.
+
+The following updates have been made:
+
+1. Custom EULA updated in App Store Connect — We have updated our custom EULA in the License Agreement field to include all mandatory clauses required by Schedule 2 of the Apple Developer Program License Agreement (Acknowledgement, Scope of License, Maintenance and Support, Warranty, Product Claims, Intellectual Property Rights, Legal Compliance, Developer Contact Information, Third Party Terms, and Third Party Beneficiary). The EULA is applied to all territories.
+
+2. Functional link to the Terms of Use in the App Description — We have added a direct, functional link to our Terms of Use (EULA) in the App Store description:
+   - Terms of Use (EULA): https://www.esportnews.fr/legal/cgu
+   - Privacy Policy: https://www.esportnews.fr/legal/politique-confidentialite
+
+3. In-app functional links — Functional links to both the Terms of Use and the Privacy Policy are displayed on the subscription screen inside the app, as shown in the previous screen recording.
+
+4. Public web page aligned with the EULA — The page https://www.esportnews.fr/legal/cgu has been updated to reflect the exact same EULA content as the one declared in App Store Connect, including the full Apple-specific Terms (Article 14).
+
+Please let us know if any additional information is needed.
+
+Best regards,
+ESPORT NEWS Team

@@ -249,15 +249,6 @@ export default function TabsLayout() {
           />
           <Tabs.Screen
             name="profile"
-            listeners={{
-              tabPress: (e) => {
-                // Si l'utilisateur n'est pas connecté, rediriger vers login
-                if (!isLoading && !isAuthenticated) {
-                  e.preventDefault();
-                  router.push('/auth/login');
-                }
-              },
-            }}
             options={{
               headerTitle: 'Mon Profil',
               headerTransparent: true,

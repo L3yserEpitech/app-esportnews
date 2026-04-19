@@ -232,25 +232,38 @@ export default function ProfileScreen() {
             </Section>
           </>
         ) : (
-          <Section title="Général">
-            <ProfileItem
-              icon="log-in-outline"
-              title="Se connecter"
-              subtitle="Accéder à votre espace personnel"
-              onPress={() => router.push('/auth/login')}
-              iconBg="rgba(48, 209, 88, 0.15)"
-              color="#30D158"
-            />
-            <View style={styles.divider} />
-            <ProfileItem
-              icon="person-add-outline"
-              title="Créer un compte"
-              subtitle="Rejoindre la communauté Esport News"
-              onPress={() => router.push('/auth/register')}
-              iconBg="rgba(10, 132, 255, 0.15)"
-              color="#0A84FF"
-            />
-          </Section>
+          <>
+            <Section title="Premium">
+              <ProfileItem
+                icon="star-outline"
+                title="Abonnement Premium"
+                subtitle="Zéro pub, soutenez l'app"
+                onPress={() => router.push('/profile/subscription' as any)}
+                iconBg="rgba(242, 46, 98, 0.15)"
+                color={COLORS.primary}
+              />
+            </Section>
+
+            <Section title="Général">
+              <ProfileItem
+                icon="log-in-outline"
+                title="Se connecter"
+                subtitle="Accéder à votre espace personnel"
+                onPress={() => router.push('/auth/login')}
+                iconBg="rgba(48, 209, 88, 0.15)"
+                color="#30D158"
+              />
+              <View style={styles.divider} />
+              <ProfileItem
+                icon="person-add-outline"
+                title="Créer un compte"
+                subtitle="Rejoindre la communauté Esport News"
+                onPress={() => router.push('/auth/register')}
+                iconBg="rgba(10, 132, 255, 0.15)"
+                color="#0A84FF"
+              />
+            </Section>
+          </>
         )}
 
         <Section title="Suivez-nous">
