@@ -16,6 +16,7 @@ import {
 } from 'react-native-iap';
 import { useSubscriptionMock } from './useSubscriptionMock';
 import { subscriptionService } from '@/services';
+import { useAuth } from '@/hooks/useAuth';
 
 // =====================================================
 // Configuration Mode Mock (Développement sans appareil)
@@ -44,11 +45,17 @@ export function useSubscription() {
     console.log('⚠️ [useSubscription] Using MOCK mode (no real purchases)');
     return useSubscriptionMock();
   }
+  const { user } = useAuth();
+  const serverPremium = user?.premium === true;
+
   const [products, setProducts] = useState<ProductSubscription[]>([]);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [iapSubscribed, setIapSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Premium = serveur (user.premium) OU achat IAP en cours de session
+  const isSubscribed = serverPremium || iapSubscribed;
 
   useEffect(() => {
     let purchaseUpdateSubscription: { remove: () => void } | null = null;
@@ -78,12 +85,14 @@ export function useSubscription() {
           }
         }
 
-        // Vérifier si l'utilisateur a déjà un abonnement actif
-        const purchases = await getAvailablePurchases();
-        const hasActiveSubscription = purchases.some(
-          (purchase) => SUBSCRIPTION_SKUS.includes(purchase.productId)
-        );
-        setIsSubscribed(hasActiveSubscription);
+        // Ne PAS appeler getAvailablePurchases() au démarrage.
+        // En sandbox Apple, cette fonction retourne tous les achats (y compris expirés),
+        // ce qui fait que tous les utilisateurs apparaissent comme Premium.
+        // Le statut premium est déterminé par :
+        //   - user.premium du backend (pour les utilisateurs connectés, via AuthContext)
+        //   - le purchase listener (pour les achats en cours de session)
+        //   - le bouton "Restaurer mes achats" (action explicite)
+        setIapSubscribed(false);
 
       } catch (err) {
         console.error('IAP initialization error:', err);
@@ -108,8 +117,9 @@ export function useSubscription() {
             });
             console.log('[useSubscription] Backend validation successful');
           } catch (backendError) {
-            // Si le backend échoue (réseau, serveur down), on continue quand même
-            // L'utilisateur a payé, le backend re-validera au prochain restore
+            // Si le backend échoue (réseau, serveur down, utilisateur non connecté),
+            // on continue car l'utilisateur a payé via Apple/Google.
+            // Le backend re-validera au prochain restore ou login.
             console.warn('[useSubscription] Backend validation failed, continuing:', backendError);
           }
 
@@ -117,7 +127,7 @@ export function useSubscription() {
           await finishTransaction({ purchase, isConsumable: false });
 
           // 3. Mettre à jour le statut local
-          setIsSubscribed(true);
+          setIapSubscribed(true);
           setPurchasing(false);
 
           Alert.alert(
@@ -129,7 +139,7 @@ export function useSubscription() {
           console.error('Error finishing transaction:', finishError);
           // Même en cas d'erreur de finishTransaction, marquer comme abonné
           // car le paiement a été effectué
-          setIsSubscribed(true);
+          setIapSubscribed(true);
           setPurchasing(false);
         }
       }
@@ -195,23 +205,31 @@ export function useSubscription() {
       );
 
       if (activePurchase) {
-        // Valider avec le backend pour synchroniser le statut premium en DB
+        // Valider avec le backend pour vérifier que l'abonnement est encore actif
         try {
-          await subscriptionService.validateReceipt({
+          const result = await subscriptionService.validateReceipt({
             transactionId: activePurchase.transactionId ?? undefined,
             productId: activePurchase.productId,
             purchaseToken: activePurchase.purchaseToken ?? undefined,
           });
-          console.log('[useSubscription] Backend restore validation successful');
-        } catch (backendError) {
-          // Le store dit que c'est valide, on continue même si le backend échoue
-          console.warn('[useSubscription] Backend restore validation failed:', backendError);
-        }
 
-        setIsSubscribed(true);
-        Alert.alert('Succès', 'Votre abonnement a été restauré !');
+          if (result.premium) {
+            setIapSubscribed(true);
+            Alert.alert('Succès', 'Votre abonnement a été restauré !');
+          } else {
+            // Backend dit que l'abonnement est expiré/révoqué
+            setIapSubscribed(false);
+            Alert.alert('Info', 'Votre abonnement a expiré.');
+          }
+        } catch (backendError) {
+          // Backend indisponible — on ne peut pas vérifier, on marque comme actif
+          // car le store a retourné un achat. Le backend re-validera plus tard.
+          console.warn('[useSubscription] Backend restore validation failed:', backendError);
+          setIapSubscribed(true);
+          Alert.alert('Succès', 'Votre abonnement a été restauré !');
+        }
       } else {
-        setIsSubscribed(false);
+        setIapSubscribed(false);
         Alert.alert('Info', 'Aucun abonnement actif trouvé');
       }
     } catch (err) {
