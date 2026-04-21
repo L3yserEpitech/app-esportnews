@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
 import {
   initConnection,
@@ -54,6 +54,11 @@ export function useSubscription() {
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Vrai uniquement si l'utilisateur a cliqué "S'abonner" pendant cette session.
+  // Évite que le sandbox Apple ne rejoue d'anciennes transactions au démarrage
+  // et marque un nouveau compte comme premium sans interaction.
+  const hasInitiatedPurchase = useRef(false);
+
   // Premium = serveur (user.premium) OU achat IAP en cours de session
   const isSubscribed = serverPremium || iapSubscribed;
 
@@ -104,6 +109,23 @@ export function useSubscription() {
 
     // Listener pour les achats réussis
     purchaseUpdateSubscription = purchaseUpdatedListener(async (purchase: Purchase) => {
+      // Si l'utilisateur n'a pas initié d'achat dans cette session, il s'agit
+      // d'une transaction rejouée par le sandbox Apple (historique d'achats non
+      // finalisés sur le même Apple ID de test). On finalise pour nettoyer la
+      // file, sans toucher au backend ni au statut premium.
+      if (!hasInitiatedPurchase.current) {
+        console.log('[useSubscription] Ignoring replayed purchase:', purchase.productId);
+        try {
+          await finishTransaction({ purchase, isConsumable: false });
+        } catch (e) {
+          console.warn('[useSubscription] Failed to finish replayed transaction:', e);
+        }
+        return;
+      }
+
+      // Reset immédiat pour éviter un double-traitement si plusieurs events arrivent
+      hasInitiatedPurchase.current = false;
+
       const receipt = purchase.purchaseToken;
 
       if (receipt) {
@@ -149,6 +171,7 @@ export function useSubscription() {
     purchaseErrorSubscription = purchaseErrorListener((err: PurchaseError) => {
       console.error('Purchase error:', err);
       setPurchasing(false);
+      hasInitiatedPurchase.current = false;
 
       // Ne pas afficher d'erreur si l'utilisateur a annulé
       if (err.code !== ErrorCode.UserCancelled) {
@@ -177,6 +200,7 @@ export function useSubscription() {
 
     setPurchasing(true);
     setError(null);
+    hasInitiatedPurchase.current = true;
 
     try {
       // Nouvelle API v14 : requestPurchase avec type 'subs'
@@ -190,6 +214,7 @@ export function useSubscription() {
     } catch (err) {
       console.error('Subscription request error:', err);
       setPurchasing(false);
+      hasInitiatedPurchase.current = false;
       setError('Impossible de lancer l\'achat');
     }
   }, [products]);
