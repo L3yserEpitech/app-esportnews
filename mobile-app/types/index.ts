@@ -138,6 +138,13 @@ export interface User {
   notif_articles?: boolean;
   notif_news?: boolean;
   notif_matchs?: boolean;
+
+  // IAP (In-App Purchase) — iOS App Store & Google Play
+  iap_platform?: string;
+  iap_product_id?: string;
+  iap_transaction_id?: string;
+  iap_original_transaction_id?: string;
+  iap_expires_at?: string;
 }
 
 // Advertisement types

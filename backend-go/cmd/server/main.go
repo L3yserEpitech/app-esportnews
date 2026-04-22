@@ -181,6 +181,7 @@ func main() {
 	matchSubHandler := handlers.NewMatchSubHandler(authService, gormDB)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
 	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
+	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -196,6 +197,7 @@ func main() {
 	matchSubHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
 	iapHandler.RegisterRoutes(apiGroup)        // IAP validation (JWT required)
+	appleWebhookHandler.RegisterRoutes(apiGroup) // Apple Server Notifications V2 (public, JWS-signed)
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
@@ -209,6 +211,11 @@ func main() {
 	notifScheduler := services.NewNotificationScheduler(gormDB, redisClient, expoPushService, logger)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	go notifScheduler.Start(schedulerCtx)
+
+	// Start IAP validation scheduler (daily re-validation of Apple/Google receipts)
+	iapScheduler := services.NewIAPValidationScheduler(gormDB, iapService, logger)
+	iapSchedulerCtx, iapSchedulerCancel := context.WithCancel(context.Background())
+	go iapScheduler.Start(iapSchedulerCtx)
 
 	// Start server
 	go func() {
@@ -226,8 +233,9 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Stop notification scheduler
+	// Stop schedulers
 	schedulerCancel()
+	iapSchedulerCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

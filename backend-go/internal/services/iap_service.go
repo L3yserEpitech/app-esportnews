@@ -33,12 +33,13 @@ type IAPConfig struct {
 
 // IAPValidationResult represents the result of an IAP validation
 type IAPValidationResult struct {
-	Platform      string
-	ProductID     string
-	TransactionID string
-	ExpiresAt     time.Time
-	IsValid       bool
-	Status        string
+	Platform              string
+	ProductID             string
+	TransactionID         string
+	OriginalTransactionID string
+	ExpiresAt             time.Time
+	IsValid               bool
+	Status                string
 }
 
 // IAPService handles in-app purchase validation for iOS and Android
@@ -146,11 +147,12 @@ func (s *IAPService) ValidateApplePurchase(ctx context.Context, transactionID st
 	}
 
 	result := &IAPValidationResult{
-		Platform:      "ios",
-		ProductID:     tx.ProductID,
-		TransactionID: transactionID,
-		IsValid:       true,
-		Status:        "active",
+		Platform:              "ios",
+		ProductID:             tx.ProductID,
+		TransactionID:         transactionID,
+		OriginalTransactionID: tx.OriginalTransactionId,
+		IsValid:               true,
+		Status:                "active",
 	}
 
 	// Check expiration
@@ -223,6 +225,10 @@ func (s *IAPService) UpdateUserIAPStatus(ctx context.Context, userID int64, resu
 		"iap_platform":       result.Platform,
 		"iap_product_id":     result.ProductID,
 		"iap_transaction_id": result.TransactionID,
+	}
+
+	if result.OriginalTransactionID != "" {
+		updates["iap_original_transaction_id"] = result.OriginalTransactionID
 	}
 
 	if !result.ExpiresAt.IsZero() {

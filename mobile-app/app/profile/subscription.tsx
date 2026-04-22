@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     View,
     StyleSheet,
@@ -18,12 +18,27 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSubscription } from '@/hooks';
+import { useAuth } from '@/hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
 export default function SubscriptionScreen() {
     const router = useRouter();
     const { products, isSubscribed, loading, purchasing, subscribe, restorePurchases } = useSubscription();
+    const { user } = useAuth();
+
+    // Distinguer un user "jamais abonné" d'un user "expiré".
+    // Un user expiré = premium=false MAIS iap_expires_at défini dans le passé.
+    const expiredAt = useMemo(() => {
+        if (isSubscribed) return null;
+        if (!user?.iap_expires_at) return null;
+        const d = new Date(user.iap_expires_at);
+        if (Number.isNaN(d.getTime())) return null;
+        return d.getTime() < Date.now() ? d : null;
+    }, [isSubscribed, user?.iap_expires_at]);
+
+    const formatDate = (d: Date) =>
+        d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
     const handleSubscribe = () => {
         console.log('Products loaded:', products);
@@ -79,9 +94,24 @@ export default function SubscriptionScreen() {
                     >
                         <Ionicons name="star" size={40} color="white" />
                     </LinearGradient>
-                    <Text style={styles.mainTitle}>Passez au Premium</Text>
-                    <Text style={styles.subtitle}>Profitez d'une expérience optimale</Text>
+                    <Text style={styles.mainTitle}>
+                        {expiredAt ? 'Réabonnez-vous au Premium' : 'Passez au Premium'}
+                    </Text>
+                    <Text style={styles.subtitle}>
+                        {expiredAt
+                            ? `Votre abonnement a expiré le ${formatDate(expiredAt)}`
+                            : "Profitez d'une expérience optimale"}
+                    </Text>
                 </View>
+
+                {expiredAt && (
+                    <View style={styles.expiredBanner}>
+                        <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+                        <Text style={styles.expiredBannerText}>
+                            Abonnement expiré — réactivez Premium en un clic
+                        </Text>
+                    </View>
+                )}
 
                 <BlurView intensity={20} tint="light" style={styles.card}>
                     <View style={styles.priceContainer}>
@@ -132,7 +162,9 @@ export default function SubscriptionScreen() {
                                     <ActivityIndicator color="white" />
                                 ) : (
                                     <>
-                                        <Text style={styles.subscribeButtonText}>S'abonner maintenant</Text>
+                                        <Text style={styles.subscribeButtonText}>
+                                            {expiredAt ? 'Réabonnez-vous' : "S'abonner maintenant"}
+                                        </Text>
                                         <Ionicons name="arrow-forward" size={20} color="white" />
                                     </>
                                 )}
@@ -315,6 +347,25 @@ const styles = StyleSheet.create({
     },
     subscribedContainer: {
         marginBottom: spacing.lg,
+    },
+    expiredBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(242, 46, 98, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(242, 46, 98, 0.3)',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: borderRadius.lg,
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
+    },
+    expiredBannerText: {
+        color: COLORS.text,
+        fontSize: 14,
+        fontWeight: '500',
+        flexShrink: 1,
     },
     subscribedBadge: {
         flexDirection: 'row',
