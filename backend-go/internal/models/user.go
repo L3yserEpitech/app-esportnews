@@ -40,7 +40,7 @@ type User struct {
 	// IAP (In-App Purchase) — iOS App Store & Google Play
 	IAPPlatform              *string    `json:"iap_platform,omitempty" gorm:"column:iap_platform"`
 	IAPProductID             *string    `json:"iap_product_id,omitempty" gorm:"column:iap_product_id"`
-	IAPTransactionID         *string    `json:"iap_transaction_id,omitempty" gorm:"column:iap_transaction_id;uniqueIndex"`
+	IAPTransactionID         *string    `json:"iap_transaction_id,omitempty" gorm:"column:iap_transaction_id;index"`
 	IAPOriginalTransactionID *string    `json:"iap_original_transaction_id,omitempty" gorm:"column:iap_original_transaction_id;index"`
 	IAPExpiresAt             *time.Time `json:"iap_expires_at,omitempty" gorm:"column:iap_expires_at"`
 }

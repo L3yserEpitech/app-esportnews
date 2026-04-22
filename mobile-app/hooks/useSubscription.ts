@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   initConnection,
   endConnection,
@@ -17,6 +18,48 @@ import {
 import { useSubscriptionMock } from './useSubscriptionMock';
 import { subscriptionService } from '@/services';
 import { useAuth } from '@/hooks/useAuth';
+
+// Clé AsyncStorage pour persister l'intention d'achat à travers un force-kill.
+// Si l'user clique "S'abonner", confirme Face ID, mais kill l'app avant que
+// finishTransaction ne passe, Apple rejouera l'event au prochain démarrage.
+// On doit alors valider l'achat avec le backend — mais sans ce flag on
+// confondrait avec un replay sandbox d'un autre compte de test.
+const PURCHASE_INTENT_KEY = '@esport/purchase_intent';
+const PURCHASE_INTENT_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+async function writePurchaseIntent(productId: string): Promise<void> {
+  try {
+    const payload = JSON.stringify({ productId, ts: Date.now() });
+    await AsyncStorage.setItem(PURCHASE_INTENT_KEY, payload);
+  } catch (e) {
+    console.warn('[useSubscription] Failed to persist purchase intent:', e);
+  }
+}
+
+async function clearPurchaseIntent(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PURCHASE_INTENT_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+async function readRecentPurchaseIntent(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(PURCHASE_INTENT_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { ts?: number };
+    if (typeof parsed.ts !== 'number') return false;
+    const fresh = Date.now() - parsed.ts < PURCHASE_INTENT_TTL_MS;
+    if (!fresh) {
+      await clearPurchaseIntent();
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // =====================================================
 // Configuration Mode Mock (Développement sans appareil)
@@ -58,6 +101,10 @@ export function useSubscription() {
   // Évite que le sandbox Apple ne rejoue d'anciennes transactions au démarrage
   // et marque un nouveau compte comme premium sans interaction.
   const hasInitiatedPurchase = useRef(false);
+
+  // Dédup les events de purchase par transactionId pendant la session, pour
+  // éviter une double-validation backend si Apple refire le même event.
+  const processedTxIds = useRef<Set<string>>(new Set());
 
   // Premium = serveur (user.premium) OU achat IAP en cours de session
   const isSubscribed = serverPremium || iapSubscribed;
@@ -109,11 +156,30 @@ export function useSubscription() {
 
     // Listener pour les achats réussis
     purchaseUpdateSubscription = purchaseUpdatedListener(async (purchase: Purchase) => {
-      // Si l'utilisateur n'a pas initié d'achat dans cette session, il s'agit
-      // d'une transaction rejouée par le sandbox Apple (historique d'achats non
-      // finalisés sur le même Apple ID de test). On finalise pour nettoyer la
-      // file, sans toucher au backend ni au statut premium.
-      if (!hasInitiatedPurchase.current) {
+      const txId = purchase.transactionId ?? '';
+
+      // 1) Dédup intra-session : si on a déjà traité cette transaction,
+      // juste finaliser pour qu'Apple arrête de la rejouer.
+      if (txId && processedTxIds.current.has(txId)) {
+        try {
+          await finishTransaction({ purchase, isConsumable: false });
+        } catch (e) {
+          console.warn('[useSubscription] Failed to re-finish known tx:', e);
+        }
+        return;
+      }
+
+      // 2) Contrôle d'intention : l'event est-il légitime ?
+      // - hasInitiatedPurchase.current : user a tapé "S'abonner" dans CETTE session
+      // - AsyncStorage intent récent : user a tapé "S'abonner" dans une session
+      //   précédente qui a été killée avant la finalisation (force-kill pendant
+      //   le paiement Apple, crash, etc.)
+      // - Sinon : c'est un replay sandbox d'un autre compte — on ignore.
+      const intentIsCurrent = hasInitiatedPurchase.current;
+      const intentIsPersisted = !intentIsCurrent && (await readRecentPurchaseIntent());
+      const shouldProcess = intentIsCurrent || intentIsPersisted;
+
+      if (!shouldProcess) {
         console.log('[useSubscription] Ignoring replayed purchase:', purchase.productId);
         try {
           await finishTransaction({ purchase, isConsumable: false });
@@ -123,47 +189,52 @@ export function useSubscription() {
         return;
       }
 
-      // Reset immédiat pour éviter un double-traitement si plusieurs events arrivent
+      // 3) Valider le reçu côté serveur. On NE marque PAS premium local tant
+      // que le backend n'a pas confirmé — évite les désyncs UI/DB visibles
+      // par Apple reviewer.
+      let backendValidated = false;
+      try {
+        await subscriptionService.validateReceipt({
+          transactionId: purchase.transactionId ?? undefined,
+          productId: purchase.productId,
+          purchaseToken: purchase.purchaseToken ?? undefined,
+        });
+        backendValidated = true;
+        console.log('[useSubscription] Backend validation successful');
+      } catch (backendError) {
+        console.warn('[useSubscription] Backend validation failed:', backendError);
+      }
+
+      // 4) Finaliser la transaction côté store (peu importe que le backend
+      // ait réussi — l'user a payé). Apple arrêtera de rejouer l'event.
+      try {
+        await finishTransaction({ purchase, isConsumable: false });
+      } catch (finishError) {
+        console.error('[useSubscription] finishTransaction failed:', finishError);
+      }
+
+      // 5) Nettoyer l'intent et marquer la tx comme traitée.
+      if (txId) processedTxIds.current.add(txId);
       hasInitiatedPurchase.current = false;
+      await clearPurchaseIntent();
+      setPurchasing(false);
 
-      const receipt = purchase.purchaseToken;
-
-      if (receipt) {
-        try {
-          // 1. Valider le reçu côté serveur pour synchroniser le statut premium en DB
-          try {
-            await subscriptionService.validateReceipt({
-              transactionId: purchase.transactionId ?? undefined,
-              productId: purchase.productId,
-              purchaseToken: purchase.purchaseToken ?? undefined,
-            });
-            console.log('[useSubscription] Backend validation successful');
-          } catch (backendError) {
-            // Si le backend échoue (réseau, serveur down, utilisateur non connecté),
-            // on continue car l'utilisateur a payé via Apple/Google.
-            // Le backend re-validera au prochain restore ou login.
-            console.warn('[useSubscription] Backend validation failed, continuing:', backendError);
-          }
-
-          // 2. Finaliser la transaction avec le store
-          await finishTransaction({ purchase, isConsumable: false });
-
-          // 3. Mettre à jour le statut local
-          setIapSubscribed(true);
-          setPurchasing(false);
-
-          Alert.alert(
-            'Succès',
-            'Votre abonnement Premium est maintenant actif !',
-            [{ text: 'OK' }]
-          );
-        } catch (finishError) {
-          console.error('Error finishing transaction:', finishError);
-          // Même en cas d'erreur de finishTransaction, marquer comme abonné
-          // car le paiement a été effectué
-          setIapSubscribed(true);
-          setPurchasing(false);
-        }
+      // 6) Mettre à jour l'UI en fonction du résultat backend.
+      if (backendValidated) {
+        setIapSubscribed(true);
+        Alert.alert(
+          'Succès',
+          'Votre abonnement Premium est maintenant actif !',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Paiement OK côté Apple mais serveur injoignable. On NE ment PAS à
+        // l'user : il doit synchroniser via "Restaurer mes achats" plus tard.
+        Alert.alert(
+          'Achat effectué',
+          "Votre paiement a bien été reçu par Apple, mais la synchronisation avec notre serveur a échoué. Reconnectez-vous à Internet puis utilisez « Restaurer mes achats » pour activer votre Premium.",
+          [{ text: 'OK' }]
+        );
       }
     });
 
@@ -172,6 +243,7 @@ export function useSubscription() {
       console.error('Purchase error:', err);
       setPurchasing(false);
       hasInitiatedPurchase.current = false;
+      void clearPurchaseIntent();
 
       // Ne pas afficher d'erreur si l'utilisateur a annulé
       if (err.code !== ErrorCode.UserCancelled) {
@@ -201,6 +273,8 @@ export function useSubscription() {
     setPurchasing(true);
     setError(null);
     hasInitiatedPurchase.current = true;
+    // Persister l'intention pour survivre à un force-kill pendant Face ID.
+    await writePurchaseIntent(sku);
 
     try {
       // Nouvelle API v14 : requestPurchase avec type 'subs'
@@ -215,6 +289,7 @@ export function useSubscription() {
       console.error('Subscription request error:', err);
       setPurchasing(false);
       hasInitiatedPurchase.current = false;
+      await clearPurchaseIntent();
       setError('Impossible de lancer l\'achat');
     }
   }, [products]);
@@ -230,7 +305,10 @@ export function useSubscription() {
       );
 
       if (activePurchase) {
-        // Valider avec le backend pour vérifier que l'abonnement est encore actif
+        // Valider avec le backend — le serveur est la source de vérité.
+        // On NE bascule JAMAIS en premium local sans confirmation serveur
+        // (évite qu'un utilisateur avec backend KO voie "abonné" alors que
+        // `user.premium` reste false en DB → désynchro visible).
         try {
           const result = await subscriptionService.validateReceipt({
             transactionId: activePurchase.transactionId ?? undefined,
@@ -242,16 +320,16 @@ export function useSubscription() {
             setIapSubscribed(true);
             Alert.alert('Succès', 'Votre abonnement a été restauré !');
           } else {
-            // Backend dit que l'abonnement est expiré/révoqué
             setIapSubscribed(false);
             Alert.alert('Info', 'Votre abonnement a expiré.');
           }
         } catch (backendError) {
-          // Backend indisponible — on ne peut pas vérifier, on marque comme actif
-          // car le store a retourné un achat. Le backend re-validera plus tard.
           console.warn('[useSubscription] Backend restore validation failed:', backendError);
-          setIapSubscribed(true);
-          Alert.alert('Succès', 'Votre abonnement a été restauré !');
+          setIapSubscribed(false);
+          Alert.alert(
+            'Erreur réseau',
+            "Impossible de valider votre abonnement auprès du serveur. Vérifiez votre connexion et réessayez."
+          );
         }
       } else {
         setIapSubscribed(false);

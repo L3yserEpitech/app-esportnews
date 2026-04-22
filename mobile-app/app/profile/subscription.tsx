@@ -8,7 +8,8 @@ import {
     StatusBar,
     Platform,
     ActivityIndicator,
-    Alert
+    Alert,
+    Linking,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
@@ -39,6 +40,23 @@ export default function SubscriptionScreen() {
 
     const formatDate = (d: Date) =>
         d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Deep-link vers la gestion d'abonnement iOS/Android.
+    // Exigé par Apple (guideline 3.1.2) pour les auto-renewable subscriptions.
+    // Apple y affiche nativement : plan actuel, dates, historique des renouvellements, factures.
+    const handleManageSubscription = () => {
+        const url = Platform.select({
+            ios: 'https://apps.apple.com/account/subscriptions',
+            android: 'https://play.google.com/store/account/subscriptions',
+        });
+        if (!url) return;
+        Linking.openURL(url).catch(() => {
+            Alert.alert(
+                'Gestion impossible',
+                'Ouvre Réglages → Apple ID → Abonnements pour gérer ton abonnement.'
+            );
+        });
+    };
 
     const handleSubscribe = () => {
         console.log('Products loaded:', products);
@@ -108,7 +126,7 @@ export default function SubscriptionScreen() {
                     <View style={styles.expiredBanner}>
                         <Ionicons name="time-outline" size={20} color={COLORS.primary} />
                         <Text style={styles.expiredBannerText}>
-                            Abonnement expiré — réactivez Premium en un clic
+                            Abonnement expiré. Réactivez Premium en un clic.
                         </Text>
                     </View>
                 )}
@@ -143,6 +161,15 @@ export default function SubscriptionScreen() {
                             <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
                             <Text style={styles.subscribedText}>Vous êtes abonné Premium</Text>
                         </View>
+                        <TouchableOpacity
+                            onPress={handleManageSubscription}
+                            activeOpacity={0.7}
+                            style={styles.restoreButton}
+                        >
+                            <Text style={styles.restoreButtonText}>
+                                Gérer mon abonnement
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 ) : (
                     <>
@@ -195,6 +222,18 @@ export default function SubscriptionScreen() {
                         >
                             <Text style={styles.restoreButtonText}>Restaurer mes achats</Text>
                         </TouchableOpacity>
+
+                        {expiredAt && (
+                            <TouchableOpacity
+                                onPress={handleManageSubscription}
+                                activeOpacity={0.7}
+                                style={styles.restoreButton}
+                            >
+                                <Text style={styles.restoreButtonText}>
+                                    Voir l'historique de mes abonnements
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </>
                 )}
 
