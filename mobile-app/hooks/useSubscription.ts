@@ -240,16 +240,20 @@ export function useSubscription() {
 
     // Listener pour les erreurs d'achat
     purchaseErrorSubscription = purchaseErrorListener((err: PurchaseError) => {
-      console.error('Purchase error:', err);
       setPurchasing(false);
       hasInitiatedPurchase.current = false;
       void clearPurchaseIntent();
 
-      // Ne pas afficher d'erreur si l'utilisateur a annulé
-      if (err.code !== ErrorCode.UserCancelled) {
-        setError(err.message || 'Erreur lors de l\'achat');
-        Alert.alert('Erreur', err.message || 'Une erreur est survenue lors de l\'achat');
+      // Annulation user = cas normal, pas une erreur → log discret
+      if (err.code === ErrorCode.UserCancelled) {
+        console.log('[useSubscription] User cancelled the purchase flow');
+        return;
       }
+
+      // Vraie erreur : log + alerte
+      console.warn('[useSubscription] Purchase error:', err);
+      setError(err.message || 'Erreur lors de l\'achat');
+      Alert.alert('Erreur', err.message || 'Une erreur est survenue lors de l\'achat');
     });
 
     init();
