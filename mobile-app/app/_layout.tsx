@@ -11,22 +11,28 @@ import { AdProvider } from '@/contexts/AdContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { theme } from '@/constants/theme';
 import mobileAds from 'react-native-google-mobile-ads';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
+import { Platform } from 'react-native';
 import '@/utils/i18n'; // Initialize i18n
 
 export default function RootLayout() {
   const router = useRouter();
 
-  // Initialize Google Mobile Ads SDK
+  // Request ATT on iOS, then initialize AdMob
   useEffect(() => {
-    mobileAds()
-      .initialize()
-      .then((adapterStatuses) => {
-        console.log('[AdMob] SDK initialized successfully');
-        console.log('[AdMob] Adapter statuses:', adapterStatuses);
-      })
-      .catch((error) => {
+    const initAds = async () => {
+      if (Platform.OS === 'ios') {
+        const { status } = await requestTrackingPermissionsAsync();
+        console.log('[ATT] Tracking permission status:', status);
+      }
+      try {
+        const adapterStatuses = await mobileAds().initialize();
+        console.log('[AdMob] SDK initialized successfully', adapterStatuses);
+      } catch (error) {
         console.error('[AdMob] SDK initialization failed:', error);
-      });
+      }
+    };
+    initAds();
   }, []);
 
   // Handle notification tap — deep link to match detail

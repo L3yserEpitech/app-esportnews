@@ -74,7 +74,6 @@ module.exports = {
           { SKAdNetworkIdentifier: "3rd42ekr43.skadnetwork" },
           { SKAdNetworkIdentifier: "3qcr597p9d.skadnetwork" }
         ],
-        NSUserTrackingUsageDescription: "Cette application utilise le suivi publicitaire pour vous montrer des publicités personnalisées.",
         NSCameraUsageDescription: "Esport News a besoin d'accéder à votre appareil photo pour vous permettre de prendre une photo de profil. Cette photo sera utilisée comme avatar sur votre compte.",
         NSPhotoLibraryUsageDescription: "Esport News a besoin d'accéder à votre galerie photos pour vous permettre de choisir une photo de profil. Cette photo sera utilisée comme avatar sur votre compte."
       }
@@ -94,6 +93,12 @@ module.exports = {
     plugins: [
       "expo-router",
       "expo-font",
+      [
+        "expo-tracking-transparency",
+        {
+          userTrackingPermission: "Cette application utilise le suivi publicitaire pour vous montrer des publicités personnalisées."
+        }
+      ],
       [
         "react-native-google-mobile-ads",
         {
