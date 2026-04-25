@@ -31,6 +31,7 @@ func NewArticleHandlerWithService(service *services.ArticleService, authService 
 func (h *ArticleHandler) RegisterRoutes(g RouterGroup) {
 	// Public routes
 	g.GET("/articles", h.ListArticles)
+	g.GET("/articles/search", h.SearchArticles)
 	g.GET("/count-articles", h.CountArticles) // Public count endpoint
 	g.GET("/articles/:slug", h.GetArticle)
 	g.GET("/articles/:slug/similar", h.GetSimilarArticles)
@@ -101,6 +102,38 @@ func (h *ArticleHandler) CountArticles(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{
 		"count": count,
 	})
+}
+
+// SearchArticles runs a full-text search over articles using the
+// 00013 migration's tsvector + pg_trgm indexes.
+//
+// Query params:
+//
+//	q            - the search string (required, trimmed; empty -> [])
+//	category     - optional exact-match filter (e.g. "Actus")
+//	excludeNews  - "true" to drop the "Actus" category (defaults to false)
+//	limit        - max results (default 20, capped at 100)
+func (h *ArticleHandler) SearchArticles(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := c.QueryParam("q")
+	category := c.QueryParam("category")
+	excludeNews := c.QueryParam("excludeNews") == "true"
+
+	limit := 20
+	if l := c.QueryParam("limit"); l != "" {
+		if lim, err := strconv.Atoi(l); err == nil && lim > 0 && lim <= 100 {
+			limit = lim
+		}
+	}
+
+	articles, err := h.service.SearchArticles(ctx, query, category, excludeNews, limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, articles)
 }
 
 func (h *ArticleHandler) GetArticle(c echo.Context) error {

@@ -10,6 +10,7 @@ import { NewsItem, Advertisement } from '../types';
 import { articleService } from '../services/articleService';
 import { advertisementService } from '../services/advertisementService';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useArticleSearch } from '../hooks/useArticleSearch';
 import {
   Dialog,
   DialogContent,
@@ -39,8 +40,6 @@ export default function ArticlesPageClient() {
   const [isSubscribed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<NewsItem[]>([]);
-  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>(''); // Empty = all categories (except Actus)
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 9; // 3 lignes x 3 colonnes
@@ -110,48 +109,18 @@ export default function ArticlesPageClient() {
     loadArticles();
   }, [loadArticles]);
 
-  // Load all articles for search when modal opens
-  useEffect(() => {
-    const loadSearchArticles = async () => {
-      if (isSearchModalOpen && searchResults.length === 0) {
-        try {
-          setIsLoadingSearch(true);
-          // Load all articles (no limit) for client-side search
-          const allArticles = await articleService.getAllArticles({
-            limit: 1000, // Large limit to get all articles
-            offset: 0,
-            excludeNews: true, // Exclure les articles "Actus" de la recherche
-          });
-          setSearchResults(allArticles);
-        } catch (error) {
-          console.error('Erreur lors du chargement des articles de recherche:', error);
-        } finally {
-          setIsLoadingSearch(false);
-        }
-      }
-    };
-
-    loadSearchArticles();
-  }, [isSearchModalOpen, searchResults.length]);
-
-  // Filter search results client-side
-  const filteredArticles = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return [];
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-    return searchResults.filter((article) => {
-      const titleMatch = article.title?.toLowerCase().includes(query);
-      const descriptionMatch = article.description?.toLowerCase().includes(query);
-      const subtitleMatch = article.subtitle?.toLowerCase().includes(query);
-      const categoryMatch = article.category?.toLowerCase().includes(query);
-      const authorMatch = article.author?.toLowerCase().includes(query);
-      const tagsMatch = article.tags?.some((tag) => tag.toLowerCase().includes(query));
-
-      return titleMatch || descriptionMatch || subtitleMatch || categoryMatch || authorMatch || tagsMatch;
-    });
-  }, [searchResults, searchQuery]);
+  // Server-side full-text search via /api/articles/search.
+  // Runs against the entire DB (not just the current page) and is ranked
+  // by Postgres tsvector + pg_trgm (see migration 00013). Debounced and
+  // aborts in-flight requests on every keystroke.
+  const { results: filteredArticles, isSearching: isLoadingSearch } = useArticleSearch(
+    searchQuery,
+    {
+      excludeNews: true,
+      enabled: isSearchModalOpen,
+      limit: 50,
+    },
+  );
 
   // Raccourci clavier pour ouvrir la modale de recherche (⌘K ou Ctrl+K)
   useEffect(() => {

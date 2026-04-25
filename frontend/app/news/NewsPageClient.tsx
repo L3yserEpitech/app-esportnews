@@ -10,6 +10,7 @@ import { NewsItem, Advertisement } from '../types';
 import { articleService } from '../services/articleService';
 import { advertisementService } from '../services/advertisementService';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useArticleSearch } from '../hooks/useArticleSearch';
 import {
   Dialog,
   DialogContent,
@@ -119,24 +120,22 @@ export default function NewsPage() {
     loadFeaturedArticle();
   }, []);
 
-  // Filtrer les articles selon la recherche (uniquement catégorie "Actus")
-  const filteredArticles = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return articles;
-    }
+  // Server-side full-text search via /api/articles/search. Runs against the
+  // full corpus of "Actus" articles regardless of the current pagination
+  // window. Debounced + abortable — see hooks/useArticleSearch.ts.
+  const { results: searchHits, isSearching: isSearchingNews } = useArticleSearch(
+    searchQuery,
+    {
+      category: CATEGORY,
+      enabled: isSearchModalOpen,
+      limit: 50,
+    },
+  );
 
-    const query = searchQuery.toLowerCase().trim();
-    return articles.filter((article) => {
-      const titleMatch = article.title?.toLowerCase().includes(query);
-      const descriptionMatch = article.description?.toLowerCase().includes(query);
-      const subtitleMatch = article.subtitle?.toLowerCase().includes(query);
-      const categoryMatch = article.category?.toLowerCase().includes(query);
-      const authorMatch = article.author?.toLowerCase().includes(query);
-      const tagsMatch = article.tags?.some((tag) => tag.toLowerCase().includes(query));
-
-      return titleMatch || descriptionMatch || subtitleMatch || categoryMatch || authorMatch || tagsMatch;
-    });
-  }, [articles, searchQuery]);
+  const filteredArticles = useMemo(
+    () => (searchQuery.trim() ? searchHits : articles),
+    [searchQuery, searchHits, articles],
+  );
 
   // Calculate total pages based on total articles (excluding featured)
   const totalPages = Math.ceil(Math.max(0, totalArticles - 1) / ARTICLES_PER_PAGE);

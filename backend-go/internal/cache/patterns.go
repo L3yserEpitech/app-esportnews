@@ -1,6 +1,10 @@
 package cache
 
-import "fmt"
+import (
+	"crypto/sha1"
+	"fmt"
+	"strings"
+)
 
 // Cache key patterns
 const (
@@ -55,6 +59,23 @@ func ArticleKey(slug string) string {
 func ArticleSimilarKey(slug string) string {
 	return fmt.Sprintf(CacheArticlesSimilar, slug)
 }
+
+// ArticleSearchKey builds a cache key for full-text search results.
+//
+// The query string is lowercased (FTS is case-insensitive, so we want
+// "Valorant" and "valorant" to share a cache slot) and SHA1-hashed before
+// going into the key, so user input — which can contain colons, spaces or
+// other characters that conflict with Redis key parsers — never lands in
+// the key verbatim. The other parameters are well-bounded and inlined.
+func ArticleSearchKey(query, category string, excludeNews bool, limit int) string {
+	h := sha1.Sum([]byte(strings.ToLower(strings.TrimSpace(query))))
+	return fmt.Sprintf("cache:articles:search:%x:%s:%t:%d",
+		h, category, excludeNews, limit)
+}
+
+// ArticleSearchPattern is the wildcard used to invalidate every cached
+// search result on article create / update / delete.
+const ArticleSearchPattern = "cache:articles:search:*"
 
 func TeamKey(teamID int64) string {
 	return fmt.Sprintf(CacheTeams, teamID)

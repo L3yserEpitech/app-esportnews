@@ -59,6 +59,29 @@ func (rc *RedisCache) Del(ctx context.Context, keys ...string) error {
 	return rc.client.Del(ctx, keys...).Err()
 }
 
+// DelPattern deletes every key matching a glob pattern. Uses SCAN so it
+// stays cheap on large keyspaces (KEYS would block the server). Errors
+// from individual DELs are swallowed — invalidation is best-effort and a
+// stale entry will expire on its own TTL anyway.
+func (rc *RedisCache) DelPattern(ctx context.Context, pattern string) error {
+	iter := rc.client.Scan(ctx, 0, pattern, 100).Iterator()
+	var batch []string
+	for iter.Next(ctx) {
+		batch = append(batch, iter.Val())
+		if len(batch) >= 100 {
+			_ = rc.client.Del(ctx, batch...).Err()
+			batch = batch[:0]
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	if len(batch) > 0 {
+		return rc.client.Del(ctx, batch...).Err()
+	}
+	return nil
+}
+
 // Exists checks if a key exists
 func (rc *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
 	val, err := rc.client.Exists(ctx, key).Result()

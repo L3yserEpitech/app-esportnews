@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -219,6 +220,119 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 	return &a, nil
 }
 
+// SearchArticles runs a full-text search over the articles table using the
+// tsvector built by the 00013 migration, with a pg_trgm similarity branch
+// as a fuzzy fallback for typos. Results are ranked by:
+//
+//	GREATEST(
+//	  ts_rank_cd(search_vector, websearch_to_tsquery(q)) * 2.0,   -- exact term hits, weighted
+//	  similarity(unaccent(title),       unaccent(q))   * 1.5,    -- fuzzy on title
+//	  similarity(unaccent(description), unaccent(q))             -- fuzzy on description
+//	)
+//
+// Then by created_at DESC as a tiebreaker so newer articles surface first.
+//
+// The category / excludeNews filters mirror GetArticles so the caller can
+// scope the search to "Actus" (news page) or "everything except Actus"
+// (articles page).
+//
+// An empty query returns no results — the caller should fall through to the
+// regular paginated list when the user clears the search box.
+func (s *ArticleService) SearchArticles(
+	ctx context.Context,
+	query string,
+	category string,
+	excludeNews bool,
+	limit int,
+) ([]*models.Article, error) {
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return []*models.Article{}, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Cache hot queries for a minute. Articles change infrequently and the
+	// search modal often re-issues the same query as the user navigates.
+	cacheKey := cache.ArticleSearchKey(trimmed, category, excludeNews, limit)
+	if s.cache != nil {
+		if cached, err := s.cache.Get(ctx, cacheKey); err == nil {
+			var articles []*models.Article
+			if jsonErr := json.Unmarshal([]byte(cached), &articles); jsonErr == nil {
+				return articles, nil
+			}
+		}
+	}
+
+	if s.gormDB == nil {
+		return nil, fmt.Errorf("article search requires GORM connection")
+	}
+
+	// Single query that combines weighted full-text search with a pg_trgm
+	// fuzzy fallback. Both branches are GIN-indexed (see migration 00013).
+	const sqlQuery = `
+		WITH q AS (
+			SELECT
+				public.immutable_unaccent(?) AS raw,
+				websearch_to_tsquery('french', public.immutable_unaccent(?)) AS tsq
+		)
+		SELECT a.*
+		FROM public.articles a, q
+		WHERE
+			(
+				(a.search_vector @@ q.tsq)
+				OR (public.immutable_unaccent(coalesce(a.title, '')) % q.raw)
+				OR (public.immutable_unaccent(coalesce(a.description, '')) % q.raw)
+			)
+			AND (
+				CASE
+					WHEN ?::text <> '' THEN a.category = ?
+					WHEN ?::boolean THEN a.category IS DISTINCT FROM 'Actus'
+					ELSE TRUE
+				END
+			)
+		ORDER BY
+			GREATEST(
+				ts_rank_cd(a.search_vector, q.tsq) * 2.0,
+				similarity(public.immutable_unaccent(coalesce(a.title, '')), q.raw) * 1.5,
+				similarity(public.immutable_unaccent(coalesce(a.description, '')), q.raw)
+			) DESC NULLS LAST,
+			a.created_at DESC
+		LIMIT ?
+	`
+
+	var articles []*models.Article
+	if err := s.gormDB.WithContext(ctx).Raw(
+		sqlQuery,
+		trimmed, trimmed, // q.raw / q.tsq input
+		category, category, // category filter
+		excludeNews, // excludeNews flag
+		limit,
+	).Scan(&articles).Error; err != nil {
+		return nil, fmt.Errorf("failed to run article search: %w", err)
+	}
+
+	// Mirror GetArticles' fallback for the legacy article_content column.
+	for _, a := range articles {
+		if (a.Content == nil || *a.Content == "") && (a.ArticleContent != nil && *a.ArticleContent != "") {
+			a.Content = a.ArticleContent
+		}
+	}
+
+	if articles == nil {
+		articles = []*models.Article{}
+	}
+
+	if s.cache != nil {
+		if data, err := json.Marshal(articles); err == nil {
+			s.cache.Set(ctx, cacheKey, string(data), 1*time.Minute)
+		}
+	}
+
+	return articles, nil
+}
+
 // GetSimilarArticles retrieves articles with similar tags
 func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, limit int) ([]*models.Article, error) {
 	// Try cache
@@ -352,6 +466,13 @@ func (s *ArticleService) CreateArticle(ctx context.Context, input *models.Create
 		return nil, fmt.Errorf("failed to create article: %w", err)
 	}
 
+	// Invalidate every cached search result so a freshly published article
+	// shows up immediately in the search modal instead of waiting on the
+	// 1-minute search cache TTL.
+	if s.cache != nil {
+		s.cache.DelPattern(ctx, cache.ArticleSearchPattern)
+	}
+
 	return article, nil
 }
 
@@ -432,6 +553,9 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *mod
 		s.cache.Del(ctx, cache.ArticleKey(*article.Slug))
 		s.cache.Del(ctx, cache.ArticleSimilarKey(*article.Slug))
 	}
+	if s.cache != nil {
+		s.cache.DelPattern(ctx, cache.ArticleSearchPattern)
+	}
 
 	return &article, nil
 }
@@ -460,6 +584,9 @@ func (s *ArticleService) DeleteArticle(ctx context.Context, id int64) error {
 	if article.Slug != nil {
 		s.cache.Del(ctx, cache.ArticleKey(*article.Slug))
 		s.cache.Del(ctx, cache.ArticleSimilarKey(*article.Slug))
+	}
+	if s.cache != nil {
+		s.cache.DelPattern(ctx, cache.ArticleSearchPattern)
 	}
 
 	return nil

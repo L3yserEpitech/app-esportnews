@@ -134,6 +134,62 @@ class ArticleService {
     }
   }
 
+  /**
+   * Full-text search against the entire articles table via the backend
+   * `/api/articles/search` endpoint. Server-side ranks results with
+   * Postgres tsvector + pg_trgm fuzzy fallback (see migration 00013), so
+   * this is the canonical search — it does NOT depend on whatever happens
+   * to be loaded on the current page.
+   *
+   * Returns [] for blank queries so callers can short-circuit.
+   */
+  async searchArticles(
+    query: string,
+    options?: { category?: string; excludeNews?: boolean; limit?: number; signal?: AbortSignal },
+  ): Promise<NewsItem[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const params = new URLSearchParams();
+    params.append('q', trimmed);
+    if (options?.category) params.append('category', options.category);
+    if (options?.excludeNews) params.append('excludeNews', 'true');
+    if (options?.limit) params.append('limit', String(options.limit));
+
+    try {
+      const res = await fetch(`${this.baseUrl}/api/articles/search?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        signal: options?.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`Search failed: ${res.status}`);
+      }
+      const data: SupabaseArticle[] = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data.map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        subtitle: item.subtitle,
+        description: item.description,
+        author: item.author,
+        created_at: item.created_at,
+        readTime: this.calculateReadTime(item.content),
+        featuredImage: item.featuredImage,
+        category: item.category,
+        credit: item.credit,
+        tags: item.tags || [],
+        views: item.views || 0,
+      }));
+    } catch (error) {
+      if ((error as DOMException)?.name === 'AbortError') return [];
+      console.error('[ArticleService] search error:', error);
+      return [];
+    }
+  }
+
   async getSimilarArticles(tags: string[], currentSlug: string, limit: number = 3): Promise<NewsItem[]> {
     try {
       const response = await fetch(`${this.baseUrl}/api/articles/${currentSlug}/similar?limit=${limit}`, {
