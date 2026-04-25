@@ -3,7 +3,7 @@ import { articleService } from '@/app/services/articleService';
 export const revalidate = 3600; // Revalidate every hour
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const baseUrlApi = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   let images: Array<{

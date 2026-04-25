@@ -85,11 +85,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
           ))
         ) : (
           memoizedNewsList.map((news) => (
-            <ArticleCard
-              key={news.id}
-              article={news}
-              onClick={handleNewsClick}
-            />
+            <ArticleCard key={news.id} article={news} />
           ))
         )}
       </div>

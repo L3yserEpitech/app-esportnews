@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://www.esportnews.fr';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
   return {
     rules: [
@@ -9,17 +9,13 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: '/',
         disallow: [
+          '/admin/',
           '/auth/',
           '/profile',
           '/api/',
           '/*.json$',
           '/test-sync',
         ],
-      }, 
-      {
-        userAgent: 'Googlebot',
-        allow: '/',
-        crawlDelay: 0,
       },
       {
         userAgent: ['MJ12bot', 'AhrefsBot', 'SemrushBot', 'DotBot'],
@@ -28,8 +24,8 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       `${baseUrl}/sitemap.xml`,
+      `${baseUrl}/image-sitemap.xml`,
       `${baseUrl}/feed.xml`,
     ],
-    host: baseUrl,
   };
 }

@@ -13,7 +13,7 @@ interface SitemapEntry {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
   // Pages statiques
   const staticPages: SitemapEntry[] = [
@@ -113,7 +113,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (tournamentsResponse.ok) {
         const tournaments = await tournamentsResponse.json();
         const tournamentsArray = Array.isArray(tournaments) ? tournaments : [];
-        tournamentPages = tournamentsArray.slice(0, 100).map((tournament: any) => ({
+        tournamentPages = tournamentsArray.map((tournament: any) => ({
           url: `${baseUrl}/tournois/${tournament.id}`,
           lastModified: tournament.modified_at || tournament.begin_at,
           changeFrequency: 'weekly' as const,

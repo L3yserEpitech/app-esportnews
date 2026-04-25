@@ -24,7 +24,6 @@ export function StructuredData({ data }: StructuredDataProps) {
 export function ArticleSchema({
   title,
   description,
-  content,
   image,
   datePublished,
   dateModified,
@@ -33,7 +32,6 @@ export function ArticleSchema({
 }: {
   title: string;
   description: string;
-  content: string;
   image?: string;
   datePublished: string;
   dateModified?: string;
@@ -64,15 +62,15 @@ export function ArticleSchema({
     publisher: {
       '@type': 'Organization',
       name: 'EsportNews',
+      url: 'https://www.esportnews.fr',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://esportnews.fr/logo_blanc.png',
+        url: 'https://www.esportnews.fr/logo_blanc.png',
         width: 250,
         height: 60,
       },
     },
     url,
-    articleBody: content?.replace(/<[^>]*>/g, '') || '',
     mainEntityOfPage: {
       '@type': 'WebPage',
       '@id': url,
@@ -173,8 +171,8 @@ export function TournamentSchema({
  * Schéma pour une Organisation
  */
 export function OrganizationSchema({
-  url = 'https://esportnews.fr',
-  logo = 'https://esportnews.fr/logo.png',
+  url = 'https://www.esportnews.fr',
+  logo = 'https://www.esportnews.fr/logo_blanc.png',
   name = 'EsportNews',
   description = 'Plateforme e-sport mettant en avant les matchs en direct et actualités',
   sameAs = [],
@@ -224,27 +222,17 @@ export function BreadcrumbSchema({
  * Schéma pour un WebSite (homepage)
  */
 export function WebSiteSchema({
-  url = 'https://esportnews.fr',
+  url = 'https://www.esportnews.fr',
   name = 'EsportNews',
-  searchUrl = 'https://esportnews.fr/search?q={search_term_string}',
 }: {
   url?: string;
   name?: string;
-  searchUrl?: string;
-}) {
+} = {}) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     url,
     name,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: searchUrl,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   };
 
   return <StructuredData data={schema} />;

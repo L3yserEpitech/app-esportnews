@@ -1,7 +1,9 @@
 import { articleService } from '@/app/services/articleService';
 
+export const revalidate = 3600;
+
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const siteTitle = 'EsportNews - Actualités Esport & Scores en direct';
   const siteDescription = 'Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois';
 
@@ -21,7 +23,7 @@ export async function GET() {
     <copyright>© ${new Date().getFullYear()} EsportNews. Tous droits réservés.</copyright>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <image>
-      <url>${baseUrl}/logo.png</url>
+      <url>${baseUrl}/logo_blanc.png</url>
       <title>${siteTitle}</title>
       <link>${baseUrl}</link>
     </image>
@@ -40,7 +42,7 @@ export async function GET() {
       <author>${escapeXml(article.author || 'EsportNews')}</author>
       <category>${escapeXml(article.category || 'Actualité')}</category>
       <pubDate>${new Date(article.created_at).toUTCString()}</pubDate>
-      ${article.tags?.map((tag) => `<tag>${escapeXml(tag)}</tag>`).join('\n      ') || ''}
+      ${article.tags?.map((tag) => `<category>${escapeXml(tag)}</category>`).join('\n      ') || ''}
     </item>
     `
       )

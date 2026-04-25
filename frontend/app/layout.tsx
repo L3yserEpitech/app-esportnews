@@ -9,7 +9,10 @@ import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
 import CookieBanner from "./components/common/CookieBanner";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Esport News — Actus esport & scores en direct",
   description: "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
   keywords: "esport, gaming, tournois, matchs en direct, actualités, scores, CS2, Rocket League, LoL, Valorant, Fortnite, classements, analyses,",
