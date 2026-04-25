@@ -23,16 +23,22 @@
 
 BEGIN;
 
+-- On Supabase, extensions live in the `extensions` schema by default; on a
+-- vanilla Postgres install they typically land in `public`. We don't
+-- hardcode either: the wrapper below uses `SET search_path` so the runtime
+-- resolves `unaccent` via whatever schema is on the path.
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- The shipped unaccent() function is marked STABLE, which is not enough for
--- expression indexes or generated columns. Wrap it in an IMMUTABLE function
--- (safe because we always pass the same dictionary).
+-- The shipped unaccent() function is marked STABLE, which is not enough
+-- for expression indexes. Wrap it in an IMMUTABLE function. We pin the
+-- function's own search_path so it works regardless of how the caller
+-- has theirs configured (and so the planner can inline it safely).
 CREATE OR REPLACE FUNCTION public.immutable_unaccent(text)
 RETURNS text AS $$
-  SELECT public.unaccent('public.unaccent', $1);
-$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
+  SELECT unaccent('unaccent', $1);
+$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE
+SET search_path = public, extensions, pg_catalog;
 
 -- Add the tsvector column if it doesn't exist yet.
 ALTER TABLE public.articles
