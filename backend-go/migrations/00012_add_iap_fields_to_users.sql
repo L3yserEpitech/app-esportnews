@@ -22,7 +22,6 @@ DROP INDEX IF EXISTS idx_users_iap_transaction_id;
 CREATE INDEX IF NOT EXISTS idx_users_iap_transaction_id
     ON public.users(iap_transaction_id)
     WHERE iap_transaction_id IS NOT NULL;
-
 -- Index on original_transaction_id — used by webhook handler to locate the user
 -- when Apple sends a renewal/expiration notification. Stable across renewals.
 CREATE INDEX IF NOT EXISTS idx_users_iap_original_transaction_id

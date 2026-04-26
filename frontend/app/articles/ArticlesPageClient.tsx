@@ -342,9 +342,14 @@ export default function ArticlesPageClient() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            {searchQuery && (
+            {searchQuery && !isLoadingSearch && (
               <p className="mt-3 text-sm text-text-muted">
                 {filteredArticles.length} {filteredArticles.length === 1 ? t('pages_detail.articles.search.result_singular') : t('pages_detail.articles.search.result_plural')}
+              </p>
+            )}
+            {searchQuery && isLoadingSearch && (
+              <p className="mt-3 text-sm text-text-muted">
+                Recherche en cours…
               </p>
             )}
           </div>
@@ -357,6 +362,13 @@ export default function ArticlesPageClient() {
                   <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
                   <p className="text-text-secondary text-lg mb-2">{t('pages_detail.articles.search.start_typing')}</p>
                   <p className="text-text-muted text-sm">{t('pages_detail.articles.search.search_by')}</p>
+                </div>
+              </div>
+            ) : isLoadingSearch ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <LoadingSpinner size="lg" />
+                  <p className="text-text-secondary text-lg mt-4">Recherche en cours…</p>
                 </div>
               </div>
             ) : filteredArticles.length === 0 ? (
