@@ -191,14 +191,6 @@ export default function LoginScreen() {
               </Animated.View>
 
               <TouchableOpacity
-                onPress={() => {}}
-                disabled={loading}
-                style={styles.forgotPassword}
-              >
-                <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 onPress={handleLogin}
                 disabled={loading}
                 activeOpacity={0.8}
@@ -326,15 +318,6 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     fontSize: 14,
     flex: 1,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: spacing.xl,
-  },
-  forgotPasswordText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-    fontSize: 14,
   },
   loginButton: {
     height: 56,
