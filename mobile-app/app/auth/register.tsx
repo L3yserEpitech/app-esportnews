@@ -304,8 +304,21 @@ export default function RegisterScreen() {
 
               <Text style={styles.termsText}>
                 En vous inscrivant, vous acceptez nos{' '}
-                <Text style={styles.linkText}>Conditions d'utilisation</Text> et notre{' '}
-                <Text style={styles.linkText}>Politique de confidentialité</Text>
+                <Text
+                  style={styles.linkText}
+                  onPress={() => router.push('/legal/cgu')}
+                  accessibilityRole="link"
+                >
+                  Conditions d'utilisation
+                </Text>
+                {' '}et notre{' '}
+                <Text
+                  style={styles.linkText}
+                  onPress={() => router.push('/legal/politique-confidentialite')}
+                  accessibilityRole="link"
+                >
+                  Politique de confidentialité
+                </Text>
               </Text>
             </View>
           </Animated.View>
