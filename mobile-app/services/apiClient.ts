@@ -11,6 +11,37 @@ console.log('🌐 [apiClient] BACKEND_URL:', BACKEND_URL);
 // Storage keys
 const TOKEN_KEY = 'authToken';
 
+// Auth-expired listener registry. AuthContext subscribes here so it can clear
+// user state and bounce to the login screen when an authenticated request 401s.
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
+function notifyUnauthorized() {
+  for (const listener of unauthorizedListeners) {
+    try {
+      listener();
+    } catch (err) {
+      console.error('onUnauthorized listener threw:', err);
+    }
+  }
+}
+
+// Endpoints that may legitimately 401 without meaning the session is dead
+// (e.g. wrong credentials at login). Don't fire the global expired event for those.
+const SESSION_AGNOSTIC_PATHS = ['/api/auth/login', '/api/auth/signup'];
+
+function isSessionAgnostic(url: string | undefined): boolean {
+  if (!url) return false;
+  return SESSION_AGNOSTIC_PATHS.some((path) => url.startsWith(path));
+}
+
 // Create Axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: BACKEND_URL,
@@ -44,10 +75,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: any) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    if (error.response?.status === 401 && !isSessionAgnostic(error.config?.url)) {
+      // Authenticated request rejected — drop the token and let AuthContext
+      // clear user state + redirect to the login screen.
       await AsyncStorage.removeItem(TOKEN_KEY);
-      // TODO: Redirect to login screen (will be handled in AuthContext)
+      notifyUnauthorized();
     }
     return Promise.reject(error);
   }

@@ -1,6 +1,8 @@
 import { createContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { authService } from '@/services';
+import { onUnauthorized } from '@/services/apiClient';
 import { pushTokenService } from '@/services/pushTokenService';
 import { registerForPushNotificationsAsync } from '@/utils/notifications';
 import { User, LoginCredentials, RegisterData } from '@/types';
@@ -56,6 +58,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initAuth();
+  }, []);
+
+  // When apiClient gets a 401 on an authenticated request, drop the user state
+  // and bounce to the login screen. Token has already been wiped by apiClient.
+  useEffect(() => {
+    return onUnauthorized(() => {
+      if (!isMountedRef.current) return;
+      setUser(null);
+      router.replace('/auth/login');
+    });
   }, []);
 
   // Register push token with backend after authentication
