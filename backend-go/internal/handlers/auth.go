@@ -251,14 +251,8 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
-
-	// Validate input
-	if input.CurrentPassword == "" || input.NewPassword == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Current password and new password are required")
-	}
-
-	if len(input.NewPassword) < 6 {
-		return echo.NewHTTPError(http.StatusBadRequest, "New password must be at least 6 characters")
+	if err := c.Validate(&input); err != nil {
+		return err
 	}
 
 	// Change password via service

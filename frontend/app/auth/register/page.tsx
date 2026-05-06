@@ -64,7 +64,7 @@ export default function RegisterPage() {
     if (!formData.password) {
       newErrors.password = t('pages.register.mot_de_passe_requis');
       isValid = false;
-    } else if (formData.password.length < 6) {
+    } else if (formData.password.length < 8) {
       newErrors.password = t('pages.register.mot_de_passe_min_6');
       isValid = false;
     }

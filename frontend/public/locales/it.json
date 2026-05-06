@@ -152,7 +152,7 @@
       "email_requis": "L'email è obbligatoria",
       "email_invalide": "Email non valida",
       "mot_de_passe_requis": "La password è obbligatoria",
-      "mot_de_passe_min_6": "La password deve avere almeno 6 caratteri",
+      "mot_de_passe_min_6": "La password deve avere almeno 8 caratteri",
       "confirmer_mot_de_passe": "Conferma password",
       "confirmer_mot_de_passe_requis": "Per favore conferma la tua password",
       "mots_de_passe_ne_correspondent": "Le password non corrispondono",
@@ -238,13 +238,13 @@
       "mot_de_passe_actuel_requis": "La password attuale è obbligatoria",
       "nouveau_mot_de_passe": "Nuova password",
       "nouveau_mot_de_passe_requis": "La nuova password è obbligatoria",
-      "mot_de_passe_min_6": "La password deve avere almeno 6 caratteri",
+      "mot_de_passe_min_6": "La password deve avere almeno 8 caratteri",
       "confirmer_mot_de_passe": "Conferma password",
       "mots_de_passe_ne_correspondent": "Le password non corrispondono",
       "mot_de_passe_modifie": "Password modificata con successo",
       "modifier_mot_de_passe": "Modifica password",
       "enregistrement": "Salvataggio...",
-      "info_securite": "Utilizza una password univoca di almeno 6 caratteri che combini lettere maiuscole, minuscole, numeri e caratteri speciali."
+      "info_securite": "Utilizza una password univoca di almeno 8 caratteri che combini lettere maiuscole, minuscole, numeri e caratteri speciali."
     },
     "favorite_teams_section": {
       "equipes_favorites": "Team Preferiti",

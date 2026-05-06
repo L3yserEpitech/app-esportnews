@@ -170,7 +170,7 @@ type UpdateUserInput struct {
 
 type ChangePasswordInput struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,min=6"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
 }
 
 type DeleteAccountInput struct {

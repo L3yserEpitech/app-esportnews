@@ -150,7 +150,7 @@
       "email_requis": "Email is required",
       "email_invalide": "Invalid email",
       "mot_de_passe_requis": "Password is required",
-      "mot_de_passe_min_6": "Password must be at least 6 characters",
+      "mot_de_passe_min_6": "Password must be at least 8 characters",
       "confirmer_mot_de_passe": "Confirm password",
       "confirmer_mot_de_passe_requis": "Please confirm your password",
       "mots_de_passe_ne_correspondent": "Passwords do not match",
@@ -236,13 +236,13 @@
       "mot_de_passe_actuel_requis": "Current password is required",
       "nouveau_mot_de_passe": "New password",
       "nouveau_mot_de_passe_requis": "New password is required",
-      "mot_de_passe_min_6": "Password must be at least 6 characters long",
+      "mot_de_passe_min_6": "Password must be at least 8 characters long",
       "confirmer_mot_de_passe": "Confirm password",
       "mots_de_passe_ne_correspondent": "Passwords do not match",
       "mot_de_passe_modifie": "Password changed successfully",
       "modifier_mot_de_passe": "Change password",
       "enregistrement": "Saving...",
-      "info_securite": "Use a unique password of at least 6 characters combining uppercase, lowercase, numbers and special characters."
+      "info_securite": "Use a unique password of at least 8 characters combining uppercase, lowercase, numbers and special characters."
     },
     "favorite_teams_section": {
       "equipes_favorites": "Favorite Teams",

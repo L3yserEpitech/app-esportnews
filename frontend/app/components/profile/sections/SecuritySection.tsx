@@ -47,7 +47,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
 
     if (!formData.newPassword) {
       newErrors.newPassword = t('profile.security_section.nouveau_mot_de_passe_requis');
-    } else if (formData.newPassword.length < 6) {
+    } else if (formData.newPassword.length < 8) {
       newErrors.newPassword = t('profile.security_section.mot_de_passe_min_6');
     }
 

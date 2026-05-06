@@ -360,9 +360,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 
 // ChangePassword updates user password after verifying current password
 func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *models.ChangePasswordInput) error {
-	// Validate new password strength
-	if len(input.NewPassword) < 6 {
-		return fmt.Errorf("new password must be at least 6 characters")
+	// Validate new password strength (must match signup minimum)
+	if len(input.NewPassword) < 8 {
+		return fmt.Errorf("new password must be at least 8 characters")
 	}
 
 	// Use GORM if available

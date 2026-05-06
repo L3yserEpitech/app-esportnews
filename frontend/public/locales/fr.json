@@ -151,7 +151,7 @@
       "email_requis": "L'email est requis",
       "email_invalide": "Email invalide",
       "mot_de_passe_requis": "Le mot de passe est requis",
-      "mot_de_passe_min_6": "Le mot de passe doit contenir au moins 6 caractères",
+      "mot_de_passe_min_6": "Le mot de passe doit contenir au moins 8 caractères",
       "confirmer_mot_de_passe": "Confirmer le mot de passe",
       "confirmer_mot_de_passe_requis": "Veuillez confirmer votre mot de passe",
       "mots_de_passe_ne_correspondent": "Les mots de passe ne correspondent pas",
@@ -237,13 +237,13 @@
       "mot_de_passe_actuel_requis": "Le mot de passe actuel est requis",
       "nouveau_mot_de_passe": "Nouveau mot de passe",
       "nouveau_mot_de_passe_requis": "Le nouveau mot de passe est requis",
-      "mot_de_passe_min_6": "Le mot de passe doit contenir au moins 6 caractères",
+      "mot_de_passe_min_6": "Le mot de passe doit contenir au moins 8 caractères",
       "confirmer_mot_de_passe": "Confirmer le mot de passe",
       "mots_de_passe_ne_correspondent": "Les mots de passe ne correspondent pas",
       "mot_de_passe_modifie": "Mot de passe modifié avec succès",
       "modifier_mot_de_passe": "Modifier le mot de passe",
       "enregistrement": "Enregistrement...",
-      "info_securite": "Utilisez un mot de passe unique d'au moins 6 caractères combinant majuscules, minuscules, chiffres et caractères spéciaux."
+      "info_securite": "Utilisez un mot de passe unique d'au moins 8 caractères combinant majuscules, minuscules, chiffres et caractères spéciaux."
     },
     "favorite_teams_section": {
       "equipes_favorites": "Équipes Favorites",
