@@ -77,10 +77,11 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, user1)
 
-	// Second signup with same email should fail
+	// Second signup with same email should fail with the typed sentinel error
 	user2, err := authService.Signup(context.Background(), input)
 	assert.Error(t, err)
 	assert.Nil(t, user2)
+	assert.ErrorIs(t, err, ErrEmailAlreadyRegistered)
 }
 
 // TestLogin_ValidCredentials tests successful login

@@ -2,9 +2,11 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
 
@@ -13,6 +15,21 @@ import (
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/utils"
 )
+
+// ErrEmailAlreadyRegistered is returned when signup hits the users.email UNIQUE constraint.
+var ErrEmailAlreadyRegistered = errors.New("email already registered")
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint violation (SQLSTATE 23505)
+// on the named constraint. Pass an empty constraint name to match any unique violation.
+func isUniqueViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
+	}
+	return constraint == "" || pgErr.ConstraintName == constraint
+}
+
+const usersEmailUniqueConstraint = "users_email_key"
 
 type AuthService struct {
 	db        *pgxpool.Pool      // For backward compatibility
@@ -101,6 +118,9 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 		}
 
 		if err := s.gormDB.WithContext(ctx).Create(user).Error; err != nil {
+			if isUniqueViolation(err, usersEmailUniqueConstraint) {
+				return nil, ErrEmailAlreadyRegistered
+			}
 			return nil, fmt.Errorf("failed to create user: %w", err)
 		}
 
@@ -117,6 +137,9 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {
+		if isUniqueViolation(err, usersEmailUniqueConstraint) {
+			return nil, ErrEmailAlreadyRegistered
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -287,6 +310,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 			if err == gorm.ErrRecordNotFound {
 				return nil, fmt.Errorf("user not found")
 			}
+			if isUniqueViolation(err, usersEmailUniqueConstraint) {
+				return nil, ErrEmailAlreadyRegistered
+			}
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}
 
@@ -304,6 +330,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 		).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 		if err != nil {
+			if isUniqueViolation(err, usersEmailUniqueConstraint) {
+				return nil, ErrEmailAlreadyRegistered
+			}
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}
 	} else if input.Name != nil {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -45,6 +46,9 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 
 	user, err := h.authService.Signup(ctx, &input)
 	if err != nil {
+		if errors.Is(err, services.ErrEmailAlreadyRegistered) {
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		}
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
@@ -107,6 +111,9 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 
 	user, err := h.authService.UpdateProfile(ctx, userID, &input)
 	if err != nil {
+		if errors.Is(err, services.ErrEmailAlreadyRegistered) {
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
