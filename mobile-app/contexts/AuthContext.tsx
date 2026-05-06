@@ -43,8 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(userData);
           }
 
-          // Register push token on auto-login (non-blocking)
-          registerPushToken();
+          // Register push token on auto-login (fire-and-forget — same as login/register)
+          void registerPushToken();
         }
       } catch (error) {
         console.error('AuthContext.initAuth error:', error);
@@ -105,8 +105,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Just set user data
       setUser(response.user);
 
-      // Register push token after successful login
-      await registerPushToken();
+      // Register push token after successful login.
+      // Fire-and-forget: a notifications-permission denial or transient
+      // network error must not reject the login() promise — registerPushToken
+      // already swallows its own errors, but we also don't await it so any
+      // future-thrown error can't bubble up here either.
+      void registerPushToken();
     } catch (error) {
       console.error('AuthContext.login error:', error);
       throw error;
@@ -121,8 +125,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Just set user data
       setUser(response.user);
 
-      // Register push token after successful registration
-      await registerPushToken();
+      // Fire-and-forget for the same reason as login() above.
+      void registerPushToken();
     } catch (error) {
       console.error('AuthContext.register error:', error);
       throw error;
@@ -131,8 +135,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      // Unregister push token before logout
-      await unregisterPushToken();
+      // Unregister push token best-effort — must not block sign-out if the
+      // notifications permission was revoked or the network is down.
+      void unregisterPushToken();
 
       // Remove token from AsyncStorage
       await authService.removeToken();
