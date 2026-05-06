@@ -43,6 +43,9 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
+	if err := c.Validate(&input); err != nil {
+		return err
+	}
 
 	user, err := h.authService.Signup(ctx, &input)
 	if err != nil {
@@ -68,6 +71,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	var input models.LoginInput
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+	if err := c.Validate(&input); err != nil {
+		return err
 	}
 
 	response, err := h.authService.Login(ctx, &input)

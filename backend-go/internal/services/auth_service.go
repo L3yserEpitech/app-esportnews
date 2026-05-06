@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -91,6 +92,10 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*models
 
 // Signup creates a new user
 func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput) (*models.User, error) {
+	// Normalize inputs (defense-in-depth — clients should already do this)
+	name := strings.TrimSpace(input.Name)
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+
 	// Validate password strength
 	if len(input.Password) < 8 {
 		return nil, fmt.Errorf("password must be at least 8 characters")
@@ -110,8 +115,8 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 	// Use GORM if available
 	if s.gormDB != nil {
 		user := &models.User{
-			Name:     input.Name,
-			Email:    input.Email,
+			Name:     name,
+			Email:    email,
 			Password: hashedPassword,
 			Admin:    false,
 			Age:      input.Age, // Can be nil
@@ -133,7 +138,7 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 		`INSERT INTO public.users (name, email, password, admin, age)
 		 VALUES ($1, $2, $3, false, $4)
 		 RETURNING id, created_at, name, email, avatar, admin, age`,
-		input.Name, input.Email, hashedPassword, input.Age, // Age can be nil
+		name, email, hashedPassword, input.Age, // Age can be nil
 	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
 	if err != nil {
@@ -177,8 +182,11 @@ func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (
 
 // Login authenticates a user and returns tokens
 func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*models.AuthResponse, error) {
+	// Normalize email lookup (case-insensitive)
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+
 	// Find user by email (use type-safe method)
-	user, err := s.GetUserByEmail(ctx, input.Email)
+	user, err := s.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid email or password")
 	}

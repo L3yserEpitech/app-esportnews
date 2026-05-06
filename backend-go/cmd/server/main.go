@@ -18,6 +18,7 @@ import (
 	"github.com/esportnews/backend/internal/handlers"
 	mw "github.com/esportnews/backend/internal/middleware"
 	"github.com/esportnews/backend/internal/services"
+	"github.com/esportnews/backend/internal/utils"
 )
 
 // parseCSV splits a comma-separated string into a slice
@@ -60,6 +61,7 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.Validator = utils.NewEchoValidator()
 
 	// Middleware
 	e.Use(middleware.RequestID())
