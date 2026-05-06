@@ -43,7 +43,7 @@ export default function RegisterScreen() {
     setError('');
 
     if (!name || !email || !password || !confirmPassword) {
-      setError('Veuillez remplir tous le champs');
+      setError('Veuillez remplir tous les champs');
       return;
     }
 
