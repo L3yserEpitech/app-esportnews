@@ -7,6 +7,33 @@ export interface LoginData extends LoginCredentials {}
 
 export interface UserData extends User {}
 
+/**
+ * Auth-flow error that preserves the HTTP status alongside the message.
+ * Lets login/register screens map server replies to localized copy
+ * without parsing strings.
+ */
+export class AuthError extends Error {
+  status: number | undefined;
+  serverMessage: string | undefined;
+
+  constructor(message: string, status?: number, serverMessage?: string) {
+    super(message);
+    // Hermes/Babel can drop the prototype chain when transpiling `extends Error`,
+    // which would silently break `err instanceof AuthError` in the screens.
+    Object.setPrototypeOf(this, AuthError.prototype);
+    this.name = 'AuthError';
+    this.status = status;
+    this.serverMessage = serverMessage;
+  }
+}
+
+function toAuthError(error: any, fallback: string): AuthError {
+  const status: number | undefined = error?.response?.status;
+  const serverMessage: string | undefined =
+    error?.response?.data?.message || error?.response?.data?.error;
+  return new AuthError(serverMessage || fallback, status, serverMessage);
+}
+
 class AuthService {
   /**
    * Inscription d'un nouvel utilisateur
@@ -25,8 +52,7 @@ class AuthService {
         user: user as UserData,
       };
     } catch (error: any) {
-      const message = error.response?.data?.message || error.response?.data?.error || "Erreur lors de l'inscription";
-      throw new Error(message);
+      throw toAuthError(error, "Erreur lors de l'inscription");
     }
   }
 
@@ -47,8 +73,7 @@ class AuthService {
         user: user as UserData,
       };
     } catch (error: any) {
-      const message = error.response?.data?.message || error.response?.data?.error || 'Email ou mot de passe incorrect';
-      throw new Error(message);
+      throw toAuthError(error, 'Email ou mot de passe incorrect');
     }
   }
 

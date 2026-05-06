@@ -13,6 +13,7 @@ import { Text, TextInput, IconButton, ActivityIndicator } from 'react-native-pap
 import { Image } from 'expo-image';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/hooks';
+import { AuthError } from '@/services/authService';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,13 +38,16 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError('');
 
-    if (!email || !password) {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password;
+
+    if (!trimmedEmail || !trimmedPassword) {
       setError('Veuillez remplir tous les champs');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(trimmedEmail)) {
       setError('Format d\'email invalide');
       return;
     }
@@ -51,14 +55,20 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      await login({ email, password });
+      await login({ email: trimmedEmail, password: trimmedPassword });
       router.replace('/(tabs)');
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.message?.includes('401')) {
-        setError('Email ou mot de passe incorrect');
-      } else if (err.message?.includes('Network')) {
-        setError('Erreur de connexion. Vérifiez votre réseau.');
+      if (err instanceof AuthError) {
+        if (err.status === 401) {
+          setError('Email ou mot de passe incorrect');
+        } else if (err.status === 400) {
+          setError('Requête invalide. Vérifiez les champs.');
+        } else if (err.status === undefined) {
+          setError('Erreur de connexion. Vérifiez votre réseau.');
+        } else {
+          setError(err.serverMessage || 'Une erreur est survenue');
+        }
       } else {
         setError(err.message || 'Une erreur est survenue');
       }

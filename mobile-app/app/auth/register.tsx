@@ -13,6 +13,7 @@ import { Text, TextInput, IconButton, ActivityIndicator } from 'react-native-pap
 import { Image } from 'expo-image';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/hooks';
+import { AuthError } from '@/services/authService';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -88,8 +89,16 @@ export default function RegisterScreen() {
       router.replace('/(tabs)');
     } catch (err: any) {
       console.error('Register error:', err);
-      if (err.message?.includes('already exists') || err.message?.includes('409')) {
-        setError('Cet email est déjà utilisé');
+      if (err instanceof AuthError) {
+        if (err.status === 409) {
+          setError('Cet email est déjà utilisé');
+        } else if (err.status === 400) {
+          setError('Requête invalide. Vérifiez les champs.');
+        } else if (err.status === undefined) {
+          setError('Erreur de connexion. Vérifiez votre réseau.');
+        } else {
+          setError(err.serverMessage || 'Erreur lors de la création du compte');
+        }
       } else {
         setError(err.message || 'Erreur lors de la création du compte');
       }
