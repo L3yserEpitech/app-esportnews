@@ -57,8 +57,9 @@ type Config struct {
 	AppleIAPEnvironment string
 
 	// Google IAP (In-App Purchase)
-	GoogleIAPKeyPath string
-	GoogleIAPPackage string
+	GoogleIAPKeyPath    string
+	GoogleIAPPackage    string
+	GoogleWebhookToken  string // shared secret for Pub/Sub push URL auth
 
 	// Cloudflare R2
 	R2AccountID        string
@@ -101,8 +102,9 @@ func LoadConfig() *Config {
 		AppleIAPEnvironment: getEnv("APPLE_IAP_ENVIRONMENT", "sandbox"),
 
 		// Google IAP
-		GoogleIAPKeyPath: getEnv("GOOGLE_IAP_KEY_PATH", ""),
-		GoogleIAPPackage: getEnv("GOOGLE_IAP_PACKAGE", "com.esportnewsapp.mobile"),
+		GoogleIAPKeyPath:   getEnv("GOOGLE_IAP_KEY_PATH", ""),
+		GoogleIAPPackage:   getEnv("GOOGLE_IAP_PACKAGE", "com.esportnewsapp.mobile"),
+		GoogleWebhookToken: getEnv("GOOGLE_WEBHOOK_TOKEN", ""),
 
 		// Cloudflare R2
 		R2AccountID:       getEnv("CLOUDFLARE_ACCOUNT_ID", ""),

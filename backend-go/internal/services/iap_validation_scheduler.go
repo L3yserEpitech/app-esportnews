@@ -150,10 +150,18 @@ func (s *IAPValidationScheduler) revalidateOne(ctx context.Context, u *models.Us
 		return s.iapService.UpdateUserIAPStatus(ctx, u.ID, result)
 
 	case "android":
-		// Google revalidation requires the purchase token; we don't store it
-		// separately. Rely on the webhook (Real-time Developer Notifications)
-		// or on the mobile "Restore" button for Android.
-		return nil
+		// iap_transaction_id holds the purchaseToken for Android (set by
+		// UpdateUserIAPStatus). iap_product_id holds "premium_monthly".
+		purchaseToken := derefString(u.IAPTransactionID)
+		productID := derefString(u.IAPProductID)
+		if purchaseToken == "" || productID == "" {
+			return nil
+		}
+		result, err := s.iapService.ValidateGooglePurchase(ctx, productID, purchaseToken)
+		if err != nil {
+			return err
+		}
+		return s.iapService.UpdateUserIAPStatus(ctx, u.ID, result)
 
 	default:
 		return nil

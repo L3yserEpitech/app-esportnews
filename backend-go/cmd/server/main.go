@@ -184,6 +184,7 @@ func main() {
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
 	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
+	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -199,7 +200,8 @@ func main() {
 	matchSubHandler.RegisterRoutes(apiGroup)
 	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
 	iapHandler.RegisterRoutes(apiGroup)        // IAP validation (JWT required)
-	appleWebhookHandler.RegisterRoutes(apiGroup) // Apple Server Notifications V2 (public, JWS-signed)
+	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
+	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
