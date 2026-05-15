@@ -1,38 +1,41 @@
 import { articleService } from '@/app/services/articleService';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 3600;
 
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
-  const baseUrlApi = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-  let images: Array<{
-    loc: string;
-    image: string;
-    title: string;
-    caption?: string;
-  }> = [];
+  const images: Array<{ loc: string; image: string; title: string; caption?: string }> = [];
 
   try {
-    // Fetch articles with images
-    const articlesResponse = await fetch(`${baseUrlApi}/api/articles`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      next: { revalidate: 3600 },
-    });
+    const allArticles: any[] = [];
+    const pageSize = 100;
+    let offset = 0;
+    let hasMore = true;
 
-    if (articlesResponse.ok) {
-      const articles = await articlesResponse.json();
+    while (hasMore) {
+      const articles = await articleService.getAllArticles({ limit: pageSize, offset });
+      if (articles.length > 0) {
+        allArticles.push(...articles);
+        offset += pageSize;
+        hasMore = articles.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
 
-      images = articles
-        .filter((article: any) => article.featuredImage)
-        .map((article: any) => ({
+    for (const article of allArticles) {
+      if (article.featuredImage) {
+        images.push({
           loc: `${baseUrl}/article/${article.slug}`,
           image: article.featuredImage,
           title: article.title,
           caption: article.description || article.subtitle,
-        }));
+        });
+      }
     }
+
+    console.log(`[image-sitemap] ${images.length} images`);
   } catch (error) {
     console.error('Error fetching images for sitemap:', error);
   }

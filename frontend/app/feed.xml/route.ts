@@ -8,9 +8,7 @@ export async function GET() {
   const siteDescription = 'Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois';
 
   try {
-    // Récupérer les 20 derniers articles
-    const articles = await articleService.getAllArticles();
-    const latestArticles = articles.slice(0, 20);
+    const articles = await articleService.getAllArticles({ limit: 20 });
 
     // Générer le RSS feed
     const rssContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -27,7 +25,7 @@ export async function GET() {
       <title>${siteTitle}</title>
       <link>${baseUrl}</link>
     </image>
-    ${latestArticles
+    ${articles
       .map(
         (article) => `
     <item>
