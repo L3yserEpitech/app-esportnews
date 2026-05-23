@@ -13,6 +13,7 @@ interface ArticleContentProps {
 type Segment = { type: 'html'; html: string } | { type: 'tweet'; id: string };
 
 function parseSegments(html: string): Segment[] {
+  if (!html || typeof html !== 'string') return [{ type: 'html', html: html ?? '' }];
   const pattern = /<div[^>]+data-tweet-id="(\d{10,20})"[^>]*>(?:[\s\S]*?<\/div>)?/gi;
   const matches = [...html.matchAll(pattern)];
 
