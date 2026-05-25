@@ -98,7 +98,6 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
     >
       {segments.map((segment, i) => {
         if (segment.type === 'tweet') {
-          const tweetUrl = `https://x.com/i/web/status/${segment.id}`;
           return (
             <figure
               key={segment.id}
@@ -107,32 +106,8 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
               aria-label="Tweet intégré"
               data-theme={isDarkMode ? 'dark' : 'light'}
             >
-              <TweetErrorBoundary
-                fallback={
-                  <a
-                    href={tweetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.tweetFallback}
-                  >
-                    Voir ce tweet sur X →
-                  </a>
-                }
-              >
-                <Tweet
-                  apiUrl="/api/tweet"
-                  id={segment.id}
-                  fallback={
-                    <a
-                      href={tweetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.tweetFallback}
-                    >
-                      Voir ce tweet sur X →
-                    </a>
-                  }
-                />
+              <TweetErrorBoundary fallback={null}>
+                <Tweet apiUrl="/api/tweet" id={segment.id} fallback={null} />
               </TweetErrorBoundary>
             </figure>
           );
