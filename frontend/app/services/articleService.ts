@@ -1,5 +1,16 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
 
+function parseTags(tags: string | string[] | null | undefined): string[] {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags;
+  try {
+    const parsed = JSON.parse(tags as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 class ArticleService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -61,7 +72,7 @@ class ArticleService {
         featuredImage: item.featuredImage,
         category: item.category,
         credit: item.credit,
-        tags: item.tags || [],
+        tags: parseTags(item.tags),
         views: item.views || 0,
       }));
 
@@ -121,7 +132,7 @@ class ArticleService {
         featuredImage: data.featuredImage,
         category: data.category,
         credit: data.credit,
-        tags: data.tags || [],
+        tags: parseTags(data.tags),
         views: data.views || 0,
         content: data.content,
         content_black: data.content_black,
@@ -180,7 +191,7 @@ class ArticleService {
         featuredImage: item.featuredImage,
         category: item.category,
         credit: item.credit,
-        tags: item.tags || [],
+        tags: parseTags(item.tags),
         views: item.views || 0,
       }));
     } catch (error) {
@@ -223,7 +234,7 @@ class ArticleService {
         featuredImage: item.featuredImage,
         category: item.category,
         credit: item.credit,
-        tags: item.tags || [],
+        tags: parseTags(item.tags),
         views: item.views || 0,
       }));
 
