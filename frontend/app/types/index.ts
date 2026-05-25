@@ -74,7 +74,7 @@ export interface SupabaseArticle {
   id: number;
   created_at: string;
   slug: string;
-  tags: string[];
+  tags: string[] | string | null;
   title: string;
   views: number;
   author: string;

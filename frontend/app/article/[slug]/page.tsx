@@ -20,6 +20,17 @@ function calculateReadTime(content: string | undefined): number {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+function parseTags(tags: string | string[] | null | undefined): string[] {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags;
+  try {
+    const parsed = JSON.parse(tags as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function toArticle(data: SupabaseArticle): Article {
   return {
     id: data.id,
@@ -33,7 +44,7 @@ function toArticle(data: SupabaseArticle): Article {
     featuredImage: data.featuredImage,
     category: data.category,
     credit: data.credit,
-    tags: data.tags || [],
+    tags: parseTags(data.tags),
     views: data.views || 0,
     content: data.content,
     content_black: data.content_black,
@@ -54,7 +65,7 @@ function toNewsItem(data: SupabaseArticle): NewsItem {
     featuredImage: data.featuredImage,
     category: data.category,
     credit: data.credit,
-    tags: data.tags || [],
+    tags: parseTags(data.tags),
     views: data.views || 0,
   };
 }
