@@ -1,9 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { Tweet } from 'react-tweet';
 import styles from './ArticleContent.module.css';
+
+class TweetErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    console.error('[TweetErrorBoundary] Tweet render failed:', error.message);
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 interface ArticleContentProps {
   content: string;
@@ -89,14 +101,13 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
           const tweetUrl = `https://x.com/i/web/status/${segment.id}`;
           return (
             <figure
-              key={i}
+              key={segment.id}
               className={styles.tweetEmbed}
               role="article"
               aria-label="Tweet intégré"
               data-theme={isDarkMode ? 'dark' : 'light'}
             >
-              <Tweet
-                id={segment.id}
+              <TweetErrorBoundary
                 fallback={
                   <a
                     href={tweetUrl}
@@ -107,7 +118,22 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
                     Voir ce tweet sur X →
                   </a>
                 }
-              />
+              >
+                <Tweet
+                  apiUrl="/api/tweet"
+                  id={segment.id}
+                  fallback={
+                    <a
+                      href={tweetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.tweetFallback}
+                    >
+                      Voir ce tweet sur X →
+                    </a>
+                  }
+                />
+              </TweetErrorBoundary>
             </figure>
           );
         }
