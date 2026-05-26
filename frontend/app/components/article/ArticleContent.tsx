@@ -99,17 +99,16 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
       {segments.map((segment, i) => {
         if (segment.type === 'tweet') {
           return (
-            <figure
-              key={segment.id}
-              className={styles.tweetEmbed}
-              role="article"
-              aria-label="Tweet intégré"
-              data-theme={isDarkMode ? 'dark' : 'light'}
-            >
-              <TweetErrorBoundary fallback={null}>
+            <TweetErrorBoundary key={segment.id} fallback={null}>
+              <figure
+                className={styles.tweetEmbed}
+                role="article"
+                aria-label="Tweet intégré"
+                data-theme={isDarkMode ? 'dark' : 'light'}
+              >
                 <Tweet apiUrl="/api/tweet" id={segment.id} fallback={null} />
-              </TweetErrorBoundary>
-            </figure>
+              </figure>
+            </TweetErrorBoundary>
           );
         }
         return <HtmlBlock key={i} html={segment.html} />;
