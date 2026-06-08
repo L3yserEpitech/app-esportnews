@@ -10,10 +10,9 @@ import ProfileInfoSection from '../components/profile/sections/ProfileInfoSectio
 import FavoriteTeamsSection from '../components/profile/sections/FavoriteTeamsSection';
 import SecuritySection from '../components/profile/sections/SecuritySection';
 import PreferencesSection from '../components/profile/sections/PreferencesSection';
-import NotificationsSection from '../components/profile/sections/NotificationsSection';
 // import SubscriptionSection from './sections/SubscriptionSection';
 
-type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'notifications' | 'subscription';
+type SidebarSection = 'profile' | 'favorite-teams' | 'security' | 'preferences' | 'subscription';
 
 export default function ProfilePage() {
   const t = useTranslations();
@@ -50,8 +49,6 @@ export default function ProfilePage() {
         return <SecuritySection onUpdate={refreshUser} />;
       case 'preferences':
         return <PreferencesSection />;
-      case 'notifications':
-        return <NotificationsSection />;
       // case 'subscription':
       //   return <SubscriptionSection />;
       default:

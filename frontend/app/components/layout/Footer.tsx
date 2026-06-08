@@ -170,7 +170,7 @@ export default function Footer() {
             <div className="mt-6">
               <h4 style={{ color: 'var(--color-text-primary)' }} className="font-semibold mb-4 text-base">{t('layout.footer.kit_media')}</h4>
               <a
-                href="/Kit Média ESPORT NEWS.pdf"
+                href="/kit-media.pdf"
                 download="Kit_Media_ESPORT_NEWS.pdf"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#F22E62] hover:bg-[#d92556] text-white text-sm font-medium rounded-lg transition-colors duration-200"
               >
