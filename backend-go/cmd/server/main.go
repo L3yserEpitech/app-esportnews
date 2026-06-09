@@ -147,9 +147,10 @@ func main() {
 	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, cfg.LiquipediaBudgetPerWiki, redisClient, logger)
 	dirtyTracker := services.NewDirtyTracker()
 	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
-	if os.Getenv("LIQUIPEDIA_WEBHOOKS_ENABLED") == "true" {
+	if cfg.LiquipediaWebhooksEnabled {
 		liquipediaPoller.SetWebhooksEnabled(true)
-		logger.Info("Liquipedia webhooks mode enabled")
+		logger.WithField("secret_configured", cfg.LiquipediaWebhookSecret != "").
+			Info("Liquipedia webhooks mode enabled")
 	}
 
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
@@ -198,7 +199,7 @@ func main() {
 	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
-	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, logger)
+	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, cfg.LiquipediaWebhookSecret, logger)
 	imageProxyHandler := handlers.NewImageProxyHandler()
 
 	// Register routes

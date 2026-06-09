@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"net/http"
-	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -19,18 +19,27 @@ var validWebhookEvents = map[string]bool{
 	"purge":  true,
 }
 
+// webhookSecretHeader is the HTTP header used to authenticate LiquipediaDB
+// webhook deliveries. The dashboard is configured to send the shared secret
+// in this header.
+const webhookSecretHeader = "X-Webhook-Secret"
+
 // WebhookHandler receives LiquipediaDB webhook events and marks dirty flags
 // for the poller to consume. It never calls the API directly — the debounce
 // is handled by the poller's dirty flag consumer.
 type WebhookHandler struct {
 	dirtyTracker *services.DirtyTracker
+	secret       string
 	log          *logrus.Logger
 }
 
-// NewWebhookHandler creates a new webhook handler.
-func NewWebhookHandler(dirtyTracker *services.DirtyTracker, logger *logrus.Logger) *WebhookHandler {
+// NewWebhookHandler creates a new webhook handler. A non-empty secret enables
+// constant-time validation of the X-Webhook-Secret header on each request;
+// an empty secret disables the check (intended for local development only).
+func NewWebhookHandler(dirtyTracker *services.DirtyTracker, secret string, logger *logrus.Logger) *WebhookHandler {
 	return &WebhookHandler{
 		dirtyTracker: dirtyTracker,
+		secret:       secret,
 		log:          logger,
 	}
 }
@@ -44,13 +53,9 @@ func (h *WebhookHandler) RegisterRoutes(g RouterGroup) {
 // It parses the event, marks the wiki as dirty, and returns 200 immediately.
 // The actual API fetching happens asynchronously in the poller.
 func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
-	// Fix #14: Optional webhook secret validation via LIQUIPEDIA_WEBHOOK_SECRET env var
-	if secret := os.Getenv("LIQUIPEDIA_WEBHOOK_SECRET"); secret != "" {
-		headerSecret := c.Request().Header.Get("X-Webhook-Secret")
-		if headerSecret != secret {
-			h.log.Warn("Webhook rejected: invalid or missing secret")
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
-		}
+	if !h.authorized(c) {
+		h.log.Warn("Webhook rejected: invalid or missing secret")
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
 
 	var event models.LiquipediaWebhookEvent
@@ -100,4 +105,16 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 	}).Info("[WEBHOOK] Dirty flags set — poller will consume on next cycle")
 
 	return c.NoContent(http.StatusOK)
+}
+
+// authorized reports whether the incoming request carries a valid secret.
+// When no secret is configured (h.secret == ""), the check is disabled.
+// Otherwise the X-Webhook-Secret header is compared in constant time to
+// avoid leaking byte-level timing information about the expected value.
+func (h *WebhookHandler) authorized(c echo.Context) bool {
+	if h.secret == "" {
+		return true
+	}
+	provided := c.Request().Header.Get(webhookSecretHeader)
+	return subtle.ConstantTimeCompare([]byte(provided), []byte(h.secret)) == 1
 }
