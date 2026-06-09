@@ -19,10 +19,14 @@ var validWebhookEvents = map[string]bool{
 	"purge":  true,
 }
 
-// webhookSecretHeader is the HTTP header used to authenticate LiquipediaDB
-// webhook deliveries. The dashboard is configured to send the shared secret
-// in this header.
-const webhookSecretHeader = "X-Webhook-Secret"
+// webhookSecretHeader carries the shared secret on manual/test deliveries.
+// webhookSecretQueryParam carries it on real LiquipediaDB deliveries: the
+// dashboard offers no way to set custom headers (only a URL + comment), and
+// the payload has no signature, so the secret must travel in the webhook URL.
+const (
+	webhookSecretHeader     = "X-Webhook-Secret"
+	webhookSecretQueryParam = "secret"
+)
 
 // WebhookHandler receives LiquipediaDB webhook events and marks dirty flags
 // for the poller to consume. It never calls the API directly — the debounce
@@ -109,12 +113,16 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 
 // authorized reports whether the incoming request carries a valid secret.
 // When no secret is configured (h.secret == ""), the check is disabled.
-// Otherwise the X-Webhook-Secret header is compared in constant time to
-// avoid leaking byte-level timing information about the expected value.
+// The secret is read from the X-Webhook-Secret header first (manual tests),
+// then from the `secret` query param (real LiquipediaDB deliveries), and
+// compared in constant time to avoid leaking byte-level timing information.
 func (h *WebhookHandler) authorized(c echo.Context) bool {
 	if h.secret == "" {
 		return true
 	}
 	provided := c.Request().Header.Get(webhookSecretHeader)
+	if provided == "" {
+		provided = c.QueryParam(webhookSecretQueryParam)
+	}
 	return subtle.ConstantTimeCompare([]byte(provided), []byte(h.secret)) == 1
 }

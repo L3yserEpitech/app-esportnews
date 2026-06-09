@@ -212,7 +212,7 @@ JWT expiration hardcodée : **7 jours**.
 | `LIQUIPEDIA_API_KEY` | string | `""` | Clé API v3 → header `Authorization: Apikey <key>` | Si vide, le poller log un warning et **ne démarre pas** |
 | `LIQUIPEDIA_BUDGET_PER_WIKI` | int | `1000` | Quota requêtes/heure/wiki appliqué par le `RequestBudget` | Passé de 60 → 1000 en juin 2026 après extension officielle du quota |
 | `LIQUIPEDIA_WEBHOOKS_ENABLED` | bool | `false` (dev) / `true` (prod) | Active le mode dirty-flags du poller | Une fois OFF, le poller fait du polling aveugle aux intervalles fixes (Scenario B) |
-| `LIQUIPEDIA_WEBHOOK_SECRET` | string | `""` | Secret attendu dans `X-Webhook-Secret` (comparaison `crypto/subtle.ConstantTimeCompare`) | Empty = pas de vérification (dev local uniquement) |
+| `LIQUIPEDIA_WEBHOOK_SECRET` | string | `""` | Secret validé via header `X-Webhook-Secret` ou query param `?secret=` (`crypto/subtle.ConstantTimeCompare`) | LiquipediaDB ne sait envoyer ni header ni signature → le secret passe dans l'URL. Empty = pas de vérification (dev local uniquement) |
 | `LIQUIPEDIA_SKIP_TLS` | bool | `false` | Désactive la vérification TLS du client HTTP Liquipedia | **Dev uniquement** — utile en local quand le cert IPv4 forcé pose souci |
 
 ### Background services
@@ -515,7 +515,7 @@ Query params communs : `game=valorant` (acronyme), `limit`, `offset`, `sort=date
 ### Webhooks Liquipedia (`webhooks.go`)
 | Méthode | Route | Auth | Description |
 |---------|-------|------|-------------|
-| `POST` | `/api/webhooks/liquipedia` | `X-Webhook-Secret` | LiquipediaDB → DirtyTracker → poller refresh |
+| `POST` | `/api/webhooks/liquipedia` | `X-Webhook-Secret` ou `?secret=` | LiquipediaDB → DirtyTracker → poller refresh |
 
 ### Admin monitoring (inline dans `main.go`)
 | Méthode | Route | Auth | Description |
@@ -748,9 +748,8 @@ GET /api/admin/api-budget   (JWT admin requis)
 LiquipediaDB peut envoyer un POST à notre backend chaque fois qu'une page est éditée/supprimée/déplacée/purgée. Le backend marque la wiki concernée comme "dirty" et le poller fait un refresh ciblé au prochain tick (2 min).
 
 ### Configuration côté LiquipediaDB
-Dashboard LiquipediaDB → Webhooks → Webhook #49 :
-* **URL** : `https://www.blitchapp.online/api/webhooks/liquipedia` (preview) ou `https://www.esportnews.fr/api/webhooks/liquipedia` (prod, à venir)
-* **Header custom** : `X-Webhook-Secret: <LIQUIPEDIA_WEBHOOK_SECRET>`
+Dashboard LiquipediaDB → Webhooks → Webhook #49. **Le dashboard ne permet de régler qu'une URL + un commentaire** : aucun header custom, aucune signature dans le payload. Le secret voyage donc **dans l'URL en query param** (`?secret=`) — c'est le seul moyen d'authentifier les livraisons réelles.
+* **URL** : `https://www.blitchapp.online/api/webhooks/liquipedia?secret=<LIQUIPEDIA_WEBHOOK_SECRET>` (preview) ou `https://www.esportnews.fr/api/webhooks/liquipedia?secret=<...>` (prod, à venir)
 * **Events** : `edit`, `delete`, `move`, `purge`
 
 ### Payload reçu
@@ -766,7 +765,7 @@ Dashboard LiquipediaDB → Webhooks → Webhook #49 :
 ```
 
 ### Côté backend
-1. **Validation** : `crypto/subtle.ConstantTimeCompare` sur le header `X-Webhook-Secret`. Si `LIQUIPEDIA_WEBHOOK_SECRET=""`, validation désactivée (dev uniquement).
+1. **Validation** : `crypto/subtle.ConstantTimeCompare` sur le header `X-Webhook-Secret` (tests manuels curl) puis, si absent, sur le query param `secret` (livraisons réelles LiquipediaDB). Si `LIQUIPEDIA_WEBHOOK_SECRET=""`, validation désactivée (dev uniquement).
 2. **Parsing** : `models.LiquipediaWebhookEvent`
 3. **Mark dirty** : `DirtyTracker.MarkDirty(event)` (thread-safe). Namespace -10 = teams only, sinon = matches + tournaments.
 4. **Réponse** : `HTTP 200` (vide, immédiat — le refresh est async).
@@ -982,9 +981,8 @@ Redémarrer. Logs : `Notification scheduler disabled (NOTIFICATION_SCHEDULER_ENA
 1. Générer un secret : `openssl rand -hex 32`
 2. Setter `LIQUIPEDIA_WEBHOOK_SECRET=<secret>` + `LIQUIPEDIA_WEBHOOKS_ENABLED=true` dans Railway
 3. Redéployer
-4. Configurer le webhook côté dashboard LiquipediaDB :
-   - URL : `https://<domain>/api/webhooks/liquipedia`
-   - Header `X-Webhook-Secret: <secret>`
+4. Configurer le webhook côté dashboard LiquipediaDB (URL + commentaire uniquement, pas de header possible) :
+   - URL : `https://<domain>/api/webhooks/liquipedia?secret=<secret>`
    - Events : edit, delete, move, purge
 5. Tester avec un edit de page → logs : `[WEBHOOK] ✅ Received and accepted`
 
