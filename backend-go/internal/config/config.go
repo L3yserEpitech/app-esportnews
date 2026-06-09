@@ -35,7 +35,8 @@ type Config struct {
 	CORSOrigins string
 
 	// Liquipedia API
-	LiquipediaAPIKey string
+	LiquipediaAPIKey        string
+	LiquipediaBudgetPerWiki int // requests per wiki per hour (rate limit ceiling)
 
 	// Stripe
 	StripeSecretKey   string
@@ -86,8 +87,9 @@ func LoadConfig() *Config {
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
 		CORSOrigins:      getEnv("CORS_ORIGINS", ""),
-		LiquipediaAPIKey: getEnv("LIQUIPEDIA_API_KEY", ""),
-		StripeSecretKey:  getEnv("STRIPE_SECRET_KEY", ""),
+		LiquipediaAPIKey:        getEnv("LIQUIPEDIA_API_KEY", ""),
+		LiquipediaBudgetPerWiki: getEnvInt("LIQUIPEDIA_BUDGET_PER_WIKI", 1000),
+		StripeSecretKey:         getEnv("STRIPE_SECRET_KEY", ""),
 		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
 		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),

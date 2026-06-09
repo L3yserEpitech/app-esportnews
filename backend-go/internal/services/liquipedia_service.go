@@ -25,8 +25,10 @@ const (
 	liquipediaBaseURL = "https://api.liquipedia.net/api/v3"
 	liquipediaUA      = "EsportNews/1.0 (contact@esportnews.fr)"
 
-	// Budget: 60 requests per wiki per hour
-	budgetLimitPerWiki = 60
+	// defaultBudgetLimitPerWiki is used when no positive value is supplied to
+	// NewLiquipediaService. Liquipedia's published rate limit is 1000 req/wiki/hour
+	// since June 2026; configure via LIQUIPEDIA_BUDGET_PER_WIKI to override.
+	defaultBudgetLimitPerWiki = 1000
 )
 
 // Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
@@ -42,7 +44,7 @@ const (
 	TTLMatchDetailFinished = 24 * time.Hour
 	TTLMatchesByDatePast   = 6 * time.Hour
 	TTLTournamentDetail    = 10 * time.Minute
-	TTLTeam                = 6 * time.Hour  // roster data changes infrequently
+	TTLTeam                = 6 * time.Hour // roster data changes infrequently
 	TTLTeamMatches         = 15 * time.Minute
 	TTLTeamPlacements      = 1 * time.Hour
 	TTLStale               = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
@@ -181,12 +183,18 @@ type LiquipediaService struct {
 }
 
 // NewLiquipediaService creates the service with budget trackers for all known wikis.
-func NewLiquipediaService(apiKey string, redisCache *cache.RedisCache, logger *logrus.Logger) *LiquipediaService {
+// budgetPerWiki bounds the number of API calls allowed per wiki per hour. A value
+// of zero or less falls back to defaultBudgetLimitPerWiki.
+func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.RedisCache, logger *logrus.Logger) *LiquipediaService {
+	if budgetPerWiki <= 0 {
+		budgetPerWiki = defaultBudgetLimitPerWiki
+	}
+
 	budgets := make(map[string]*RequestBudget, len(models.GameWikiMapping))
 	for _, wiki := range models.GameWikiMapping {
 		budgets[wiki] = &RequestBudget{
 			Wiki:       wiki,
-			Limit:      budgetLimitPerWiki,
+			Limit:      budgetPerWiki,
 			ResetAt:    time.Now().Truncate(time.Hour).Add(time.Hour),
 			redisCache: redisCache,
 		}

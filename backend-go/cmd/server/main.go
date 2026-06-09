@@ -144,7 +144,7 @@ func main() {
 	authService := services.NewAuthServiceWithGORM(gormDB, redisClient, cfg.JWTSecret)
 
 	// Liquipedia service + poller + webhook dirty tracker
-	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, redisClient, logger)
+	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, cfg.LiquipediaBudgetPerWiki, redisClient, logger)
 	dirtyTracker := services.NewDirtyTracker()
 	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
 	if os.Getenv("LIQUIPEDIA_WEBHOOKS_ENABLED") == "true" {
