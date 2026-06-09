@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { getApiBaseUrl } from '../../lib/apiConfig';
 import { matchService } from '../../services/matchService';
 import MatchDetailPageClient from './MatchDetailPageClient';
 
@@ -61,13 +63,34 @@ export default async function MatchDetailPage({ params, searchParams }: MatchPag
   const { id } = await params;
   const { wiki } = await searchParams;
 
-  // Fetch match server-side to avoid double fetch (SSR metadata already fetched it,
-  // but Next.js deduplicates fetch calls within the same render pass)
-  let initialMatch = null;
+  // Fetch server-side so a genuinely missing match (e.g. a stale PandaScore-era
+  // URL still indexed by search engines) returns a real 404 instead of a
+  // soft-404 (HTTP 200 with "not found" content). Only 404 on an explicit 404
+  // from the backend — transient errors fall through so the client can retry
+  // rather than de-indexing a valid match.
+  let url = `${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}`;
+  if (wiki) {
+    url += `?wiki=${encodeURIComponent(wiki)}`;
+  }
+
+  let response: Response | undefined;
   try {
-    initialMatch = await matchService.getMatchById(id, wiki);
-  } catch (error) {
-    // Client component will handle the error state
+    response = await fetch(url, { next: { revalidate: 60 } });
+  } catch {
+    // Network/transient error — leave it to the client component.
+  }
+
+  if (response?.status === 404) {
+    notFound();
+  }
+
+  let initialMatch = null;
+  if (response?.ok) {
+    try {
+      initialMatch = await response.json();
+    } catch {
+      // Malformed body — client component will handle the error state.
+    }
   }
 
   return <MatchDetailPageClient matchId={id} wiki={wiki} initialMatch={initialMatch} />;

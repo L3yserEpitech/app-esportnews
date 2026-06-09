@@ -1,4 +1,5 @@
 import { Metadata, ResolvingMetadata } from 'next';
+import { notFound } from 'next/navigation';
 import TournamentDetailPageClient from './TournamentDetailPageClient';
 
 // Générer les métadonnées dynamiques pour chaque tournoi
@@ -60,5 +61,22 @@ export async function generateMetadata(
 
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  // Return a real 404 for a genuinely missing tournament (e.g. a stale
+  // PandaScore-era URL still indexed) instead of a soft-404. Only 404 on an
+  // explicit backend 404 — transient errors fall through to the client.
+  const baseUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+
+  let response: Response | undefined;
+  try {
+    response = await fetch(`${baseUrl}/api/tournaments/${encodeURIComponent(id)}`, { next: { revalidate: 3600 } });
+  } catch {
+    // Network/transient error — leave it to the client component.
+  }
+
+  if (response?.status === 404) {
+    notFound();
+  }
+
   return <TournamentDetailPageClient tournamentId={id} />;
 }
