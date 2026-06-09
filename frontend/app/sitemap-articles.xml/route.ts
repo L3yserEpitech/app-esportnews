@@ -1,6 +1,6 @@
 import { articleService } from '@/app/services/articleService';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
