@@ -229,7 +229,7 @@ func main() {
 
 	// Start notification scheduler (background goroutine)
 	expoPushService := services.NewExpoPushService(logger)
-	notifScheduler := services.NewNotificationScheduler(gormDB, redisClient, expoPushService, logger)
+	notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	go notifScheduler.Start(schedulerCtx)
 
