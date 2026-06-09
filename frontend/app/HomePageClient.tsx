@@ -134,8 +134,8 @@ export default function HomePageClient() {
   }, [loadAllNews]);
 
   // Charger les données selon le jeu sélectionné
-  const loadGameData = useCallback((gameId: string) => {
-    // Ici on appellerait les vraies APIs SportDevs et PandaScore
+  const loadGameData = useCallback((_gameId: string) => {
+    // Placeholder — per-game data is fetched by child components on demand.
   }, []);
 
   useEffect(() => {
