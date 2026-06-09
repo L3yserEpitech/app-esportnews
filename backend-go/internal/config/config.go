@@ -41,8 +41,8 @@ type Config struct {
 	LiquipediaWebhookSecret   string // shared secret expected in X-Webhook-Secret header (empty = no check)
 
 	// Stripe
-	StripeSecretKey   string
-	StripePriceID     string
+	StripeSecretKey     string
+	StripePriceID       string
 	StripeWebhookSecret string
 
 	// Resend Email
@@ -51,6 +51,9 @@ type Config struct {
 
 	// App
 	MaxConnections int
+
+	// Background services
+	NotificationSchedulerEnabled bool // disable on preview/staging to avoid duplicate pushes against shared prod DB
 
 	// Apple IAP (In-App Purchase)
 	AppleIAPKeyPath     string
@@ -65,14 +68,14 @@ type Config struct {
 	GoogleWebhookToken string // shared secret for Pub/Sub push URL auth
 
 	// Cloudflare R2
-	R2AccountID        string
-	R2AccessKeyID      string
-	R2SecretAccessKey  string
-	R2BucketName       string
-	R2Endpoint         string
-	R2PublicURL        string
-	MaxUploadSize      int64
-	UploadTimeout      time.Duration
+	R2AccountID       string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
+	R2BucketName      string
+	R2Endpoint        string
+	R2PublicURL       string
+	MaxUploadSize     int64
+	UploadTimeout     time.Duration
 }
 
 func LoadConfig() *Config {
@@ -82,23 +85,26 @@ func LoadConfig() *Config {
 	_ = godotenv.Load() // fallback: local .env if it exists
 
 	cfg := &Config{
-		Port:             getEnv("PORT", "4000"),
-		Env:              getEnv("ENV", "development"),
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
-		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
-		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
-		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
-		CORSOrigins:      getEnv("CORS_ORIGINS", ""),
+		Port:                      getEnv("PORT", "4000"),
+		Env:                       getEnv("ENV", "development"),
+		DatabaseURL:               getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
+		RedisURL:                  getEnv("REDIS_URL", "redis://localhost:6379"),
+		JWTSecret:                 getEnv("JWT_SECRET", "your-secret-key"),
+		FrontendURL:               getEnv("FRONTEND_URL", "http://localhost:3000"),
+		CORSOrigins:               getEnv("CORS_ORIGINS", ""),
 		LiquipediaAPIKey:          getEnv("LIQUIPEDIA_API_KEY", ""),
 		LiquipediaBudgetPerWiki:   getEnvInt("LIQUIPEDIA_BUDGET_PER_WIKI", 1000),
 		LiquipediaWebhooksEnabled: getEnvBool("LIQUIPEDIA_WEBHOOKS_ENABLED", false),
 		LiquipediaWebhookSecret:   getEnv("LIQUIPEDIA_WEBHOOK_SECRET", ""),
 		StripeSecretKey:           getEnv("STRIPE_SECRET_KEY", ""),
-		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
-		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
-		EmailFrom:        getEnv("EMAIL_FROM", "noreply@resend.dev"),
-		MaxConnections:   25,
+		StripePriceID:             getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
+		StripeWebhookSecret:       getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		ResendAPIKey:              getEnv("RESEND_API_KEY", ""),
+		EmailFrom:                 getEnv("EMAIL_FROM", "noreply@resend.dev"),
+		MaxConnections:            25,
+
+		// Background services
+		NotificationSchedulerEnabled: getEnvBool("NOTIFICATION_SCHEDULER_ENABLED", true),
 
 		// Apple IAP
 		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),

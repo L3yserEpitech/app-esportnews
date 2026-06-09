@@ -77,7 +77,7 @@ func main() {
 		"http://127.0.0.1:3002",
 		"https://esportnews.fr",
 		"https://www.esportnews.fr",
-		"http://esportnews.fr",    // HTTP redirect support
+		"http://esportnews.fr",     // HTTP redirect support
 		"http://www.esportnews.fr", // HTTP redirect support
 	}
 	if cfg.FrontendURL != "" {
@@ -214,8 +214,8 @@ func main() {
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	matchSubHandler.RegisterRoutes(apiGroup)
-	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
-	iapHandler.RegisterRoutes(apiGroup)       // IAP validation (JWT required)
+	analyticsHandler.RegisterRoutes(apiGroup)     // Public tracking endpoint
+	iapHandler.RegisterRoutes(apiGroup)           // IAP validation (JWT required)
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
 	webhookHandler.RegisterRoutes(apiGroup)       // Liquipedia webhook endpoint
@@ -228,11 +228,18 @@ func main() {
 	adHandler.RegisterAdminRoutes(adminGroup)
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
 
-	// Start notification scheduler (background goroutine)
+	// Notification scheduler — disabled on preview/staging environments that
+	// share the prod database, to avoid two backends racing on match_subscriptions
+	// and dispatching duplicate push notifications.
 	expoPushService := services.NewExpoPushService(logger)
-	notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
-	go notifScheduler.Start(schedulerCtx)
+	if cfg.NotificationSchedulerEnabled {
+		notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
+		go notifScheduler.Start(schedulerCtx)
+		logger.Info("Notification scheduler started")
+	} else {
+		logger.Info("Notification scheduler disabled (NOTIFICATION_SCHEDULER_ENABLED=false)")
+	}
 
 	// Start IAP validation scheduler (daily re-validation of Apple/Google receipts)
 	iapScheduler := services.NewIAPValidationScheduler(gormDB, iapService, logger)
