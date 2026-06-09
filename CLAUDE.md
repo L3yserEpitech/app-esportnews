@@ -1083,6 +1083,9 @@ curl -H "Authorization: Bearer <jwt_admin>" \
 
 **Composant principal** : `frontend/app/match/MatchPageClient.tsx`. Service : `matchService.getMatchesByDate(date, gameAcronym)`. **Important** : utiliser `URLSearchParams` (pas `FormData`) pour le body, `Content-Type: application/x-www-form-urlencoded`.
 
+#### Politique 404 sur entités absentes (SEO — pas de redirect)
+Les pages détail `match/[id]` et `tournois/[id]` **fetchent côté serveur** et appellent `notFound()` (vrai HTTP 404) quand le backend renvoie 404 — jamais de soft-404 (HTTP 200 + contenu "non trouvé"), qui garderait l'URL indexée. **Aucun redirect** : il n'existe aucun mapping ancien ID PandaScore (numérique) → ID Liquipedia, donc on laisse les vieilles URLs indexées tomber proprement en 404 (Google dé-indexe). **404 uniquement sur un 404 explicite du backend** : une erreur transitoire (timeout/réseau) laisse rendre le client pour ne pas dé-indexer une entité valide. Côté backend, `GET /api/matches/:id` **skip le scan on-demand 10-wikis pour un ID numérique** (un `match2id` Liquipedia est alphanumérique ; un ID numérique ne peut être qu'un `pageid` déjà couvert par le cache, ou un vieil ID PandaScore) → 404 immédiat, budget API préservé.
+
 ### 18.2 Panel Admin — Gestion des publicités (`/admin/ads`)
 
 **Auth** : JWT + `admin=true` sur l'utilisateur.
