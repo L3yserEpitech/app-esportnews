@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -359,10 +360,16 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		}
 	}
 
-	// Step 3: On-demand fetch — try each wiki sequentially (costs 1 API call per wiki, stops on first hit)
-	for _, wiki := range allWikis {
-		if m, found := fetchOnDemand(wiki); found {
-			return returnMatch(*m, wiki)
+	// Step 3: On-demand fetch by match2id (1 API call per wiki, stops on first hit).
+	// A purely numeric ID can only be a pageid (already covered by the cache scan
+	// above) or a legacy PandaScore ID — never a Liquipedia match2id, which is
+	// alphanumeric. Skip the 10-wiki scan for numeric IDs to 404 fast and spare
+	// the API budget on stale URLs still crawled by search engines.
+	if _, numErr := strconv.Atoi(matchID); numErr != nil {
+		for _, wiki := range allWikis {
+			if m, found := fetchOnDemand(wiki); found {
+				return returnMatch(*m, wiki)
+			}
 		}
 	}
 
