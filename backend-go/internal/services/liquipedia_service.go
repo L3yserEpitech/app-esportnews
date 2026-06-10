@@ -235,8 +235,10 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		}
 	}
 
+	// 30s: cold matches_past payloads (~9MB) measured at 17s — 15s burned the
+	// request right before completion and fell back to stale every time.
 	httpClient := &http.Client{
-		Timeout: 15 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 
 	// Force IPv4 for Liquipedia API — IPv6 is unreachable on Railway/Docker, and
