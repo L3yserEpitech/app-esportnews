@@ -1,0 +1,52 @@
+package services
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+
+	"github.com/esportnews/backend/internal/cache"
+)
+
+// newTestService wires a LiquipediaService against an httptest server and a
+// miniredis instance. The IPv4 dial override only triggers for
+// api.liquipedia.net, so the 127.0.0.1 test server is unaffected.
+func newTestService(t *testing.T, handler http.Handler) (*LiquipediaService, *miniredis.Miniredis) {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	rc := cache.NewRedisClient("redis://" + mr.Addr())
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	svc := NewLiquipediaService("test-key", 1000, rc, logger)
+	svc.baseURL = srv.URL
+	return svc, mr
+}
+
+func TestMakeRequestCachesFreshAndStale(t *testing.T) {
+	var calls atomic.Int32
+	svc, mr := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(`{"result":[]}`))
+	}))
+	ctx := context.Background()
+
+	_, err := svc.MakeRequest(ctx, "valorant", "match", nil, "liq:test:key", time.Minute)
+	require.NoError(t, err)
+	// Second call must be served from cache: no extra HTTP call.
+	_, err = svc.MakeRequest(ctx, "valorant", "match", nil, "liq:test:key", time.Minute)
+	require.NoError(t, err)
+
+	require.Equal(t, int32(1), calls.Load())
+	require.True(t, mr.Exists("liq:test:key"))
+	require.True(t, mr.Exists(cache.StaleKey("liq:test:key")))
+}

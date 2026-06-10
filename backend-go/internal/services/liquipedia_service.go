@@ -186,6 +186,7 @@ type LiquipediaService struct {
 	apiKey     string
 	cache      *cache.RedisCache
 	httpClient *http.Client
+	baseURL    string                    // overridable in tests; defaults to liquipediaBaseURL
 	budgets    map[string]*RequestBudget // keyed by wiki name
 	log        *logrus.Logger
 	mu         sync.RWMutex
@@ -267,6 +268,7 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		apiKey:      apiKey,
 		cache:       redisCache,
 		httpClient:  httpClient,
+		baseURL:     liquipediaBaseURL,
 		budgets:     budgets,
 		log:         logger,
 		sem:         make(chan struct{}, maxConcurrentRequests),
@@ -358,7 +360,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		}
 		fetchParams.Set("wiki", wiki)
 		encoded := strings.ReplaceAll(fetchParams.Encode(), "+", "%20")
-		reqURL := fmt.Sprintf("%s/%s?%s", liquipediaBaseURL, endpoint, encoded)
+		reqURL := fmt.Sprintf("%s/%s?%s", s.baseURL, endpoint, encoded)
 
 		// Build HTTP request
 		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
