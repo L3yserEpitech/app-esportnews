@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -190,6 +191,13 @@ type LiquipediaService struct {
 	mu         sync.RWMutex
 	sfGroup    singleflight.Group // deduplicates concurrent API calls for the same cache key
 	sem        chan struct{}      // global concurrency limiter for outbound HTTP calls
+
+	// minInterval spaces outbound HTTP calls to stay under Liquipedia's sustained
+	// rate limit (set via LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS; 0 = disabled). Useful
+	// for cold-start/local dev where many wikis are fetched back-to-back.
+	minInterval time.Duration
+	rateMu      sync.Mutex
+	lastReq     time.Time
 }
 
 // NewLiquipediaService creates the service with budget trackers for all known wikis.
@@ -223,17 +231,23 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		Timeout: 15 * time.Second,
 	}
 
-	// Force IPv4 for Liquipedia API — IPv6 is unreachable on Railway/Docker.
-	// Without this, Go's Happy Eyeballs tries IPv6 first (3s timeout per request).
+	// Force IPv4 for Liquipedia API — IPv6 is unreachable on Railway/Docker, and
+	// without this Go's Happy Eyeballs tries IPv6 first (3s timeout per request).
+	// Opt out with LIQUIPEDIA_DISABLE_IPV4=true for local dev where the host has
+	// working IPv6 but the IPv4 egress is rate-limited by Liquipedia.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, _, _ := net.SplitHostPort(addr)
-		if host == "api.liquipedia.net" {
-			dialer := &net.Dialer{Timeout: 8 * time.Second}
-			return dialer.DialContext(ctx, "tcp4", addr)
+	if os.Getenv("LIQUIPEDIA_DISABLE_IPV4") != "true" {
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, _ := net.SplitHostPort(addr)
+			if host == "api.liquipedia.net" {
+				dialer := &net.Dialer{Timeout: 8 * time.Second}
+				return dialer.DialContext(ctx, "tcp4", addr)
+			}
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, addr)
 		}
-		dialer := &net.Dialer{Timeout: 10 * time.Second}
-		return dialer.DialContext(ctx, network, addr)
+	} else {
+		logger.Warn("IPv4 forcing disabled for Liquipedia API (LIQUIPEDIA_DISABLE_IPV4=true)")
 	}
 
 	if os.Getenv("LIQUIPEDIA_SKIP_TLS") == "true" {
@@ -243,13 +257,20 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 
 	httpClient.Transport = transport
 
+	minInterval := time.Duration(0)
+	if ms, err := strconv.Atoi(os.Getenv("LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS")); err == nil && ms > 0 {
+		minInterval = time.Duration(ms) * time.Millisecond
+		logger.WithField("interval_ms", ms).Info("Liquipedia request spacing enabled")
+	}
+
 	svc := &LiquipediaService{
-		apiKey:     apiKey,
-		cache:      redisCache,
-		httpClient: httpClient,
-		budgets:    budgets,
-		log:        logger,
-		sem:        make(chan struct{}, maxConcurrentRequests),
+		apiKey:      apiKey,
+		cache:       redisCache,
+		httpClient:  httpClient,
+		budgets:     budgets,
+		log:         logger,
+		sem:         make(chan struct{}, maxConcurrentRequests),
+		minInterval: minInterval,
 	}
 
 	// Log startup budget status for all wikis
@@ -360,6 +381,23 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		case s.sem <- struct{}{}:
 		case <-ctx.Done():
 			return nil, ctx.Err()
+		}
+		// Space successive calls when configured (cold-start / local dev).
+		if s.minInterval > 0 {
+			s.rateMu.Lock()
+			if wait := s.minInterval - time.Since(s.lastReq); wait > 0 {
+				timer := time.NewTimer(wait)
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					timer.Stop()
+					s.rateMu.Unlock()
+					<-s.sem
+					return nil, ctx.Err()
+				}
+			}
+			s.lastReq = time.Now()
+			s.rateMu.Unlock()
 		}
 		resp, doErr := s.httpClient.Do(req)
 		<-s.sem
