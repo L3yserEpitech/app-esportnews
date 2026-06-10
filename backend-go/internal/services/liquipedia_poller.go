@@ -316,7 +316,17 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 
 	// Track last refresh time per type — when webhooks are enabled, only poll
 	// if the cache is about to expire (safety net, not regular polling).
-	lastRefresh := make(map[string]time.Time)
+	// Credit the warmup that just ran so the first ticker fire in webhook mode
+	// doesn't immediately re-fetch what was fetched seconds ago.
+	warmupDone := time.Now()
+	lastRefresh := map[string]time.Time{
+		"matches_running":      warmupDone,
+		"matches_upcoming":     warmupDone,
+		"matches_past":         warmupDone,
+		"tournaments_running":  warmupDone,
+		"tournaments_upcoming": warmupDone,
+		"tournaments_finished": warmupDone,
+	}
 	safetyMultiplier := time.Duration(3) // poll at 3× normal interval when webhooks active
 
 	shouldRefresh := func(name string, interval time.Duration) bool {
