@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
@@ -251,9 +252,18 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Test database not available: %v", err)
 	}
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	// pgxpool connects lazily, so ping explicitly: these are integration tests
+	// that must skip (not fail) when the dedicated esportnews_test DB is absent,
+	// e.g. in CI or on a box running only the dev database.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		t.Skipf("Could not connect to test database: %v", err)
+		t.Skipf("Could not create test pool: %v", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		t.Skipf("Test database not reachable: %v", err)
 	}
 
 	createTestTables(t, pool)
