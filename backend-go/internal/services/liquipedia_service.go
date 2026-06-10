@@ -92,12 +92,14 @@ func (b *RequestBudget) CanMakeRequest() bool {
 	return b.Used < b.Limit
 }
 
-// Record429 marks a 429 response — sets the budget to exhausted and applies backoff.
-// Each consecutive 429 doubles the backoff: 5min, 10min, 20min, capped at 30min.
+// Record429 applies an exponential backoff after a 429 response: 5min, 10min,
+// 20min on consecutive hits, capped at 30min. It does NOT exhaust the hourly
+// budget — a transient 429 means "slow down briefly", not "quota spent". The
+// backoff window blocks requests and auto-expires, so a single 429 no longer
+// locks the wiki until the hourly reset.
 func (b *RequestBudget) Record429() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.Used = b.Limit // mark as exhausted
 
 	now := time.Now()
 	remaining := time.Until(b.blockedUntil)
