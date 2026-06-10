@@ -39,6 +39,15 @@ const (
 	WarmupIntraDelay      = 2 * time.Second  // delay between API calls within a wiki
 )
 
+// LiqMatchQueryFields / LiqTournamentQueryFields restrict responses to the
+// json tags of models.LiqMatch / models.LiqTournament — everything else was
+// discarded at parse time anyway. Cuts matches_past payloads from ~9MB to a
+// fraction (network, Redis memory, and headroom under maxLiqResponseSize).
+const (
+	LiqMatchQueryFields      = "pageid,pagename,namespace,objectname,match2id,match2bracketid,status,winner,walkover,resulttype,finished,mode,type,section,game,patch,bestof,date,dateexact,vod,tournament,parent,tickername,shortname,series,icon,iconurl,icondark,icondarkurl,liquipediatier,liquipediatiertype,publishertier,match2opponents,match2games,stream,links,extradata,match2bracketdata"
+	LiqTournamentQueryFields = "pageid,pagename,namespace,objectname,name,shortname,tickername,banner,bannerurl,bannerdark,bannerdarkurl,icon,iconurl,icondark,icondarkurl,seriespage,serieslist,previous,previous2,next,next2,game,mode,patch,endpatch,type,organizers,startdate,enddate,sortdate,locations,prizepool,participantsnumber,liquipediatier,liquipediatiertype,publishertier,status,maps,format,sponsors,extradata"
+)
+
 // DirtyFlag tracks which data types have been modified for a given wiki.
 // Set by the WebhookHandler, consumed by the Poller.
 type DirtyFlag struct {
@@ -496,6 +505,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesRunning)
@@ -519,6 +529,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesUpcoming)
@@ -541,6 +552,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
 	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesPast)
@@ -563,6 +575,7 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 	))
 	params.Set("order", "liquipediatier ASC, startdate ASC")
 	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsRunning)
@@ -584,6 +597,7 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 	))
 	params.Set("order", "startdate ASC")
 	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsUpcoming)
@@ -604,6 +618,7 @@ func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki 
 	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff))
 	params.Set("order", "enddate DESC")
 	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
 
 	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "key": cacheKey}).Info("[REFRESH] Starting")
 	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsFinished)

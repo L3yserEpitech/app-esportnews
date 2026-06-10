@@ -82,6 +82,7 @@ func (s *LiquipediaService) TournamentMatches(ctx context.Context, gameAcronym s
 	params.Set("conditions", fmt.Sprintf("[[parent::%s]]", pageName))
 	params.Set("order", "date ASC")
 	params.Set("limit", "5000")
+	params.Set("query", LiqMatchQueryFields)
 
 	data, err := s.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLTournamentDetail)
 	if err != nil {

@@ -278,6 +278,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 			params.Set("conditions", conditions)
 			params.Set("order", "liquipediatier ASC, startdate ASC")
 			params.Set("limit", "5000")
+			params.Set("query", services.LiqTournamentQueryFields)
 
 			data, fetchErr := h.liqService.MakeRequest(ctx, w, "tournament", params, cacheKey, 10*time.Minute)
 			if fetchErr != nil {
@@ -519,9 +520,9 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 
 	return models.EnrichedTournamentDetail{
 		NormalizedTournament: tournament,
-		Matches:             matches,
-		Teams:               teams,
-		ExpectedRoster:      rosters,
+		Matches:              matches,
+		Teams:                teams,
+		ExpectedRoster:       rosters,
 	}
 }
 

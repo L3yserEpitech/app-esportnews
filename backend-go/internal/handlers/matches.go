@@ -216,6 +216,7 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 			params.Set("limit", "5000")
 			params.Set("rawstreams", "true")
 			params.Set("streamurls", "true")
+			params.Set("query", services.LiqMatchQueryFields)
 
 			data, fetchErr := h.liqService.MakeRequest(ctx, w, "match", params, cacheKey, cacheTTL)
 			if fetchErr != nil {
