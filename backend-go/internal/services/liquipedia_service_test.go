@@ -50,3 +50,39 @@ func TestMakeRequestCachesFreshAndStale(t *testing.T) {
 	require.True(t, mr.Exists("liq:test:key"))
 	require.True(t, mr.Exists(cache.StaleKey("liq:test:key")))
 }
+
+func TestMakeRequestRefusesOversizedBody(t *testing.T) {
+	old := maxLiqResponseSize
+	maxLiqResponseSize = 64
+	t.Cleanup(func() { maxLiqResponseSize = old })
+
+	big := make([]byte, 200)
+	for i := range big {
+		big[i] = 'x'
+	}
+	svc, mr := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(big)
+	}))
+
+	_, err := svc.MakeRequest(context.Background(), "valorant", "match", nil, "liq:test:big", time.Minute)
+	require.Error(t, err) // no stale available → error
+	// Critical: the truncated body must NOT be cached, neither fresh nor stale.
+	require.False(t, mr.Exists("liq:test:big"))
+	require.False(t, mr.Exists(cache.StaleKey("liq:test:big")))
+}
+
+func TestMakeRequestOversizedFallsBackToStale(t *testing.T) {
+	old := maxLiqResponseSize
+	maxLiqResponseSize = 64
+	t.Cleanup(func() { maxLiqResponseSize = old })
+
+	big := make([]byte, 200)
+	svc, mr := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(big)
+	}))
+	require.NoError(t, mr.Set(cache.StaleKey("liq:test:big2"), `{"result":["stale"]}`))
+
+	data, err := svc.MakeRequest(context.Background(), "valorant", "match", nil, "liq:test:big2", time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, `{"result":["stale"]}`, string(data))
+}

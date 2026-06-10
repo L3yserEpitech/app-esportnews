@@ -39,6 +39,13 @@ const (
 	maxConcurrentRequests = 1
 )
 
+// maxLiqResponseSize caps response bodies. A body at the cap was silently
+// truncated by the old io.LimitReader approach and then cached as corrupt
+// JSON for up to TTLStale (6h) — matches_past payloads already reach ~9.3MB,
+// so the cap is 20MB with an explicit refuse-to-cache on overflow.
+// var (not const) so tests can lower it.
+var maxLiqResponseSize int64 = 20 * 1024 * 1024
+
 // Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
 // Aligned with reduced polling intervals (~17 req/wiki/hr).
 const (
@@ -440,11 +447,18 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
 
-		// Read body (limit to 10MB to prevent memory exhaustion)
-		const maxResponseSize = 10 * 1024 * 1024
-		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+		// Read one byte past the cap so truncation is detectable instead of silent.
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxLiqResponseSize+1))
 		if readErr != nil {
 			return nil, fmt.Errorf("reading response body: %w", readErr)
+		}
+		if int64(len(body)) > maxLiqResponseSize {
+			s.log.WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+				"cap":      maxLiqResponseSize,
+			}).Error("[MAKEREQ] Response exceeds size cap — refusing to cache truncated body")
+			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
 
 		// Record the request in the budget
