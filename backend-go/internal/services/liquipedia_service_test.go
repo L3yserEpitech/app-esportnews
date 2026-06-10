@@ -86,3 +86,29 @@ func TestMakeRequestOversizedFallsBackToStale(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `{"result":["stale"]}`, string(data))
 }
+
+func TestSingleflightSurvivesFirstCallerCancel(t *testing.T) {
+	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(150 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"result":[]}`))
+	}))
+
+	ctx1, cancel := context.WithCancel(context.Background())
+	done1 := make(chan struct{})
+	go func() {
+		defer close(done1)
+		_, _ = svc.MakeRequest(ctx1, "valorant", "match", nil, "liq:test:sf", time.Minute)
+	}()
+	time.Sleep(30 * time.Millisecond) // let caller 1 own the flight
+
+	done2 := make(chan error, 1)
+	go func() {
+		_, err := svc.MakeRequest(context.Background(), "valorant", "match", nil, "liq:test:sf", time.Minute)
+		done2 <- err
+	}()
+	time.Sleep(30 * time.Millisecond) // let caller 2 join the flight
+	cancel()                          // first caller bails out mid-flight
+
+	<-done1
+	require.NoError(t, <-done2) // caller 2 must still get the data
+}

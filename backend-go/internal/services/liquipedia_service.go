@@ -326,6 +326,12 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
 	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
 	v, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		// Detach from the first caller's context: N callers share this single
+		// fetch, so the first caller cancelling (browser disconnect) must not
+		// fail the others. Bounded by its own timeout (> httpClient.Timeout).
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 35*time.Second)
+		defer cancel()
+
 		// Re-check cache (another goroutine may have populated it while we waited)
 		if cached, cErr := s.cache.Get(ctx, cacheKey); cErr == nil && cached != "" {
 			s.log.WithFields(logrus.Fields{
