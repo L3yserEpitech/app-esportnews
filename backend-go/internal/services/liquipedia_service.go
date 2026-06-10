@@ -660,48 +660,29 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 	return deduped, nil
 }
 
-// GetTeamByPageID fetches a single team by its Liquipedia pageid across all wikis.
-// Fix #18: Searches all wikis in parallel for faster lookups.
-// Returns the team with its active roster (from /squadplayer).
+// GetTeamByPageID fetches a single team by its Liquipedia pageid.
+// A wiki hint (stored on every successful lookup) usually skips the
+// 10-wiki fan-out entirely — favorites re-look the same teams up daily.
 func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (*models.NormalizedTeam, error) {
 	pageIDStr := fmt.Sprintf("%d", pageID)
+	hintKey := cache.LiqWikiHintKey(pageIDStr)
 
-	type result struct {
-		team *models.NormalizedTeam
+	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+		if team := s.fetchTeamFromWiki(ctx, hint, pageID); team != nil {
+			return team, nil
+		}
+		// Stale hint — fall through to the fan-out.
 	}
 
+	type teamResult struct {
+		team *models.NormalizedTeam
+		wiki string
+	}
 	allWikis := s.getAllWikis()
-	results := make(chan result, len(allWikis))
-
+	results := make(chan teamResult, len(allWikis))
 	for _, wiki := range allWikis {
 		go func(w string) {
-			cacheKey := cache.LiqTeamKey(w, pageIDStr)
-			params := url.Values{}
-			params.Set("wiki", w)
-			params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
-			params.Set("limit", "1")
-
-			data, err := s.MakeRequest(ctx, w, "team", params, cacheKey, TTLTeam)
-			if err != nil {
-				results <- result{nil}
-				return
-			}
-
-			resp, err := ParseResponse(data)
-			if err != nil || len(resp.Result) == 0 {
-				results <- result{nil}
-				return
-			}
-
-			var team models.LiqTeam
-			if err := json.Unmarshal(resp.Result[0], &team); err != nil {
-				results <- result{nil}
-				return
-			}
-
-			players := s.fetchSquadPlayers(ctx, w, team.PageName)
-			normalized := models.NormalizeLiqTeam(team, w, players)
-			results <- result{&normalized}
+			results <- teamResult{s.fetchTeamFromWiki(ctx, w, pageID), w}
 		}(wiki)
 	}
 
@@ -709,14 +690,39 @@ func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (
 		select {
 		case res := <-results:
 			if res.team != nil {
+				_ = s.cache.Set(ctx, hintKey, res.wiki, 24*time.Hour)
 				return res.team, nil
 			}
 		case <-ctx.Done():
 			return nil, fmt.Errorf("team search timeout for pageid %d", pageID)
 		}
 	}
-
 	return nil, fmt.Errorf("team with pageid %d not found", pageID)
+}
+
+// fetchTeamFromWiki returns the team with roster from one wiki, or nil when
+// the wiki doesn't have it.
+func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, pageID int64) *models.NormalizedTeam {
+	cacheKey := cache.LiqTeamKey(wiki, fmt.Sprintf("%d", pageID))
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
+	params.Set("limit", "1")
+
+	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	if err != nil {
+		return nil
+	}
+	resp, err := ParseResponse(data)
+	if err != nil || len(resp.Result) == 0 {
+		return nil
+	}
+	var team models.LiqTeam
+	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+		return nil
+	}
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	normalized := models.NormalizeLiqTeam(team, wiki, players)
+	return &normalized
 }
 
 // GetTeamByTemplate fetches a single team by its Liquipedia template shortname on a specific wiki.
@@ -913,7 +919,21 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64) (*models.EnrichedTeamDetail, error) {
 	pageIDStr := fmt.Sprintf("%d", pageID)
 
-	for _, wiki := range s.getAllWikis() {
+	hintKey := cache.LiqWikiHintKey(pageIDStr)
+	wikis := s.getAllWikis()
+	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+		// Try the hinted wiki first; keep the rest as fallback.
+		ordered := make([]string, 0, len(wikis)+1)
+		ordered = append(ordered, hint)
+		for _, w := range wikis {
+			if w != hint {
+				ordered = append(ordered, w)
+			}
+		}
+		wikis = ordered
+	}
+
+	for _, wiki := range wikis {
 		cacheKey := cache.LiqTeamKey(wiki, pageIDStr)
 		params := url.Values{}
 		params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
@@ -938,6 +958,7 @@ func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID in
 		players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
 
 		detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+		_ = s.cache.Set(ctx, hintKey, wiki, 24*time.Hour)
 		return &detail, nil
 	}
 

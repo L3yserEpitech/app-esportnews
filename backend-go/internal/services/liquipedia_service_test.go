@@ -112,3 +112,39 @@ func TestSingleflightSurvivesFirstCallerCancel(t *testing.T) {
 	<-done1
 	require.NoError(t, <-done2) // caller 2 must still get the data
 }
+
+func TestGetTeamByPageIDUsesWikiHint(t *testing.T) {
+	var teamCalls atomic.Int32
+	svc, mr := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/team":
+			teamCalls.Add(1)
+			if r.URL.Query().Get("wiki") == "valorant" {
+				_, _ = w.Write([]byte(`{"result":[{"pageid":42,"pagename":"Test_Team","name":"Test Team","template":"testteam","status":"active"}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"result":[]}`))
+		default: // /squadplayer
+			_, _ = w.Write([]byte(`{"result":[]}`))
+		}
+	}))
+
+	// Cold lookup: fans out, finds the team, must store the hint.
+	team, err := svc.GetTeamByPageID(context.Background(), 42)
+	require.NoError(t, err)
+	require.NotNil(t, team)
+	hint, err := mr.Get("liq:wikihint:42")
+	require.NoError(t, err)
+	require.Equal(t, "valorant", hint)
+
+	// Warm lookup: flush data caches but keep the hint → exactly 1 team call.
+	for _, k := range mr.Keys() {
+		if k != "liq:wikihint:42" {
+			mr.Del(k)
+		}
+	}
+	teamCalls.Store(0)
+	_, err = svc.GetTeamByPageID(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), teamCalls.Load())
+}
