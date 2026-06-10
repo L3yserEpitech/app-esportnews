@@ -314,14 +314,14 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"wiki": wiki,
 			"key":  cacheKey,
 			"size": len(cached),
-		}).Info("[MAKEREQ] Cache HIT — returning cached data")
+		}).Debug("[MAKEREQ] Cache HIT — returning cached data")
 		return []byte(cached), nil
 	}
 	s.log.WithFields(logrus.Fields{
 		"wiki":     wiki,
 		"endpoint": endpoint,
 		"key":      cacheKey,
-	}).Info("[MAKEREQ] Cache MISS — entering singleflight")
+	}).Debug("[MAKEREQ] Cache MISS — entering singleflight")
 
 	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
 	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
@@ -337,7 +337,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			s.log.WithFields(logrus.Fields{
 				"wiki": wiki,
 				"key":  cacheKey,
-			}).Info("[MAKEREQ] Cache HIT after singleflight wait")
+			}).Debug("[MAKEREQ] Cache HIT after singleflight wait")
 			return []byte(cached), nil
 		}
 
@@ -366,7 +366,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"endpoint":  endpoint,
 			"used":      budgetStatus["used"],
 			"remaining": budgetStatus["remaining"],
-		}).Info("[MAKEREQ] Budget OK — making API call")
+		}).Debug("[MAKEREQ] Budget OK — making API call")
 
 		// Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
 		fetchParams := params
@@ -391,7 +391,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"wiki":     wiki,
 			"endpoint": endpoint,
 			"url":      reqURL,
-		}).Info("[MAKEREQ] Sending HTTP request to Liquipedia")
+		}).Debug("[MAKEREQ] Sending HTTP request to Liquipedia")
 
 		// Bound concurrent outbound calls to stay under Liquipedia's burst limit.
 		select {
@@ -431,7 +431,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"wiki":     wiki,
 			"endpoint": endpoint,
 			"status":   resp.StatusCode,
-		}).Info("[MAKEREQ] HTTP response received")
+		}).Debug("[MAKEREQ] HTTP response received")
 
 		// Handle rate limit (429)
 		if resp.StatusCode == http.StatusTooManyRequests {
@@ -494,7 +494,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		s.log.WithFields(logrus.Fields{
 			"wiki": wiki,
 			"key":  cacheKey,
-		}).Info("[MAKEREQ] Singleflight: shared result from concurrent request")
+		}).Debug("[MAKEREQ] Singleflight: shared result from concurrent request")
 	}
 
 	if err != nil {
@@ -513,7 +513,7 @@ func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki 
 			"key":       cacheKey,
 			"stale_key": staleKey,
 			"size":      len(stale),
-		}).Info("[STALE] ♻️ Returning stale data as fallback")
+		}).Debug("[STALE] ♻️ Returning stale data as fallback")
 		return []byte(stale), nil
 	}
 	s.log.WithFields(logrus.Fields{
