@@ -607,7 +607,10 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 			params.Set("wiki", w)
 			params.Set("conditions", "[[status::active]]")
 			params.Set("query", "pageid, pagename, objectname, name, locations, region, logourl, logodarkurl, template, status, extradata")
-			params.Set("limit", "50")
+			// 500, not 50: results come back in alphabetical order and are
+			// filtered client-side — an active team outside the first 50
+			// alphabetically was simply unfindable.
+			params.Set("limit", "500")
 			params.Set("order", "name ASC")
 
 			data, err := s.MakeRequest(ctx, w, "team", params, cacheKey, TTLTeamSearch)
