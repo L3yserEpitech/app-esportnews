@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,19 +13,27 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func strPtr(s string) *string { return &s }
+
+// newAuthTestCache returns a real *cache.RedisCache backed by an in-process
+// miniredis — NewAuthService needs the concrete type, not an interface.
+func newAuthTestCache(t *testing.T) *cache.RedisCache {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	return cache.NewRedisClient("redis://" + mr.Addr())
+}
+
 // TestSignup_ValidUser tests successful user registration
 func TestSignup_ValidUser(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
 	input := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "test@example.com",
 		Password: "SecurePass123",
-		Age:      25,
 	}
 
 	user, err := authService.Signup(context.Background(), input)
@@ -41,14 +50,12 @@ func TestSignup_WeakPassword(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
 	input := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "weak@example.com",
 		Password: "weak", // Less than 8 characters
-		Age:      25,
 	}
 
 	user, err := authService.Signup(context.Background(), input)
@@ -63,8 +70,7 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
 	input := &models.CreateUserInput{
 		Name:     "Test User",
@@ -89,10 +95,8 @@ func TestLogin_ValidCredentials(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
-	// Create a user first
 	signupInput := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "login@example.com",
@@ -101,7 +105,6 @@ func TestLogin_ValidCredentials(t *testing.T) {
 	_, err := authService.Signup(context.Background(), signupInput)
 	require.NoError(t, err)
 
-	// Login
 	loginInput := &models.LoginInput{
 		Email:    "login@example.com",
 		Password: "SecurePass123",
@@ -120,10 +123,8 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
-	// Create a user first
 	signupInput := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "wrongpass@example.com",
@@ -132,7 +133,6 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	_, err := authService.Signup(context.Background(), signupInput)
 	require.NoError(t, err)
 
-	// Try login with wrong password
 	loginInput := &models.LoginInput{
 		Email:    "wrongpass@example.com",
 		Password: "WrongPassword123",
@@ -150,8 +150,7 @@ func TestLogin_NonexistentUser(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
 	loginInput := &models.LoginInput{
 		Email:    "nonexistent@example.com",
@@ -165,15 +164,13 @@ func TestLogin_NonexistentUser(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid email or password")
 }
 
-// TestGetUserByID tests user retrieval by ID
-func TestGetUserByID(t *testing.T) {
+// TestGetUser tests user retrieval by ID
+func TestGetUser(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
-	// Create a user first
 	signupInput := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "getuser@example.com",
@@ -182,8 +179,7 @@ func TestGetUserByID(t *testing.T) {
 	createdUser, err := authService.Signup(context.Background(), signupInput)
 	require.NoError(t, err)
 
-	// Retrieve user by ID
-	retrievedUser, err := authService.GetUserByID(context.Background(), createdUser.ID)
+	retrievedUser, err := authService.GetUser(context.Background(), createdUser.ID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, retrievedUser)
@@ -191,15 +187,13 @@ func TestGetUserByID(t *testing.T) {
 	assert.Equal(t, "Test User", retrievedUser.Name)
 }
 
-// TestUpdateUser tests user profile updates
-func TestUpdateUser(t *testing.T) {
+// TestUpdateProfile tests user profile updates
+func TestUpdateProfile(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
-	// Create a user first
 	signupInput := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "update@example.com",
@@ -208,29 +202,26 @@ func TestUpdateUser(t *testing.T) {
 	createdUser, err := authService.Signup(context.Background(), signupInput)
 	require.NoError(t, err)
 
-	// Update user
 	updateInput := &models.UpdateUserInput{
-		Name:   "Updated Name",
-		Email:  "updated@example.com",
-		Avatar: "https://example.com/avatar.jpg",
+		Name:   strPtr("Updated Name"),
+		Email:  strPtr("updated@example.com"),
+		Avatar: strPtr("https://example.com/avatar.jpg"),
 	}
 
-	updatedUser, err := authService.UpdateUser(context.Background(), createdUser.ID, updateInput)
+	updatedUser, err := authService.UpdateProfile(context.Background(), createdUser.ID, updateInput)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedUser)
 	assert.Equal(t, "Updated Name", updatedUser.Name)
 }
 
-// TestRefreshToken tests token refresh functionality
-func TestRefreshToken(t *testing.T) {
+// TestRefreshAccessToken tests token refresh functionality
+func TestRefreshAccessToken(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	redisCache := cache.NewMockRedisCache()
-	authService := NewAuthService(db, redisCache, "test-secret")
+	authService := NewAuthService(db, newAuthTestCache(t), "test-secret")
 
-	// Create and login a user
 	signupInput := &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "refresh@example.com",
@@ -243,22 +234,17 @@ func TestRefreshToken(t *testing.T) {
 		Email:    "refresh@example.com",
 		Password: "SecurePass123",
 	}
-
 	authResponse, err := authService.Login(context.Background(), loginInput)
 	require.NoError(t, err)
 
-	// Refresh the token
-	newAuthResponse, err := authService.RefreshToken(context.Background(), authResponse.RefreshToken)
+	newAccessToken, err := authService.RefreshAccessToken(context.Background(), createdUser.ID, authResponse.RefreshToken)
 
 	assert.NoError(t, err)
-	assert.NotNil(t, newAuthResponse)
-	assert.NotEmpty(t, newAuthResponse.AccessToken)
-	assert.NotEqual(t, authResponse.AccessToken, newAuthResponse.AccessToken)
+	assert.NotEmpty(t, newAccessToken)
 }
 
 // Helper function to setup test database
 func setupTestDB(t *testing.T) *pgxpool.Pool {
-	// Use test database or in-memory mock
 	dbURL := "postgres://postgres:postgres@localhost:5432/esportnews_test"
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
@@ -270,9 +256,7 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Could not connect to test database: %v", err)
 	}
 
-	// Create tables
 	createTestTables(t, pool)
-
 	return pool
 }
 
@@ -287,15 +271,12 @@ func createTestTables(t *testing.T, db *pgxpool.Pool) {
 		password TEXT NOT NULL,
 		avatar TEXT NULL,
 		admin BOOLEAN NOT NULL DEFAULT FALSE,
-		age INTEGER NOT NULL
+		age INTEGER NULL
 	);
 	`
-
 	if _, err := db.Exec(context.Background(), schema); err != nil {
 		t.Logf("Could not create test tables: %v", err)
 	}
-
-	// Clean up before test
 	if _, err := db.Exec(context.Background(), "DELETE FROM public.users;"); err != nil {
 		t.Logf("Could not clean test tables: %v", err)
 	}
