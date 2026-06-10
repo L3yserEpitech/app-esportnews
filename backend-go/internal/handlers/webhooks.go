@@ -84,6 +84,12 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}
 
+	// Wikis purge Main_Page on automated schedules; those events carry no
+	// match/tournament data and were dirtying every cache for nothing.
+	if event.Page == "Main_Page" {
+		return c.NoContent(http.StatusOK)
+	}
+
 	// Fix #14: Validate wiki is known
 	if event.Wiki == "" {
 		return c.NoContent(http.StatusOK)

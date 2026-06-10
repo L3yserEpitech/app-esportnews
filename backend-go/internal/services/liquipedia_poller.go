@@ -27,6 +27,13 @@ const (
 	// How often the poller checks dirty flags from webhooks
 	DirtyCheckInterval = 2 * time.Minute
 
+	// Webhook-driven refresh floors: half the blind-polling interval. Bounds
+	// the worst case at ~2× polling cost instead of 10× on busy wikis.
+	DirtyCooldownMatchesRunning  = PollIntervalMatchesRunning / 2     // 4 min
+	DirtyCooldownMatchesUpcoming = PollIntervalMatchesUpcoming / 2    // 10 min
+	DirtyCooldownMatchesPast     = PollIntervalMatchesPast / 2        // 22.5 min
+	DirtyCooldownTournaments     = PollIntervalTournamentsRunning / 2 // 10 min
+
 	// Warmup: stagger between wikis at startup to avoid burst
 	WarmupStaggerInterval = 20 * time.Second // 10 wikis × 20s = ~3.3min total warmup
 	WarmupIntraDelay      = 2 * time.Second  // delay between API calls within a wiki
@@ -99,6 +106,31 @@ func (dt *DirtyTracker) HasAnyDirty() bool {
 	return len(dt.flags) > 0
 }
 
+// dirtyRefreshGate rate-limits webhook-driven refreshes per wiki+type. Active
+// wikis emit edit/purge webhooks continuously; without a floor the consumer
+// refetched 5 types every 2min (~150 req/h/wiki) — the main quota burner.
+type dirtyRefreshGate struct {
+	mu   sync.Mutex
+	last map[string]time.Time
+}
+
+func newDirtyRefreshGate() *dirtyRefreshGate {
+	return &dirtyRefreshGate{last: make(map[string]time.Time)}
+}
+
+// Allow reports whether (wiki, typ) may refresh now, recording the time when
+// it does. cooldown is the minimum spacing between webhook-driven refreshes.
+func (g *dirtyRefreshGate) Allow(wiki, typ string, cooldown time.Duration, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	key := wiki + ":" + typ
+	if last, ok := g.last[key]; ok && now.Sub(last) < cooldown {
+		return false
+	}
+	g.last[key] = now
+	return true
+}
+
 // wikiSortedOrder returns wiki names in deterministic alphabetical order for warmup staggering.
 var wikiSortedOrder = func() []string {
 	seen := make(map[string]bool)
@@ -120,6 +152,7 @@ var wikiSortedOrder = func() []string {
 type LiquipediaPoller struct {
 	service      *LiquipediaService
 	dirtyTracker *DirtyTracker
+	dirtyGate    *dirtyRefreshGate
 	log          *logrus.Logger
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
@@ -136,6 +169,7 @@ func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker,
 	return &LiquipediaPoller{
 		service:         service,
 		dirtyTracker:    dirtyTracker,
+		dirtyGate:       newDirtyRefreshGate(),
 		log:             logger,
 		webhooksEnabled: false, // start with polling, enable webhooks when confirmed
 	}
@@ -314,11 +348,11 @@ func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
 			return true
 		}
 		p.log.WithFields(logrus.Fields{
-			"wiki":       wiki,
-			"type":       name,
-			"elapsed":    elapsed.Round(time.Second).String(),
-			"threshold":  threshold.Round(time.Second).String(),
-			"next_in":    (threshold - elapsed).Round(time.Second).String(),
+			"wiki":      wiki,
+			"type":      name,
+			"elapsed":   elapsed.Round(time.Second).String(),
+			"threshold": threshold.Round(time.Second).String(),
+			"next_in":   (threshold - elapsed).Round(time.Second).String(),
 		}).Debug("[POLLER] Tick fired — webhooks active, skipping (within safety window)")
 		return false
 	}
@@ -405,18 +439,28 @@ func (p *LiquipediaPoller) consumeDirtyFlags(ctx context.Context) {
 					"last_event":       flags.LastEvent.Format("15:04:05"),
 				}).Info("[DIRTY] Consuming dirty flags — triggering targeted refresh")
 
-				if flags.MatchesRunning {
+				now := time.Now()
+				if flags.MatchesRunning && p.dirtyGate.Allow(wiki, "matches_running", DirtyCooldownMatchesRunning, now) {
 					go p.refreshMatchesRunning(ctx, wiki)
 				}
-				if flags.MatchesUpcoming {
+				if flags.MatchesUpcoming && p.dirtyGate.Allow(wiki, "matches_upcoming", DirtyCooldownMatchesUpcoming, now) {
 					go p.refreshMatchesUpcoming(ctx, wiki)
 				}
-				if flags.MatchesPast {
+				if flags.MatchesPast && p.dirtyGate.Allow(wiki, "matches_past", DirtyCooldownMatchesPast, now) {
 					go p.refreshMatchesPast(ctx, wiki)
 				}
-				if flags.Tournaments {
+				if flags.Tournaments && p.dirtyGate.Allow(wiki, "tournaments", DirtyCooldownTournaments, now) {
 					go p.refreshTournamentsRunning(ctx, wiki)
 					go p.refreshTournamentsUpcoming(ctx, wiki)
+				}
+				if flags.Teams {
+					// Team edits (namespace -10) don't need an API refetch — just
+					// drop the cached searches so the next lookup is fresh.
+					go func(w string) {
+						delCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+						defer cancel()
+						_ = p.service.GetCache().DelPattern(delCtx, fmt.Sprintf("liq:teams:search:%s:*", w))
+					}(wiki)
 				}
 			}
 		}
