@@ -214,6 +214,8 @@ JWT expiration hardcodée : **7 jours**.
 | `LIQUIPEDIA_WEBHOOKS_ENABLED` | bool | `false` (dev) / `true` (prod) | Active le mode dirty-flags du poller | Une fois OFF, le poller fait du polling aveugle aux intervalles fixes (Scenario B) |
 | `LIQUIPEDIA_WEBHOOK_SECRET` | string | `""` | Secret validé via header `X-Webhook-Secret` ou query param `?secret=` (`crypto/subtle.ConstantTimeCompare`) | LiquipediaDB ne sait envoyer ni header ni signature → le secret passe dans l'URL. Empty = pas de vérification (dev local uniquement) |
 | `LIQUIPEDIA_SKIP_TLS` | bool | `false` | Désactive la vérification TLS du client HTTP Liquipedia | **Dev uniquement** — utile en local quand le cert IPv4 forcé pose souci |
+| `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` | int | `0` (désactivé) / `1500` (docker-compose.dev) | Espacement minimum entre appels HTTP sortants vers Liquipedia | L'API a une limite par IP en plus du quota horaire ; indispensable en local (cold cache = fetch massif). Recommandé en prod : `300` |
+| `LIQUIPEDIA_DISABLE_IPV4` | bool | `false` | Désactive le forçage IPv4 vers api.liquipedia.net | Pour un host local avec IPv6 fonctionnel dont l'IPv4 est rate-limitée. **Ne jamais activer sur Railway** (pas d'IPv6) |
 
 ### Background services
 | Variable | Type | Défaut | Rôle | Pourquoi |
@@ -279,11 +281,14 @@ Tous les services vivent dans `backend-go/internal/services/`. Convention : un s
 Responsabilité unique : **toutes** les communications HTTP avec Liquipedia passent par ce service. Personne d'autre n'instancie un `http.Client` vers `api.liquipedia.net`.
 
 Fonctionnalités principales :
-* **Client HTTP** : timeout 15 s, User-Agent obligatoire, header `Authorization: Apikey <key>`, IPv4 forcé sur `api.liquipedia.net` (Railway/Docker n'ont pas d'IPv6 → sinon Happy Eyeballs ajoute 3 s par requête).
+* **Client HTTP** : timeout 30 s, User-Agent obligatoire, header `Authorization: Apikey <key>`, IPv4 forcé sur `api.liquipedia.net` (Railway/Docker n'ont pas d'IPv6 → sinon Happy Eyeballs ajoute 3 s par requête ; désactivable via `LIQUIPEDIA_DISABLE_IPV4`).
+* **Concurrence sortante** : 1 seul appel HTTP en vol à la fois (sémaphore global) + espacement optionnel `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` — l'API a un burst limit et une limite par IP en plus du quota horaire.
+* **Cap de taille réponse** : 20 MB ; un dépassement n'est JAMAIS caché (fallback stale) pour éviter de servir du JSON tronqué.
+* **Sélection de champs** : les requêtes match/tournament passent `query=<json tags des structs>` (`LiqMatchQueryFields`/`LiqTournamentQueryFields`) — divise la taille des payloads par 3-10×.
 * **`RequestBudget` par wiki** : compteur in-memory + persistance Redis (`liq:budget:<wiki>:<YYYYMMDDHH>`). Reset à chaque heure pleine. **Survit aux redémarrages** dans l'heure courante.
-* **Backoff sur 429** : 5 min → 10 → 20, capé à 30 min. Reset automatique à l'heure suivante.
+* **Backoff sur 429** : 5 min → 10 → 20, capé à 30 min. Reset automatique à l'heure suivante. N'épuise PAS le budget horaire (seul le timer de backoff bloque, puis expire).
 * **Stale-while-revalidate** : à chaque écriture fraîche, une copie est stockée avec le suffixe `:stale` (TTL 6 h). En cas d'erreur ou budget épuisé, on retourne le stale plutôt qu'une erreur.
-* **Singleflight** : N requêtes concurrentes pour la même clé cache → 1 seul appel API. Utilise `golang.org/x/sync/singleflight`.
+* **Singleflight** : N requêtes concurrentes pour la même clé cache → 1 seul appel API (`golang.org/x/sync/singleflight`). Le fetch partagé tourne sur un contexte détaché (35 s) — l'annulation du premier caller ne fait pas échouer les autres.
 * **Méthode publique principale** : `MakeRequest(ctx, wiki, endpoint, params, cacheKey, ttl)` — fait tout le cycle (cache hit / singleflight / budget / HTTP / cache write).
 * **Helpers métier** : `SearchTeams`, `GetTeamByPageID`, `GetTeamByTemplate`, `GetTeamsByPageIDs`, `GetTeamDetailByPageID`, `FetchBatchSquadPlayers`, `FetchTeamMatches`, `FetchTeamPlacements`, `MapAcronymToWiki`, `GetBudgetStatus`, `ParseResponse`.
 
@@ -773,7 +778,9 @@ Dashboard LiquipediaDB → Webhooks → Webhook #49. **Le dashboard ne permet de
 ### Consumer
 `LiquipediaPoller.consumeDirtyFlags` toutes les 2 min :
 * Lit `dirtyTracker.GetAndResetDirty()` (atomique)
-* Pour chaque wiki dirty, lance des goroutines `refreshMatchesRunning/Upcoming/Past`, `refreshTournamentsRunning/Upcoming`.
+* **Cooldown par wiki+type** (`dirtyRefreshGate`) : un type ne se refetch pas plus souvent que la moitié de son intervalle de polling (running 4 min, upcoming 10 min, past 22.5 min, tournaments 10 min) — borne le coût webhook à ~2× le polling aveugle au lieu de 10×.
+* Les events `Main_Page` (purges automatiques des wikis) sont ignorés dès le handler.
+* Flag `Teams` (namespace -10) : invalide `liq:teams:search:<wiki>:*` au lieu de refetcher.
 
 ### Mode activation
 * `LIQUIPEDIA_WEBHOOKS_ENABLED=true` → consumer actif + tickers en mode "safety net" (refresh seulement si `3× intervalle` écoulé).
