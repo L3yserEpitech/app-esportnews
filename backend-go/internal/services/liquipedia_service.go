@@ -29,6 +29,13 @@ const (
 	// NewLiquipediaService. Liquipedia's published rate limit is 1000 req/wiki/hour
 	// since June 2026; configure via LIQUIPEDIA_BUDGET_PER_WIKI to override.
 	defaultBudgetLimitPerWiki = 1000
+
+	// maxConcurrentRequests caps in-flight HTTP calls to Liquipedia across all
+	// callers. The API enforces a short-window burst limit (separate from the
+	// hourly budget): fanning out to all 10 wikis at once — e.g. matches-by-date
+	// or team search — returns 429 even with a fresh budget. Serialising to a
+	// small number of concurrent calls keeps bursts under that ceiling.
+	maxConcurrentRequests = 1
 )
 
 // Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
@@ -180,6 +187,7 @@ type LiquipediaService struct {
 	log        *logrus.Logger
 	mu         sync.RWMutex
 	sfGroup    singleflight.Group // deduplicates concurrent API calls for the same cache key
+	sem        chan struct{}      // global concurrency limiter for outbound HTTP calls
 }
 
 // NewLiquipediaService creates the service with budget trackers for all known wikis.
@@ -239,6 +247,7 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		httpClient: httpClient,
 		budgets:    budgets,
 		log:        logger,
+		sem:        make(chan struct{}, maxConcurrentRequests),
 	}
 
 	// Log startup budget status for all wikis
@@ -344,7 +353,14 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"url":      reqURL,
 		}).Info("[MAKEREQ] Sending HTTP request to Liquipedia")
 
+		// Bound concurrent outbound calls to stay under Liquipedia's burst limit.
+		select {
+		case s.sem <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 		resp, doErr := s.httpClient.Do(req)
+		<-s.sem
 		if doErr != nil {
 			s.log.WithError(doErr).WithFields(logrus.Fields{
 				"wiki":     wiki,
