@@ -47,7 +47,7 @@ func (h *StripeWebhookHandler) HandleStripeWebhook(c echo.Context) error {
 
 	// Log incoming webhook request
 	h.logger.WithFields(logrus.Fields{
-		"content_type": c.Request().Header.Get("Content-Type"),
+		"content_type":  c.Request().Header.Get("Content-Type"),
 		"has_signature": c.Request().Header.Get("Stripe-Signature") != "",
 	}).Info("Received webhook request")
 
@@ -207,11 +207,11 @@ func (h *StripeWebhookHandler) handleSubscriptionDeleted(c echo.Context, ctx con
 	// Update user - mark as not premium, set canceled_at
 	now := time.Now()
 	updateMap := map[string]interface{}{
-		"premium":                    false,
-		"stripe_subscription_id":     nil,
-		"subscription_status":        "canceled",
-		"subscription_canceled_at":   now,
-		"subscription_updated_at":    now,
+		"premium":                  false,
+		"stripe_subscription_id":   nil,
+		"subscription_status":      "canceled",
+		"subscription_canceled_at": now,
+		"subscription_updated_at":  now,
 	}
 
 	if err := h.stripeService.UpdateUserSubscriptionStatus(ctx, user.ID, updateMap); err != nil {

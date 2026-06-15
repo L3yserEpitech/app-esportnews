@@ -26,10 +26,10 @@ func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
 	g.POST("/auth/login", h.Login)
 	g.GET("/auth/me", h.GetMe)
 	g.POST("/auth/me", h.UpdateProfile)
-	g.POST("/auth/avatar", h.UploadAvatar)              // Web: reçoit URL
-	g.POST("/auth/avatar/upload", h.UploadAvatarFile)   // Mobile: reçoit fichier
+	g.POST("/auth/avatar", h.UploadAvatar)            // Web: reçoit URL
+	g.POST("/auth/avatar/upload", h.UploadAvatarFile) // Mobile: reçoit fichier
 	g.DELETE("/auth/avatar", h.DeleteAvatar)
-	g.POST("/auth/change-password", h.ChangePassword)   // Change password
+	g.POST("/auth/change-password", h.ChangePassword) // Change password
 	g.POST("/auth/logout", h.Logout)
 	g.POST("/auth/refresh", h.RefreshToken)
 	g.DELETE("/auth/account", h.DeleteAccount)

@@ -9,7 +9,7 @@ import (
 )
 
 type EmailService struct {
-	client   *resend.Client
+	client    *resend.Client
 	emailFrom string
 }
 

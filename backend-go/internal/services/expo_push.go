@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	expoPushURL    = "https://exp.host/--/api/v2/push/send"
-	maxBatchSize   = 100
+	expoPushURL     = "https://exp.host/--/api/v2/push/send"
+	maxBatchSize    = 100
 	pushHTTPTimeout = 10 * time.Second
 )
 

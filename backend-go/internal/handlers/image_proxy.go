@@ -19,11 +19,11 @@ const (
 	proxyMaxBytes      = 5 * 1024 * 1024 // 5 MB max
 	proxyCacheSecs     = 604800          // 7 days browser cache — logos rarely change
 	proxyTimeout       = 10 * time.Second
-	maxConcurrentProxy = 50              // tournament/match pages load 30-60 logos at once
-	memoryCacheMaxSize = 500             // max images to keep in memory cache
-	throttleBackoff    = 10 * time.Second // backoff when upstream returns 429
+	maxConcurrentProxy = 50                    // tournament/match pages load 30-60 logos at once
+	memoryCacheMaxSize = 500                   // max images to keep in memory cache
+	throttleBackoff    = 10 * time.Second      // backoff when upstream returns 429
 	fetchInterval      = 30 * time.Millisecond // min delay between upstream fetches (~33 req/s max)
-	semaphoreWait      = 15 * time.Second // max time to wait for semaphore before returning placeholder
+	semaphoreWait      = 15 * time.Second      // max time to wait for semaphore before returning placeholder
 )
 
 // allowedHosts restricts which domains can be proxied (security).

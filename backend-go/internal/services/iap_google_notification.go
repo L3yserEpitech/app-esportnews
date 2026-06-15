@@ -12,7 +12,7 @@ import (
 // rtdnPubSubMessage is the outer Pub/Sub push envelope Google sends.
 type rtdnPubSubMessage struct {
 	Message struct {
-		Data      string `json:"data"`      // base64-encoded DeveloperNotification JSON
+		Data      string `json:"data"` // base64-encoded DeveloperNotification JSON
 		MessageID string `json:"messageId"`
 	} `json:"message"`
 	Subscription string `json:"subscription"`
@@ -21,9 +21,9 @@ type rtdnPubSubMessage struct {
 // rtdnNotification is Google's DeveloperNotification payload (decoded from Data).
 // Reference: https://developer.android.com/google/play/billing/rtdn-reference
 type rtdnNotification struct {
-	Version                string                       `json:"version"`
-	PackageName            string                       `json:"packageName"`
-	EventTimeMillis        string                       `json:"eventTimeMillis"`
+	Version                  string                        `json:"version"`
+	PackageName              string                        `json:"packageName"`
+	EventTimeMillis          string                        `json:"eventTimeMillis"`
 	SubscriptionNotification *rtdnSubscriptionNotification `json:"subscriptionNotification"`
 }
 
@@ -37,19 +37,19 @@ type rtdnSubscriptionNotification struct {
 // Google Play RTDN notification types.
 // Reference: https://developer.android.com/google/play/billing/rtdn-reference#sub
 const (
-	rtdnRecovered              = 1
-	rtdnRenewed                = 2
-	rtdnCanceled               = 3
-	rtdnPurchased              = 4
-	rtdnOnHold                 = 5
-	rtdnInGracePeriod          = 6
-	rtdnRestarted              = 7
-	rtdnPriceChangeConfirmed   = 8
-	rtdnDeferred               = 9
-	rtdnPaused                 = 10
-	rtdnPauseScheduleChanged   = 11
-	rtdnRevoked                = 12
-	rtdnExpired                = 13
+	rtdnRecovered            = 1
+	rtdnRenewed              = 2
+	rtdnCanceled             = 3
+	rtdnPurchased            = 4
+	rtdnOnHold               = 5
+	rtdnInGracePeriod        = 6
+	rtdnRestarted            = 7
+	rtdnPriceChangeConfirmed = 8
+	rtdnDeferred             = 9
+	rtdnPaused               = 10
+	rtdnPauseScheduleChanged = 11
+	rtdnRevoked              = 12
+	rtdnExpired              = 13
 )
 
 // HandleGoogleNotification processes a Google Play Real-time Developer Notification
