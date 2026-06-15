@@ -1,4 +1,5 @@
 import { articleService } from '@/app/services/articleService';
+import { formatDateSlug } from '@/app/lib/articleUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export async function GET() {
     for (const article of allArticles) {
       if (article.featuredImage) {
         images.push({
-          loc: `${baseUrl}/article/${article.slug}`,
+          loc: `${baseUrl}/article/${article.slug}/${formatDateSlug(article.created_at)}`,
           image: article.featuredImage,
           title: article.title,
           caption: article.description || article.subtitle,

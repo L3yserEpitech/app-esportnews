@@ -1,4 +1,5 @@
 import { articleService } from '@/app/services/articleService';
+import { formatDateSlug } from '@/app/lib/articleUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function GET() {
     .map(
       (a) => `
   <url>
-    <loc>${BASE_URL}/article/${escapeXml(a.slug)}</loc>
+    <loc>${BASE_URL}/article/${escapeXml(a.slug)}/${formatDateSlug(a.created_at)}</loc>
     <lastmod>${new Date(a.created_at).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

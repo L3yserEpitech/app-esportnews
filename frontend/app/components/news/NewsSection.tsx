@@ -37,10 +37,6 @@ const NewsSection: React.FC<NewsSectionProps> = ({
     return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
   }, []);
 
-  const handleNewsClick = useCallback((slug: string) => {
-    window.location.href = `/article/${slug}`;
-  }, []);
-
   const handleViewAllClick = useCallback(() => {
     window.location.href = '/news';
   }, []);
@@ -72,7 +68,6 @@ const NewsSection: React.FC<NewsSectionProps> = ({
       ) : memoizedFeaturedNews ? (
         <FeaturedArticleCard
           article={memoizedFeaturedNews}
-          onClick={handleNewsClick}
         />
       ) : null}
 

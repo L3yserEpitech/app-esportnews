@@ -98,10 +98,6 @@ export default function NewsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
 
-  const handleArticleClick = useCallback((slug: string) => {
-    window.location.href = `/article/${slug}`;
-  }, []);
-
   // Article le plus récent (featured) - on le récupère en premier lors du premier chargement
   const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
 
@@ -193,7 +189,6 @@ export default function NewsPage() {
                 {featuredArticle && (
                   <FeaturedArticleCard
                     article={featuredArticle}
-                    onClick={handleArticleClick}
                   />
                 )}
 
@@ -205,7 +200,6 @@ export default function NewsPage() {
                         <ArticleCard
                           key={article.id}
                           article={article}
-                          onClick={handleArticleClick}
                         />
                       ))}
                     </div>
@@ -316,10 +310,9 @@ export default function NewsPage() {
                   <ArticleCard
                     key={article.id}
                     article={article}
-                    onClick={(slug) => {
+                    onClick={() => {
                       setIsSearchModalOpen(false);
                       setSearchQuery('');
-                      handleArticleClick(slug);
                     }}
                   />
                 ))}

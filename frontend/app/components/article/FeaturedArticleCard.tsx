@@ -1,6 +1,7 @@
 'use client';
 
 import { NewsItem } from '@/app/types';
+import { articleHref } from '@/app/lib/articleUrl';
 
 interface FeaturedArticleCardProps {
   article: NewsItem;
@@ -21,11 +22,8 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
   const isVideo = article.featuredImage && /\.(mp4|webm|ogg|mov|avi)$/i.test(article.featuredImage);
 
   const handleClick = () => {
-    if (onClick) {
-      onClick(article.slug);
-    } else {
-      window.location.href = `/article/${article.slug}`;
-    }
+    onClick?.(article.slug);
+    window.location.href = articleHref(article);
   };
 
   return (

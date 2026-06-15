@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { generateListingMetadata } from '@/app/lib/seoHelpers';
+import { articleHref } from '@/app/lib/articleUrl';
 
 export const revalidate = 3600;
 
@@ -195,7 +196,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
               {articles.map((a: any) => (
                 <Link
                   key={a.id}
-                  href={`/article/${a.slug}`}
+                  href={articleHref(a)}
                   className="group rounded-xl border border-white/10 bg-[#091626] overflow-hidden hover:border-[#F22E62]/40 transition-colors"
                 >
                   {a.featuredImage && (

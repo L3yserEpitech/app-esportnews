@@ -140,10 +140,6 @@ export default function ArticlesPageClient() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
 
-  const handleArticleClick = useCallback((slug: string) => {
-    window.location.href = `/article/${slug}`;
-  }, []);
-
   // Calculate total pages (subtract 1 for featured article)
   const totalPages = Math.max(1, Math.ceil((totalArticles - 1) / ARTICLES_PER_PAGE));
 
@@ -207,7 +203,6 @@ export default function ArticlesPageClient() {
               {featuredArticle && (
                 <FeaturedArticleCard
                   article={featuredArticle}
-                  onClick={handleArticleClick}
                 />
               )}
 
@@ -254,7 +249,6 @@ export default function ArticlesPageClient() {
                         <ArticleCard
                           key={article.id}
                           article={article}
-                          onClick={handleArticleClick}
                         />
                       ))}
                     </div>
@@ -385,10 +379,9 @@ export default function ArticlesPageClient() {
                   <ArticleCard
                     key={article.id}
                     article={article}
-                    onClick={(slug) => {
+                    onClick={() => {
                       setIsSearchModalOpen(false);
                       setSearchQuery('');
-                      handleArticleClick(slug);
                     }}
                   />
                 ))}
