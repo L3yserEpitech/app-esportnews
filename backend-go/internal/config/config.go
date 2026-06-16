@@ -57,6 +57,7 @@ type Config struct {
 
 	// Apple IAP (In-App Purchase)
 	AppleIAPKeyPath     string
+	AppleIAPKeyContent  string // PEM of the .p8 key, inline (preferred on hosts that can't mount files, e.g. Railway)
 	AppleIAPKeyID       string
 	AppleIAPIssuerID    string
 	AppleIAPBundleID    string
@@ -108,6 +109,7 @@ func LoadConfig() *Config {
 
 		// Apple IAP
 		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),
+		AppleIAPKeyContent:  getEnv("APPLE_IAP_KEY_CONTENT", ""),
 		AppleIAPKeyID:       getEnv("APPLE_IAP_KEY_ID", ""),
 		AppleIAPIssuerID:    getEnv("APPLE_IAP_ISSUER_ID", ""),
 		AppleIAPBundleID:    getEnv("APPLE_IAP_BUNDLE_ID", "com.esportnews-app.mobile"),
