@@ -1,5 +1,6 @@
 // Load centralized .env from project root
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 module.exports = {
@@ -22,7 +23,8 @@ module.exports = {
       bundleIdentifier: "com.esportnews-app.mobile",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-        GADApplicationIdentifier: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6893939034",
+        UIBackgroundModes: ["remote-notification"],
+        GADApplicationIdentifier: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6090534381",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
           { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
@@ -85,7 +87,11 @@ module.exports = {
       },
       package: "com.esportnewsapp.mobile",
       edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false
+      predictiveBackGestureEnabled: false,
+      // FCM V1 (push Android) : actif dès que google-services.json est présent à la racine de mobile-app/
+      ...(fs.existsSync(path.resolve(__dirname, 'google-services.json')) && {
+        googleServicesFile: './google-services.json'
+      })
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -103,9 +109,11 @@ module.exports = {
         "react-native-google-mobile-ads",
         {
           androidAppId: process.env.ADMOB_ANDROID_APP_ID || "ca-app-pub-5118678813787741~6893939034",
-          iosAppId: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6893939034"
+          iosAppId: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6090534381"
         }
-      ]
+      ],
+      "react-native-iap",
+      "expo-notifications"
     ],
     extra: {
       router: {},
@@ -115,7 +123,7 @@ module.exports = {
       // Environment variables - accessible via expo-constants
       environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development",
       // AdMob Ad Unit IDs
-      admobInterstitialId: process.env.ADMOB_INTERSTITIAL_ID || "ca-app-pub-5118678813787741/4414379260"
+      admobInterstitialId: process.env.ADMOB_INTERSTITIAL_ID || "ca-app-pub-5118678813787741/1903877366"
     }
   }
 };

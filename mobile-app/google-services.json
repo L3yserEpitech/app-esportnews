@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "209623964987",
+    "project_id": "esport-news-eb60c",
+    "storage_bucket": "esport-news-eb60c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:209623964987:android:3bbf7f2bdf8169a2d52b1e",
+        "android_client_info": {
+          "package_name": "com.esportnewsapp.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbXyziBzPQp_jY6hnnSzTwitC8sqAhZVc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
