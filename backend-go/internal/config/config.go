@@ -38,8 +38,8 @@ type Config struct {
 	PandaScoreAPIKey string
 
 	// Stripe
-	StripeSecretKey   string
-	StripePriceID     string
+	StripeSecretKey     string
+	StripePriceID       string
 	StripeWebhookSecret string
 
 	// Resend Email
@@ -51,25 +51,26 @@ type Config struct {
 
 	// Apple IAP (In-App Purchase)
 	AppleIAPKeyPath     string
+	AppleIAPKeyContent  string // PEM of the .p8 key, inline (preferred on hosts that can't mount files, e.g. Railway)
 	AppleIAPKeyID       string
 	AppleIAPIssuerID    string
 	AppleIAPBundleID    string
 	AppleIAPEnvironment string
 
 	// Google IAP (In-App Purchase)
-	GoogleIAPKeyPath    string
-	GoogleIAPPackage    string
-	GoogleWebhookToken  string // shared secret for Pub/Sub push URL auth
+	GoogleIAPKeyPath   string
+	GoogleIAPPackage   string
+	GoogleWebhookToken string // shared secret for Pub/Sub push URL auth
 
 	// Cloudflare R2
-	R2AccountID        string
-	R2AccessKeyID      string
-	R2SecretAccessKey  string
-	R2BucketName       string
-	R2Endpoint         string
-	R2PublicURL        string
-	MaxUploadSize      int64
-	UploadTimeout      time.Duration
+	R2AccountID       string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
+	R2BucketName      string
+	R2Endpoint        string
+	R2PublicURL       string
+	MaxUploadSize     int64
+	UploadTimeout     time.Duration
 }
 
 func LoadConfig() *Config {
@@ -79,23 +80,24 @@ func LoadConfig() *Config {
 	_ = godotenv.Load() // fallback: local .env if it exists
 
 	cfg := &Config{
-		Port:             getEnv("PORT", "4000"),
-		Env:              getEnv("ENV", "development"),
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
-		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
-		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
-		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
-		CORSOrigins:      getEnv("CORS_ORIGINS", ""),
-		PandaScoreAPIKey: getEnv("PANDASCORE_API_KEY", ""),
-		StripeSecretKey:  getEnv("STRIPE_SECRET_KEY", ""),
-		StripePriceID:    getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
+		Port:                getEnv("PORT", "4000"),
+		Env:                 getEnv("ENV", "development"),
+		DatabaseURL:         getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
+		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379"),
+		JWTSecret:           getEnv("JWT_SECRET", "your-secret-key"),
+		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
+		CORSOrigins:         getEnv("CORS_ORIGINS", ""),
+		PandaScoreAPIKey:    getEnv("PANDASCORE_API_KEY", ""),
+		StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
+		StripePriceID:       getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
-		EmailFrom:        getEnv("EMAIL_FROM", "noreply@resend.dev"),
-		MaxConnections:   25,
+		ResendAPIKey:        getEnv("RESEND_API_KEY", ""),
+		EmailFrom:           getEnv("EMAIL_FROM", "noreply@resend.dev"),
+		MaxConnections:      25,
 
 		// Apple IAP
 		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),
+		AppleIAPKeyContent:  getEnv("APPLE_IAP_KEY_CONTENT", ""),
 		AppleIAPKeyID:       getEnv("APPLE_IAP_KEY_ID", ""),
 		AppleIAPIssuerID:    getEnv("APPLE_IAP_ISSUER_ID", ""),
 		AppleIAPBundleID:    getEnv("APPLE_IAP_BUNDLE_ID", "com.esportnews-app.mobile"),

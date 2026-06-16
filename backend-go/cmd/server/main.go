@@ -77,7 +77,7 @@ func main() {
 		"http://127.0.0.1:3002",
 		"https://esportnews.fr",
 		"https://www.esportnews.fr",
-		"http://esportnews.fr",    // HTTP redirect support
+		"http://esportnews.fr",     // HTTP redirect support
 		"http://www.esportnews.fr", // HTTP redirect support
 	}
 	if cfg.FrontendURL != "" {
@@ -143,6 +143,7 @@ func main() {
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
 		AppleKeyPath:     cfg.AppleIAPKeyPath,
+		AppleKeyContent:  cfg.AppleIAPKeyContent,
 		AppleKeyID:       cfg.AppleIAPKeyID,
 		AppleIssuerID:    cfg.AppleIAPIssuerID,
 		AppleBundleID:    cfg.AppleIAPBundleID,
@@ -198,8 +199,8 @@ func main() {
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
 	matchSubHandler.RegisterRoutes(apiGroup)
-	analyticsHandler.RegisterRoutes(apiGroup) // Public tracking endpoint
-	iapHandler.RegisterRoutes(apiGroup)        // IAP validation (JWT required)
+	analyticsHandler.RegisterRoutes(apiGroup)     // Public tracking endpoint
+	iapHandler.RegisterRoutes(apiGroup)           // IAP validation (JWT required)
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
 

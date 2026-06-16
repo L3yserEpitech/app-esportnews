@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/awa/go-iap/appstore/api"
@@ -21,6 +22,7 @@ import (
 type IAPConfig struct {
 	// Apple App Store
 	AppleKeyPath     string
+	AppleKeyContent  string // inline PEM of the .p8 key (takes precedence over AppleKeyPath)
 	AppleKeyID       string
 	AppleIssuerID    string
 	AppleBundleID    string
@@ -49,7 +51,8 @@ type IAPService struct {
 	config *IAPConfig
 
 	// Apple
-	appleClient *api.StoreClient
+	appleClient *api.StoreClient // single-env client, kept for parsing signed transactions
+	appleAPI    *api.APIClient   // dual-env client: tries production, falls back to sandbox
 	appleKey    *ecdsa.PrivateKey
 	appleReady  bool
 
@@ -68,39 +71,39 @@ func NewIAPService(db *gorm.DB, logger *logrus.Logger, cfg *IAPConfig) *IAPServi
 	}
 
 	// --- Apple setup ---
-	if cfg.AppleKeyPath != "" && cfg.AppleKeyID != "" && cfg.AppleIssuerID != "" {
-		keyData, err := os.ReadFile(cfg.AppleKeyPath)
-		if err != nil {
-			logger.Warnf("[IAP] Cannot read Apple key file %s: %v — Apple IAP disabled", cfg.AppleKeyPath, err)
-		} else {
-			block, _ := pem.Decode(keyData)
-			if block == nil {
-				logger.Warn("[IAP] Cannot decode Apple PEM key — Apple IAP disabled")
-			} else {
-				key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-				if err != nil {
-					logger.Warnf("[IAP] Cannot parse Apple private key: %v — Apple IAP disabled", err)
-				} else {
-					ecKey, ok := key.(*ecdsa.PrivateKey)
-					if !ok {
-						logger.Warn("[IAP] Apple key is not ECDSA — Apple IAP disabled")
-					} else {
-						s.appleKey = ecKey
-						s.appleClient = api.NewStoreClient(&api.StoreConfig{
-							KeyContent: keyData,
-							KeyID:      cfg.AppleKeyID,
-							BundleID:   cfg.AppleBundleID,
-							Issuer:     cfg.AppleIssuerID,
-							Sandbox:    cfg.AppleEnvironment == "sandbox",
-						})
-						s.appleReady = true
-						logger.Info("[IAP] Apple App Store validation ready")
-					}
-				}
-			}
-		}
+	// The key can be provided inline (APPLE_IAP_KEY_CONTENT, preferred on hosts
+	// like Railway that can't mount files) or as a file path (APPLE_IAP_KEY_PATH).
+	appleKeyData, keySource := loadAppleKey(cfg)
+	if appleKeyData == nil {
+		logger.Warn("[IAP] Apple key not provided (set APPLE_IAP_KEY_CONTENT or APPLE_IAP_KEY_PATH) — Apple IAP disabled")
+	} else if cfg.AppleKeyID == "" || cfg.AppleIssuerID == "" {
+		logger.Warn("[IAP] Apple IAP config incomplete (APPLE_IAP_KEY_ID / APPLE_IAP_ISSUER_ID missing) — Apple IAP disabled")
 	} else {
-		logger.Warn("[IAP] Apple IAP config incomplete — Apple IAP disabled")
+		block, _ := pem.Decode(appleKeyData)
+		if block == nil {
+			logger.Warn("[IAP] Cannot decode Apple PEM key — Apple IAP disabled")
+		} else if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err != nil {
+			logger.Warnf("[IAP] Cannot parse Apple private key: %v — Apple IAP disabled", err)
+		} else if ecKey, ok := key.(*ecdsa.PrivateKey); !ok {
+			logger.Warn("[IAP] Apple key is not ECDSA — Apple IAP disabled")
+		} else {
+			s.appleKey = ecKey
+			storeConfig := api.StoreConfig{
+				KeyContent: appleKeyData,
+				KeyID:      cfg.AppleKeyID,
+				BundleID:   cfg.AppleBundleID,
+				Issuer:     cfg.AppleIssuerID,
+				Sandbox:    cfg.AppleEnvironment == "sandbox",
+			}
+			// Single-env client (used only to parse signed transactions).
+			s.appleClient = api.NewStoreClient(&storeConfig)
+			// Dual-env client: Verify() tries production first, then sandbox on
+			// TransactionIdNotFoundError. This is what makes the SAME backend work
+			// for both real App Store purchases AND sandbox/TestFlight/App Review.
+			s.appleAPI = api.NewAPIClient(storeConfig)
+			s.appleReady = true
+			logger.Infof("[IAP] Apple App Store validation ready (key source: %s, prod+sandbox fallback enabled)", keySource)
+		}
 	}
 
 	// --- Google setup ---
@@ -129,13 +132,36 @@ func keyData(path string) []byte {
 	return data
 }
 
+// loadAppleKey returns the Apple .p8 key material, preferring inline content
+// (APPLE_IAP_KEY_CONTENT) over a file path (APPLE_IAP_KEY_PATH). Inline content
+// pasted into env vars often has its newlines escaped as the two characters
+// "\n"; we restore real newlines so pem.Decode can parse it. Returns nil if no
+// usable key is configured, plus a short label describing the source.
+func loadAppleKey(cfg *IAPConfig) ([]byte, string) {
+	if content := strings.TrimSpace(cfg.AppleKeyContent); content != "" {
+		if !strings.Contains(content, "\n") && strings.Contains(content, "\\n") {
+			content = strings.ReplaceAll(content, "\\n", "\n")
+		}
+		return []byte(content), "inline"
+	}
+	if cfg.AppleKeyPath != "" {
+		if data, err := os.ReadFile(cfg.AppleKeyPath); err == nil {
+			return data, "file:" + cfg.AppleKeyPath
+		}
+	}
+	return nil, "none"
+}
+
 // ValidateApplePurchase validates an Apple App Store transaction
 func (s *IAPService) ValidateApplePurchase(ctx context.Context, transactionID string) (*IAPValidationResult, error) {
 	if !s.appleReady {
 		return nil, fmt.Errorf("Apple IAP validation is not configured")
 	}
 
-	resp, err := s.appleClient.GetTransactionInfo(ctx, transactionID)
+	// Verify against production first, falling back to sandbox automatically.
+	// Do NOT rely on a single hardcoded environment: real purchases live in
+	// production while TestFlight / App Review / sandbox testers live in sandbox.
+	resp, err := s.appleAPI.Verify(ctx, transactionID)
 	if err != nil {
 		return nil, fmt.Errorf("Apple validation failed: %w", err)
 	}
