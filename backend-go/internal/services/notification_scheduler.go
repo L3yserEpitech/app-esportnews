@@ -129,10 +129,12 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 						matchName = match.Name
 					}
 					messages = append(messages, ExpoPushMessage{
-						To:    tokens,
-						Title: "Match en direct",
-						Body:  fmt.Sprintf("%s vient de commencer !", matchName),
-						Sound: "default",
+						To:        tokens,
+						Title:     "Match en direct",
+						Body:      fmt.Sprintf("%s vient de commencer !", matchName),
+						Sound:     "default",
+						Priority:  "high",        // both: APNs priority 10 (iOS) + FCM high priority (Android)
+						ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
 						Data: map[string]interface{}{
 							"type":         "match_start",
 							"match_id":     sub.MatchID,

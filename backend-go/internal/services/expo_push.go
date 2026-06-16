@@ -27,6 +27,9 @@ type ExpoPushMessage struct {
 	Sound    string                 `json:"sound,omitempty"`
 	Priority string                 `json:"priority,omitempty"`
 	Badge    *int                   `json:"badge,omitempty"`
+	// ChannelId routes the notification to a specific Android notification channel
+	// (created client-side via setNotificationChannelAsync). Android-only — iOS ignores it.
+	ChannelId string `json:"channelId,omitempty"`
 }
 
 // ExpoPushTicket represents the response for a single push notification
