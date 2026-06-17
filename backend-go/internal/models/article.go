@@ -31,6 +31,7 @@ type Article struct {
 	VideoURL       *string        `json:"videoUrl" gorm:"column:videoUrl"`
 	VideoType      *string        `json:"videoType" gorm:"column:videoType"`
 	Credit         *string        `json:"credit"`
+	NotifiedAt     *time.Time     `json:"notified_at,omitempty" gorm:"column:notified_at"`
 }
 
 // TableName specifies the table name for Article
