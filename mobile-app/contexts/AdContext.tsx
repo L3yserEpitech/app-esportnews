@@ -21,7 +21,12 @@ const getInterstitialAdUnitId = (): string => {
     return TestIds.INTERSTITIAL;
   }
 
-  const configuredId = Constants.expoConfig?.extra?.admobInterstitialId;
+  // Ad units are platform-specific: pick the unit that belongs to the matching AdMob app
+  const extra = Constants.expoConfig?.extra;
+  const configuredId =
+    Platform.OS === 'ios'
+      ? extra?.admobInterstitialIdIos
+      : extra?.admobInterstitialIdAndroid;
   return configuredId || TestIds.INTERSTITIAL;
 };
 

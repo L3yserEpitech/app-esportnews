@@ -24,7 +24,7 @@ module.exports = {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIBackgroundModes: ["remote-notification"],
-        GADApplicationIdentifier: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6090534381",
+        GADApplicationIdentifier: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~7908186856",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
           { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
@@ -108,8 +108,8 @@ module.exports = {
       [
         "react-native-google-mobile-ads",
         {
-          androidAppId: process.env.ADMOB_ANDROID_APP_ID || "ca-app-pub-5118678813787741~6893939034",
-          iosAppId: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~6090534381"
+          androidAppId: process.env.ADMOB_ANDROID_APP_ID || "ca-app-pub-5118678813787741~1599058674",
+          iosAppId: process.env.ADMOB_IOS_APP_ID || "ca-app-pub-5118678813787741~7908186856"
         }
       ],
       "react-native-iap",
@@ -122,8 +122,9 @@ module.exports = {
       },
       // Environment variables - accessible via expo-constants
       environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development",
-      // AdMob Ad Unit IDs
-      admobInterstitialId: process.env.ADMOB_INTERSTITIAL_ID || "ca-app-pub-5118678813787741/1903877366"
+      // AdMob interstitial Ad Unit IDs — PER PLATFORM (a unit belongs to a single AdMob app)
+      admobInterstitialIdIos: process.env.ADMOB_IOS_INTERSTITIAL_ID || "ca-app-pub-5118678813787741/5756666235",
+      admobInterstitialIdAndroid: process.env.ADMOB_ANDROID_INTERSTITIAL_ID || "ca-app-pub-5118678813787741/5733786364"
     }
   }
 };
