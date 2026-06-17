@@ -41,6 +41,8 @@ export default function RootLayout() {
       const data = response.notification.request.content.data;
       if (data?.type === 'match_start' && data?.match_id) {
         router.push(`/match/${data.match_id}` as any);
+      } else if ((data?.type === 'new_article' || data?.type === 'new_news') && data?.slug) {
+        router.push(`/article/${data.slug}` as any);
       }
     });
     return () => subscription.remove();

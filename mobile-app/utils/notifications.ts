@@ -49,6 +49,11 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#F22E62',
     });
+    await Notifications.setNotificationChannelAsync('content-updates', {
+      name: 'Articles & News',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      lightColor: '#F22E62',
+    });
   }
 
   return tokenData.data;
