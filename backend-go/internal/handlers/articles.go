@@ -15,16 +15,18 @@ import (
 
 type ArticleHandler struct {
 	BaseHandler
-	service        *services.ArticleService
-	authService    *services.AuthService
-	storageService *services.StorageService
+	service         *services.ArticleService
+	authService     *services.AuthService
+	storageService  *services.StorageService
+	contentNotifier *services.ContentNotificationService
 }
 
-func NewArticleHandlerWithService(service *services.ArticleService, authService *services.AuthService, storageService *services.StorageService) *ArticleHandler {
+func NewArticleHandlerWithService(service *services.ArticleService, authService *services.AuthService, storageService *services.StorageService, contentNotifier *services.ContentNotificationService) *ArticleHandler {
 	return &ArticleHandler{
-		service:        service,
-		authService:    authService,
-		storageService: storageService,
+		service:         service,
+		authService:     authService,
+		storageService:  storageService,
+		contentNotifier: contentNotifier,
 	}
 }
 
@@ -191,6 +193,17 @@ func (h *ArticleHandler) CreateArticle(c echo.Context) error {
 	article, err := h.service.CreateArticle(ctx, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Broadcast a "new article"/"new news" push to opted-in users.
+	// Fire-and-forget on a fresh context: the Echo request ctx is canceled as
+	// soon as the HTTP response is sent, which would abort the push send.
+	if h.contentNotifier != nil {
+		go func(a *models.Article) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			h.contentNotifier.NotifyNewContent(bgCtx, a)
+		}(article)
 	}
 
 	return c.JSON(http.StatusCreated, article)

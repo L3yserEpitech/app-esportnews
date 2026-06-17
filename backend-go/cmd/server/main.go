@@ -187,7 +187,9 @@ func main() {
 	tournamentHandler := handlers.NewTournamentHandler(liquipediaService, redisClient, logger)
 	matchHandler := handlers.NewMatchHandler(liquipediaService, redisClient, logger)
 	articleService := services.NewArticleServiceWithGORM(gormDB, redisClient)
-	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService)
+	expoPushService := services.NewExpoPushService(logger)
+	contentNotifier := services.NewContentNotificationService(gormDB, expoPushService, logger)
+	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService, contentNotifier)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
 	authHandler := handlers.NewAuthHandler(authService, storageService)
@@ -232,7 +234,7 @@ func main() {
 	// Notification scheduler — disabled on preview/staging environments that
 	// share the prod database, to avoid two backends racing on match_subscriptions
 	// and dispatching duplicate push notifications.
-	expoPushService := services.NewExpoPushService(logger)
+	// (expoPushService is created earlier, before articleHandler, and shared with contentNotifier.)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	if cfg.NotificationSchedulerEnabled {
 		notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
