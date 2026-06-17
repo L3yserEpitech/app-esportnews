@@ -173,7 +173,9 @@ func main() {
 	tournamentHandler := handlers.NewTournamentHandler(pandaScoreService)
 	matchHandler := handlers.NewMatchHandler(pandaScoreService)
 	articleService := services.NewArticleServiceWithGORM(gormDB, redisClient)
-	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService)
+	expoPushService := services.NewExpoPushService(logger)
+	contentNotifier := services.NewContentNotificationService(gormDB, expoPushService, logger)
+	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService, contentNotifier)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
 	authHandler := handlers.NewAuthHandler(authService, storageService)
@@ -212,7 +214,6 @@ func main() {
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
 
 	// Start notification scheduler (background goroutine)
-	expoPushService := services.NewExpoPushService(logger)
 	notifScheduler := services.NewNotificationScheduler(gormDB, redisClient, expoPushService, logger)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	go notifScheduler.Start(schedulerCtx)
