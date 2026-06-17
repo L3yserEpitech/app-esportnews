@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -124,14 +125,15 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 				// Match is now running — send "match started" notification
 				tokens := s.getUserPushTokens(ctx, sub.UserID)
 				if len(tokens) > 0 && s.userWantsMatchNotifs(ctx, sub.UserID) {
-					matchName := sub.MatchName
-					if matchName == "" && match.Name != "" {
-						matchName = match.Name
+					label := matchLabel(match, sub.MatchName)
+					body := "Le match commence maintenant !"
+					if label != "" {
+						body = fmt.Sprintf("%s commence maintenant !", label)
 					}
 					messages = append(messages, ExpoPushMessage{
 						To:        tokens,
 						Title:     "Match en direct",
-						Body:      fmt.Sprintf("%s vient de commencer !", matchName),
+						Body:      body,
 						Sound:     "default",
 						Priority:  "high",        // both: APNs priority 10 (iOS) + FCM high priority (Android)
 						ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
@@ -270,6 +272,28 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 type subUpdate struct {
 	id     int64
 	fields map[string]interface{}
+}
+
+// matchLabel builds a concise "Équipe A contre Équipe B" label.
+// Prefers the two opponent team names from the live match data; falls back to
+// the stored match name (normalizing PandaScore's " vs " to " contre ").
+func matchLabel(m models.PandaMatch, fallback string) string {
+	var names []string
+	for _, o := range m.Opponents {
+		if o.Opponent != nil {
+			if n := strings.TrimSpace(o.Opponent.Name); n != "" {
+				names = append(names, n)
+			}
+		}
+	}
+	if len(names) >= 2 {
+		return fmt.Sprintf("%s contre %s", names[0], names[1])
+	}
+
+	label := strings.TrimSpace(fallback)
+	label = strings.ReplaceAll(label, " vs ", " contre ")
+	label = strings.ReplaceAll(label, " VS ", " contre ")
+	return label
 }
 
 // getMatchesFromRedis reads cached matches for a given status and game
