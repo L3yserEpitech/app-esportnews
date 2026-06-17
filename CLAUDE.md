@@ -567,5 +567,60 @@ create table public.notifications (
   - `useMemo` pour filtrage/tri des pubs
   - `useCallback` pour handlers (optimisation)
 
+## 14) Notifications Push (Mobile App)
+
+* **Stack** : Expo Push Service (`https://exp.host/--/api/v2/push/send`) → relais vers **APNs** (iOS) et **FCM V1** (Android). Aucune intégration FCM/APNs directe côté app.
+
+### Chaîne complète
+
+1. `mobile-app/utils/notifications.ts` → `registerForPushNotificationsAsync()` : demande la permission, récupère le token Expo (`getExpoPushTokenAsync({ projectId })`), crée le canal Android `match-alerts` (importance HIGH).
+2. `mobile-app/contexts/AuthContext.tsx` : appelle l'enregistrement **après login** → `POST /api/push-tokens` (`pushTokenService`).
+3. Backend `internal/handlers/subscription_match_handler.go` : upsert dans la table **`push_token`** (`token` unique, `user_id`, `platform`, `active`).
+4. Backend `internal/services/notification_scheduler.go` (tick **60 s**) : détecte les matchs suivis qui passent `running` → envoie via `internal/services/expo_push.go`.
+
+### Règles importantes
+
+* **Un seul type de notif existe** : « Match en direct » (match-start), pour un match **suivi** qui passe live, conditionné par `user.notifi_push && user.notif_matchs`. **Aucune notif articles/news** n'est implémentée malgré les colonnes `notif_articles`/`notif_news` (= dev à faire si besoin).
+* Le message backend envoie `Priority: "high"` (APNs 10 / FCM high) + `ChannelId: "match-alerts"` (Android uniquement, iOS l'ignore) → bannière heads-up.
+
+### ⚠️ Config Expo — source unique = `app.config.js`
+
+* `app.config.js` exporte un **objet statique** → Expo **ignore complètement `app.json`** (pas de merge). `app.json` a été **supprimé** : tout est dans `app.config.js`.
+* Plugins requis : `expo-notifications` (ajoute l'entitlement iOS `aps-environment`), `react-native-iap`. **Ne PAS lister `react-native-nitro-modules`** (pas de config plugin → casse le build ; il s'autolink).
+* `ios.infoPlist.UIBackgroundModes: ["remote-notification"]` requis.
+* Vérifier la config réelle d'un build : `cd mobile-app && ./node_modules/.bin/expo config --type public --json`.
+
+### Credentials
+
+* **iOS** : Push Key APNs (`eas credentials` → iOS) **doit être sur le même Apple Team que le bundle** `com.esportnews-app.mobile` → team **53A66VVR3U (ESPORT NEWS, company)**. (Un ancien key sur le team perso `22W276W7ZG` faisait échouer APNs.)
+* **Android** (package `com.esportnewsapp.mobile`) :
+  - `mobile-app/google-services.json` (projet Firebase `esport-news-eb60c`) → **public, committé**, activé via `android.googleServicesFile` (guard `fs.existsSync` dans app.config.js).
+  - **Clé compte de service FCM V1** uploadée via `eas credentials` → Android → Google Service Account → **Push Notifications (FCM V1)** → **SECRET, jamais committée**. (FCM **Legacy** est mort depuis juin 2024 — slot inutile.)
+* Toute config native (entitlement, plist, google-services) impose un **`eas build`** (l'OTA `eas update` ne suffit pas). Le changement de message backend est serveur (Railway, branche `main`).
+* **Expo Go utilise les credentials push d'Expo** → les notifs « marchent » en Expo Go mais nécessitent TES credentials APNs/FCM en build standalone. Tester sur **vrai device** (pas simulateur), connecté, abonné à un match.
+
+## 15) Publicités AdMob (Mobile App)
+
+> ⚠️ Distinct des **bannières internes** (site web, table `ads`, `/api/ads`, `AdColumn`/`AdBanner`, gérées au back-office) décrites en §13. Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
+
+* **Init** : `app/_layout.tsx` (`mobileAds().initialize()` + ATT iOS via `expo-tracking-transparency`).
+* **IDs (publics, embarqués dans le binaire, par plateforme)** — dans `app.config.js` :
+  - App ID iOS : `ca-app-pub-5118678813787741~6090534381`
+  - App ID Android : `ca-app-pub-5118678813787741~6893939034`
+  - Interstitiel : `ca-app-pub-5118678813787741/1903877366`
+* **Dev vs prod** : `getInterstitialAdUnitId()` (dans `contexts/AdContext.tsx` et `hooks/useAdPopup.ts`) → `TestIds.INTERSTITIAL` si `__DEV__` (Expo Go/`expo run`, fill 100 %), sinon `Constants.expoConfig.extra.admobInterstitialId`.
+* **⚠️ Piège prod (env non uploadé à EAS)** : les vrais IDs sont dans le **`.env` racine gitignoré**, chargé par `app.config.js` via `dotenv`. **EAS cloud respecte `.gitignore` → `.env` n'est PAS uploadé** → `process.env.ADMOB_*` undefined au build → ce sont les **fallbacks `|| "..."` de app.config.js qui partent en prod**. ⇒ **Ces fallbacks doivent TOUJOURS valoir les vrais IDs prod.** (Bug initial : fallback iOS = App ID Android → AdMob refusait de servir.)
+* **Déclenchement** : `useAdPopup({ skipIfSubscribed, isSubscribed })` — cooldown 5 min (`adCooldownService`), `requestNonPersonalizedAdsOnly: true`, skip pour abonnés Premium. Écrans index/match/tournoi/article.
+* **Gap connu** : consentement UMP/GDPR (`AdsConsent`) **non implémenté** (`requestConsent()` = placeholder) → risque de no-fill EEA (France). Les nouvelles apps/units AdMob peuvent aussi no-fill quelques heures à ~2 j (warm-up).
+
+## 16) Build & Release Mobile (EAS)
+
+* **Profils** (`mobile-app/eas.json`) : `production` (AAB iOS/Android, `autoIncrement` du **build number**, API prod), `preview` (APK installable, distribution interne, **API prod**), `development`.
+* **Versioning** : `appVersionSource: "remote"` → EAS gère le **build number** (`autoIncrement`). La **version marketing** (`CFBundleShortVersionString`) vient de `version` dans `app.config.js`.
+  - **⚠️ App Store** : on ne peut pas re-soumettre sous une version déjà publiée (erreurs `ITMS-90186` train fermé / `ITMS-90062` version pas supérieure). → **bumper `version`** dans `app.config.js` (ex. `1.0.0` → `1.0.1`) avant un nouveau build iOS.
+* **Play Console** exige un **`.aab`** (pas d'APK) en production → profil `production`. L'APK `preview` sert au test device uniquement.
+* Commandes : `eas build --platform <ios|android> --profile production` puis (iOS) `eas submit --platform ios --profile production` ou upload manuel du `.aab` (Android).
+* `npx` est réécrit en `npm` par un hook local → utiliser les binaires directs (`./node_modules/.bin/expo`, etc.) pour les commandes scriptées.
+
 - Demander dans le chat les endpoints des api quand il y'a besoin.
 - Ne jamais mettre de données fictive SAUF si je te le dis.
