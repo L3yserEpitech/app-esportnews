@@ -95,6 +95,13 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	}
 	log.Info("New table migrations completed (push_token, match_subscription, tournament_subscription)")
 
+	// Idempotently add the content-notification guard column to the legacy
+	// articles table (AutoMigrate runs on the full Article model only in dev).
+	if err := db.Exec(`ALTER TABLE articles ADD COLUMN IF NOT EXISTS notified_at timestamptz`).Error; err != nil {
+		return nil, fmt.Errorf("failed to add articles.notified_at column: %w", err)
+	}
+	log.Info("articles.notified_at column ensured")
+
 	// Auto migrate legacy models only in development (tables already exist in production/Supabase)
 	if env == "development" {
 		if err := db.AutoMigrate(
