@@ -96,8 +96,11 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	log.Info("New table migrations completed (push_token, match_subscription, tournament_subscription)")
 
 	// Idempotently add the content-notification guard column to the legacy
-	// articles table (AutoMigrate runs on the full Article model only in dev).
-	if err := db.Exec(`ALTER TABLE articles ADD COLUMN IF NOT EXISTS notified_at timestamptz`).Error; err != nil {
+	// articles table. In prod the table always exists. On a fresh dev DB the
+	// table may not exist yet (the dev-only AutoMigrate below creates it, with
+	// the NotifiedAt field already on the model), so `IF EXISTS` makes this a
+	// no-op rather than a startup-breaking error.
+	if err := db.Exec(`ALTER TABLE IF EXISTS articles ADD COLUMN IF NOT EXISTS notified_at timestamptz`).Error; err != nil {
 		return nil, fmt.Errorf("failed to add articles.notified_at column: %w", err)
 	}
 	log.Info("articles.notified_at column ensured")
