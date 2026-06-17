@@ -195,6 +195,11 @@ func (h *ArticleHandler) CreateArticle(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Serialize the response BEFORE spawning the goroutine: the broadcast's
+	// markNotified writes article.NotifiedAt, so writing the JSON first avoids a
+	// data race on the shared struct.
+	resp := c.JSON(http.StatusCreated, article)
+
 	// Broadcast a "new article"/"new news" push to opted-in users.
 	// Fire-and-forget on a fresh context: the Echo request ctx is canceled as
 	// soon as the HTTP response is sent, which would abort the push send.
@@ -206,7 +211,7 @@ func (h *ArticleHandler) CreateArticle(c echo.Context) error {
 		}(article)
 	}
 
-	return c.JSON(http.StatusCreated, article)
+	return resp
 }
 
 // UpdateArticle handles article updates (admin only)

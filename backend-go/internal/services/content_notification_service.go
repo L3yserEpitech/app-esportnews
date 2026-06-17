@@ -87,6 +87,9 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 	if article == nil {
 		return
 	}
+	// In-memory idempotency guard: sufficient for the single fire-and-forget
+	// callsite (a freshly created Article). A DB-level check would be needed if
+	// this were ever called with a re-fetched struct.
 	if article.NotifiedAt != nil {
 		s.logger.Infof("[ContentNotif] Article %d already notified, skipping", article.ID)
 		return
@@ -146,6 +149,9 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 	invalidTokens, err := s.pushService.SendBatch(ctx, messages)
 	if err != nil {
 		s.logger.Errorf("[ContentNotif] SendBatch failed for article %d: %v", article.ID, err)
+	} else {
+		s.logger.Infof("[ContentNotif] Sent %d notifications for article %d (%s), %d invalid",
+			len(messages), article.ID, notif.dataType, len(invalidTokens))
 	}
 	if len(invalidTokens) > 0 {
 		if derr := db.WithContext(ctx).Model(&models.PushToken{}).
@@ -154,9 +160,6 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 			s.logger.Errorf("[ContentNotif] Failed to deactivate invalid tokens: %v", derr)
 		}
 	}
-
-	s.logger.Infof("[ContentNotif] Sent %d notifications for article %d (%s), %d invalid",
-		len(messages), article.ID, notif.dataType, len(invalidTokens))
 
 	s.markNotified(ctx, article)
 }
