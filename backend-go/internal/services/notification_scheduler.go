@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -207,22 +208,50 @@ func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub 
 		return ExpoPushMessage{}, false
 	}
 
-	name := sub.MatchName
-	if name == "" && match.Name != "" {
-		name = match.Name
+	label := matchLabel(match, sub.MatchName)
+	body := "Le match commence maintenant !"
+	if label != "" {
+		body = fmt.Sprintf("%s commence maintenant !", label)
 	}
 
 	return ExpoPushMessage{
-		To:    tokens,
-		Title: "Match en direct",
-		Body:  fmt.Sprintf("%s vient de commencer !", name),
-		Sound: "default",
+		To:        tokens,
+		Title:     "Match en direct",
+		Body:      body,
+		Sound:     "default",
+		Priority:  "high",        // APNs priority 10 (iOS) + FCM high priority (Android)
+		ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
 		Data: map[string]interface{}{
 			"type":         "match_start",
 			"match_id":     sub.MatchID,
 			"game_acronym": sub.GameAcronym,
 		},
 	}, true
+}
+
+// matchLabel builds a concise "Équipe A contre Équipe B" label.
+// Prefers the two opponent team names from the live match; falls back to the
+// stored match name (normalizing Liquipedia's " vs " to " contre ").
+func matchLabel(m models.NormalizedMatch, fallback string) string {
+	var names []string
+	for _, o := range m.Opponents {
+		if o.Opponent != nil {
+			if n := strings.TrimSpace(o.Opponent.Name); n != "" {
+				names = append(names, n)
+			}
+		}
+	}
+	if len(names) >= 2 {
+		return fmt.Sprintf("%s contre %s", names[0], names[1])
+	}
+
+	label := strings.TrimSpace(fallback)
+	if label == "" {
+		label = strings.TrimSpace(m.Name)
+	}
+	label = strings.ReplaceAll(label, " vs ", " contre ")
+	label = strings.ReplaceAll(label, " VS ", " contre ")
+	return label
 }
 
 // cleanupStaleSubscriptions deletes subscriptions whose underlying match or
