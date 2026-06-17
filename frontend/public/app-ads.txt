@@ -1,0 +1,3 @@
+# app-ads.txt — autorise AdMob (Google) à monétiser les apps Esport News (iOS + Android)
+# Publisher ID AdMob : pub-5118678813787741
+google.com, pub-5118678813787741, DIRECT, f08c47fec0942fa0
