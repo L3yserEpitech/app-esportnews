@@ -103,17 +103,14 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 
 	db := s.getDB()
 
-	// Fetch active tokens for every opted-in user in one JOIN.
-	// notif.prefCol comes from a fixed allowlist (buildContentNotification),
-	// never from user input -> no SQL injection.
+	// Broadcast to every active device. Preference gating is intentionally
+	// disabled: every user receives article/news notifications regardless of
+	// their notifi_push / notif_articles / notif_news flags.
 	var tokens []string
 	if err := db.WithContext(ctx).
-		Table("push_token").
-		Joins("JOIN users ON users.id = push_token.user_id").
-		Where("push_token.active = ?", true).
-		Where("users.notifi_push = ?", true).
-		Where("users."+notif.prefCol+" = ?", true).
-		Pluck("push_token.token", &tokens).Error; err != nil {
+		Model(&models.PushToken{}).
+		Where("active = ?", true).
+		Pluck("token", &tokens).Error; err != nil {
 		s.logger.Errorf("[ContentNotif] Failed to fetch tokens for article %d: %v", article.ID, err)
 		return
 	}

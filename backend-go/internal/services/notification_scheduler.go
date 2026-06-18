@@ -124,7 +124,9 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 			if isRunning && !sub.NotifiedStart {
 				// Match is now running — send "match started" notification
 				tokens := s.getUserPushTokens(ctx, sub.UserID)
-				if len(tokens) > 0 && s.userWantsMatchNotifs(ctx, sub.UserID) {
+				// Preference gating intentionally disabled: any subscriber with an
+				// active push token gets the match-start notification.
+				if len(tokens) > 0 {
 					label := matchLabel(match, sub.MatchName)
 					body := "Le match commence maintenant !"
 					if label != "" {
@@ -135,7 +137,7 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 						Title:     "Match en direct",
 						Body:      body,
 						Sound:     "default",
-						Priority:  "high",        // both: APNs priority 10 (iOS) + FCM high priority (Android)
+						Priority:  "high",         // both: APNs priority 10 (iOS) + FCM high priority (Android)
 						ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
 						Data: map[string]interface{}{
 							"type":         "match_start",
@@ -337,24 +339,6 @@ func (s *NotificationScheduler) getUserPushTokens(ctx context.Context, userID in
 	}
 
 	return tokens
-}
-
-// userWantsMatchNotifs checks if the user has match notifications enabled
-func (s *NotificationScheduler) userWantsMatchNotifs(ctx context.Context, userID int64) bool {
-	db := s.getDB()
-
-	var user models.User
-	if err := db.WithContext(ctx).
-		Select("notifi_push", "notif_matchs").
-		Where("id = ?", userID).
-		First(&user).Error; err != nil {
-		return false
-	}
-
-	pushEnabled := user.NotifiPush != nil && *user.NotifiPush
-	matchEnabled := user.NotifMatches != nil && *user.NotifMatches
-
-	return pushEnabled && matchEnabled
 }
 
 // deactivateTokens marks tokens as inactive
