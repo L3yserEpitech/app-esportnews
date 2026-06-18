@@ -201,10 +201,11 @@ func (s *NotificationScheduler) runningMatchesByID(ctx context.Context, gameAcro
 
 // buildStartNotification returns the ExpoPushMessage to send for a match that
 // just went live. The second return value is false when the user has no
-// active push token or has disabled match notifications.
+// active push token. Preference gating is intentionally disabled: any
+// subscriber with a token gets the match-start notification.
 func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub models.MatchSubscription, match models.NormalizedMatch) (ExpoPushMessage, bool) {
 	tokens := s.getUserPushTokens(ctx, sub.UserID)
-	if len(tokens) == 0 || !s.userWantsMatchNotifs(ctx, sub.UserID) {
+	if len(tokens) == 0 {
 		return ExpoPushMessage{}, false
 	}
 
@@ -219,7 +220,7 @@ func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub 
 		Title:     "Match en direct",
 		Body:      body,
 		Sound:     "default",
-		Priority:  "high",        // APNs priority 10 (iOS) + FCM high priority (Android)
+		Priority:  "high",         // APNs priority 10 (iOS) + FCM high priority (Android)
 		ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
 		Data: map[string]interface{}{
 			"type":         "match_start",
@@ -386,24 +387,6 @@ func (s *NotificationScheduler) getUserPushTokens(ctx context.Context, userID in
 		return nil
 	}
 	return tokens
-}
-
-// userWantsMatchNotifs returns true when the user has both push and match
-// notifications enabled in their preferences.
-func (s *NotificationScheduler) userWantsMatchNotifs(ctx context.Context, userID int64) bool {
-	db := s.getDB()
-
-	var user models.User
-	if err := db.WithContext(ctx).
-		Select("notifi_push", "notif_matchs").
-		Where("id = ?", userID).
-		First(&user).Error; err != nil {
-		return false
-	}
-
-	pushEnabled := user.NotifiPush != nil && *user.NotifiPush
-	matchEnabled := user.NotifMatches != nil && *user.NotifMatches
-	return pushEnabled && matchEnabled
 }
 
 // deactivateTokens flips active=false on the given push tokens, typically in
