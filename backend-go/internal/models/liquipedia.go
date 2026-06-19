@@ -24,16 +24,16 @@ type LiquipediaWebhookEvent struct {
 
 // GameWikiMapping maps internal game acronyms to Liquipedia wiki names.
 var GameWikiMapping = map[string]string{
-	"csgo":         "counterstrike",
-	"valorant":     "valorant",
-	"lol":          "leagueoflegends",
-	"dota2":        "dota2",
-	"rl":           "rocketleague",
-	"codmw":        "callofduty",
-	"r6siege":      "rainbowsix",
-	"ow":           "overwatch",
-	"fifa":         "easportsfc",
-	"lol-wild-rift": "wildrift",
+	"csgo":     "counterstrike",
+	"valorant": "valorant",
+	"lol":      "leagueoflegends",
+	"dota2":    "dota2",
+	"rl":       "rocketleague",
+	"codmw":    "callofduty",
+	"r6siege":  "rainbowsix",
+	"ow":       "overwatch",
+	"fifa":     "easportsfc",
+	"mlbb":     "mobilelegends",
 }
 
 // WikiToAcronym is the reverse mapping: Liquipedia wiki → internal acronym.

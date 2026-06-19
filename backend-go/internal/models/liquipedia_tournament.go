@@ -108,30 +108,30 @@ func (t *LiqTournament) ComputeStatus() string {
 // NormalizedTournament is the PandaTournament-shaped struct sent to the frontend.
 // It matches the frontend TypeScript PandaTournament interface exactly.
 type NormalizedTournament struct {
-	ID            int                     `json:"id"`
-	Name          string                  `json:"name"`
-	Slug          string                  `json:"slug"`
-	Status        string                  `json:"status"`
-	Type          string                  `json:"type"`
-	Tier          string                  `json:"tier"`
-	BeginAt       *string                 `json:"begin_at"`
-	EndAt         *string                 `json:"end_at"`
-	Region        *string                 `json:"region,omitempty"`
-	PrizePool     *string                 `json:"prizepool"`
-	HasBracket    bool                    `json:"has_bracket"`
-	Videogame     *NormalizedVideogame    `json:"videogame,omitempty"`
-	League        *NormalizedLeague       `json:"league,omitempty"`
-	Teams         []NormalizedTeamCompact `json:"teams"`
-	Matches       []NormalizedMatchCompact `json:"matches"`
-	ExpectedRoster []interface{}           `json:"expected_roster"`
-	WinnerID      *int                    `json:"winner_id"`
+	ID             int                      `json:"id"`
+	Name           string                   `json:"name"`
+	Slug           string                   `json:"slug"`
+	Status         string                   `json:"status"`
+	Type           string                   `json:"type"`
+	Tier           string                   `json:"tier"`
+	BeginAt        *string                  `json:"begin_at"`
+	EndAt          *string                  `json:"end_at"`
+	Region         *string                  `json:"region,omitempty"`
+	PrizePool      *string                  `json:"prizepool"`
+	HasBracket     bool                     `json:"has_bracket"`
+	Videogame      *NormalizedVideogame     `json:"videogame,omitempty"`
+	League         *NormalizedLeague        `json:"league,omitempty"`
+	Teams          []NormalizedTeamCompact  `json:"teams"`
+	Matches        []NormalizedMatchCompact `json:"matches"`
+	ExpectedRoster []interface{}            `json:"expected_roster"`
+	WinnerID       *int                     `json:"winner_id"`
 
 	// Extra fields useful for the frontend
-	PageName      string                  `json:"pagename,omitempty"`
-	BannerURL     string                  `json:"banner_url,omitempty"`
-	BannerDarkURL string                  `json:"banner_dark_url,omitempty"`
-	IconURL       string                  `json:"icon_url,omitempty"`
-	IconDarkURL   string                  `json:"icon_dark_url,omitempty"`
+	PageName      string `json:"pagename,omitempty"`
+	BannerURL     string `json:"banner_url,omitempty"`
+	BannerDarkURL string `json:"banner_dark_url,omitempty"`
+	IconURL       string `json:"icon_url,omitempty"`
+	IconDarkURL   string `json:"icon_dark_url,omitempty"`
 }
 
 type NormalizedVideogame struct {
@@ -141,11 +141,11 @@ type NormalizedVideogame struct {
 }
 
 type NormalizedLeague struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
+	ID       int     `json:"id"`
+	Name     string  `json:"name"`
 	URL      *string `json:"url"`
-	Slug     string `json:"slug"`
-	ImageURL string `json:"image_url"`
+	Slug     string  `json:"slug"`
+	ImageURL string  `json:"image_url"`
 }
 
 type NormalizedTeamCompact struct {
@@ -159,55 +159,55 @@ type NormalizedTeamCompact struct {
 }
 
 type NormalizedMatchCompact struct {
-	ID             int     `json:"id"`
-	Name           string  `json:"name"`
-	Status         *string `json:"status"`
-	NumberOfGames  *int    `json:"number_of_games"`
-	Live           *struct {
+	ID            int     `json:"id"`
+	Name          string  `json:"name"`
+	Status        *string `json:"status"`
+	NumberOfGames *int    `json:"number_of_games"`
+	Live          *struct {
 		Supported bool `json:"supported"`
 	} `json:"live"`
 }
 
 // videogameIDMap maps Liquipedia wiki game names to numeric IDs for the frontend.
 var videogameIDMap = map[string]int{
-	"valorant":       26,
-	"counterstrike":  3,
+	"valorant":        26,
+	"counterstrike":   3,
 	"leagueoflegends": 1,
-	"dota2":          4,
-	"rocketleague":   24,
-	"callofduty":     23,
-	"rainbowsix":     20,
-	"overwatch":      14,
-	"fifa":           22,
-	"wildrift":       34,
+	"dota2":           4,
+	"rocketleague":    24,
+	"callofduty":      23,
+	"rainbowsix":      20,
+	"overwatch":       14,
+	"fifa":            22,
+	"mobilelegends":   34,
 }
 
 // videogameNameMap maps wiki names to display names.
 var videogameNameMap = map[string]string{
-	"valorant":       "Valorant",
-	"counterstrike":  "CS2",
+	"valorant":        "Valorant",
+	"counterstrike":   "CS2",
 	"leagueoflegends": "League of Legends",
-	"dota2":          "Dota 2",
-	"rocketleague":   "Rocket League",
-	"callofduty":     "Call of Duty",
-	"rainbowsix":     "Rainbow Six Siege",
-	"overwatch":      "Overwatch",
-	"fifa":           "EA FC",
-	"wildrift":       "Wild Rift",
+	"dota2":           "Dota 2",
+	"rocketleague":    "Rocket League",
+	"callofduty":      "Call of Duty",
+	"rainbowsix":      "Rainbow Six Siege",
+	"overwatch":       "Overwatch",
+	"fifa":            "EA FC",
+	"mobilelegends":   "Mobile Legends",
 }
 
 // videogameSlugMap maps wiki names to slug names (matching frontend).
 var videogameSlugMap = map[string]string{
-	"valorant":       "valorant",
-	"counterstrike":  "cs2",
+	"valorant":        "valorant",
+	"counterstrike":   "cs2",
 	"leagueoflegends": "lol",
-	"dota2":          "dota2",
-	"rocketleague":   "rl",
-	"callofduty":     "codmw",
-	"rainbowsix":     "r6siege",
-	"overwatch":      "ow",
-	"fifa":           "fifa",
-	"wildrift":       "lol-wild-rift",
+	"dota2":           "dota2",
+	"rocketleague":    "rl",
+	"callofduty":      "codmw",
+	"rainbowsix":      "r6siege",
+	"overwatch":       "ow",
+	"fifa":            "fifa",
+	"mobilelegends":   "mlbb",
 }
 
 // mapLiquipediaTier converts Liquipedia numeric tier (1-5, -1) to letter tier (s, a, b, c, d).
@@ -403,9 +403,9 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 // Matches/Teams/ExpectedRoster fields.
 type EnrichedTournamentDetail struct {
 	NormalizedTournament
-	Matches        []NormalizedMatch        `json:"matches"`
-	ExpectedRoster []NormalizedRosterEntry   `json:"expected_roster"`
-	Teams          []NormalizedTeamCompact   `json:"teams"`
+	Matches        []NormalizedMatch       `json:"matches"`
+	ExpectedRoster []NormalizedRosterEntry `json:"expected_roster"`
+	Teams          []NormalizedTeamCompact `json:"teams"`
 }
 
 // NormalizedRosterEntry matches the frontend PandaRoster interface.
