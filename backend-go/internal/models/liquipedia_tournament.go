@@ -132,6 +132,7 @@ type NormalizedTournament struct {
 	BannerDarkURL string `json:"banner_dark_url,omitempty"`
 	IconURL       string `json:"icon_url,omitempty"`
 	IconDarkURL   string `json:"icon_dark_url,omitempty"`
+	Wiki          string `json:"wiki,omitempty"`
 }
 
 type NormalizedVideogame struct {
@@ -393,6 +394,7 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		BannerDarkURL:  t.BannerDarkURL,
 		IconURL:        t.IconURL,
 		IconDarkURL:    t.IconDarkURL,
+		Wiki:           wiki,
 	}
 }
 
