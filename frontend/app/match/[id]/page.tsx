@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../lib/apiConfig';
 import { matchService } from '../../services/matchService';
-import MatchDetailPageClient from './MatchDetailPageClient';
+import MatchDetailPageClient from '../_components/MatchDetailPageClient';
 
 interface MatchPageProps {
   params: Promise<{ id: string }>;
