@@ -12,38 +12,38 @@ import (
 // LiqMatch represents a match from the Liquipedia API v3 /match endpoint.
 // Fields are mapped directly from the Liquipedia response.
 type LiqMatch struct {
-	PageID             int             `json:"pageid"`
-	PageName           string          `json:"pagename"`
-	Namespace          int             `json:"namespace"`
-	ObjectName         string          `json:"objectname"`
-	Match2ID           string          `json:"match2id"`
-	Match2BracketID    string          `json:"match2bracketid"`
-	Status             string          `json:"status"`
-	Winner             string          `json:"winner"`
-	Walkover           string          `json:"walkover"`
-	ResultType         string          `json:"resulttype"`
-	Finished           int             `json:"finished"` // 0 or 1 (Liquipedia returns int, not bool)
-	Mode               string          `json:"mode"`
-	Type               string          `json:"type"`
-	Section            string          `json:"section"`
-	Game               string          `json:"game"`
-	Patch              string          `json:"patch"`
-	BestOf             int             `json:"bestof"`
-	Date               string          `json:"date"`
-	DateExact          int             `json:"dateexact"` // 0 or 1 (Liquipedia returns int, not bool)
-	Vod                string          `json:"vod"`
-	Tournament         string          `json:"tournament"`
-	Parent             string          `json:"parent"`
-	TickerName         string          `json:"tickername"`
-	ShortName          string          `json:"shortname"`
-	Series             string          `json:"series"`
-	Icon               string          `json:"icon"`
-	IconURL            string          `json:"iconurl"`
-	IconDark           string          `json:"icondark"`
-	IconDarkURL        string          `json:"icondarkurl"`
-	LiquipediaTier     string          `json:"liquipediatier"`
-	LiquipediaTierType string          `json:"liquipediatiertype"`
-	PublisherTier      string          `json:"publishertier"`
+	PageID             int    `json:"pageid"`
+	PageName           string `json:"pagename"`
+	Namespace          int    `json:"namespace"`
+	ObjectName         string `json:"objectname"`
+	Match2ID           string `json:"match2id"`
+	Match2BracketID    string `json:"match2bracketid"`
+	Status             string `json:"status"`
+	Winner             string `json:"winner"`
+	Walkover           string `json:"walkover"`
+	ResultType         string `json:"resulttype"`
+	Finished           int    `json:"finished"` // 0 or 1 (Liquipedia returns int, not bool)
+	Mode               string `json:"mode"`
+	Type               string `json:"type"`
+	Section            string `json:"section"`
+	Game               string `json:"game"`
+	Patch              string `json:"patch"`
+	BestOf             int    `json:"bestof"`
+	Date               string `json:"date"`
+	DateExact          int    `json:"dateexact"` // 0 or 1 (Liquipedia returns int, not bool)
+	Vod                string `json:"vod"`
+	Tournament         string `json:"tournament"`
+	Parent             string `json:"parent"`
+	TickerName         string `json:"tickername"`
+	ShortName          string `json:"shortname"`
+	Series             string `json:"series"`
+	Icon               string `json:"icon"`
+	IconURL            string `json:"iconurl"`
+	IconDark           string `json:"icondark"`
+	IconDarkURL        string `json:"icondarkurl"`
+	LiquipediaTier     string `json:"liquipediatier"`
+	LiquipediaTierType string `json:"liquipediatiertype"`
+	PublisherTier      string `json:"publishertier"`
 
 	// Nested JSON — pass-through to frontend
 	Match2Opponents   json.RawMessage `json:"match2opponents"`
@@ -178,6 +178,22 @@ type NormalizedGameEntry struct {
 	Winner        json.RawMessage `json:"winner"`
 	Map           string          `json:"map,omitempty"`
 	Scores        []int           `json:"scores,omitempty"`
+
+	Participants []NormalizedParticipant `json:"participants,omitempty"`
+	ExtraData    map[string]interface{}  `json:"extradata,omitempty"`
+}
+
+// NormalizedParticipant is a per-player, per-game stat line. Common fields are
+// normalized; game-specific stats (acs, adr, kast, hs, firstKills…) land in Extra.
+type NormalizedParticipant struct {
+	Player    string                 `json:"player"`
+	Character string                 `json:"character,omitempty"` // champion / agent / hero
+	Role      string                 `json:"role,omitempty"`
+	Team      int                    `json:"team,omitempty"` // 1 or 2, from the "team_slot" key
+	Kills     *int                   `json:"kills,omitempty"`
+	Deaths    *int                   `json:"deaths,omitempty"`
+	Assists   *int                   `json:"assists,omitempty"`
+	Extra     map[string]interface{} `json:"extra,omitempty"`
 }
 
 // NormalizedLive represents the live status embedded in a match.
@@ -306,26 +322,26 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 	}
 
 	return NormalizedMatch{
-		ID:            m.PageID,
-		Name:          name,
-		Slug:          &slug,
-		Status:        &status,
-		BeginAt:       beginAt,
-		EndAt:         endAt,
-		ScheduledAt:   beginAt,
-		MatchType:     matchType,
-		NumberOfGames: numGames,
-		Tournament:    tournament,
-		Opponents:     opponents,
-		Results:       results,
-		League:        league,
-		Serie:         serie,
-		StreamsList:   streams,
-		Games:         games,
-		WinnerID:      winnerID,
-		Winner:        winner,
-		Live:          live,
-		Videogame:     vg,
+		ID:              m.PageID,
+		Name:            name,
+		Slug:            &slug,
+		Status:          &status,
+		BeginAt:         beginAt,
+		EndAt:           endAt,
+		ScheduledAt:     beginAt,
+		MatchType:       matchType,
+		NumberOfGames:   numGames,
+		Tournament:      tournament,
+		Opponents:       opponents,
+		Results:         results,
+		League:          league,
+		Serie:           serie,
+		StreamsList:     streams,
+		Games:           games,
+		WinnerID:        winnerID,
+		Winner:          winner,
+		Live:            live,
+		Videogame:       vg,
 		Match2ID:        m.Match2ID,
 		Wiki:            wiki,
 		Section:         m.Section,
@@ -656,18 +672,31 @@ func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []Norma
 			}
 		}
 
+		// Per-player participants (KDA + game-specific stats) and the game's
+		// draft/extradata — game-agnostic pass-through (Phase 0).
+		var participants []NormalizedParticipant
+		if praw, ok := gameData["participants"]; ok {
+			participants = normalizeGameParticipants(praw)
+		}
+		var gameExtra map[string]interface{}
+		if e, ok := gameData["extradata"].(map[string]interface{}); ok && len(e) > 0 {
+			gameExtra = e
+		}
+
 		games = append(games, NormalizedGameEntry{
-			Complete:   finished,
-			ID:         matchPageID*100 + i + 1,
-			Position:   i + 1,
-			Status:     status,
-			Length:     length,
-			Finished:   finished,
-			MatchID:    matchPageID,
-			WinnerType: "team",
-			Winner:     winnerJSON,
-			Map:        mapName,
-			Scores:     scores,
+			Complete:     finished,
+			ID:           matchPageID*100 + i + 1,
+			Position:     i + 1,
+			Status:       status,
+			Length:       length,
+			Finished:     finished,
+			MatchID:      matchPageID,
+			WinnerType:   "team",
+			Winner:       winnerJSON,
+			Map:          mapName,
+			Scores:       scores,
+			Participants: participants,
+			ExtraData:    gameExtra,
 		})
 	}
 
@@ -781,4 +810,87 @@ func parseScore(v interface{}) int {
 		return 0
 	}
 	return score
+}
+
+// participantStdKeys are the keys consumed into typed NormalizedParticipant
+// fields; everything else on a participant goes into Extra.
+var participantStdKeys = map[string]bool{
+	"player": true, "displayName": true, "displayname": true,
+	"character": true, "agent": true, "champion": true, "hero": true,
+	"role": true, "kills": true, "deaths": true, "assists": true,
+}
+
+// flexInt parses a value Liquipedia may send as string or number into *int.
+func flexInt(v interface{}) *int {
+	switch n := v.(type) {
+	case float64:
+		i := int(n)
+		return &i
+	case string:
+		if i, err := strconv.Atoi(n); err == nil {
+			return &i
+		}
+	case json.Number:
+		if i, err := n.Int64(); err == nil {
+			x := int(i)
+			return &x
+		}
+	}
+	return nil
+}
+
+// firstString returns the first non-empty string value among the given keys.
+func firstString(m map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if s, ok := m[k].(string); ok && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// normalizeGameParticipants turns a match2games[].participants object
+// ({"1_1": {...}, "2_3": {...}}) into normalized stat lines. Empty placeholder
+// entries (live matches) are skipped.
+func normalizeGameParticipants(raw interface{}) []NormalizedParticipant {
+	m, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]NormalizedParticipant, 0, len(m))
+	for key, val := range m {
+		pm, ok := val.(map[string]interface{})
+		if !ok || len(pm) == 0 {
+			continue
+		}
+		p := NormalizedParticipant{}
+		if idx := strings.Index(key, "_"); idx > 0 {
+			if t, err := strconv.Atoi(key[:idx]); err == nil {
+				p.Team = t
+			}
+		}
+		p.Player = firstString(pm, "player", "displayName", "displayname")
+		p.Character = firstString(pm, "character", "agent", "champion", "hero")
+		p.Role = firstString(pm, "role")
+		p.Kills = flexInt(pm["kills"])
+		p.Deaths = flexInt(pm["deaths"])
+		p.Assists = flexInt(pm["assists"])
+
+		extra := map[string]interface{}{}
+		for k, v := range pm {
+			if !participantStdKeys[k] {
+				extra[k] = v
+			}
+		}
+		if len(extra) > 0 {
+			p.Extra = extra
+		}
+
+		// Skip empty placeholders (live matches have keys with no real data).
+		if p.Player == "" && p.Character == "" && p.Kills == nil && p.Deaths == nil && p.Assists == nil && p.Extra == nil {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
