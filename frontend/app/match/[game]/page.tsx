@@ -5,12 +5,12 @@ import { matchService } from '../../services/matchService';
 import MatchDetailPageClient from '../_components/MatchDetailPageClient';
 
 interface MatchPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ game: string }>;
   searchParams: Promise<{ wiki?: string }>;
 }
 
 export async function generateMetadata({ params, searchParams }: MatchPageProps): Promise<Metadata> {
-  const { id } = await params;
+  const { game: id } = await params;
   const { wiki } = await searchParams;
 
   try {
@@ -60,7 +60,7 @@ export async function generateMetadata({ params, searchParams }: MatchPageProps)
 }
 
 export default async function MatchDetailPage({ params, searchParams }: MatchPageProps) {
-  const { id } = await params;
+  const { game: id } = await params;
   const { wiki } = await searchParams;
 
   // Fetch server-side so a genuinely missing match (e.g. a stale PandaScore-era
