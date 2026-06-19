@@ -611,15 +611,15 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `liq:matches:running:<wiki>` | `LiqMatchesRunningKey` | 10 min | Poller (8 min) ou webhook dirty |
 | `liq:matches:upcoming:<wiki>` | `LiqMatchesUpcomingKey` | 22 min | Poller (20 min) ou webhook dirty |
 | `liq:matches:past:<wiki>` | `LiqMatchesPastKey` | 50 min | Poller (45 min) ou webhook dirty |
-| `liq:matches:date:<wiki>:<YYYY-MM-DD>` | `LiqMatchesByDateKey` | 6h (passé) / 15 min (futur) | On-demand (cache-aside) |
+| `liq:matches:date:<wiki>:<YYYY-MM-DD>` | `LiqMatchesByDateKey` | 6h (passé) / 10 min (auj.+futur) | On-demand (cache-aside) |
 | `liq:match:<wiki>:<id>` | `LiqMatchKey` | 5 min ou 24h (finished) | On-demand |
 | `liq:tournaments:running:<wiki>` | `LiqTournamentsRunningKey` | 22 min | Poller (20 min) |
 | `liq:tournaments:upcoming:<wiki>` | `LiqTournamentsUpcomingKey` | 35 min | Poller (30 min) |
 | `liq:tournaments:finished:<wiki>` | `LiqTournamentsFinishedKey` | 100 min | Poller (90 min) |
-| `liq:tournaments:date:<wiki>:<date>` | `LiqTournamentsByDateKey` | 6h | On-demand |
+| `liq:tournaments:date:<wiki>:<date>` | `LiqTournamentsByDateKey` | 10 min | On-demand |
 | `liq:tournament:<wiki>:<id>` | `LiqTournamentKey` | 10 min | On-demand (`GET /tournaments/:id`) |
 | `liq:tournament:matches:<wiki>:<pagename>` | `LiqTournamentMatchesKey` | 10 min | On-demand (hydration scheduler) |
-| `liq:tournament:squads:<wiki>:<pagename>` | `LiqTournamentSquadsKey` | 6h | On-demand |
+| `liq:tournament:squads:<wiki>:<pagename>` | `LiqTournamentSquadsKey` | 10 min | On-demand |
 | `liq:teams:search:<wiki>:<query>` | `LiqTeamSearchKey` | 30 min | On-demand (`/teams/search`) |
 | `liq:team:<wiki>:<id\|template>` | `LiqTeamKey` | 6h | On-demand |
 | `liq:team:squad:<wiki>:<pagename>` | `LiqTeamSquadKey` | 6h | On-demand |
@@ -1040,16 +1040,18 @@ curl -H "Authorization: Bearer <jwt_admin>" \
 | Tables DB esport | `tournaments`, `matches`, `games_pandascore` | Cache Redis uniquement | ✅ |
 
 ### Migration PandaScore → Liquipedia — Phases (toutes complètes)
-| Phase | Description | Doc |
-|-------|-------------|-----|
-| 0 | Nettoyage code PandaScore/SportDevs | `docs/phase0-nettoyage.md` |
-| 1 | Fondation Liquipedia (service HTTP, budget, poller, webhooks) | `docs/phase1-*.md` |
-| 2 | Matchs (LiqMatch, 5 endpoints, poller conditions) | `docs/phase2-*.md` |
-| 3 | Tournois (LiqTournament, 7 endpoints) | `docs/phase3-*.md` |
-| 4 | Équipes/joueurs (LiqTeam, LiqSquadPlayer, search parallel, favoris) | `docs/phase4-*.md` |
-| 5 | Live/streams (validation carousel, normalisation streams) | `docs/phase5-*.md` |
-| 6 | Documentation | `docs/phase6-*.md` |
-| Post | Activation webhooks + variable d'env budget + scheduler toggle + cleanup frontend | Session juin 2026 |
+| Phase | Description |
+|-------|-------------|
+| 0 | Nettoyage code PandaScore/SportDevs |
+| 1 | Fondation Liquipedia (service HTTP, budget, poller, webhooks) |
+| 2 | Matchs (LiqMatch, 5 endpoints, poller conditions) |
+| 3 | Tournois (LiqTournament, 7 endpoints) |
+| 4 | Équipes/joueurs (LiqTeam, LiqSquadPlayer, search parallel, favoris) |
+| 5 | Live/streams (validation carousel, normalisation streams) |
+| 6 | Documentation |
+| Post | Activation webhooks + variable d'env budget + scheduler toggle + cleanup frontend (juin 2026) |
+
+> Les docs de planification par phase (`docs/phase*.md`) et `docs/strategie-rate-limiting.md` ont été supprimés une fois la migration terminée (prémisse obsolète « 60 req/h », statuts périmés). **La référence technique à jour est `docs/liquipedia.md`** (état des lieux + architecture complète) ; cette section §10-11 en donne la vue d'ensemble.
 
 ### Décisions clés
 * **Garder les noms de types `PandaMatch`/`PandaTournament` sur le frontend** : refactor blast-radius énorme pour zéro bénéfice utilisateur. Les `Normalized*` du backend sont construits compatibles.
