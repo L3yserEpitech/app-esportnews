@@ -3,12 +3,12 @@ import { wikiToSlug } from './gameRegistry';
 // Narrow structural inputs — decoupled from the full Panda* types so these
 // helpers stay trivially testable. Any object carrying these fields works.
 export interface MatchLinkInput {
-  wiki?: string;
-  match2id?: string;
+  wiki?: string | null;
+  match2id?: string | null;
   id: number | string;
 }
 export interface TournamentLinkInput {
-  wiki?: string;
+  wiki?: string | null;
   id: number | string;
 }
 

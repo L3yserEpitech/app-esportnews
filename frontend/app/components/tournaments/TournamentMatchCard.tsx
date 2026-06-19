@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { matchHref } from '../../lib/gameLinks';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trophy } from 'lucide-react';
@@ -64,7 +65,7 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
     : (match.tournament?.icon_url || match.league?.image_url);
 
   return (
-    <Link href={`/match/${match.match2id || match.id}${match.wiki ? `?wiki=${match.wiki}` : ''}`}>
+    <Link href={matchHref(match)}>
       <div className="group relative w-full flex items-stretch rounded-lg overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50 hover:border-[var(--color-accent)]/30 transition-all duration-200 cursor-pointer">
         {/* Left accent bar */}
         <div className={`w-[3px] flex-shrink-0 ${accentBar}`} />
