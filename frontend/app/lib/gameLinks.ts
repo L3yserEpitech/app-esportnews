@@ -12,16 +12,16 @@ export interface TournamentLinkInput {
   id: number | string;
 }
 
-// matchHref builds /match/<slug>/<id>. Falls back to the legacy /match/<id>
-// when the game can't be resolved, so links never break during migration.
+// matchHref builds the game-first /<slug>/match/<id>. Falls back to the legacy
+// /match/<id> when the game can't be resolved, so links never break.
 export function matchHref(match: MatchLinkInput): string {
   const id = match.match2id || String(match.id);
   const slug = match.wiki ? wikiToSlug(match.wiki) : undefined;
-  return slug ? `/match/${slug}/${id}` : `/match/${id}`;
+  return slug ? `/${slug}/match/${id}` : `/match/${id}`;
 }
 
-// tournamentHref builds /tournois/<slug>/<id>, with the same legacy fallback.
+// tournamentHref builds the game-first /<slug>/tournois/<id>, same fallback.
 export function tournamentHref(t: TournamentLinkInput): string {
   const slug = t.wiki ? wikiToSlug(t.wiki) : undefined;
-  return slug ? `/tournois/${slug}/${t.id}` : `/tournois/${t.id}`;
+  return slug ? `/${slug}/tournois/${t.id}` : `/tournois/${t.id}`;
 }

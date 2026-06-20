@@ -2,8 +2,8 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { matchService } from '../../../services/matchService';
-import { isValidSlug, slugToWiki } from '../../../lib/gameRegistry';
-import MatchDetailPageClient from '../../_components/MatchDetailPageClient';
+import { slugToWiki } from '../../../lib/gameRegistry';
+import MatchDetailPageClient from '../../../match/_components/MatchDetailPageClient';
 
 interface MatchPageProps {
   params: Promise<{ game: string; id: string }>;
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
     const title = `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'} | ${match.videogame?.name || 'Esport'}`;
     const description = `${title} - ${match.league?.name || ''} - ${match.begin_at ? new Date(match.begin_at).toLocaleDateString('fr-FR') : ''}`;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-    const matchUrl = `${siteUrl}/match/${game}/${id}`;
+    const matchUrl = `${siteUrl}/${game}/match/${id}`;
 
     return {
       title,
@@ -58,10 +58,11 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
 
 export default async function MatchDetailPage({ params }: MatchPageProps) {
   const { game, id } = await params;
-  if (!isValidSlug(game)) {
+  // [game] validity is enforced by app/[game]/layout.tsx.
+  const wiki = slugToWiki(game);
+  if (!wiki) {
     notFound();
   }
-  const wiki = slugToWiki(game)!;
 
   let response: Response | undefined;
   try {

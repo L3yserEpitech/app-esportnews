@@ -3,22 +3,19 @@ import { getApiBaseUrl } from '../../lib/apiConfig';
 import { wikiToSlug, isValidSlug } from '../../lib/gameRegistry';
 
 interface LegacyMatchProps {
-  params: Promise<{ game: string }>;
+  params: Promise<{ id: string }>;
 }
 
-// Legacy resolver. Old indexed URLs were single-segment /match/<id>; Next.js
-// requires one slug name per level, so that id arrives here in the `game` param.
-// We resolve the match's wiki and 308-redirect to the canonical
-// /match/<slug>/<id>. A bare valid game slug (no id) goes to the matches list.
+// Legacy resolver for old single-segment /match/<id> URLs (pre game-first
+// routing, possibly still indexed). Resolves the match's wiki and 308-redirects
+// to the canonical /[game]/match/<id>. A bare valid game slug goes to the list.
 export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) {
-  const { game } = await params;
+  const { id } = await params;
 
-  // /match/valorant (a game, no id) → matches list.
-  if (isValidSlug(game)) {
+  if (isValidSlug(id)) {
     permanentRedirect('/match');
   }
 
-  const id = game; // legacy match id
   let response: Response | undefined;
   try {
     response = await fetch(`${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}`, {
@@ -45,5 +42,5 @@ export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) 
   }
 
   const canonicalId = match?.match2id || id;
-  permanentRedirect(`/match/${slug}/${canonicalId}`);
+  permanentRedirect(`/${slug}/match/${canonicalId}`);
 }
