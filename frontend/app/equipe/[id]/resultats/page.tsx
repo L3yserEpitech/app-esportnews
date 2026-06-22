@@ -1,37 +1,28 @@
-import { Metadata, ResolvingMetadata } from 'next';
-import { Suspense } from 'react';
-import ResultatsPageClient from './ResultatsPageClient';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { wikiToSlug } from '../../../lib/gameRegistry';
 
-export async function generateMetadata(
-  { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> },
-  parent: ResolvingMetadata
-): Promise<Metadata> {
+// Legacy resolver for old /equipe/<id>/resultats?wiki=<wiki> URLs → 308-redirect
+// to the canonical game-first /[game]/equipe/<id>/resultats.
+export default async function LegacyResultatsRedirect({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string>>;
+}) {
   const { id } = await params;
   const sp = await searchParams;
-  const name = sp.name || decodeURIComponent(id);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-  const url = `${siteUrl}/equipe/${encodeURIComponent(id)}/resultats`;
+  const slug = sp.wiki ? wikiToSlug(sp.wiki) : undefined;
+  if (!slug) {
+    notFound();
+  }
 
-  return {
-    title: `${name} — Résultats en tournoi | EsportNews`,
-    description: `Tous les résultats en tournoi de ${name}. Historique complet des placements, gains et performances.`,
-    keywords: `${name}, résultats, tournois, esport, placements, gains`,
-    openGraph: {
-      title: `${name} — Résultats en tournoi`,
-      description: `Historique complet des résultats en tournoi de ${name}.`,
-      type: 'website',
-      url,
-    },
-    alternates: { canonical: url },
-  };
-}
+  const q = new URLSearchParams();
+  if (sp.name) q.set('name', sp.name);
+  if (sp.acronym) q.set('acronym', sp.acronym);
+  if (sp.logo) q.set('logo', sp.logo);
+  const qs = q.toString();
 
-export default async function ResultatsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return (
-    <Suspense>
-      <ResultatsPageClient teamId={id} />
-    </Suspense>
-  );
+  permanentRedirect(`/${slug}/equipe/${encodeURIComponent(id)}/resultats${qs ? `?${qs}` : ''}`);
 }

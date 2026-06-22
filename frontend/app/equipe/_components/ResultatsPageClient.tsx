@@ -5,23 +5,25 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, Loader2, Trophy, AlertCircle } from 'lucide-react';
-import { teamService, TeamPlacement } from '../../../services/teamService';
-import { proxyImageUrl } from '../../../lib/imageProxy';
-import { useIsDarkTheme, pickThemeLogo } from '../../../hooks/useIsDarkTheme';
-import AdColumn from '../../../components/ads/AdColumn';
-import { Advertisement } from '../../../types';
-import { advertisementService } from '../../../services/advertisementService';
+import { teamService, TeamPlacement } from '../../services/teamService';
+import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
+import AdColumn from '../../components/ads/AdColumn';
+import { Advertisement } from '../../types';
+import { advertisementService } from '../../services/advertisementService';
+import { teamHref } from '../../lib/gameLinks';
 
 interface ResultatsPageClientProps {
   teamId: string;
+  wiki?: string;
 }
 
-export default function ResultatsPageClient({ teamId }: ResultatsPageClientProps) {
+export default function ResultatsPageClient({ teamId, wiki: wikiProp }: ResultatsPageClientProps) {
   const t = useTranslations('pages_detail.team_detail');
   const searchParams = useSearchParams();
   const isDark = useIsDarkTheme();
 
-  const wiki = searchParams.get('wiki') || '';
+  const wiki = wikiProp || searchParams.get('wiki') || '';
   const name = searchParams.get('name') || decodeURIComponent(teamId);
   const acronym = searchParams.get('acronym') || '';
   const logo = searchParams.get('logo') || '';
@@ -64,7 +66,7 @@ export default function ResultatsPageClient({ teamId }: ResultatsPageClientProps
     return placements.reduce((sum, p) => sum + (p.prize_money || 0), 0);
   }, [placements]);
 
-  const backUrl = `/equipe/${encodeURIComponent(teamId)}?${new URLSearchParams({ wiki, name, ...(acronym ? { acronym } : {}), ...(logo ? { logo } : {}) }).toString()}`;
+  const backUrl = teamHref({ wiki, template: teamId, name, acronym: acronym || undefined, image_url: logo || undefined });
 
   if (error) {
     return (

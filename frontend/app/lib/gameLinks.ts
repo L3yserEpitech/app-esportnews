@@ -54,6 +54,23 @@ export function teamHref(team: TeamLinkInput): string {
   return qs ? `${base}?${qs}` : base;
 }
 
+// teamResultatsHref builds the game-first /<slug>/equipe/<template>/resultats.
+export function teamResultatsHref(team: TeamLinkInput): string {
+  const idSeg = team.template || (team.id != null ? String(team.id) : '');
+  const slug = team.wiki ? wikiToSlug(team.wiki) : undefined;
+  const base = slug
+    ? `/${slug}/equipe/${encodeURIComponent(idSeg)}/resultats`
+    : `/equipe/${encodeURIComponent(idSeg)}/resultats`;
+
+  const q = new URLSearchParams();
+  if (!slug && team.wiki) q.set('wiki', team.wiki);
+  if (team.name) q.set('name', team.name);
+  if (team.acronym) q.set('acronym', team.acronym);
+  if (team.image_url) q.set('logo', team.image_url);
+  const qs = q.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
 export interface PlayerLinkInput {
   wiki?: string | null;
   pagename?: string | null;

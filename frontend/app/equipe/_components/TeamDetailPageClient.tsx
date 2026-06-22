@@ -17,9 +17,11 @@ import AdColumn from '../../components/ads/AdColumn';
 import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
+import { teamResultatsHref } from '../../lib/gameLinks';
 
 interface TeamDetailPageClientProps {
   teamId: string;
+  wiki?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,7 +167,7 @@ const SOCIAL_ICONS: Record<string, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientProps) {
+export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDetailPageClientProps) {
   const t = useTranslations('pages_detail.team_detail');
   const tToast = useTranslations('toast');
   const isDark = useIsDarkTheme();
@@ -173,7 +175,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
   const { showToast } = useToast();
   const hasRedirected = useRef(false);
   const searchParams = useSearchParams();
-  const wiki = searchParams.get('wiki') || '';
+  const wiki = wikiProp || searchParams.get('wiki') || '';
   const urlName = searchParams.get('name') || '';
   const urlAcronym = searchParams.get('acronym') || '';
   const urlLogo = searchParams.get('logo') || '';
@@ -600,7 +602,7 @@ export default function TeamDetailPageClient({ teamId }: TeamDetailPageClientPro
                   accentColor="#fbbf24"
                 />
                 <Link
-                  href={`/equipe/${encodeURIComponent(teamId)}/resultats?${new URLSearchParams({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki || '', name: team?.name || '', ...(team && 'acronym' in team && (team as any).acronym ? { acronym: (team as any).acronym } : {}), ...(team && 'image_url' in team && (team as any).image_url ? { logo: (team as any).image_url } : {}) }).toString()}`}
+                  href={teamResultatsHref({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki || '', template: teamId, name: team?.name || '', acronym: (team && 'acronym' in team) ? (team as any).acronym : undefined, image_url: (team && 'image_url' in team) ? (team as any).image_url : undefined })}
                   className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
                 >
                   <span className="hidden sm:inline">{t('see_all_results_short')}</span>
