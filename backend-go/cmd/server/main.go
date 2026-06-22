@@ -203,7 +203,7 @@ func main() {
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
 	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, cfg.LiquipediaWebhookSecret, logger)
-	imageProxyHandler := handlers.NewImageProxyHandler()
+	imageProxyHandler := handlers.NewImageProxyHandler(redisClient)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
