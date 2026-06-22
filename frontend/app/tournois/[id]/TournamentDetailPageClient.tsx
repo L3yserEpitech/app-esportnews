@@ -372,7 +372,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                 </div>
                 <div className="space-y-1.5">
                   {liveMatches.map(match => (
-                    <TournamentMatchCard key={match.id} match={match} />
+                    <TournamentMatchCard key={match.match2id || match.id} match={match} />
                   ))}
                 </div>
               </section>
@@ -410,7 +410,7 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
                       </div>
                       <div className="space-y-1.5">
                         {group.matches.map(match => (
-                          <TournamentMatchCard key={match.id} match={match} />
+                          <TournamentMatchCard key={match.match2id || match.id} match={match} />
                         ))}
                       </div>
                     </div>

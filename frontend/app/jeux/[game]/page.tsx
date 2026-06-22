@@ -169,7 +169,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
                 const away = m.opponents?.[1]?.opponent;
                 return (
                   <Link
-                    key={m.id}
+                    key={m.match2id || m.id}
                     href={`/match/${m.id}`}
                     className="flex items-center justify-between rounded-xl border border-white/10 bg-[#091626] px-4 py-3 hover:border-[#F22E62]/40 transition-colors"
                   >

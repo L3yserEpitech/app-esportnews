@@ -38,8 +38,8 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
         className="w-full max-w-full"
       >
         <CarouselContent className="-ml-3 overflow-visible">
-          {matchList.map((match) => (
-            <CarouselItem key={match.id} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
+          {matchList.map((match, index) => (
+            <CarouselItem key={match.match2id || `${match.id}-${index}`} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
               <FeaturedMatchCard match={match} />
             </CarouselItem>
           ))}

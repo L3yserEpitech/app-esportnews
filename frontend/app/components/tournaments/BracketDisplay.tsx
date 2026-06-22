@@ -134,7 +134,7 @@ const BracketDisplay: React.FC<BracketDisplayProps> = ({ tournament, className =
                     const winner = match.winner_id;
 
                     return (
-                      <Card key={match.id} variant="elevated" className="overflow-hidden hover:border-pink-500/50 transition-all duration-300">
+                      <Card key={match.match2id || match.id} variant="elevated" className="overflow-hidden hover:border-pink-500/50 transition-all duration-300">
                         <div className="p-4 space-y-4">
                           {/* Header avec statut et infos */}
                           <div className="flex items-center justify-between">

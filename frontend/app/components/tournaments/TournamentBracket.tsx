@@ -308,7 +308,7 @@ export default function TournamentBracket({ matches }: TournamentBracketProps) {
                   <div className="flex flex-col flex-shrink-0" style={{ width: CELL_W, height: totalHeight }}>
                     {group.matches.map((match) => (
                       <div
-                        key={match.id}
+                        key={match.match2id || match.id}
                         className="flex items-center justify-center"
                         style={{ height: slotH }}
                       >

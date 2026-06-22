@@ -742,7 +742,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
               ) : matches?.upcoming && matches.upcoming.length > 0 ? (
                 <div className="space-y-1.5">
                   {(matches.upcoming as PandaMatch[]).map(match => (
-                    <TournamentMatchCard key={match.id || match.match2id} match={match} />
+                    <TournamentMatchCard key={match.match2id || match.id} match={match} />
                   ))}
                 </div>
               ) : (
@@ -769,7 +769,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
               ) : matches?.recent && matches.recent.length > 0 ? (
                 <div className="space-y-1.5">
                   {(matches.recent as PandaMatch[]).map(match => (
-                    <TournamentMatchCard key={match.id || match.match2id} match={match} />
+                    <TournamentMatchCard key={match.match2id || match.id} match={match} />
                   ))}
                 </div>
               ) : (

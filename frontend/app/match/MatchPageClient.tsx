@@ -386,7 +386,7 @@ const MatchPage: React.FC = () => {
             <Carousel opts={{ align: 'start', loop: false }} className="w-full">
               <CarouselContent className="-ml-3">
                 {topTier.map((match) => (
-                  <CarouselItem key={match.id} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
+                  <CarouselItem key={match.match2id || match.id} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
                     <FeaturedMatchCard match={match} />
                   </CarouselItem>
                 ))}
@@ -421,7 +421,7 @@ const MatchPage: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             {live.map((match) => (
-              <TournamentMatchCard key={match.id} match={match} />
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
             ))}
           </div>
         </div>
@@ -443,7 +443,7 @@ const MatchPage: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             {upcoming.map((match) => (
-              <TournamentMatchCard key={match.id} match={match} />
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
             ))}
           </div>
         </div>
@@ -465,7 +465,7 @@ const MatchPage: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             {finished.map((match) => (
-              <TournamentMatchCard key={match.id} match={match} />
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
             ))}
           </div>
         </div>
@@ -756,7 +756,7 @@ const MatchPage: React.FC = () => {
               <div className="space-y-1.5">
                 {filteredMatches.map((match) => (
                   <TournamentMatchCard
-                    key={match.id}
+                    key={match.match2id || match.id}
                     match={match}
                   />
                 ))}
