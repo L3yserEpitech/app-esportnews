@@ -12,6 +12,7 @@ import TournamentMatchCard from '../components/tournaments/TournamentMatchCard';
 import FeaturedMatchCard from '../components/matches/FeaturedMatchCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
+import { prewarmImages, matchLogoUrls } from '../lib/imageProxy';
 import {
   Dialog,
   DialogContent,
@@ -106,6 +107,11 @@ const MatchPage: React.FC = () => {
   const locale = useLocale();
   const { selectedGame, games, isLoadingGames, setSelectedGame, getSelectedGameData } = useGame();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
+
+  // Warm the image cache in parallel as soon as the match set changes.
+  useEffect(() => {
+    prewarmImages(matchLogoUrls(matches));
+  }, [matches]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);

@@ -8,3 +8,37 @@ export function proxyImageUrl(url: string | undefined | null): string {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
   return `${backendUrl}/api/proxy/image?url=${encodeURIComponent(url)}`;
 }
+
+/**
+ * Fire-and-forget: ask the backend to fetch a batch of Liquipedia image URLs
+ * into its (Redis-backed) cache in parallel, so the browser's subsequent <img>
+ * requests are instant cache hits instead of cold fetches. Client-only.
+ */
+export function prewarmImages(urls: Array<string | null | undefined>): void {
+  if (typeof window === 'undefined') return;
+  const liq = Array.from(
+    new Set(urls.filter((u): u is string => !!u && u.includes('liquipedia.net')))
+  );
+  if (liq.length === 0) return;
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+  fetch(`${backendUrl}/api/proxy/prewarm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls: liq }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+/** Extracts opponent (light + dark) and league logo URLs from a match list. */
+export function matchLogoUrls(matches: any[] | null | undefined): string[] {
+  if (!Array.isArray(matches)) return [];
+  const out: string[] = [];
+  for (const m of matches) {
+    for (const o of m?.opponents ?? []) {
+      if (o?.opponent?.image_url) out.push(o.opponent.image_url);
+      if (o?.opponent?.dark_image_url) out.push(o.opponent.dark_image_url);
+    }
+    if (m?.league?.image_url) out.push(m.league.image_url);
+  }
+  return out;
+}

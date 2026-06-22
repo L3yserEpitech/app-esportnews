@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Carousel,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/carousel";
 import { LiveMatch } from '../../types';
 import FeaturedMatchCard from './FeaturedMatchCard';
+import { prewarmImages, matchLogoUrls } from '../../lib/imageProxy';
 
 interface LiveMatchesCarouselProps {
   matches: LiveMatch[];
@@ -24,6 +25,11 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
 
   const matchList = matches ?? [];
   const showNavigation = useMemo(() => matchList.length > 1, [matchList.length]);
+
+  // Warm the image cache in parallel as soon as matches arrive.
+  useEffect(() => {
+    prewarmImages(matchLogoUrls(matches ?? []));
+  }, [matches]);
 
   if (matchList.length === 0) {
     return (
