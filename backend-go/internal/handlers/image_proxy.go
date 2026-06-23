@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/esportnews/backend/internal/cache"
+	"github.com/esportnews/backend/internal/imagecache"
 )
 
 const (
@@ -28,11 +29,6 @@ const (
 	throttleBackoff    = 10 * time.Second     // backoff when upstream returns 429 (rare: image files aren't rate-limited)
 	fetchInterval      = 0 * time.Millisecond // global pacing DISABLED — Liquipedia image files aren't rate-limited (verified); set > 0 to re-enable
 	semaphoreWait      = 15 * time.Second     // max time to wait for semaphore before returning placeholder
-
-	// redisImageMaxBytes caps which images go to the shared Redis L2 cache.
-	// Logos are a few KB–hundreds of KB; anything larger stays L1-only.
-	redisImageMaxBytes = 1 * 1024 * 1024
-	redisImageTTL      = 7 * 24 * time.Hour
 )
 
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
@@ -241,34 +237,30 @@ func (h *ImageProxyHandler) l1Get(cacheKey string) *cachedImage {
 	return img
 }
 
-const redisImagePrefix = "liq:img:"
-
 func (h *ImageProxyHandler) redisGet(ctx context.Context, cacheKey string) *cachedImage {
 	if h.redisCache == nil {
 		return nil
 	}
-	val, err := h.redisCache.Get(ctx, redisImagePrefix+cacheKey)
+	val, err := h.redisCache.Get(ctx, imagecache.RedisKey(cacheKey))
 	if err != nil || val == "" {
 		return nil
 	}
-	nl := strings.IndexByte(val, '\n')
-	if nl < 0 {
+	ct, data, ok := imagecache.Decode(val)
+	if !ok {
 		return nil
 	}
-	return &cachedImage{contentType: val[:nl], data: []byte(val[nl+1:]), cachedAt: time.Now()}
+	return &cachedImage{contentType: ct, data: data, cachedAt: time.Now()}
 }
 
 func (h *ImageProxyHandler) redisStore(ctx context.Context, cacheKey string, img *cachedImage) {
-	if h.redisCache == nil || len(img.data) > redisImageMaxBytes {
+	if h.redisCache == nil || len(img.data) > imagecache.MaxBytes {
 		return
 	}
-	// value = "<content-type>\n<raw bytes>" (content-type never contains a newline)
-	val := img.contentType + "\n" + string(img.data)
 	// Detach from the request context so the write completes even if the client
 	// disconnects right after receiving the bytes.
 	storeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 	defer cancel()
-	_ = h.redisCache.Set(storeCtx, redisImagePrefix+cacheKey, val, redisImageTTL)
+	_ = h.redisCache.Set(storeCtx, imagecache.RedisKey(cacheKey), imagecache.Encode(img.contentType, img.data), imagecache.RedisTTL)
 }
 
 // fetchAndStore fetches the image from upstream and populates both cache tiers.

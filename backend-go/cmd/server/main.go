@@ -146,7 +146,8 @@ func main() {
 	// Liquipedia service + poller + webhook dirty tracker
 	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, cfg.LiquipediaBudgetPerWiki, redisClient, logger)
 	dirtyTracker := services.NewDirtyTracker()
-	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, logger)
+	imageWarmer := services.NewImageWarmer(redisClient, logger)
+	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, imageWarmer, logger)
 	if cfg.LiquipediaWebhooksEnabled {
 		liquipediaPoller.SetWebhooksEnabled(true)
 		logger.WithField("secret_configured", cfg.LiquipediaWebhookSecret != "").

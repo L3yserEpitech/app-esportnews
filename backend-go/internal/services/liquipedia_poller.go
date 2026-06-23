@@ -160,6 +160,7 @@ var wikiSortedOrder = func() []string {
 // 2. Webhook-driven (preferred): only fetch when dirty flags are set
 type LiquipediaPoller struct {
 	service      *LiquipediaService
+	warmer       *ImageWarmer
 	dirtyTracker *DirtyTracker
 	dirtyGate    *dirtyRefreshGate
 	log          *logrus.Logger
@@ -174,14 +175,46 @@ type LiquipediaPoller struct {
 }
 
 // NewLiquipediaPoller creates a poller. Pass dirtyTracker from the WebhookHandler.
-func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker, logger *logrus.Logger) *LiquipediaPoller {
+func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker, warmer *ImageWarmer, logger *logrus.Logger) *LiquipediaPoller {
 	return &LiquipediaPoller{
 		service:         service,
+		warmer:          warmer,
 		dirtyTracker:    dirtyTracker,
 		dirtyGate:       newDirtyRefreshGate(),
 		log:             logger,
 		webhooksEnabled: false, // start with polling, enable webhooks when confirmed
 	}
+}
+
+// warmMatchImages extracts team/league logo URLs from a freshly-fetched match
+// payload and warms them into the shared image cache in the background, so the
+// proxy serves them as instant hits when users load pages — first visit included.
+func (p *LiquipediaPoller) warmMatchImages(ctx context.Context, data []byte, wiki string) {
+	if p.warmer == nil {
+		return
+	}
+	matches := parseAndNormalizeMatches(data, wiki, "")
+	if len(matches) == 0 {
+		return
+	}
+	urls := make([]string, 0, len(matches)*3)
+	for _, m := range matches {
+		for _, o := range m.Opponents {
+			if o.Opponent == nil {
+				continue
+			}
+			if o.Opponent.ImageURL != nil {
+				urls = append(urls, *o.Opponent.ImageURL)
+			}
+			if o.Opponent.DarkImageURL != nil {
+				urls = append(urls, *o.Opponent.DarkImageURL)
+			}
+		}
+		if m.League != nil && m.League.ImageURL != "" {
+			urls = append(urls, m.League.ImageURL)
+		}
+	}
+	p.warmer.WarmURLs(ctx, urls)
 }
 
 // SetWebhooksEnabled toggles webhook-driven mode on/off.
@@ -513,6 +546,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
 
@@ -537,6 +571,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
 
@@ -560,6 +595,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
 
