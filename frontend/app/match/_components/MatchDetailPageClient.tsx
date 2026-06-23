@@ -30,7 +30,7 @@ import { advertisementService } from '../../services/advertisementService';
 import AdColumn from '../../components/ads/AdColumn';
 import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
 import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
-import { proxyImageUrl } from '../../lib/imageProxy';
+import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface MatchDetailPageClientProps {
@@ -81,6 +81,11 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
   const [isSubscribed] = useState(false);
   const [selectedStreamIdx, setSelectedStreamIdx] = useState(0);
   const [teamsData, setTeamsData] = useState<any[]>([]);
+
+  // Warm all logos in this match in parallel.
+  useEffect(() => {
+    prewarmFromData([match, teamsData]);
+  }, [match, teamsData]);
 
   useEffect(() => {
     const loadAds = async () => {

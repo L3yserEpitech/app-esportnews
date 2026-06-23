@@ -11,7 +11,7 @@ import {
   Loader2, Gamepad2, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { teamService, EnrichedTeamDetail, Team, Player, TeamMatchesResponse, TeamPlacement } from '../../services/teamService';
-import { proxyImageUrl } from '../../lib/imageProxy';
+import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import TournamentMatchCard from '../../components/tournaments/TournamentMatchCard';
 import AdColumn from '../../components/ads/AdColumn';
 import { PandaMatch, Advertisement } from '../../types';
@@ -184,6 +184,11 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
   const [matches, setMatches] = useState<TeamMatchesResponse | null>(null);
   const [placements, setPlacements] = useState<TeamPlacement[]>([]);
   const [placementsLoading, setPlacementsLoading] = useState(false);
+
+  // Warm all logos (roster, team matches, placements) in parallel.
+  useEffect(() => {
+    prewarmFromData([team, matches, placements]);
+  }, [team, matches, placements]);
   const [loading, setLoading] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

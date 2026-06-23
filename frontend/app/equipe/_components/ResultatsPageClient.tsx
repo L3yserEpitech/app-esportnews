@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, Loader2, Trophy, AlertCircle } from 'lucide-react';
 import { teamService, TeamPlacement } from '../../services/teamService';
-import { proxyImageUrl } from '../../lib/imageProxy';
+import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import AdColumn from '../../components/ads/AdColumn';
 import { Advertisement } from '../../types';
@@ -30,6 +30,11 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
 
   const [placements, setPlacements] = useState<TeamPlacement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Warm placement/tournament icons in parallel.
+  useEffect(() => {
+    prewarmFromData(placements);
+  }, [placements]);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);

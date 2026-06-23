@@ -28,7 +28,7 @@ import ArticleCard from '@/app/components/article/ArticleCard';
 import Card from '@/app/components/ui/Card';
 import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
-import { proxyImageUrl } from '@/app/lib/imageProxy';
+import { proxyImageUrl, prewarmFromData } from '@/app/lib/imageProxy';
 
 interface TournamentDetailPageClientProps {
   tournamentId: string;
@@ -92,6 +92,11 @@ export default function TournamentDetailPageClient({ tournamentId }: TournamentD
   const { showToast } = useToast();
   const hasRedirected = useRef(false);
   const [tournament, setTournament] = useState<PandaTournament | null>(null);
+
+  // Warm all logos in this tournament (teams, banner, match cards) in parallel.
+  useEffect(() => {
+    prewarmFromData(tournament);
+  }, [tournament]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);

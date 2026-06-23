@@ -8,6 +8,7 @@ import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
 import { tournamentService } from '../services/tournamentService';
+import { prewarmFromData } from '../lib/imageProxy';
 import TournamentCard from '../components/tournaments/TournamentCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
@@ -98,6 +99,11 @@ const TournamentsPage: React.FC = () => {
   const t = useTranslations();
   const { selectedGame, games, isLoadingGames: gamesLoading, setSelectedGame, getSelectedGameData } = useGame();
   const [tournaments, setTournaments] = useState<PandaTournament[]>([]);
+
+  // Warm all tournament/team logos in parallel as the list changes.
+  useEffect(() => {
+    prewarmFromData(tournaments);
+  }, [tournaments]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
