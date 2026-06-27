@@ -200,6 +200,10 @@ export interface PandaMatch {
   // Bracket fields for tournament bracket tree
   section?: string | null;
   match2bracketid?: string | null;
+  mvp?: string | null;
+  vod?: string | null;
+  patch?: string | null;
+  links?: Record<string, string>;
 }
 
 export interface PandaStream {
@@ -288,6 +292,17 @@ export interface PandaResult {
   score: number;
 }
 
+export interface PandaParticipant {
+  player: string;
+  character?: string | null; // champion / agent / hero
+  role?: string | null;
+  team?: number; // 1 or 2
+  kills?: number | null;
+  deaths?: number | null;
+  assists?: number | null;
+  extra?: Record<string, unknown>; // game-specific: gold, acs, netWorth, items[]...
+}
+
 export interface PandaGame {
   complete: boolean;
   id: number;
@@ -307,6 +322,8 @@ export interface PandaGame {
   };
   map?: string;
   scores?: number[];
+  participants?: PandaParticipant[];
+  extradata?: Record<string, unknown>;
 }
 
 export interface PandaMapPick {
