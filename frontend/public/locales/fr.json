@@ -544,7 +544,30 @@
       "rescheduled": "Reprogrammé",
       "yes": "Oui",
       "no": "Non",
-      "stat_rescheduled": "Reprogrammé"
+      "stat_rescheduled": "Reprogrammé",
+      "section_player_stats": "Statistiques joueurs",
+      "section_draft": "Draft",
+      "section_external_stats": "Stats détaillées",
+      "draft_picks": "Picks",
+      "draft_bans": "Bans",
+      "info_patch": "Patch",
+      "info_mvp": "MVP",
+      "stat_col": {
+        "player": "Joueur",
+        "champion": "Champion",
+        "agent": "Agent",
+        "hero": "Héros",
+        "kda": "K/D/A",
+        "cs": "CS",
+        "gold": "Or",
+        "damage": "Dégâts",
+        "acs": "ACS",
+        "adr": "ADR",
+        "kast": "KAST",
+        "net_worth": "Valeur nette",
+        "gpm": "GPM",
+        "xpm": "XPM"
+      }
     },
     "team_detail": {
       "loading": "Chargement de l'équipe...",

@@ -543,7 +543,30 @@
       "rescheduled": "Rescheduled",
       "yes": "Yes",
       "no": "No",
-      "stat_rescheduled": "Rescheduled"
+      "stat_rescheduled": "Rescheduled",
+      "section_player_stats": "Player stats",
+      "section_draft": "Draft",
+      "section_external_stats": "Detailed stats",
+      "draft_picks": "Picks",
+      "draft_bans": "Bans",
+      "info_patch": "Patch",
+      "info_mvp": "MVP",
+      "stat_col": {
+        "player": "Player",
+        "champion": "Champion",
+        "agent": "Agent",
+        "hero": "Hero",
+        "kda": "K/D/A",
+        "cs": "CS",
+        "gold": "Gold",
+        "damage": "Damage",
+        "acs": "ACS",
+        "adr": "ADR",
+        "kast": "KAST",
+        "net_worth": "Net Worth",
+        "gpm": "GPM",
+        "xpm": "XPM"
+      }
     },
     "team_detail": {
       "loading": "Loading team...",

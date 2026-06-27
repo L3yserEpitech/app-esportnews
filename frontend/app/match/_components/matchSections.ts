@@ -3,15 +3,15 @@
 // Sections each render from PandaMatch and return null when their data is absent.
 
 export const SECTION_IDS = [
-  'header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters',
+  'header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters', 'matchInfo',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
 const PRESETS: Record<'tier1' | 'default', SectionId[]> = {
-  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters'],
-  default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters'],
+  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
+  default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
 };
 
 // Tier-1 wikis get the rich preset. Everything else uses 'default' (current
