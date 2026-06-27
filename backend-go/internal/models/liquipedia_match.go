@@ -724,6 +724,13 @@ func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []Norma
 		if praw, ok := gameData["participants"]; ok {
 			participants = normalizeGameParticipants(praw)
 		}
+		// Smash (solo-player wiki) leaves the flat participants map empty and stores
+		// per-player character/stock data under opponents[].players[].
+		if len(participants) == 0 {
+			if oraw, ok := gameData["opponents"]; ok {
+				participants = normalizeGameOpponentPlayers(oraw)
+			}
+		}
 		var gameExtra map[string]interface{}
 		if e, ok := gameData["extradata"].(map[string]interface{}); ok && len(e) > 0 {
 			gameExtra = e
@@ -937,6 +944,94 @@ func normalizeGameParticipants(raw interface{}) []NormalizedParticipant {
 			continue
 		}
 		out = append(out, p)
+	}
+	return out
+}
+
+// statusAlive reports whether a Smash character/stock status means "alive" (1).
+func statusAlive(v interface{}) bool {
+	switch s := v.(type) {
+	case float64:
+		return s == 1
+	case string:
+		return s == "1"
+	case json.Number:
+		n, _ := s.Int64()
+		return n == 1
+	}
+	return false
+}
+
+// statusKnown reports whether a stock status is definitive (alive or lost, not unknown).
+func statusKnown(v interface{}) bool {
+	switch s := v.(type) {
+	case float64:
+		return s == 0 || s == 1
+	case string:
+		return s == "0" || s == "1"
+	case json.Number:
+		n, _ := s.Int64()
+		return n == 0 || n == 1
+	}
+	return false
+}
+
+// normalizeGameOpponentPlayers parses match2games[].opponents[].players[] (the
+// Smash structure) into per-player stat lines: character + remaining stocks.
+// Team is the 1-based opponent index. Used when the flat participants map is empty.
+func normalizeGameOpponentPlayers(raw interface{}) []NormalizedParticipant {
+	opps, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]NormalizedParticipant, 0, len(opps))
+	for oppIdx, o := range opps {
+		om, ok := o.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		players, ok := om["players"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, pl := range players {
+			pm, ok := pl.(map[string]interface{})
+			if !ok || len(pm) == 0 {
+				continue
+			}
+			name := firstString(pm, "player", "displayname", "displayName", "name")
+			chars, _ := pm["characters"].([]interface{})
+			fighter := ""
+			alive, known := 0, 0
+			for _, c := range chars {
+				cm, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if fighter == "" {
+					fighter = firstString(cm, "name")
+				}
+				st := cm["status"]
+				if statusAlive(st) {
+					alive++
+				}
+				if statusKnown(st) {
+					known++
+				}
+			}
+			if name == "" && fighter == "" {
+				continue
+			}
+			p := NormalizedParticipant{
+				Player:    name,
+				Character: fighter,
+				Team:      oppIdx + 1,
+			}
+			if known > 0 {
+				p.Extra = map[string]interface{}{"stocks": alive}
+			}
+			out = append(out, p)
+		}
 	}
 	return out
 }

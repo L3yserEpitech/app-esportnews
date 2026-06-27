@@ -22,7 +22,7 @@ describe('gameRegistry', () => {
     expect(slugToWiki('cs')).toBe('counterstrike');
     expect(slugToWiki('cod')).toBe('callofduty');
     expect(slugToWiki('eafc')).toBe('easportsfc');
-    expect(slugToWiki('mlbb')).toBe('mobilelegends');
+    expect(slugToWiki('smash')).toBe('smash');
   });
 
   it('mappe wiki -> slug (réciproque)', () => {
@@ -33,7 +33,8 @@ describe('gameRegistry', () => {
 
   it('valide les slugs connus et rejette les inconnus', () => {
     expect(isValidSlug('valorant')).toBe(true);
-    expect(isValidSlug('wildrift')).toBe(false); // remplacé par mlbb
+    expect(isValidSlug('wildrift')).toBe(false); // remplacé par smash
+    expect(isValidSlug('mlbb')).toBe(false); // remplacé par smash
     expect(isValidSlug('inconnu')).toBe(false);
   });
 

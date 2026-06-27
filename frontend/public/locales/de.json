@@ -566,7 +566,9 @@
         "kast": "KAST",
         "net_worth": "Nettowert",
         "gpm": "GPM",
-        "xpm": "XPM"
+        "xpm": "XPM",
+        "fighter": "Charakter",
+        "stocks": "Stocks"
       }
     },
     "team_detail": {

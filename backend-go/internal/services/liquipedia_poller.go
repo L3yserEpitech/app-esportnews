@@ -523,6 +523,15 @@ func (p *LiquipediaPoller) consumeDirtyFlags(ctx context.Context) {
 // Each method makes 1 API request that returns ALL items of that type for the wiki.
 // Match conditions use Liquipedia API v3 query syntax.
 
+// gameConditionSuffix scopes the shared `smash` wiki (which hosts 6 titles:
+// melee/ultimate/brawl/wiiu/pm/64) to Smash Ultimate only.
+func gameConditionSuffix(wiki string) string {
+	if wiki == "smash" {
+		return " AND [[game::ultimate]]"
+	}
+	return ""
+}
+
 func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqMatchesRunningKey(wiki)
 	now := time.Now().UTC()
@@ -533,7 +542,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 	params.Set("conditions", fmt.Sprintf(
 		"[[finished::0]] AND [[dateexact::1]] AND [[date::<%s]] AND [[date::>%s]]",
 		cutoff, pastCutoff,
-	))
+	)+gameConditionSuffix(wiki))
 	params.Set("order", "date ASC")
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
@@ -558,7 +567,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 	params.Set("conditions", fmt.Sprintf(
 		"[[finished::0]] AND [[dateexact::1]] AND [[date::>%s]]",
 		now,
-	))
+	)+gameConditionSuffix(wiki))
 	params.Set("order", "date ASC")
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
@@ -582,7 +591,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 	cutoff := time.Now().UTC().Add(-7 * 24 * time.Hour).Format("2006-01-02 15:04:05")
 
 	params := url.Values{}
-	params.Set("conditions", fmt.Sprintf("[[finished::1]] AND [[date::>%s]]", cutoff))
+	params.Set("conditions", fmt.Sprintf("[[finished::1]] AND [[date::>%s]]", cutoff)+gameConditionSuffix(wiki))
 	params.Set("order", "date DESC")
 	params.Set("limit", "5000")
 	params.Set("rawstreams", "true")
@@ -608,7 +617,7 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 	params.Set("conditions", fmt.Sprintf(
 		"[[status::!finished]] AND [[startdate::<%s]] AND [[enddate::>%s]]",
 		tomorrow, yesterday,
-	))
+	)+gameConditionSuffix(wiki))
 	params.Set("order", "liquipediatier ASC, startdate ASC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
@@ -630,7 +639,7 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 	params.Set("conditions", fmt.Sprintf(
 		"[[status::!finished]] AND [[startdate::>%s]]",
 		today,
-	))
+	)+gameConditionSuffix(wiki))
 	params.Set("order", "startdate ASC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
@@ -651,7 +660,7 @@ func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki 
 	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
-	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff))
+	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff)+gameConditionSuffix(wiki))
 	params.Set("order", "enddate DESC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
