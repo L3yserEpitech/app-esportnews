@@ -137,6 +137,12 @@ type NormalizedMatch struct {
 	// Bracket fields for tournament bracket tree
 	Section         string `json:"section,omitempty"`
 	Match2BracketID string `json:"match2bracketid,omitempty"`
+
+	// Match-level extras (Tier-1+): previously fetched but dropped.
+	Mvp   *string           `json:"mvp,omitempty"`
+	Vod   *string           `json:"vod,omitempty"`
+	Patch *string           `json:"patch,omitempty"`
+	Links map[string]string `json:"links,omitempty"`
 }
 
 // NormalizedOpponent matches the frontend PandaOpponent interface.
@@ -321,6 +327,42 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		}
 	}
 
+	// Match-level extras
+	var vod *string
+	if m.Vod != "" {
+		v := m.Vod
+		vod = &v
+	}
+	var patch *string
+	if m.Patch != "" {
+		p := m.Patch
+		patch = &p
+	}
+	var mvp *string
+	if len(m.ExtraData) > 0 {
+		var ed map[string]interface{}
+		if json.Unmarshal(m.ExtraData, &ed) == nil {
+			if s, ok := ed["mvp"].(string); ok && s != "" {
+				mvp = &s
+			}
+		}
+	}
+	var links map[string]string
+	if len(m.Links) > 0 {
+		var lm map[string]interface{}
+		if json.Unmarshal(m.Links, &lm) == nil && len(lm) > 0 {
+			links = make(map[string]string, len(lm))
+			for k, v := range lm {
+				if s, ok := v.(string); ok && s != "" {
+					links[k] = s
+				}
+			}
+			if len(links) == 0 {
+				links = nil
+			}
+		}
+	}
+
 	return NormalizedMatch{
 		ID:              m.PageID,
 		Name:            name,
@@ -346,6 +388,10 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		Wiki:            wiki,
 		Section:         m.Section,
 		Match2BracketID: m.Match2BracketID,
+		Mvp:             mvp,
+		Vod:             vod,
+		Patch:           patch,
+		Links:           links,
 	}
 }
 
