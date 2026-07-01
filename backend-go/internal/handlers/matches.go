@@ -180,18 +180,16 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	// Optimization: for today's date, use poller caches (running+upcoming+past)
-	// instead of making direct Liquipedia API calls. Zero budget cost.
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	requestedDate := dateTime.Truncate(24 * time.Hour)
 
-	if requestedDate.Equal(today) {
-		if cached, ok := h.getMatchesForTodayFromCache(ctx, wikis, date); ok {
-			sortNormalizedMatchesAsc(cached)
-			h.log.WithField("count", len(cached)).Debug("Served today's matches from poller cache")
-			return c.JSON(http.StatusOK, cached)
-		}
-		h.log.Debug("Poller cache empty for today, falling back to on-demand API")
+	// Cache-first for ANY date: the poller's running+upcoming+past caches span a
+	// wide window, so serve the requested date from cache whenever it has matches —
+	// zero API calls, and resilient to rate-limits and client/server clock skew.
+	// Fall back to on-demand only on a cache miss (e.g. dates outside the window).
+	if cached, ok := h.getMatchesForDateFromCache(ctx, wikis, date); ok && len(cached) > 0 {
+		sortNormalizedMatchesAsc(cached)
+		h.log.WithField("count", len(cached)).Debug("Served matches for date from poller cache")
+		return c.JSON(http.StatusOK, cached)
 	}
 
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
@@ -445,10 +443,10 @@ func (h *MatchHandler) findMatchInCache(ctx context.Context, wiki, matchID strin
 	return nil, false
 }
 
-// getMatchesForTodayFromCache combines poller caches (running + upcoming + past)
-// to serve today's matches without any Liquipedia API call.
-// Returns (matches, true) if cache had data, or (nil, false) to signal fallback.
-func (h *MatchHandler) getMatchesForTodayFromCache(ctx context.Context, wikis []string, dateStr string) ([]models.NormalizedMatch, bool) {
+// getMatchesForDateFromCache combines poller caches (running + upcoming + past)
+// and returns the matches dated dateStr without any Liquipedia API call.
+// Returns (matches, true) if any cache key had data, or (nil, false) to signal fallback.
+func (h *MatchHandler) getMatchesForDateFromCache(ctx context.Context, wikis []string, dateStr string) ([]models.NormalizedMatch, bool) {
 	type cacheSource struct {
 		keyFunc func(string) string
 	}
