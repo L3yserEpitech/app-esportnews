@@ -604,12 +604,12 @@ create table public.notifications (
 > ⚠️ Distinct des **bannières internes** (site web, table `ads`, `/api/ads`, `AdColumn`/`AdBanner`, gérées au back-office) décrites en §13. Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
 
 * **Init** : `app/_layout.tsx` (`mobileAds().initialize()` + ATT iOS via `expo-tracking-transparency`).
+* **Compte AdMob** : Publisher ID `pub-4019532498018851` (compte courant). **Ancien compte `pub-5118678813787741` abandonné** (changement de compte le 28/06/2026) — toutes ses apps/unités sont obsolètes.
 * **IDs (publics, embarqués dans le binaire — TOUT est par plateforme : une app/unité AdMob appartient à une seule plateforme)** — dans `app.config.js` :
-  - App ID iOS : `ca-app-pub-5118678813787741~7908186856`
-  - App ID Android : `ca-app-pub-5118678813787741~1599058674`
-  - Interstitiel iOS : `ca-app-pub-5118678813787741/5756666235`
-  - Interstitiel Android : `ca-app-pub-5118678813787741/5733786364`
-  - ⚠️ Anciennes apps iOS AdMob **inutilisées** (à supprimer) : `~6090534381` (ancienne iOS, recréée en `~7908186856`) et `~6893939034` (doublon iOS utilisé à tort comme Android).
+  - App ID iOS : `ca-app-pub-4019532498018851~9375398922`
+  - App ID Android : `ca-app-pub-4019532498018851~8443596219`
+  - Interstitiel iOS : `ca-app-pub-4019532498018851/1689083231`
+  - Interstitiel Android : `ca-app-pub-4019532498018851/4650288493`
 * **Dev vs prod** : `getInterstitialAdUnitId()` (dans `contexts/AdContext.tsx` et `hooks/useAdPopup.ts`) → `TestIds.INTERSTITIAL` si `__DEV__` (Expo Go/`expo run`, fill 100 %), sinon choix par `Platform.OS` → `extra.admobInterstitialIdIos` / `extra.admobInterstitialIdAndroid`.
 * **⚠️ Piège prod (env non uploadé à EAS)** : les vrais IDs sont dans le **`.env` racine gitignoré**, chargé par `app.config.js` via `dotenv`. **EAS cloud respecte `.gitignore` → `.env` n'est PAS uploadé** → `process.env.ADMOB_*` undefined au build → ce sont les **fallbacks `|| "..."` de app.config.js qui partent en prod**. ⇒ **Ces fallbacks doivent TOUJOURS valoir les vrais IDs prod.** (Bug initial : fallback iOS = App ID Android → AdMob refusait de servir.)
 * **Déclenchement** : `useAdPopup({ skipIfSubscribed, isSubscribed })` — cooldown 5 min (`adCooldownService`), `requestNonPersonalizedAdsOnly: true`, skip pour abonnés Premium. Écrans index/match/tournoi/article.
