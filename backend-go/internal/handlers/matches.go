@@ -297,6 +297,13 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 			}
 		}
 
+		// Cache-first: serve from the poller cache with zero API calls. Avoids an
+		// on-demand fetch (and its 429/budget failure mode) for already-cached matches.
+		if m, found := h.findMatchInCache(ctx, wiki, matchID); found {
+			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
+			return c.JSON(http.StatusOK, *m)
+		}
+
 		normalized, err := h.fetchMatchFromWiki(ctx, wiki, matchID)
 		if err != nil {
 			if errors.Is(err, errMatchNotFound) {
@@ -318,27 +325,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 
 	// Helper: search match in poller caches for a given wiki (zero API calls)
 	findInCache := func(wiki string) (*models.NormalizedMatch, bool) {
-		for _, keyFunc := range []func(string) string{
-			cache.LiqMatchesRunningKey,
-			cache.LiqMatchesUpcomingKey,
-			cache.LiqMatchesPastKey,
-		} {
-			data, err := h.redisCache.Get(ctx, keyFunc(wiki))
-			if err != nil || data == "" {
-				continue
-			}
-			matches, err := parseAndFilterMatches([]byte(data), nil)
-			if err != nil {
-				continue
-			}
-			for _, m := range matches {
-				if m.Match2ID == matchID || fmt.Sprintf("%d", m.PageID) == matchID {
-					normalized := models.NormalizeLiqMatch(m, wiki, "")
-					return &normalized, true
-				}
-			}
-		}
-		return nil, false
+		return h.findMatchInCache(ctx, wiki, matchID)
 	}
 
 	// Helper: on-demand fetch from Liquipedia for a given wiki (1 API call)
@@ -429,6 +416,33 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 
 	normalized := models.NormalizeLiqMatch(match, wiki, "")
 	return &normalized, nil
+}
+
+// findMatchInCache looks up a match2id (or pageid) in the poller's running/
+// upcoming/past caches for a wiki — zero API calls. Used cache-first before any
+// on-demand fetch so cached matches serve instantly and don't burn API budget.
+func (h *MatchHandler) findMatchInCache(ctx context.Context, wiki, matchID string) (*models.NormalizedMatch, bool) {
+	for _, keyFunc := range []func(string) string{
+		cache.LiqMatchesRunningKey,
+		cache.LiqMatchesUpcomingKey,
+		cache.LiqMatchesPastKey,
+	} {
+		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+		if err != nil || data == "" {
+			continue
+		}
+		matches, err := parseAndFilterMatches([]byte(data), nil)
+		if err != nil {
+			continue
+		}
+		for _, m := range matches {
+			if m.Match2ID == matchID || fmt.Sprintf("%d", m.PageID) == matchID {
+				normalized := models.NormalizeLiqMatch(m, wiki, "")
+				return &normalized, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // getMatchesForTodayFromCache combines poller caches (running + upcoming + past)
