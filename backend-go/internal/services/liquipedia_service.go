@@ -100,6 +100,21 @@ func (b *RequestBudget) CanMakeRequest() bool {
 	return b.Used < b.Limit
 }
 
+// BlockReason reports why a request would be blocked ("429_backoff" or
+// "budget_exhausted"), or "" if it wouldn't — for accurate logging.
+func (b *RequestBudget) BlockReason() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.maybeReset()
+	if time.Now().Before(b.blockedUntil) {
+		return "429_backoff"
+	}
+	if b.Used >= b.Limit {
+		return "budget_exhausted"
+	}
+	return ""
+}
+
 // Record429 applies an exponential backoff after a 429 response: 5min, 10min,
 // 20min on consecutive hits, capped at 30min. It does NOT exhaust the hourly
 // budget — a transient 429 means "slow down briefly", not "quota spent". The
@@ -352,11 +367,12 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			s.log.WithFields(logrus.Fields{
 				"wiki":      wiki,
 				"key":       cacheKey,
+				"reason":    budget.BlockReason(),
 				"used":      status["used"],
 				"limit":     status["limit"],
 				"remaining": status["remaining"],
 				"resets_at": status["resets_at"],
-			}).Warn("[MAKEREQ] Budget EXHAUSTED — attempting stale cache")
+			}).Warn("[MAKEREQ] request blocked (see reason) — attempting stale cache")
 			return s.getStaleOrError(ctx, cacheKey, wiki)
 		}
 

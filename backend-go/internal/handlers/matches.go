@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,6 +19,12 @@ import (
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 )
+
+// errMatchNotFound signals a genuine "match does not exist" (empty upstream
+// result), distinct from a transient upstream failure (429 backoff / budget /
+// network / no stale). Handlers map the former to 404 and the latter to 503 so a
+// valid match never hard-404s during a transient outage.
+var errMatchNotFound = errors.New("match not found")
 
 // MatchHandler handles match-related HTTP endpoints.
 // List endpoints (running, upcoming, past) read from Redis (populated by the poller).
@@ -292,7 +299,13 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 
 		normalized, err := h.fetchMatchFromWiki(ctx, wiki, matchID)
 		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+			if errors.Is(err, errMatchNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
+			}
+			// Transient upstream failure (429 backoff / budget / network / no stale) —
+			// 503 lets the SSR page render the client for retry instead of hard-404ing
+			// a valid match (SEO: don't de-index a real entity on a transient blip).
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "match temporarily unavailable"})
 		}
 		// Store wiki hint for future lookups
 		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
@@ -400,7 +413,7 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 
 	resp, err := services.ParseResponse(data)
 	if err != nil || len(resp.Result) == 0 {
-		return nil, fmt.Errorf("match not found in wiki %s", wiki)
+		return nil, fmt.Errorf("%w in wiki %s", errMatchNotFound, wiki)
 	}
 
 	var match models.LiqMatch
