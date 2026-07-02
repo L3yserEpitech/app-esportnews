@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
 import CookieBanner from "./components/common/CookieBanner";
+import ProxyImageRetry from "./components/common/ProxyImageRetry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
@@ -71,6 +72,7 @@ export default function RootLayout({
               <Analytics />
             </ClientLayout>
             <CookieBanner />
+            <ProxyImageRetry />
           </GameProvider>
         </AuthProvider>
       </body>

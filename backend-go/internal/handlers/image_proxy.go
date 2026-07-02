@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/imagecache"
@@ -62,6 +63,7 @@ type ImageProxyHandler struct {
 	lastFetch      atomic.Int64      // unix nanos of last upstream fetch (rate pacing)
 	fetchMu        sync.Mutex        // serializes upstream fetches for pacing
 	httpClient     *http.Client      // shared client with IPv6-preferred dialer
+	fetchGroup     singleflight.Group
 }
 
 func NewImageProxyHandler(redisCache *cache.RedisCache) *ImageProxyHandler {
@@ -263,8 +265,23 @@ func (h *ImageProxyHandler) redisStore(ctx context.Context, cacheKey string, img
 	_ = h.redisCache.Set(storeCtx, imagecache.RedisKey(cacheKey), imagecache.Encode(img.contentType, img.data), imagecache.RedisTTL)
 }
 
-// fetchAndStore fetches the image from upstream and populates both cache tiers.
+// fetchAndStore dedupes concurrent fetches for the same URL (browser <img> +
+// prewarm race on cold pages) via singleflight, then fetches upstream and
+// populates both cache tiers. The shared fetch runs on a detached context so
+// one caller aborting doesn't fail the others.
 func (h *ImageProxyHandler) fetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
+	res, err, _ := h.fetchGroup.Do(cacheKey, func() (interface{}, error) {
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), proxyTimeout+semaphoreWait)
+		defer cancel()
+		return h.doFetchAndStore(fetchCtx, rawURL, cacheKey)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.(*cachedImage), nil
+}
+
+func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
 	// Skip while globally throttled by a recent upstream 429.
 	if ts := h.throttledUntil.Load(); ts > 0 {
 		if time.Now().Unix() < ts {
