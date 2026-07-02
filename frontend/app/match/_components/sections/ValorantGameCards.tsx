@@ -1,12 +1,35 @@
 'use client';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { proxyImageUrl } from '../../../lib/imageProxy';
 import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { valorantMapSplash } from '../../../lib/valorantAssets';
+import { teamHref } from '../../../lib/gameLinks';
 import { parseGameWinner, type MatchSectionProps } from './shared';
 
 type Team = NonNullable<NonNullable<MatchSectionProps['match']['opponents']>[number]['opponent']>;
+
+const TeamSide = ({ team, url, isDark, winner, reverse }: {
+  team?: Team | null;
+  url: string | null;
+  isDark: boolean;
+  winner: boolean;
+  reverse: boolean;
+}) => {
+  const inner = (
+    <>
+      <SideLogo team={team} isDark={isDark} dimmed={false} />
+      <span className={`hidden sm:block text-sm md:text-base font-bold truncate transition-colors group-hover/team:text-accent ${
+        reverse ? 'text-right' : ''
+      } ${winner ? 'text-white' : 'text-white/80'}`}>
+        {team?.acronym || team?.name || '-'}
+      </span>
+    </>
+  );
+  const cls = `flex items-center gap-2.5 md:gap-3.5 min-w-0 group/team ${reverse ? 'flex-row-reverse' : ''}`;
+  return url ? <Link href={url} className={cls}>{inner}</Link> : <div className={cls}>{inner}</div>;
+};
 
 const SideLogo = ({ team, isDark, dimmed }: { team?: Team | null; isDark: boolean; dimmed: boolean }) => {
   const logo = pickThemeLogo(isDark, team?.image_url, team?.dark_image_url);
@@ -27,6 +50,8 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
   const t = useTranslations('pages_detail.match_detail');
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
+  const homeUrl = homeTeam ? teamHref({ wiki: match.wiki, template: homeTeam.template, id: homeTeam.id, name: homeTeam.name, acronym: homeTeam.acronym, image_url: homeTeam.image_url }) : null;
+  const awayUrl = awayTeam ? teamHref({ wiki: match.wiki, template: awayTeam.template, id: awayTeam.id, name: awayTeam.name, acronym: awayTeam.acronym, image_url: awayTeam.image_url }) : null;
 
   return (
     <div className="space-y-3">
@@ -74,10 +99,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
 
             <div className="relative h-full flex items-center px-4 md:px-6 gap-3">
               <div className={`flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0 ${isGameFinished && !isHomeWin ? 'opacity-50' : ''}`}>
-                <SideLogo team={homeTeam} isDark={isDark} dimmed={false} />
-                <span className={`hidden sm:block text-sm md:text-base font-bold truncate ${isHomeWin ? 'text-white' : 'text-white/80'}`}>
-                  {homeTeam?.acronym || homeTeam?.name || '-'}
-                </span>
+                <TeamSide team={homeTeam} url={homeUrl} isDark={isDark} winner={isHomeWin} reverse={false} />
                 {hasScores && (
                   <span className={`ml-auto text-3xl md:text-5xl font-black tabular-nums ${
                     isHomeWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white/45'
@@ -119,10 +141,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                     {awayMapScore}
                   </span>
                 )}
-                <span className={`hidden sm:block text-sm md:text-base font-bold truncate text-right ${isAwayWin ? 'text-white' : 'text-white/80'}`}>
-                  {awayTeam?.acronym || awayTeam?.name || '-'}
-                </span>
-                <SideLogo team={awayTeam} isDark={isDark} dimmed={false} />
+                <TeamSide team={awayTeam} url={awayUrl} isDark={isDark} winner={isAwayWin} reverse={true} />
               </div>
             </div>
           </div>

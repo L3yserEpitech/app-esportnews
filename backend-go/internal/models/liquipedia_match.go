@@ -658,23 +658,31 @@ func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []Norma
 			continue
 		}
 
+		// Liquipedia sends finished as bool, number or string depending on the wiki.
 		finished := false
 		switch v := gameData["finished"].(type) {
 		case bool:
 			finished = v
 		case float64:
 			finished = v == 1
-		}
-
-		status := "not_started"
-		if finished {
-			status = "finished"
+		case string:
+			finished = v == "1" || v == "true" || v == "t"
 		}
 
 		// Map winner index ("1"/"2") to team ID via opponents
 		winnerStr := ""
 		if v, ok := gameData["winner"].(string); ok {
 			winnerStr = v
+		}
+
+		// A declared winner means the game was played even when finished is unset.
+		if winnerStr == "1" || winnerStr == "2" {
+			finished = true
+		}
+
+		status := "not_started"
+		if finished {
+			status = "finished"
 		}
 
 		var winnerJSON json.RawMessage
