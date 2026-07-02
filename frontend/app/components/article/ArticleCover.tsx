@@ -28,10 +28,10 @@ export default function ArticleCover({
   const isVideo = isVideoUrl(featuredImage);
 
   return (
-    <div className={`relative w-full bg-black rounded-lg overflow-hidden ${className}`}>
+    <div className={`relative w-full bg-black rounded-lg overflow-hidden md:h-[360px] ${className}`}>
       {isVideo ? (
         <video
-          className="w-full h-auto object-cover"
+          className="w-full h-auto md:h-full object-cover object-center"
           src={featuredImage}
           controls={false}
           autoPlay
@@ -48,7 +48,7 @@ export default function ArticleCover({
           width={1200}
           height={630}
           sizes="(max-width: 768px) 100vw, 800px"
-          className="w-full h-auto object-cover"
+          className="w-full h-auto md:h-full object-cover object-center"
           priority={priority}
         />
       ) : (
@@ -59,7 +59,7 @@ export default function ArticleCover({
           loading={priority ? 'eager' : 'lazy'}
           width={1200}
           height={630}
-          className="w-full h-auto object-cover"
+          className="w-full h-auto md:h-full object-cover object-center"
         />
       )}
     </div>
