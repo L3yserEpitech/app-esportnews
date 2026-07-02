@@ -4,13 +4,16 @@ import { Gamepad2, Trophy, Shield } from 'lucide-react';
 import { proxyImageUrl } from '../../../lib/imageProxy';
 import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { SectionHeader, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
+import ValorantGameCards from './ValorantGameCards';
 
-export default function GameResults({ match, isDark }: MatchSectionProps) {
+export default function GameResults(props: MatchSectionProps) {
+  const { match, isDark, game: gameEntry } = props;
   const t = useTranslations('pages_detail.match_detail');
   if (!match.games || match.games.length === 0) return null;
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
+  const isValorant = (match.wiki || gameEntry?.wiki) === 'valorant';
 
   return (
     <section>
@@ -24,6 +27,7 @@ export default function GameResults({ match, isDark }: MatchSectionProps) {
         ) : undefined}
       />
 
+      {isValorant ? <ValorantGameCards {...props} /> : (
       <div className="rounded-xl border border-[var(--color-border-primary)]/30 overflow-hidden bg-[var(--color-bg-secondary)]/40">
         {match.games.map((game, idx) => {
           const winnerData = parseGameWinner(game.winner);
@@ -126,6 +130,7 @@ export default function GameResults({ match, isDark }: MatchSectionProps) {
           );
         })}
       </div>
+      )}
     </section>
   );
 }
