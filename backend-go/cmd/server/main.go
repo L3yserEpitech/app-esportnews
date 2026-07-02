@@ -257,7 +257,11 @@ func main() {
 
 	// Start Liquipedia poller in background
 	pollerCtx, pollerCancel := context.WithCancel(context.Background())
-	liquipediaPoller.Start(pollerCtx)
+	if cfg.LiquipediaPollerEnabled {
+		liquipediaPoller.Start(pollerCtx)
+	} else {
+		logger.Warn("Liquipedia poller disabled (LIQUIPEDIA_POLLER_ENABLED=false) — no warmup/tickers, on-demand fetches only")
+	}
 
 	// Start server
 	go func() {

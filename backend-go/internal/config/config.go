@@ -39,6 +39,7 @@ type Config struct {
 	LiquipediaBudgetPerWiki   int    // requests per wiki per hour (rate limit ceiling)
 	LiquipediaWebhooksEnabled bool   // true → poller refreshes on dirty flags from webhooks
 	LiquipediaWebhookSecret   string // shared secret expected in X-Webhook-Secret header (empty = no check)
+	LiquipediaPollerEnabled   bool   // false → skip warmup+tickers (dev only: warmup burst trips per-IP throttle)
 
 	// Stripe
 	StripeSecretKey     string
@@ -97,6 +98,7 @@ func LoadConfig() *Config {
 		LiquipediaBudgetPerWiki:   getEnvInt("LIQUIPEDIA_BUDGET_PER_WIKI", 1000),
 		LiquipediaWebhooksEnabled: getEnvBool("LIQUIPEDIA_WEBHOOKS_ENABLED", false),
 		LiquipediaWebhookSecret:   getEnv("LIQUIPEDIA_WEBHOOK_SECRET", ""),
+		LiquipediaPollerEnabled:   getEnvBool("LIQUIPEDIA_POLLER_ENABLED", true),
 		StripeSecretKey:           getEnv("STRIPE_SECRET_KEY", ""),
 		StripePriceID:             getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
 		StripeWebhookSecret:       getEnv("STRIPE_WEBHOOK_SECRET", ""),
