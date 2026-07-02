@@ -28,7 +28,7 @@ export default function ArticleCover({
   const isVideo = isVideoUrl(featuredImage);
 
   return (
-    <div className={`relative w-full bg-black rounded-lg overflow-hidden md:h-[360px] ${className}`}>
+    <div className={`relative w-full bg-black rounded-lg overflow-hidden md:h-[380px] ${className}`}>
       {isVideo ? (
         <video
           className="w-full h-auto md:h-full object-cover object-center"
