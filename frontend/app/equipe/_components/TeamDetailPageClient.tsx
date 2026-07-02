@@ -222,7 +222,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
         if (wiki && isNaN(Number(decodedId))) {
           const fetchByTemplate = async (template: string): Promise<EnrichedTeamDetail | Team> => {
             const basicTeam = await teamService.getTeamByTemplate(template, wiki);
-            try { return await teamService.getTeamDetail(basicTeam.id); } catch { return basicTeam; }
+            try { return await teamService.getTeamDetail(basicTeam.id, wiki); } catch { return basicTeam; }
           };
           try {
             data = await fetchByTemplate(decodedId);
@@ -234,7 +234,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
             }
           }
         } else if (!isNaN(Number(decodedId))) {
-          data = await teamService.getTeamDetail(decodedId);
+          data = await teamService.getTeamDetail(decodedId, wiki || undefined);
         } else {
           throw new Error('Invalid team identifier');
         }

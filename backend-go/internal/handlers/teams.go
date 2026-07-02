@@ -116,7 +116,7 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 }
 
 // GetTeam retrieves a single team by pageid with roster.
-// GET /api/teams/:id
+// GET /api/teams/:id?wiki=valorant — the wiki hint avoids the 10-wiki fan-out.
 func (h *TeamHandler) GetTeam(c echo.Context) error {
 	idParam := c.Param("id")
 	pageID, err := strconv.ParseInt(idParam, 10, 64)
@@ -127,7 +127,7 @@ func (h *TeamHandler) GetTeam(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
 	defer cancel()
 
-	team, err := h.liquipediaService.GetTeamByPageID(ctx, pageID)
+	team, err := h.liquipediaService.GetTeamByPageID(ctx, pageID, c.QueryParam("wiki"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}
@@ -147,7 +147,7 @@ func (h *TeamHandler) GetTeamDetail(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 20*time.Second)
 	defer cancel()
 
-	detail, err := h.liquipediaService.GetTeamDetailByPageID(ctx, pageID)
+	detail, err := h.liquipediaService.GetTeamDetailByPageID(ctx, pageID, c.QueryParam("wiki"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}

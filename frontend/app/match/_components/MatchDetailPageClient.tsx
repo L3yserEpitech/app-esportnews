@@ -74,7 +74,7 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
             if (template && matchWiki) {
               try { return await teamService.getTeamByTemplate(template, matchWiki); } catch {}
             }
-            try { return await teamService.getTeamById(o.opponent!.id); } catch { return null; }
+            try { return await teamService.getTeamById(o.opponent!.id, matchWiki); } catch { return null; }
           }))).filter(Boolean);
           setTeamsData(teams);
         } catch (e) {

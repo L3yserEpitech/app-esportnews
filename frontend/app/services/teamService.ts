@@ -248,9 +248,10 @@ class TeamService {
   /**
    * Récupère les détails complets d'une équipe avec ses joueurs
    */
-  async getTeamById(teamId: number | string): Promise<Team> {
+  async getTeamById(teamId: number | string, wiki?: string): Promise<Team> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+      const qs = wiki ? `?wiki=${encodeURIComponent(wiki)}` : '';
+      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}${qs}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -289,8 +290,9 @@ class TeamService {
    * Récupère les détails enrichis d'une équipe (team detail page)
    * GET /api/teams/:id/detail
    */
-  async getTeamDetail(teamId: number | string): Promise<EnrichedTeamDetail> {
-    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/detail`, {
+  async getTeamDetail(teamId: number | string, wiki?: string): Promise<EnrichedTeamDetail> {
+    const qs = wiki ? `?wiki=${encodeURIComponent(wiki)}` : '';
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/detail${qs}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });

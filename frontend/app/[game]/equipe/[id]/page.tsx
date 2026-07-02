@@ -22,7 +22,7 @@ export async function generateMetadata(
       if (response.ok) team = await response.json();
     } else if (!isNaN(Number(id))) {
       const response = await fetch(
-        `${baseUrl_api}/api/teams/${id}/detail`,
+        `${baseUrl_api}/api/teams/${id}/detail${wiki ? `?wiki=${encodeURIComponent(wiki)}` : ''}`,
         { method: 'GET', headers: { 'Content-Type': 'application/json' }, next: { revalidate: 1800 } }
       );
       if (response.ok) team = await response.json();

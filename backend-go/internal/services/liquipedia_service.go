@@ -685,13 +685,22 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 }
 
 // GetTeamByPageID fetches a single team by its Liquipedia pageid.
-// A wiki hint (stored on every successful lookup) usually skips the
-// 10-wiki fan-out entirely — favorites re-look the same teams up daily.
-func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64) (*models.NormalizedTeam, error) {
+// wikiHint (from the caller's game context, may be empty) or the cached hint
+// usually skips the 10-wiki fan-out entirely — that fan-out costs 10 API
+// requests, enough to trip Liquipedia's per-IP edge throttle on its own.
+func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.NormalizedTeam, error) {
 	pageIDStr := fmt.Sprintf("%d", pageID)
 	hintKey := cache.LiqWikiHintKey(pageIDStr)
 
-	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+	if wikiHint != "" {
+		if team := s.fetchTeamFromWiki(ctx, wikiHint, pageID); team != nil {
+			_ = s.cache.Set(ctx, hintKey, wikiHint, 24*time.Hour)
+			return team, nil
+		}
+		// Wrong hint — fall through to the cached hint / fan-out.
+	}
+
+	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" && hint != wikiHint {
 		if team := s.fetchTeamFromWiki(ctx, hint, pageID); team != nil {
 			return team, nil
 		}
@@ -795,7 +804,7 @@ func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int
 			defer wg.Done()
 			sem <- struct{}{}        // acquire
 			defer func() { <-sem }() // release
-			team, err := s.GetTeamByPageID(ctx, id)
+			team, err := s.GetTeamByPageID(ctx, id, "")
 			if err != nil {
 				s.log.WithError(err).WithField("pageid", id).Debug("Failed to fetch team for favorites")
 				return
@@ -940,17 +949,24 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 
 // GetTeamDetailByPageID fetches comprehensive team details for the team detail page.
 // Returns enriched team info + roster (2 API calls max, both cached 2h).
-func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64) (*models.EnrichedTeamDetail, error) {
+// wikiHint (from the caller's game context, may be empty) is tried first to
+// avoid the sequential all-wikis walk.
+func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.EnrichedTeamDetail, error) {
 	pageIDStr := fmt.Sprintf("%d", pageID)
 
 	hintKey := cache.LiqWikiHintKey(pageIDStr)
+	if wikiHint == "" {
+		if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+			wikiHint = hint
+		}
+	}
 	wikis := s.getAllWikis()
-	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+	if wikiHint != "" {
 		// Try the hinted wiki first; keep the rest as fallback.
 		ordered := make([]string, 0, len(wikis)+1)
-		ordered = append(ordered, hint)
+		ordered = append(ordered, wikiHint)
 		for _, w := range wikis {
-			if w != hint {
+			if w != wikiHint {
 				ordered = append(ordered, w)
 			}
 		}
