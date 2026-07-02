@@ -373,7 +373,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 				"remaining": status["remaining"],
 				"resets_at": status["resets_at"],
 			}).Warn("[MAKEREQ] request blocked (see reason) — attempting stale cache")
-			return s.getStaleOrError(ctx, cacheKey, wiki)
+			return s.getStaleOrError(ctx, cacheKey, wiki, budget.BlockReason())
 		}
 
 		budgetStatus := budget.Status()
@@ -439,7 +439,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 				"wiki":     wiki,
 				"endpoint": endpoint,
 			}).Error("[MAKEREQ] HTTP request FAILED — falling back to stale")
-			return s.getStaleOrError(ctx, cacheKey, wiki)
+			return s.getStaleOrError(ctx, cacheKey, wiki, fmt.Sprintf("network error: %v", doErr))
 		}
 		defer resp.Body.Close()
 
@@ -449,14 +449,17 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"status":   resp.StatusCode,
 		}).Debug("[MAKEREQ] HTTP response received")
 
-		// Handle rate limit (429)
+		// Handle rate limit (429) — surface everything Liquipedia tells us (body, Retry-After).
 		if resp.StatusCode == http.StatusTooManyRequests {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 			s.log.WithFields(logrus.Fields{
-				"wiki":     wiki,
-				"endpoint": endpoint,
+				"wiki":        wiki,
+				"endpoint":    endpoint,
+				"retry_after": resp.Header.Get("Retry-After"),
+				"body":        string(body),
 			}).Warn("[MAKEREQ] 🚫 Rate limited (429) — recording backoff, falling back to stale")
 			budget.Record429()
-			return s.getStaleOrError(ctx, cacheKey, wiki)
+			return s.getStaleOrError(ctx, cacheKey, wiki, "upstream 429 (per-IP throttle, budget NOT exhausted)")
 		}
 
 		// Handle other errors
@@ -468,7 +471,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 				"status":   resp.StatusCode,
 				"body":     string(body),
 			}).Error("[MAKEREQ] API error — falling back to stale")
-			return s.getStaleOrError(ctx, cacheKey, wiki)
+			return s.getStaleOrError(ctx, cacheKey, wiki, fmt.Sprintf("upstream HTTP %d", resp.StatusCode))
 		}
 
 		// Read one byte past the cap so truncation is detectable instead of silent.
@@ -482,7 +485,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 				"endpoint": endpoint,
 				"cap":      maxLiqResponseSize,
 			}).Error("[MAKEREQ] Response exceeds size cap — refusing to cache truncated body")
-			return s.getStaleOrError(ctx, cacheKey, wiki)
+			return s.getStaleOrError(ctx, cacheKey, wiki, "response exceeds size cap")
 		}
 
 		// Record the request in the budget
@@ -519,8 +522,8 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 	return v.([]byte), nil
 }
 
-// getStaleOrError returns stale cached data, or an error if none available.
-func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki string) ([]byte, error) {
+// getStaleOrError returns stale cached data, or an error carrying the real failure cause.
+func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki, reason string) ([]byte, error) {
 	staleKey := cache.StaleKey(cacheKey)
 	stale, err := s.cache.Get(ctx, staleKey)
 	if err == nil && stale != "" {
@@ -529,6 +532,7 @@ func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki 
 			"key":       cacheKey,
 			"stale_key": staleKey,
 			"size":      len(stale),
+			"reason":    reason,
 		}).Debug("[STALE] ♻️ Returning stale data as fallback")
 		return []byte(stale), nil
 	}
@@ -536,8 +540,9 @@ func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki 
 		"wiki":      wiki,
 		"key":       cacheKey,
 		"stale_key": staleKey,
+		"reason":    reason,
 	}).Error("[STALE] ❌ No stale data available — returning error")
-	return nil, fmt.Errorf("no data available for %s (budget exhausted, no stale cache)", wiki)
+	return nil, fmt.Errorf("no data available for %s (%s, no stale cache)", wiki, reason)
 }
 
 // getBudget returns the budget tracker for a wiki.
