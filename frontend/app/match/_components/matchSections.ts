@@ -3,19 +3,19 @@
 // Sections each render from PandaMatch and return null when their data is absent.
 
 export const SECTION_IDS = [
-  'header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters', 'matchInfo',
+  'header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
 const PRESETS: Record<'tier1' | 'valorant' | 'default' | 'smash', SectionId[]> = {
-  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
+  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters'],
   // Valorant: gameResults renders per-map blocks embedding draft + stats.
-  valorant: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
-  default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
+  valorant: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters'],
+  default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters'],
   // Smash: solo-player — fighters/stocks via playerStats; no draft; rosters self-hide.
-  smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters', 'matchInfo'],
+  smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters'],
 };
 
 // Tier-1 wikis get the rich preset. Everything else uses 'default' (current

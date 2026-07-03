@@ -23,7 +23,6 @@ import DraftPanel from './sections/DraftPanel';
 import PlayerStatsTable from './sections/PlayerStatsTable';
 import RostersPanel from './sections/RostersPanel';
 import ExternalStatsLinks from './sections/ExternalStatsLinks';
-import MatchInfo from './sections/MatchInfo';
 
 const POLL_MS = 45000;
 
@@ -163,7 +162,6 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
       case 'externalLinks': return <ExternalStatsLinks key={id} {...sectionProps} />;
       case 'stream': return <StreamPlayer key={id} {...sectionProps} />;
       case 'rosters': return <RostersPanel key={id} {...sectionProps} teamsData={teamsData} />;
-      case 'matchInfo': return <MatchInfo key={id} {...sectionProps} />;
       default: return null;
     }
   };
