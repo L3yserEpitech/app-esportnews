@@ -10,10 +10,10 @@ export type SectionId = (typeof SECTION_IDS)[number];
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
 const PRESETS: Record<'tier1' | 'valorant' | 'default' | 'smash', SectionId[]> = {
-  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters'],
+  tier1: ['header', 'gameResults', 'draft', 'playerStats', 'stream', 'rosters', 'externalLinks'],
   // Valorant: gameResults renders per-map blocks embedding draft + stats.
-  valorant: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters'],
-  default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters'],
+  valorant: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
+  default: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   // Smash: solo-player — fighters/stocks via playerStats; no draft; rosters self-hide.
   smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters'],
 };
