@@ -2,13 +2,13 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
-import { proxyImageUrl } from '../../../lib/imageProxy';
-import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
-import { valorantMapSplash, valorantAgentIcon } from '../../../lib/valorantAssets';
-import { teamHref } from '../../../lib/gameLinks';
-import { parseGameWinner, type MatchSectionProps } from './shared';
-import { parseDraft } from './draft';
-import type { PandaGame } from '../../../types';
+import { proxyImageUrl } from '../../../../lib/imageProxy';
+import { pickThemeLogo } from '../../../../hooks/useIsDarkTheme';
+import { valorantMapSplash, valorantAgentIcon } from './valorantAssets';
+import { teamHref } from '../../../../lib/gameLinks';
+import { parseGameWinner, type MatchSectionProps } from '../shared';
+import { parseDraft } from '../draft';
+import type { PandaGame } from '../../../../types';
 
 type Team = NonNullable<NonNullable<MatchSectionProps['match']['opponents']>[number]['opponent']>;
 

@@ -4,7 +4,7 @@ import { Gamepad2, Trophy, Shield } from 'lucide-react';
 import { proxyImageUrl } from '../../../lib/imageProxy';
 import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { SectionHeader, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
-import ValorantGameCards from './ValorantGameCards';
+import ValorantGameCards from './valorant/ValorantGameCards';
 
 export default function GameResults(props: MatchSectionProps) {
   const { match, isDark, game: gameEntry } = props;
