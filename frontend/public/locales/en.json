@@ -567,7 +567,19 @@
         "gpm": "GPM",
         "xpm": "XPM",
         "fighter": "Fighter",
-        "stocks": "Stocks"
+        "stocks": "Stocks",
+        "kp": "KP",
+        "items": "Items"
+      },
+      "stat_kills": "Kills",
+      "objectives": {
+        "towers": "Towers",
+        "dragons": "Dragons",
+        "barons": "Barons",
+        "heralds": "Heralds",
+        "grubs": "Grubs",
+        "atakhans": "Atakhan",
+        "inhibitors": "Inhibitors"
       }
     },
     "team_detail": {

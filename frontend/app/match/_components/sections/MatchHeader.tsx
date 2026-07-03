@@ -7,6 +7,7 @@ import { proxyImageUrl } from '../../../lib/imageProxy';
 import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { teamHref } from '../../../lib/gameLinks';
 import { valorantMapSplash } from './valorant/valorantAssets';
+import { lolHeaderBackdrop } from './leagueoflegends/LolGameCards';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
@@ -24,7 +25,11 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
   const homeUrl = homeTeam ? teamHref({ wiki: match.wiki, template: homeTeam.template, id: homeTeam.id, name: homeTeam.name, acronym: homeTeam.acronym, image_url: homeTeam.image_url }) : null;
   const awayUrl = awayTeam ? teamHref({ wiki: match.wiki, template: awayTeam.template, id: awayTeam.id, name: awayTeam.name, acronym: awayTeam.acronym, image_url: awayTeam.image_url }) : null;
 
-  const backdrop = match.wiki === 'valorant' ? valorantMapSplash(match.games?.[0]?.map) : null;
+  const backdrop = match.wiki === 'valorant'
+    ? valorantMapSplash(match.games?.[0]?.map)
+    : match.wiki === 'leagueoflegends'
+      ? lolHeaderBackdrop(match.games?.[0])
+      : null;
 
   return (
     <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">

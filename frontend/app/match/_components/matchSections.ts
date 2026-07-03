@@ -9,10 +9,11 @@ export type SectionId = (typeof SECTION_IDS)[number];
 
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
-const PRESETS: Record<'tier1' | 'valorant' | 'default' | 'smash', SectionId[]> = {
+const PRESETS: Record<'tier1' | 'valorant' | 'lol' | 'default' | 'smash', SectionId[]> = {
   tier1: ['header', 'gameResults', 'draft', 'playerStats', 'stream', 'rosters', 'externalLinks'],
-  // Valorant: gameResults renders per-map blocks embedding draft + stats.
+  // Valorant / LoL: gameResults renders per-game blocks embedding draft + stats.
   valorant: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
+  lol: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   default: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   // Smash: solo-player — fighters/stocks via playerStats; no draft; rosters self-hide.
   smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters'],
@@ -21,7 +22,7 @@ const PRESETS: Record<'tier1' | 'valorant' | 'default' | 'smash', SectionId[]> =
 // Tier-1 wikis get the rich preset. Everything else uses 'default' (current
 // behaviour minus player stats/draft) — so no game regresses.
 const PRESET_BY_WIKI: Record<string, keyof typeof PRESETS> = {
-  leagueoflegends: 'tier1',
+  leagueoflegends: 'lol',
   valorant: 'valorant',
   dota2: 'tier1',
   smash: 'smash',

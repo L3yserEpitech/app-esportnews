@@ -568,7 +568,19 @@
         "gpm": "GPM",
         "xpm": "XPM",
         "fighter": "Personaggio",
-        "stocks": "Stocks"
+        "stocks": "Stocks",
+        "kp": "KP",
+        "items": "Oggetti"
+      },
+      "stat_kills": "Kills",
+      "objectives": {
+        "towers": "Torri",
+        "dragons": "Draghi",
+        "barons": "Baroni",
+        "heralds": "Araldi",
+        "grubs": "Larve",
+        "atakhans": "Atakhan",
+        "inhibitors": "Inibitori"
       }
     },
     "team_detail": {

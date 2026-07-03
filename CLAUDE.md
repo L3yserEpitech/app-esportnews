@@ -1155,8 +1155,10 @@ sections/
 | Jeu | Source | Contenu |
 |-----|--------|---------|
 | Valorant | `media.valorant-api.com` (via valorant-api.com) | maps (splash/listview/minimap), 29 agents (displayicon/portraits), abilités |
-| LoL (à faire) | Data Dragon (`ddragon.leagueoflegends.com`) | champions, items, spells |
+| LoL | Data Dragon (`ddragon.leagueoflegends.com`) | splashs champions (non versionnés), portraits/sorts/items (versionnés `DDRAGON_VER` dans `lolAssets.ts`), items par NOM → id via `item.json` fetché lazy 1× (module cache) |
 | Dota 2 (à faire) | Steam CDN (`cdn.steamstatic.com`) | héros, items |
+
+**Spécificités LoL** (`sections/leagueoflegends/`, preset `lol` = même forme que valorant) : pas de variété de maps → **hero = duel de champions** (splash du champion clé de chaque équipe — meilleur impact KDA/dégâts — fondus au centre, côté perdant `grayscale brightness-75`) ; gros chiffres = **kills d'équipe** (le score de game 1-0 n'a pas d'intérêt visuel) ; pastille side **bleu/rouge** (`extradata.teamNside`) à côté de l'acronyme ; bande d'**objectifs comparés** en chips (tours/dragons/barons/hérauts/larves/atakhan/inhibiteurs, valeur dominante en gras teintée par side) ; draft = picks (ordre de rôle top→sup) + **bans barrés** en tuiles réduites grayscale ; scoreboard façon op.gg (portrait champion + 2 sorts + rôle, K/D/A coloré, KP%, CS, or, dégâts, **build d'items en icônes** `lg:` only). `parseDraft` (partagé) lit aussi les clés numérotées `teamNbanK`/`teamNchampionK` (format LoL/Dota). Backdrop du header = splash du champion clé de la game 1 (`lolHeaderBackdrop`).
 
 Les images de **joueurs pros** n'existent dans aucune de ces APIs (Liquipedia les a mais pas via l'API v3 → coût quota, non implémenté).
 
