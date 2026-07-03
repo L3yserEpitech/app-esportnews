@@ -584,7 +584,8 @@
         "inhibitors": "Inhibiteurs",
         "barracks": "Barracks",
         "roshans": "Roshan"
-      }
+      },
+      "penalties": "T.A.B."
     },
     "team_detail": {
       "loading": "Chargement de l'équipe...",

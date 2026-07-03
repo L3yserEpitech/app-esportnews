@@ -8,6 +8,11 @@ import ValorantGameCards from './valorant/ValorantGameCards';
 import LolGameCards from './leagueoflegends/LolGameCards';
 import CsGameCards from './counterstrike/CsGameCards';
 import DotaGameCards from './dota2/DotaGameCards';
+import RlGameCards from './rocketleague/RlGameCards';
+import R6GameCards from './rainbowsix/R6GameCards';
+import OwGameCards from './overwatch/OwGameCards';
+import CodGameCards from './callofduty/CodGameCards';
+import FcGameCards from './easportsfc/FcGameCards';
 
 export default function GameResults(props: MatchSectionProps) {
   const { match, isDark, game: gameEntry } = props;
@@ -21,6 +26,11 @@ export default function GameResults(props: MatchSectionProps) {
   const isLol = wiki === 'leagueoflegends';
   const isCs = wiki === 'counterstrike';
   const isDota = wiki === 'dota2';
+  const isRl = wiki === 'rocketleague';
+  const isR6 = wiki === 'rainbowsix';
+  const isOw = wiki === 'overwatch';
+  const isCod = wiki === 'callofduty';
+  const isFc = wiki === 'easportsfc';
 
   return (
     <section>
@@ -34,7 +44,7 @@ export default function GameResults(props: MatchSectionProps) {
         ) : undefined}
       />
 
-      {isValorant ? <ValorantGameCards {...props} /> : isLol ? <LolGameCards {...props} /> : isCs ? <CsGameCards {...props} /> : isDota ? <DotaGameCards {...props} /> : (
+      {isValorant ? <ValorantGameCards {...props} /> : isLol ? <LolGameCards {...props} /> : isCs ? <CsGameCards {...props} /> : isDota ? <DotaGameCards {...props} /> : isRl ? <RlGameCards {...props} /> : isR6 ? <R6GameCards {...props} /> : isOw ? <OwGameCards {...props} /> : isCod ? <CodGameCards {...props} /> : isFc ? <FcGameCards {...props} /> : (
       <div className="rounded-xl border border-[var(--color-border-primary)]/30 overflow-hidden bg-[var(--color-bg-secondary)]/40">
         {match.games.map((game, idx) => {
           const winnerData = parseGameWinner(game.winner);

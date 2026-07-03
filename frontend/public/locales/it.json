@@ -584,7 +584,8 @@
         "inhibitors": "Inibitori",
         "barracks": "Barracks",
         "roshans": "Roshan"
-      }
+      },
+      "penalties": "Rigori"
     },
     "team_detail": {
       "loading": "Caricamento squadra...",

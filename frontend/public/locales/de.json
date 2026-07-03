@@ -584,7 +584,8 @@
         "inhibitors": "Inhibitoren",
         "barracks": "Barracks",
         "roshans": "Roshan"
-      }
+      },
+      "penalties": "Elfmeter"
     },
     "team_detail": {
       "loading": "Team wird geladen...",

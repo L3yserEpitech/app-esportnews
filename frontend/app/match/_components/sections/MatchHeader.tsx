@@ -11,6 +11,8 @@ import { lolHeaderBackdrop } from './leagueoflegends/LolGameCards';
 import { csMapImage } from './counterstrike/csAssets';
 import { useDotaAssets, dotaHeroImage } from './dota2/dotaAssets';
 import { dotaHeaderBackdropHero } from './dota2/DotaGameCards';
+import { r6MapImage } from './rainbowsix/r6Assets';
+import { owMapImage } from './overwatch/owAssets';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
@@ -37,7 +39,11 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
         ? csMapImage(match.games?.[0]?.map)
         : match.wiki === 'dota2'
           ? dotaHeroImage(dotaHeaderBackdropHero(match.games?.[0]), dotaMaps)
-          : null;
+          : match.wiki === 'rainbowsix'
+            ? r6MapImage(match.games?.[0]?.map)
+            : match.wiki === 'overwatch'
+              ? owMapImage(match.games?.[0]?.map)
+              : null;
 
   return (
     <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">

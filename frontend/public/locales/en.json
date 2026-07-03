@@ -583,7 +583,8 @@
         "inhibitors": "Inhibitors",
         "barracks": "Barracks",
         "roshans": "Roshan"
-      }
+      },
+      "penalties": "Pens"
     },
     "team_detail": {
       "loading": "Loading team...",
