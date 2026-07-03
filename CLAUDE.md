@@ -1125,6 +1125,43 @@ Les pages détail `match/[id]` et `tournois/[id]` **fetchent côté serveur** et
 * ✅ Utiliser `<Image>` Next.js (CORS géré via proxy interne, optimisation auto)
 * ❌ Ne pas utiliser `<img>` standard avec URLs R2 (CORS si pas configuré côté R2)
 
+### 18.3 Page détail de match — architecture modulaire par jeu
+
+**Fichiers** : `frontend/app/match/_components/`
+```
+matchSections.ts                    — registre : SECTION_IDS + PRESETS + PRESET_BY_WIKI
+MatchDetailPageClient.tsx           — shell : resolveSections(wiki) → renderSection(id)
+sections/
+├── shared.tsx                      — MatchSectionProps, TeamLogo, SectionHeader, helpers
+├── MatchHeader.tsx, GameResults.tsx, DraftPanel.tsx, PlayerStatsTable.tsx,
+│   StreamPlayer.tsx, RostersPanel.tsx, ExternalStatsLinks.tsx   — sections génériques
+├── draft.ts, statColumns.ts        — parsing draft + config colonnes stats par wiki
+└── valorant/                       — ⚠️ un dossier par jeu à rendu custom
+    ├── ValorantGameCards.tsx       — bloc par map : hero + draft + scoreboard
+    └── valorantAssets.ts           — mapping statique nom → UUID valorant-api.com
+```
+
+**Principe** : chaque wiki mappe vers un preset (liste ordonnée de sections). Une section rend `null` si ses données manquent. Un jeu qui mérite un rendu custom reçoit **son propre dossier** sous `sections/<jeu>/` + son preset ; les sections génériques ne bougent pas. Preset `valorant` : `gameResults` (branché sur `ValorantGameCards`) embarque draft + stats **par map** → pas de sections `draft`/`playerStats` séparées ni de sélecteur « Game N ». La section `matchInfo` (IDs internes) a été supprimée partout.
+
+**Design system Valorant (référence esthétique à décliner pour les autres jeux)** :
+* **Bloc par game** = carte « map hero » + panneau attaché dessous (draft + stats de CETTE map).
+* **Map hero** : splash de la map en fond full-bleed (~132px desktop, `object-cover`, zoom `scale-105` au hover 700ms) + **dégradé latéral** (bords `#060B13` ~96% → centre ~25%) + léger voile vertical. Scores `text-5xl font-black tabular-nums` : gagnant en accent + `drop-shadow` glow rose, perdant `text-white/45` et côté à `opacity-50`. **Liseré vertical 3px accent côté gagnant** (live : liseré + badge pulsants couleur live). Nom de map au centre en capitales `tracking-[0.25em]` entre deux traits. Game à venir : carte réduite (~84px), splash `grayscale opacity-50`, « À venir ».
+* **Draft** : tuiles d'agents (portrait carré ~44px arrondi, dégradé navy en fond, nom en dessous 8px uppercase, hover bordure accent + scale) — home à gauche, away à droite, « VS » discret au centre.
+* **Scoreboard** (façon vlr.gg) : un tableau par équipe, header logo + acronyme, portrait d'agent à côté du joueur, tri **ACS décroissant**, colonnes K/D/A séparées, **+/- calculé (K−D)** vert/rose selon signe, KAST arrondi en %, texte 13px, zebra rows. Côte à côte en `xl:` seulement.
+* **Header de match épuré** : pills réduites (statut + BO + rescheduled), scoreboard central, une seule ligne d'info (tournoi + date + badge Liquipedia en fin). Fond : splash de la map de la game 1 en **grayscale `opacity-[0.16]`** + dégradé vertical fondu vers `--color-bg-primary` (jeux sans assets : fond uni actuel).
+* **Équipes cliquables partout** : bloc logo + nom = `<Link>` via `teamHref()` (`lib/gameLinks.ts`), hover nom → accent. Le score reste hors du lien.
+
+**Assets externes par jeu** (CDN publics, pas de CORS, hotlink prévu — mapping statique nom → id dans `<jeu>Assets.ts`, fallback null → dégradé navy, rien ne casse) :
+| Jeu | Source | Contenu |
+|-----|--------|---------|
+| Valorant | `media.valorant-api.com` (via valorant-api.com) | maps (splash/listview/minimap), 29 agents (displayicon/portraits), abilités |
+| LoL (à faire) | Data Dragon (`ddragon.leagueoflegends.com`) | champions, items, spells |
+| Dota 2 (à faire) | Steam CDN (`cdn.steamstatic.com`) | héros, items |
+
+Les images de **joueurs pros** n'existent dans aucune de ces APIs (Liquipedia les a mais pas via l'API v3 → coût quota, non implémenté).
+
+**Pour ajouter un rendu custom à un jeu** : 1) créer `sections/<jeu>/` avec `<jeu>Assets.ts` (mapping statique) et le composant de blocs par game, 2) brancher dans `GameResults.tsx` (test sur `match.wiki`), 3) ajouter le preset dans `matchSections.ts`, 4) décliner les éléments du design system ci-dessus (hero d'arène/champ de bataille, tuiles de picks, scoreboard aux colonnes du jeu via `statColumns.ts`).
+
 ---
 
 ## 19) Conventions de travail
