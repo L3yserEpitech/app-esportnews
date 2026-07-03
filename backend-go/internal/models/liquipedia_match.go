@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -433,7 +435,19 @@ func computeMatchStatus(m LiqMatch, hint string) string {
 
 // --- Opponent normalization ---
 
-const liquipediaFileURL = "https://liquipedia.net/commons/Special:FilePath/"
+// liquipediaFileDirectURL computes the static file URL for a commons filename.
+// Special:FilePath would work too, but it's a MediaWiki PHP redirect (302) —
+// slow and heavier on their infra. The static path is deterministic: MediaWiki
+// shards files by md5 of the underscored filename ({h[0]}/{h[0:2]}/{name}).
+func liquipediaFileDirectURL(filename string) string {
+	name := strings.ReplaceAll(strings.TrimSpace(filename), " ", "_")
+	if name == "" {
+		return ""
+	}
+	sum := md5.Sum([]byte(name))
+	h := hex.EncodeToString(sum[:])
+	return "https://liquipedia.net/commons/images/" + h[:1] + "/" + h[:2] + "/" + url.PathEscape(name)
+}
 
 // normalizeMatchOpponents parses match2opponents JSON into PandaOpponent[] and PandaMatchResult[].
 func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []NormalizedMatchResult) {
@@ -471,19 +485,19 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 		if opp.IconURL != "" {
 			imageURL = &opp.IconURL
 		} else if opp.Icon != "" {
-			u := liquipediaFileURL + url.PathEscape(opp.Icon)
+			u := liquipediaFileDirectURL(opp.Icon)
 			imageURL = &u
 		}
 		if opp.IconDarkURL != "" {
 			darkImageURL = &opp.IconDarkURL
 		} else if opp.IconDark != "" {
-			u := liquipediaFileURL + url.PathEscape(opp.IconDark)
+			u := liquipediaFileDirectURL(opp.IconDark)
 			darkImageURL = &u
 		} else if opp.Icon != "" && strings.Contains(strings.ToLower(opp.Icon), "lightmode") {
 			// Derive dark icon from light icon filename convention
 			darkName := strings.Replace(opp.Icon, "lightmode", "darkmode", 1)
 			darkName = strings.Replace(darkName, "Lightmode", "Darkmode", 1)
-			u := liquipediaFileURL + url.PathEscape(darkName)
+			u := liquipediaFileDirectURL(darkName)
 			darkImageURL = &u
 		}
 		// If no light URL but dark exists, use dark as fallback
