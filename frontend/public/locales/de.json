@@ -570,7 +570,8 @@
         "fighter": "Charakter",
         "stocks": "Stocks",
         "kp": "KP",
-        "items": "Items"
+        "items": "Items",
+        "lhdn": "LH/DN"
       },
       "stat_kills": "Kills",
       "objectives": {
@@ -580,7 +581,9 @@
         "heralds": "Herolde",
         "grubs": "Larven",
         "atakhans": "Atakhan",
-        "inhibitors": "Inhibitoren"
+        "inhibitors": "Inhibitoren",
+        "barracks": "Barracks",
+        "roshans": "Roshan"
       }
     },
     "team_detail": {

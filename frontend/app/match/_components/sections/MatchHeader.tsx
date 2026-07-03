@@ -9,10 +9,13 @@ import { teamHref } from '../../../lib/gameLinks';
 import { valorantMapSplash } from './valorant/valorantAssets';
 import { lolHeaderBackdrop } from './leagueoflegends/LolGameCards';
 import { csMapImage } from './counterstrike/csAssets';
+import { useDotaAssets, dotaHeroImage } from './dota2/dotaAssets';
+import { dotaHeaderBackdropHero } from './dota2/DotaGameCards';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
   const t = useTranslations('pages_detail.match_detail');
+  const dotaMaps = useDotaAssets();
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -32,7 +35,9 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
       ? lolHeaderBackdrop(match.games?.[0])
       : match.wiki === 'counterstrike'
         ? csMapImage(match.games?.[0]?.map)
-        : null;
+        : match.wiki === 'dota2'
+          ? dotaHeroImage(dotaHeaderBackdropHero(match.games?.[0]), dotaMaps)
+          : null;
 
   return (
     <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">

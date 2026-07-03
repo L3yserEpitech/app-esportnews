@@ -9,11 +9,12 @@ export type SectionId = (typeof SECTION_IDS)[number];
 
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
-const PRESETS: Record<'tier1' | 'valorant' | 'lol' | 'cs' | 'default' | 'smash', SectionId[]> = {
+const PRESETS: Record<'tier1' | 'valorant' | 'lol' | 'dota' | 'cs' | 'default' | 'smash', SectionId[]> = {
   tier1: ['header', 'gameResults', 'draft', 'playerStats', 'stream', 'rosters', 'externalLinks'],
-  // Valorant / LoL: gameResults renders per-game blocks embedding draft + stats.
+  // Valorant / LoL / Dota: gameResults renders per-game blocks embedding draft + stats.
   valorant: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   lol: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
+  dota: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   // CS: no player stats on Liquipedia (HLTV via externalLinks).
   cs: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   default: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
@@ -27,7 +28,7 @@ const PRESET_BY_WIKI: Record<string, keyof typeof PRESETS> = {
   leagueoflegends: 'lol',
   valorant: 'valorant',
   counterstrike: 'cs',
-  dota2: 'tier1',
+  dota2: 'dota',
   smash: 'smash',
 };
 

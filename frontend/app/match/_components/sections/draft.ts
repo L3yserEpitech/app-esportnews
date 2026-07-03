@@ -29,6 +29,9 @@ export function parseDraft(game: PandaGame): Draft | null {
   let t2picks = parts.filter(p => p.team === 2 && p.character).map(p => p.character as string);
   if (!t1picks.length && ed) t1picks = numbered(ed, 'team1champion');
   if (!t2picks.length && ed) t2picks = numbered(ed, 'team2champion');
+  // Dota2 numérote les picks en teamNheroK.
+  if (!t1picks.length && ed) t1picks = numbered(ed, 'team1hero');
+  if (!t2picks.length && ed) t2picks = numbered(ed, 'team2hero');
   if (!t1bans.length && !t2bans.length && !t1picks.length && !t2picks.length) return null;
   return { team1: { bans: t1bans, picks: t1picks }, team2: { bans: t2bans, picks: t2picks } };
 }

@@ -570,7 +570,8 @@
         "fighter": "Personaggio",
         "stocks": "Stocks",
         "kp": "KP",
-        "items": "Oggetti"
+        "items": "Oggetti",
+        "lhdn": "LH/DN"
       },
       "stat_kills": "Kills",
       "objectives": {
@@ -580,7 +581,9 @@
         "heralds": "Araldi",
         "grubs": "Larve",
         "atakhans": "Atakhan",
-        "inhibitors": "Inibitori"
+        "inhibitors": "Inibitori",
+        "barracks": "Barracks",
+        "roshans": "Roshan"
       }
     },
     "team_detail": {
