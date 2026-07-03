@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/imagecache"
+	"github.com/esportnews/backend/internal/services"
 )
 
 const (
@@ -65,9 +67,10 @@ type ImageProxyHandler struct {
 	fetchMu        sync.Mutex        // serializes upstream fetches for pacing
 	httpClient     *http.Client      // shared client with IPv6-preferred dialer
 	fetchGroup     singleflight.Group
+	storage        *services.StorageService // L3: R2, permanent — survives Redis TTL + Liquipedia blocks
 }
 
-func NewImageProxyHandler(redisCache *cache.RedisCache) *ImageProxyHandler {
+func NewImageProxyHandler(redisCache *cache.RedisCache, storage *services.StorageService) *ImageProxyHandler {
 	// Keep-alive + connection pooling to liquipedia.net so bulk logo fetches
 	// reuse TLS connections instead of a fresh handshake per image. The dialer
 	// is dual-stack (Happy Eyeballs) — IPv6 is used when reachable.
@@ -84,11 +87,44 @@ func NewImageProxyHandler(redisCache *cache.RedisCache) *ImageProxyHandler {
 	return &ImageProxyHandler{
 		semaphore:  make(chan struct{}, maxConcurrentProxy),
 		redisCache: redisCache,
+		storage:    storage,
 		httpClient: &http.Client{
 			Timeout:   proxyTimeout,
 			Transport: transport,
 		},
 	}
+}
+
+func r2ImageKey(cacheKey string) string { return "liq-images/" + cacheKey }
+
+// r2Get reads the R2 tier (L3). Miss or disabled → nil.
+func (h *ImageProxyHandler) r2Get(ctx context.Context, cacheKey string) *cachedImage {
+	if !h.storage.Enabled() {
+		return nil
+	}
+	ct, data, err := h.storage.Download(ctx, r2ImageKey(cacheKey))
+	if err != nil || len(data) == 0 || !strings.HasPrefix(ct, "image/") {
+		return nil
+	}
+	return &cachedImage{contentType: ct, data: data, cachedAt: time.Now()}
+}
+
+// r2Store persists an image to R2 in the background (fire-and-forget).
+func (h *ImageProxyHandler) r2Store(cacheKey string, img *cachedImage) {
+	if !h.storage.Enabled() {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		_, _ = h.storage.Upload(ctx, services.UploadOptions{
+			Path:        "liq-images",
+			Filename:    cacheKey,
+			ContentType: img.contentType,
+			Body:        bytes.NewReader(img.data),
+			Size:        int64(len(img.data)),
+		})
+	}()
 }
 
 func (h *ImageProxyHandler) RegisterRoutes(g *echo.Group) {
@@ -155,7 +191,15 @@ func (h *ImageProxyHandler) ProxyImage(c echo.Context) error {
 	// L2 (Redis, shared + persistent)
 	if img := h.redisGet(ctx, cacheKey); img != nil {
 		h.cache.Store(cacheKey, img) // promote to L1
+		h.r2Store(cacheKey, img)     // backfill L3 (once per image per boot — idempotent)
 		return h.serveImage(c, img, "HIT-L2")
+	}
+
+	// L3 (R2, permanent — immune to Liquipedia throttling)
+	if img := h.r2Get(ctx, cacheKey); img != nil {
+		h.cache.Store(cacheKey, img)
+		h.redisStore(ctx, cacheKey, img)
+		return h.serveImage(c, img, "HIT-R2")
 	}
 
 	// Cold: fetch from upstream.
@@ -195,6 +239,12 @@ func (h *ImageProxyHandler) Prewarm(c echo.Context) error {
 		}
 		if img := h.redisGet(ctx, cacheKey); img != nil {
 			h.cache.Store(cacheKey, img)
+			cached++
+			continue
+		}
+		if img := h.r2Get(ctx, cacheKey); img != nil {
+			h.cache.Store(cacheKey, img)
+			h.redisStore(ctx, cacheKey, img)
 			cached++
 			continue
 		}
@@ -361,5 +411,6 @@ func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey stri
 	img := &cachedImage{contentType: ct, data: data, cachedAt: time.Now()}
 	h.cache.Store(cacheKey, img)     // L1
 	h.redisStore(ctx, cacheKey, img) // L2 (best-effort)
+	h.r2Store(cacheKey, img)         // L3 (async, permanent)
 	return img, nil
 }
