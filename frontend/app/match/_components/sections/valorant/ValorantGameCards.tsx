@@ -213,7 +213,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                   <TeamSide team={homeTeam} url={homeUrl} isDark={isDark} winner={isHomeWin} reverse={false} />
                   {hasScores && (
                     <span className={`ml-auto text-3xl md:text-5xl font-black tabular-nums ${
-                      isHomeWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white/45'
+                      isHomeWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]'
                     }`}>
                       {homeMapScore}
                     </span>
@@ -226,7 +226,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                       {t('status_running')}
                     </span>
                   ) : (
-                    <span className="text-[9px] md:text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-1">
+                    <span className="text-[9px] md:text-[10px] font-bold text-white/90 uppercase tracking-[0.2em] mb-1">
                       {t('game_label')} {game.position}
                     </span>
                   )}
@@ -247,7 +247,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                 <div className={`flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0 justify-end ${isGameFinished && !isAwayWin ? 'opacity-50' : ''}`}>
                   {hasScores && (
                     <span className={`mr-auto text-3xl md:text-5xl font-black tabular-nums ${
-                      isAwayWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white/45'
+                      isAwayWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]'
                     }`}>
                       {awayMapScore}
                     </span>
