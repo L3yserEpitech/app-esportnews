@@ -8,6 +8,7 @@ import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { teamHref } from '../../../lib/gameLinks';
 import { valorantMapSplash } from './valorant/valorantAssets';
 import { lolHeaderBackdrop } from './leagueoflegends/LolGameCards';
+import { csMapImage } from './counterstrike/csAssets';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
@@ -29,7 +30,9 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
     ? valorantMapSplash(match.games?.[0]?.map)
     : match.wiki === 'leagueoflegends'
       ? lolHeaderBackdrop(match.games?.[0])
-      : null;
+      : match.wiki === 'counterstrike'
+        ? csMapImage(match.games?.[0]?.map)
+        : null;
 
   return (
     <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">

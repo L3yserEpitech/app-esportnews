@@ -6,6 +6,7 @@ import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { SectionHeader, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
 import ValorantGameCards from './valorant/ValorantGameCards';
 import LolGameCards from './leagueoflegends/LolGameCards';
+import CsGameCards from './counterstrike/CsGameCards';
 
 export default function GameResults(props: MatchSectionProps) {
   const { match, isDark, game: gameEntry } = props;
@@ -17,6 +18,7 @@ export default function GameResults(props: MatchSectionProps) {
   const wiki = match.wiki || gameEntry?.wiki;
   const isValorant = wiki === 'valorant';
   const isLol = wiki === 'leagueoflegends';
+  const isCs = wiki === 'counterstrike';
 
   return (
     <section>
@@ -30,7 +32,7 @@ export default function GameResults(props: MatchSectionProps) {
         ) : undefined}
       />
 
-      {isValorant ? <ValorantGameCards {...props} /> : isLol ? <LolGameCards {...props} /> : (
+      {isValorant ? <ValorantGameCards {...props} /> : isLol ? <LolGameCards {...props} /> : isCs ? <CsGameCards {...props} /> : (
       <div className="rounded-xl border border-[var(--color-border-primary)]/30 overflow-hidden bg-[var(--color-bg-secondary)]/40">
         {match.games.map((game, idx) => {
           const winnerData = parseGameWinner(game.winner);

@@ -580,7 +580,11 @@
         "grubs": "Grubs",
         "atakhans": "Atakhan",
         "inhibitors": "Inhibitors"
-      }
+      },
+      "map_veto_title": "Map veto",
+      "veto_ban": "Ban",
+      "veto_pick": "Pick",
+      "veto_decider": "Decider"
     },
     "team_detail": {
       "loading": "Loading team...",

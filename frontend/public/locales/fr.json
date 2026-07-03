@@ -581,7 +581,11 @@
         "grubs": "Larves",
         "atakhans": "Atakhan",
         "inhibitors": "Inhibiteurs"
-      }
+      },
+      "map_veto_title": "Veto des maps",
+      "veto_ban": "Ban",
+      "veto_pick": "Pick",
+      "veto_decider": "Decider"
     },
     "team_detail": {
       "loading": "Chargement de l'équipe...",

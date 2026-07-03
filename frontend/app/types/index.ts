@@ -204,6 +204,8 @@ export interface PandaMatch {
   vod?: string | null;
   patch?: string | null;
   links?: Record<string, string>;
+  // Ordered ban/pick sequence (CS…): type ban|pick|decider, team1/team2/decider = map name.
+  mapveto?: Array<Record<string, string>>;
 }
 
 export interface PandaStream {
