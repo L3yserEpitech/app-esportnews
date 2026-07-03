@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Trophy, ChevronRight, MapPin, DollarSign, Calendar, RefreshCw } from 'lucide-react';
+import { Trophy, Calendar, RefreshCw } from 'lucide-react';
 import LiquipediaBadge from '../../../components/common/LiquipediaBadge';
 import { proxyImageUrl } from '../../../lib/imageProxy';
 import { pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import { teamHref } from '../../../lib/gameLinks';
+import { valorantMapSplash } from './valorant/valorantAssets';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
@@ -23,14 +24,18 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
   const homeUrl = homeTeam ? teamHref({ wiki: match.wiki, template: homeTeam.template, id: homeTeam.id, name: homeTeam.name, acronym: homeTeam.acronym, image_url: homeTeam.image_url }) : null;
   const awayUrl = awayTeam ? teamHref({ wiki: match.wiki, template: awayTeam.template, id: awayTeam.id, name: awayTeam.name, acronym: awayTeam.acronym, image_url: awayTeam.image_url }) : null;
 
+  const backdrop = match.wiki === 'valorant' ? valorantMapSplash(match.games?.[0]?.map) : null;
+
   return (
     <section className="relative w-full overflow-hidden pt-22 pb-8 md:pt-26 md:pb-10">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[var(--color-bg-secondary)]" />
-        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 40px, currentColor 40px, currentColor 41px)' }} />
-        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[var(--color-accent)]/[0.02] to-transparent" />
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-[var(--color-bg-tertiary)]/[0.06] to-transparent" />
-        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-gradient-to-b from-transparent via-[var(--color-accent)]/15 to-transparent hidden md:block" />
+        {backdrop && (
+          <>
+            <img src={backdrop} alt="" className="absolute inset-0 w-full h-full object-cover grayscale opacity-[0.16]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,var(--color-bg-primary)_0%,transparent_35%,transparent_60%,var(--color-bg-primary)_100%)] opacity-90" />
+          </>
+        )}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/25 to-transparent" />
       </div>
 
@@ -48,32 +53,9 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
             {t(statusKey)}
           </div>
 
-          {match.videogame?.name && (
-            <span className="text-[10px] text-text-secondary font-semibold bg-[var(--color-bg-primary)]/60 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/30">
-              {match.videogame.name}
-            </span>
-          )}
-
-          {match.tournament?.tier && (
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
-              match.tournament.tier.toLowerCase() === 's' ? 'bg-[var(--color-tier-s)]/10 text-[var(--color-tier-s)] border-[var(--color-tier-s)]/25' :
-              match.tournament.tier.toLowerCase() === 'a' ? 'bg-[var(--color-tier-a)]/10 text-[var(--color-tier-a)] border-[var(--color-tier-a)]/25' :
-              match.tournament.tier.toLowerCase() === 'b' ? 'bg-[var(--color-tier-b)]/10 text-[var(--color-tier-b)] border-[var(--color-tier-b)]/25' :
-              'bg-[var(--color-status-finished)]/10 text-text-muted border-[var(--color-status-finished)]/25'
-            }`}>
-              {t('tier_label')} {match.tournament.tier.toUpperCase()}
-            </span>
-          )}
-
           {match.number_of_games && (
             <span className="text-[10px] text-text-muted font-bold bg-[var(--color-bg-primary)]/40 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/20">
               {t('bo_prefix')}{match.number_of_games}
-            </span>
-          )}
-
-          {match.section && (
-            <span className="text-[10px] text-text-secondary font-medium bg-[var(--color-bg-primary)]/40 px-2.5 py-1 rounded-md border border-[var(--color-border-primary)]/20">
-              {match.section}
             </span>
           )}
 
@@ -83,8 +65,6 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
               {t('rescheduled')}
             </span>
           )}
-
-          <LiquipediaBadge />
         </div>
 
         {/* Main scoreboard */}
@@ -197,35 +177,6 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
               <span className="text-text-secondary font-medium">{match.tournament.name}</span>
             </div>
           )}
-          {match.league && match.league.name !== match.tournament?.name && (
-            <>
-              <ChevronRight className="w-3 h-3 text-border-primary/60" />
-              <div className="flex items-center gap-1.5">
-                {match.league.image_url && (
-                  <img src={proxyImageUrl(match.league.image_url)} alt="" className="w-3.5 h-3.5 object-contain opacity-60 rounded-sm" />
-                )}
-                <span>{match.league.name}</span>
-              </div>
-            </>
-          )}
-          {match.tournament?.region && (
-            <>
-              <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
-              <div className="flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-accent/50" />
-                <span>{match.tournament.region}</span>
-              </div>
-            </>
-          )}
-          {match.tournament?.prizepool && (
-            <>
-              <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
-              <div className="flex items-center gap-1">
-                <DollarSign className="w-3 h-3 text-accent/50" />
-                <span className="text-text-secondary font-medium">{match.tournament.prizepool}</span>
-              </div>
-            </>
-          )}
           {match.begin_at && (
             <>
               <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
@@ -246,6 +197,8 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
               </div>
             </>
           )}
+          <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
+          <LiquipediaBadge />
         </div>
       </div>
 
