@@ -73,6 +73,12 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
             if (template && matchWiki) {
               try { return await teamService.getTeamByTemplate(template, matchWiki); } catch {}
             }
+            // Roster labels ("m80 orig", "qor 2022") often have no team page of
+            // their own — the org page uses the plain name as template ("m80").
+            const nameGuess = o.opponent?.name?.toLowerCase().trim();
+            if (nameGuess && nameGuess !== template && matchWiki) {
+              try { return await teamService.getTeamByTemplate(nameGuess, matchWiki); } catch {}
+            }
             try { return await teamService.getTeamById(o.opponent!.id, matchWiki); } catch { return null; }
           }))).filter(Boolean);
           setTeamsData(teams);
