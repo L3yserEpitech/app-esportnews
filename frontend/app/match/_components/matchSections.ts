@@ -9,8 +9,10 @@ export type SectionId = (typeof SECTION_IDS)[number];
 
 // Default order = finished-match order (stream sits low). When live, the shell
 // promotes 'stream' to index 1 (right after 'header').
-const PRESETS: Record<'tier1' | 'default' | 'smash', SectionId[]> = {
+const PRESETS: Record<'tier1' | 'valorant' | 'default' | 'smash', SectionId[]> = {
   tier1: ['header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
+  // Valorant: gameResults renders per-map blocks embedding draft + stats.
+  valorant: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
   default: ['header', 'gameResults', 'externalLinks', 'stream', 'rosters', 'matchInfo'],
   // Smash: solo-player — fighters/stocks via playerStats; no draft; rosters self-hide.
   smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters', 'matchInfo'],
@@ -20,7 +22,7 @@ const PRESETS: Record<'tier1' | 'default' | 'smash', SectionId[]> = {
 // behaviour minus player stats/draft) — so no game regresses.
 const PRESET_BY_WIKI: Record<string, keyof typeof PRESETS> = {
   leagueoflegends: 'tier1',
-  valorant: 'tier1',
+  valorant: 'valorant',
   dota2: 'tier1',
   smash: 'smash',
 };
