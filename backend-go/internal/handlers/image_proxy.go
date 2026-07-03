@@ -334,15 +334,35 @@ func (h *ImageProxyHandler) fetchAndStore(ctx context.Context, rawURL, cacheKey 
 
 // thumbRe matches MediaWiki thumbnail URLs so a missing thumb (e.g. requested
 // width ≥ source width) can fall back to the original file.
-var thumbRe = regexp.MustCompile(`^(https://[^/]+/commons)/images/thumb/(./../[^/]+)/\d+px-[^/]+$`)
+var thumbRe = regexp.MustCompile(`^(https://[^/]+/commons)/images/thumb/(./../([^/]+))/\d+px-[^/]+$`)
 
+// wikiHintRe extracts the "?w=<wiki>" hint appended by the backend normalizer
+// for files that may live on the game wiki instead of commons.
+var wikiHintRe = regexp.MustCompile(`^([^?]+)\?w=([a-z0-9]+)$`)
+
+// doFetchAndStore tries, in order: the URL itself (commons thumb), the commons
+// original, then Special:FilePath on the hinted game wiki (which resolves both
+// local and foreign files via a redirect). First success wins; results are
+// cached forever, so the extra attempts only ever happen once per image.
 func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
-	img, err := h.fetchOnce(ctx, rawURL, cacheKey)
+	fetchURL, wikiHint := rawURL, ""
+	if m := wikiHintRe.FindStringSubmatch(rawURL); m != nil {
+		fetchURL, wikiHint = m[1], m[2]
+	}
+
+	img, err := h.fetchOnce(ctx, fetchURL, cacheKey)
 	if err == nil {
 		return img, nil
 	}
-	if m := thumbRe.FindStringSubmatch(rawURL); m != nil {
-		return h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey)
+	m := thumbRe.FindStringSubmatch(fetchURL)
+	if m == nil {
+		return nil, err
+	}
+	if img, err = h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey); err == nil {
+		return img, nil
+	}
+	if wikiHint != "" {
+		return h.fetchOnce(ctx, "https://liquipedia.net/"+wikiHint+"/Special:FilePath/"+m[3], cacheKey)
 	}
 	return nil, err
 }

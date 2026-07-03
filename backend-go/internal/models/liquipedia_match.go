@@ -258,7 +258,7 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 	}
 
 	// Opponents and results
-	opponents, results := normalizeMatchOpponents(m.Match2Opponents)
+	opponents, results := normalizeMatchOpponents(m.Match2Opponents, wiki)
 
 	// Streams
 	streams := normalizeMatchStreams(m.Stream)
@@ -453,7 +453,7 @@ func liquipediaFileDirectURL(filename string) string {
 // the full file for a logo rendered at 44-96px). Only raster formats: SVG/GIF
 // thumbs use a different naming scheme, so those fall back to the full file.
 // The image proxy retries the original URL if a thumb ever 404s.
-func liquipediaFileThumbURL(filename string, width int) string {
+func liquipediaFileThumbURL(filename string, width int, wiki string) string {
 	name := strings.ReplaceAll(strings.TrimSpace(filename), " ", "_")
 	lower := strings.ToLower(name)
 	if name == "" || !(strings.HasSuffix(lower, ".png") || strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg")) {
@@ -461,12 +461,18 @@ func liquipediaFileThumbURL(filename string, width int) string {
 	}
 	sum := md5.Sum([]byte(name))
 	h := hex.EncodeToString(sum[:])
-	return fmt.Sprintf("https://liquipedia.net/commons/images/thumb/%s/%s/%s/%dpx-%s",
+	u := fmt.Sprintf("https://liquipedia.net/commons/images/thumb/%s/%s/%s/%dpx-%s",
 		h[:1], h[:2], url.PathEscape(name), width, url.PathEscape(name))
+	// Some files live on the game wiki instead of commons; the proxy uses this
+	// hint for its Special:FilePath fallback.
+	if wiki != "" {
+		u += "?w=" + url.QueryEscape(wiki)
+	}
+	return u
 }
 
 // normalizeMatchOpponents parses match2opponents JSON into PandaOpponent[] and PandaMatchResult[].
-func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []NormalizedMatchResult) {
+func normalizeMatchOpponents(raw json.RawMessage, wiki string) ([]NormalizedOpponent, []NormalizedMatchResult) {
 	if raw == nil {
 		return []NormalizedOpponent{}, []NormalizedMatchResult{}
 	}
@@ -501,19 +507,19 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 		if opp.IconURL != "" {
 			imageURL = &opp.IconURL
 		} else if opp.Icon != "" {
-			u := liquipediaFileThumbURL(opp.Icon, 100)
+			u := liquipediaFileThumbURL(opp.Icon, 100, wiki)
 			imageURL = &u
 		}
 		if opp.IconDarkURL != "" {
 			darkImageURL = &opp.IconDarkURL
 		} else if opp.IconDark != "" {
-			u := liquipediaFileThumbURL(opp.IconDark, 100)
+			u := liquipediaFileThumbURL(opp.IconDark, 100, wiki)
 			darkImageURL = &u
 		} else if opp.Icon != "" && strings.Contains(strings.ToLower(opp.Icon), "lightmode") {
 			// Derive dark icon from light icon filename convention
 			darkName := strings.Replace(opp.Icon, "lightmode", "darkmode", 1)
 			darkName = strings.Replace(darkName, "Lightmode", "Darkmode", 1)
-			u := liquipediaFileThumbURL(darkName, 100)
+			u := liquipediaFileThumbURL(darkName, 100, wiki)
 			darkImageURL = &u
 		}
 		// If no light URL but dark exists, use dark as fallback
