@@ -42,11 +42,11 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
   const timeStr = dateStr ? formatTime(dateStr) : null;
   const dateFormatted = dateStr ? formatDate(dateStr) : null;
 
-  const accentBar = isLive
-    ? 'bg-[var(--color-status-live)]'
-    : isFinished
-      ? 'bg-[var(--color-text-muted)]/40'
-      : 'bg-blue-500';
+  const hs = Number(homeScore);
+  const as = Number(awayScore);
+  const scoresKnown = isFinished && !Number.isNaN(hs) && !Number.isNaN(as);
+  const homeWon = scoresKnown && hs > as;
+  const awayWon = scoresKnown && as > hs;
 
   const teamClick = (team: typeof homeTeam) => (e: React.MouseEvent) => {
     if (team?.template && match.wiki) {
@@ -64,34 +64,39 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
     ? (match.tournament?.icon_dark_url || match.league?.image_url || match.tournament?.icon_url)
     : (match.tournament?.icon_url || match.league?.image_url);
 
+  const homeLogo = pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url);
+  const awayLogo = pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url);
+
   return (
     <Link href={matchHref(match)}>
-      <div className="group relative w-full flex items-stretch rounded-lg overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/50 hover:border-[var(--color-accent)]/30 transition-all duration-200 cursor-pointer">
-        {/* Left accent bar */}
-        <div className={`w-[3px] flex-shrink-0 ${accentBar}`} />
+      <div className="group relative w-full flex items-center gap-2 sm:gap-3 rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]/40 hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-bg-tertiary)]/40 transition-all duration-200 cursor-pointer">
+        {/* Live wash — subtle tinted glow instead of a hard accent bar */}
+        {isLive && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[var(--color-status-live)]/12 to-transparent" />
+        )}
 
         {/* Grid: 1fr [score] 1fr → score always dead center */}
-        <div className="flex-1 grid grid-cols-[1fr_auto_1fr] items-center py-3 px-3 sm:py-3 sm:px-4">
+        <div className="relative flex-1 grid grid-cols-[1fr_auto_1fr] items-center min-w-0">
 
-          {/* ── Left half: time + home team ── */}
-          <div className="flex items-center gap-1 sm:gap-3 min-w-0">
-            {/* Time + Date / Live */}
-            <div className="flex-shrink-0 w-10 sm:w-28 text-center">
+          {/* ── Left half: status + home team ── */}
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+            {/* Status pill / time */}
+            <div className="flex-shrink-0 w-11 sm:w-24 flex justify-center">
               {isLive ? (
-                <div className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 bg-[var(--color-status-live)]/15 rounded">
+                <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-[var(--color-status-live)]/15 rounded-full">
                   <span className="relative flex h-1.5 w-1.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-status-live)] opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-status-live)]" />
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-[var(--color-status-live)] uppercase">Live</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-[var(--color-status-live)] uppercase tracking-wide">Live</span>
                 </div>
               ) : (
-                <div className="flex flex-col sm:flex-row items-center justify-center sm:gap-1.5">
-                  <span className="text-[10px] sm:text-xs text-[var(--color-text-primary)] font-semibold tabular-nums">
+                <div className="flex flex-col items-center leading-tight">
+                  <span className="text-[11px] sm:text-xs text-[var(--color-text-primary)] font-semibold tabular-nums">
                     {timeStr || '--:--'}
                   </span>
                   {dateFormatted && (
-                    <span className="text-[9px] sm:text-[10px] text-[var(--color-text-muted)] tabular-nums leading-tight">
+                    <span className="text-[9px] sm:text-[10px] text-[var(--color-text-muted)] tabular-nums">
                       {dateFormatted}
                     </span>
                   )}
@@ -100,16 +105,16 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
             </div>
 
             {/* Home team */}
-            <div
-              className="flex-1 flex items-center gap-2 min-w-0 justify-end cursor-pointer"
-              onClick={teamClick(homeTeam)}
-            >
-              <span className={`hidden sm:block text-sm font-semibold truncate hover:text-[var(--color-accent)] transition-colors ${isFinished ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-primary)]'}`}>
+            <div className={`flex-1 flex items-center gap-2 sm:gap-2.5 min-w-0 justify-end transition-opacity ${awayWon ? 'opacity-50' : ''}`}>
+              <span className={`hidden sm:block text-sm truncate ${homeWon ? 'font-bold text-[var(--color-text-primary)]' : 'font-semibold text-[var(--color-text-secondary)]'}`}>
                 {homeTeam?.name || 'TBD'}
               </span>
-              <div className="w-9 h-9 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
-                  <img src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)} alt="" className="w-6 h-6 sm:w-6 sm:h-6 object-contain" loading="lazy" />
+              <div
+                onClick={teamClick(homeTeam)}
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[var(--color-bg-primary)] ring-1 ring-[var(--color-border-primary)]/50 hover:ring-[var(--color-accent)]/60 flex items-center justify-center overflow-hidden flex-shrink-0 transition cursor-pointer"
+              >
+                {homeLogo ? (
+                  <img src={proxyImageUrl(homeLogo)} alt="" className="w-7 h-7 object-contain" loading="lazy" />
                 ) : (
                   <Trophy className="w-4 h-4 text-[var(--color-text-muted)]" />
                 )}
@@ -118,33 +123,33 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
           </div>
 
           {/* ── Score — dead center ── */}
-          <div className="w-16 sm:w-20 flex items-center justify-center mx-1 sm:mx-2">
+          <div className="flex items-center justify-center mx-1.5 sm:mx-3">
             {isFinished || isLive ? (
-              <div className="flex items-center gap-1.5 sm:gap-2 text-lg sm:text-lg font-bold tabular-nums text-[#F22E62]">
-                <span className="w-5 sm:w-5 text-right">{homeScore}</span>
-                <span className="text-[var(--color-text-muted)] text-xs sm:text-sm">-</span>
-                <span className="w-5 sm:w-5 text-left">{awayScore}</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[var(--color-bg-primary)]/60 text-lg font-bold tabular-nums text-[#F22E62]">
+                <span className="w-5 text-right">{homeScore}</span>
+                <span className="text-[var(--color-text-muted)] text-sm">-</span>
+                <span className="w-5 text-left">{awayScore}</span>
               </div>
             ) : (
-              <span className="text-xs sm:text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">VS</span>
+              <span className="px-2.5 py-1 rounded-xl bg-[var(--color-bg-primary)]/50 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">VS</span>
             )}
           </div>
 
           {/* ── Right half: away team + tournament ── */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             {/* Away team */}
-            <div
-              className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer"
-              onClick={teamClick(awayTeam)}
-            >
-              <div className="w-9 h-9 sm:w-8 sm:h-8 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
-                  <img src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)} alt="" className="w-6 h-6 sm:w-6 sm:h-6 object-contain" loading="lazy" />
+            <div className={`flex-1 flex items-center gap-2 sm:gap-2.5 min-w-0 transition-opacity ${homeWon ? 'opacity-50' : ''}`}>
+              <div
+                onClick={teamClick(awayTeam)}
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[var(--color-bg-primary)] ring-1 ring-[var(--color-border-primary)]/50 hover:ring-[var(--color-accent)]/60 flex items-center justify-center overflow-hidden flex-shrink-0 transition cursor-pointer"
+              >
+                {awayLogo ? (
+                  <img src={proxyImageUrl(awayLogo)} alt="" className="w-7 h-7 object-contain" loading="lazy" />
                 ) : (
                   <Trophy className="w-4 h-4 text-[var(--color-text-muted)]" />
                 )}
               </div>
-              <span className={`hidden sm:block text-sm font-semibold truncate hover:text-[var(--color-accent)] transition-colors ${isFinished ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-primary)]'}`}>
+              <span className={`hidden sm:block text-sm truncate ${awayWon ? 'font-bold text-[var(--color-text-primary)]' : 'font-semibold text-[var(--color-text-secondary)]'}`}>
                 {awayTeam?.name || 'TBD'}
               </span>
             </div>
@@ -152,16 +157,16 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
             {/* Tournament info */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {match.number_of_games && (
-                <span className="hidden md:inline text-[11px] text-[var(--color-text-muted)] font-medium bg-[var(--color-bg-primary)]/60 px-2 py-0.5 rounded">
+                <span className="hidden md:inline text-[11px] text-[var(--color-text-muted)] font-semibold bg-[var(--color-bg-primary)]/60 px-2.5 py-1 rounded-full">
                   BO{match.number_of_games}
                 </span>
               )}
-              <span className="hidden md:block text-xs text-[var(--color-text-primary)] font-medium truncate max-w-36">
+              <span className="hidden md:block text-xs text-[var(--color-text-secondary)] font-medium truncate max-w-36">
                 {match.league?.name || match.tournament?.name || match.name}
               </span>
               {leagueImg && (
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded bg-[var(--color-bg-primary)]/60 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  <img src={proxyImageUrl(leagueImg)} alt="" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" loading="lazy" />
+                <div className="w-7 h-7 rounded-full bg-[var(--color-bg-primary)] ring-1 ring-[var(--color-border-primary)]/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <img src={proxyImageUrl(leagueImg)} alt="" className="w-5 h-5 object-contain" loading="lazy" />
                 </div>
               )}
             </div>
