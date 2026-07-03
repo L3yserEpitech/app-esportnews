@@ -12,7 +12,9 @@ import (
 
 const (
 	RedisPrefix = "liq:img:"
-	RedisTTL    = 7 * 24 * time.Hour
+	// Logos change rarely; a long TTL means one Liquipedia fetch a month per
+	// image, whatever their edge throttling does.
+	RedisTTL = 30 * 24 * time.Hour
 	// MaxBytes caps which images go to Redis. Logos are a few KB–hundreds of KB.
 	MaxBytes = 1 * 1024 * 1024
 )

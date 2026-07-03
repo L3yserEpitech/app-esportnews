@@ -449,6 +449,22 @@ func liquipediaFileDirectURL(filename string) string {
 	return "https://liquipedia.net/commons/images/" + h[:1] + "/" + h[:2] + "/" + url.PathEscape(name)
 }
 
+// liquipediaFileThumbURL returns the MediaWiki thumbnail URL (~20× lighter than
+// the full file for a logo rendered at 44-96px). Only raster formats: SVG/GIF
+// thumbs use a different naming scheme, so those fall back to the full file.
+// The image proxy retries the original URL if a thumb ever 404s.
+func liquipediaFileThumbURL(filename string, width int) string {
+	name := strings.ReplaceAll(strings.TrimSpace(filename), " ", "_")
+	lower := strings.ToLower(name)
+	if name == "" || !(strings.HasSuffix(lower, ".png") || strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg")) {
+		return liquipediaFileDirectURL(filename)
+	}
+	sum := md5.Sum([]byte(name))
+	h := hex.EncodeToString(sum[:])
+	return fmt.Sprintf("https://liquipedia.net/commons/images/thumb/%s/%s/%s/%dpx-%s",
+		h[:1], h[:2], url.PathEscape(name), width, url.PathEscape(name))
+}
+
 // normalizeMatchOpponents parses match2opponents JSON into PandaOpponent[] and PandaMatchResult[].
 func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []NormalizedMatchResult) {
 	if raw == nil {
@@ -485,19 +501,19 @@ func normalizeMatchOpponents(raw json.RawMessage) ([]NormalizedOpponent, []Norma
 		if opp.IconURL != "" {
 			imageURL = &opp.IconURL
 		} else if opp.Icon != "" {
-			u := liquipediaFileDirectURL(opp.Icon)
+			u := liquipediaFileThumbURL(opp.Icon, 100)
 			imageURL = &u
 		}
 		if opp.IconDarkURL != "" {
 			darkImageURL = &opp.IconDarkURL
 		} else if opp.IconDark != "" {
-			u := liquipediaFileDirectURL(opp.IconDark)
+			u := liquipediaFileThumbURL(opp.IconDark, 100)
 			darkImageURL = &u
 		} else if opp.Icon != "" && strings.Contains(strings.ToLower(opp.Icon), "lightmode") {
 			// Derive dark icon from light icon filename convention
 			darkName := strings.Replace(opp.Icon, "lightmode", "darkmode", 1)
 			darkName = strings.Replace(darkName, "Lightmode", "Darkmode", 1)
-			u := liquipediaFileDirectURL(darkName)
+			u := liquipediaFileThumbURL(darkName, 100)
 			darkImageURL = &u
 		}
 		// If no light URL but dark exists, use dark as fallback

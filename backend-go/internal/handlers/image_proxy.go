@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,10 +26,10 @@ const (
 	proxyMaxBytes      = 5 * 1024 * 1024 // 5 MB max
 	proxyCacheSecs     = 604800          // 7 days browser cache — logos rarely change
 	proxyTimeout       = 10 * time.Second
-	maxConcurrentProxy = 100                  // bulk warm-up: fetch a full page of logos truly in parallel
+	maxConcurrentProxy = 6                    // gentle: 100-parallel full-size bursts got the egress IP 429-blocked for image files too
 	memoryCacheMaxSize = 500                  // max images to keep in memory cache
-	throttleBackoff    = 10 * time.Second     // backoff when upstream returns 429 (rare: image files aren't rate-limited)
-	fetchInterval      = 0 * time.Millisecond // global pacing DISABLED — Liquipedia image files aren't rate-limited (verified); set > 0 to re-enable
+	throttleBackoff    = 60 * time.Second     // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
+	fetchInterval      = 0 * time.Millisecond // per-fetch pacing (concurrency cap above does the smoothing)
 	semaphoreWait      = 15 * time.Second     // max time to wait for semaphore before returning placeholder
 )
 
@@ -281,7 +282,22 @@ func (h *ImageProxyHandler) fetchAndStore(ctx context.Context, rawURL, cacheKey 
 	return res.(*cachedImage), nil
 }
 
+// thumbRe matches MediaWiki thumbnail URLs so a missing thumb (e.g. requested
+// width ≥ source width) can fall back to the original file.
+var thumbRe = regexp.MustCompile(`^(https://[^/]+/commons)/images/thumb/(./../[^/]+)/\d+px-[^/]+$`)
+
 func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
+	img, err := h.fetchOnce(ctx, rawURL, cacheKey)
+	if err == nil {
+		return img, nil
+	}
+	if m := thumbRe.FindStringSubmatch(rawURL); m != nil {
+		return h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey)
+	}
+	return nil, err
+}
+
+func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
 	// Skip while globally throttled by a recent upstream 429.
 	if ts := h.throttledUntil.Load(); ts > 0 {
 		if time.Now().Unix() < ts {
