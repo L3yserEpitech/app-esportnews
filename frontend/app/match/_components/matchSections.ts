@@ -3,7 +3,7 @@
 // Sections each render from PandaMatch and return null when their data is absent.
 
 export const SECTION_IDS = [
-  'header', 'mapVeto', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters',
+  'header', 'gameResults', 'draft', 'playerStats', 'externalLinks', 'stream', 'rosters',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
@@ -14,8 +14,8 @@ const PRESETS: Record<'tier1' | 'valorant' | 'lol' | 'cs' | 'default' | 'smash',
   // Valorant / LoL: gameResults renders per-game blocks embedding draft + stats.
   valorant: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   lol: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
-  // CS: map veto strip on top; no player stats on Liquipedia (HLTV via externalLinks).
-  cs: ['header', 'mapVeto', 'gameResults', 'stream', 'rosters', 'externalLinks'],
+  // CS: no player stats on Liquipedia (HLTV via externalLinks).
+  cs: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   default: ['header', 'gameResults', 'stream', 'rosters', 'externalLinks'],
   // Smash: solo-player — fighters/stocks via playerStats; no draft; rosters self-hide.
   smash: ['header', 'gameResults', 'playerStats', 'stream', 'rosters'],

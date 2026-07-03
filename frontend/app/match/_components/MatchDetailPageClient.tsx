@@ -23,7 +23,6 @@ import DraftPanel from './sections/DraftPanel';
 import PlayerStatsTable from './sections/PlayerStatsTable';
 import RostersPanel from './sections/RostersPanel';
 import ExternalStatsLinks from './sections/ExternalStatsLinks';
-import MapVetoStrip from './sections/counterstrike/MapVetoStrip';
 
 const POLL_MS = 45000;
 
@@ -163,7 +162,6 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
   const renderSection = (id: SectionId) => {
     switch (id) {
       case 'header': return <MatchHeader key={id} {...sectionProps} />;
-      case 'mapVeto': return <MapVetoStrip key={id} {...sectionProps} />;
       case 'gameResults': return <GameResults key={id} {...sectionProps} />;
       case 'draft': return <DraftPanel key={id} {...sectionProps} />;
       case 'playerStats': return <PlayerStatsTable key={id} {...sectionProps} />;

@@ -145,9 +145,6 @@ type NormalizedMatch struct {
 	Vod   *string           `json:"vod,omitempty"`
 	Patch *string           `json:"patch,omitempty"`
 	Links map[string]string `json:"links,omitempty"`
-	// Ordered ban/pick sequence (CS/R6/OW…): entries carry type (ban/pick/decider),
-	// team1/team2 (map chosen at this step) or decider; entry[0] adds vetostart/format.
-	MapVeto []map[string]interface{} `json:"mapveto,omitempty"`
 }
 
 // NormalizedOpponent matches the frontend PandaOpponent interface.
@@ -344,31 +341,11 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		patch = &p
 	}
 	var mvp *string
-	var mapVeto []map[string]interface{}
 	if len(m.ExtraData) > 0 {
 		var ed map[string]interface{}
 		if json.Unmarshal(m.ExtraData, &ed) == nil {
 			if s, ok := ed["mvp"].(string); ok && s != "" {
 				mvp = &s
-			}
-			// Lua tables serialize either as an array or as an object keyed "1","2",…
-			switch raw := ed["mapveto"].(type) {
-			case []interface{}:
-				for _, e := range raw {
-					if entry, ok := e.(map[string]interface{}); ok && len(entry) > 0 {
-						mapVeto = append(mapVeto, entry)
-					}
-				}
-			case map[string]interface{}:
-				for i := 1; ; i++ {
-					e, ok := raw[strconv.Itoa(i)]
-					if !ok {
-						break
-					}
-					if entry, ok := e.(map[string]interface{}); ok && len(entry) > 0 {
-						mapVeto = append(mapVeto, entry)
-					}
-				}
 			}
 		}
 	}
@@ -417,7 +394,6 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		Vod:             vod,
 		Patch:           patch,
 		Links:           links,
-		MapVeto:         mapVeto,
 	}
 }
 

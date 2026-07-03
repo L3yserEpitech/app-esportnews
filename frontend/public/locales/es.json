@@ -579,11 +579,7 @@
         "grubs": "Larvas",
         "atakhans": "Atakhan",
         "inhibitors": "Inhibidores"
-      },
-      "map_veto_title": "Veto de mapas",
-      "veto_ban": "Ban",
-      "veto_pick": "Pick",
-      "veto_decider": "Decider"
+      }
     },
     "team_detail": {
       "loading": "Cargando equipo...",

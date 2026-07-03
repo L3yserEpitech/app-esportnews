@@ -42,26 +42,3 @@ export const CS_SIDE_CLASS: Record<string, string> = {
   ct: 'text-sky-400',
   t: 'text-orange-400',
 };
-
-export type VetoStep = {
-  map: string;
-  type: 'ban' | 'pick' | 'decider';
-  teamIndex: 0 | 1 | null; // null = decider
-};
-
-// Une entrée mapveto peut porter team1 ET team2 (round "pick,pick") ; on la
-// déplie en étapes atomiques dans l'ordre du veto.
-export function flattenVeto(veto: Array<Record<string, string>>): VetoStep[] {
-  const steps: VetoStep[] = [];
-  for (const entry of veto) {
-    const type = (entry.type || '').toLowerCase();
-    if (type === 'decider' || entry.decider) {
-      if (entry.decider) steps.push({ map: entry.decider, type: 'decider', teamIndex: null });
-      continue;
-    }
-    if (type !== 'ban' && type !== 'pick') continue;
-    if (entry.team1) steps.push({ map: entry.team1, type, teamIndex: 0 });
-    if (entry.team2) steps.push({ map: entry.team2, type, teamIndex: 1 });
-  }
-  return steps;
-}

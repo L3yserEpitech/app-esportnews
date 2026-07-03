@@ -581,11 +581,7 @@
         "grubs": "Larven",
         "atakhans": "Atakhan",
         "inhibitors": "Inhibitoren"
-      },
-      "map_veto_title": "Map-Veto",
-      "veto_ban": "Ban",
-      "veto_pick": "Pick",
-      "veto_decider": "Decider"
+      }
     },
     "team_detail": {
       "loading": "Team wird geladen...",
