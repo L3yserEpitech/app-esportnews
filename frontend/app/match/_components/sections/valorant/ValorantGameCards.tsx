@@ -209,8 +209,10 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
               {isGameLive && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--color-status-live)] animate-pulse" />}
 
               <div className="relative h-full flex items-center px-4 md:px-6 gap-3">
-                <div className={`flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0 ${isGameFinished && !isHomeWin ? 'opacity-50' : ''}`}>
-                  <TeamSide team={homeTeam} url={homeUrl} isDark={isDark} winner={isHomeWin} reverse={false} />
+                <div className="flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0">
+                  <div className={isGameFinished && !isHomeWin ? 'opacity-50 min-w-0' : 'min-w-0'}>
+                    <TeamSide team={homeTeam} url={homeUrl} isDark={isDark} winner={isHomeWin} reverse={false} />
+                  </div>
                   {hasScores && (
                     <span className={`ml-auto text-3xl md:text-5xl font-black tabular-nums ${
                       isHomeWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]'
@@ -244,7 +246,7 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                   )}
                 </div>
 
-                <div className={`flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0 justify-end ${isGameFinished && !isAwayWin ? 'opacity-50' : ''}`}>
+                <div className="flex items-center gap-2.5 md:gap-3.5 flex-1 min-w-0 justify-end">
                   {hasScores && (
                     <span className={`mr-auto text-3xl md:text-5xl font-black tabular-nums ${
                       isAwayWin ? 'text-accent drop-shadow-[0_0_12px_rgba(242,46,98,0.45)]' : 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]'
@@ -252,7 +254,9 @@ export default function ValorantGameCards({ match, isDark }: MatchSectionProps) 
                       {awayMapScore}
                     </span>
                   )}
-                  <TeamSide team={awayTeam} url={awayUrl} isDark={isDark} winner={isAwayWin} reverse={true} />
+                  <div className={isGameFinished && !isAwayWin ? 'opacity-50 min-w-0' : 'min-w-0'}>
+                    <TeamSide team={awayTeam} url={awayUrl} isDark={isDark} winner={isAwayWin} reverse={true} />
+                  </div>
                 </div>
               </div>
             </div>
