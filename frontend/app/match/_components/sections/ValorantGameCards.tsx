@@ -8,7 +8,6 @@ import { valorantMapSplash, valorantAgentIcon } from '../../../lib/valorantAsset
 import { teamHref } from '../../../lib/gameLinks';
 import { parseGameWinner, type MatchSectionProps } from './shared';
 import { parseDraft } from './draft';
-import { buildPlayerRows } from './statColumns';
 import type { PandaGame } from '../../../types';
 
 type Team = NonNullable<NonNullable<MatchSectionProps['match']['opponents']>[number]['opponent']>;
@@ -63,37 +62,98 @@ const AgentTile = ({ name }: { name: string }) => {
   );
 };
 
-const StatsTable = ({ game, wiki, teamIndex }: { game: PandaGame; wiki: string; teamIndex: 1 | 2 }) => {
+const statNum = (v: unknown): number | null => {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string' && v.trim() !== '' && !isNaN(+v)) return +v;
+  return null;
+};
+
+const round = (v: unknown): string => {
+  const n = statNum(v);
+  return n === null ? '-' : String(Math.round(n));
+};
+
+const pct = (v: unknown): string => {
+  const n = statNum(v);
+  return n === null ? '-' : `${Math.round(n)}%`;
+};
+
+// vlr.gg-style scoreboard for one team on one map: agent portrait + player,
+// ACS-sorted rows, split K/D/A, computed +/- colored by sign.
+const TeamScoreboard = ({ game, team, teamIndex, isDark }: {
+  game: PandaGame;
+  team?: Team | null;
+  teamIndex: 1 | 2;
+  isDark: boolean;
+}) => {
   const t = useTranslations('pages_detail.match_detail');
-  const { team1, team2, columns } = buildPlayerRows(game, wiki);
-  const rows = teamIndex === 1 ? team1 : team2;
-  if (columns.length === 0 || rows.length === 0) return null;
+  const rows = (game.participants ?? [])
+    .filter(p => p.team === teamIndex)
+    .slice()
+    .sort((a, b) => (statNum(b.extra?.acs) ?? -1) - (statNum(a.extra?.acs) ?? -1));
+  if (rows.length === 0) return null;
+  const logo = pickThemeLogo(isDark, team?.image_url, team?.dark_image_url);
+
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="text-text-muted uppercase tracking-wider text-[10px]">
-          <th className="text-left py-1.5 px-2">{t('stat_col.player')}</th>
-          {columns.map(c => <th key={c.key} className="text-right py-1.5 px-2">{t(`stat_col.${c.label}`)}</th>)}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i} className="border-t border-[var(--color-border-primary)]/15">
-            <td className="text-left py-1.5 px-2 font-semibold text-text-primary truncate">{r.player}</td>
-            {columns.map(c => <td key={c.key} className="text-right py-1.5 px-2 tabular-nums text-text-secondary">{r.cells[c.key]}</td>)}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="rounded-lg border border-[var(--color-border-primary)]/25 bg-[var(--color-bg-primary)]/40 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-secondary)]/60 border-b border-[var(--color-border-primary)]/25">
+        {logo && <img src={proxyImageUrl(logo)} alt="" className="w-4 h-4 object-contain" loading="lazy" />}
+        <span className="text-[11px] font-bold text-text-primary uppercase tracking-wider">{team?.acronym || team?.name || '-'}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="text-text-muted uppercase tracking-wider text-[10px] border-b border-[var(--color-border-primary)]/20">
+              <th className="text-left py-2 pl-3 pr-2 font-semibold">{t('stat_col.player')}</th>
+              <th className="text-center py-2 px-2 font-semibold">{t('stat_col.acs')}</th>
+              <th className="text-center py-2 px-2 font-semibold">K</th>
+              <th className="text-center py-2 px-2 font-semibold">D</th>
+              <th className="text-center py-2 px-2 font-semibold">A</th>
+              <th className="text-center py-2 px-2 font-semibold">+/−</th>
+              <th className="text-center py-2 px-2 font-semibold">{t('stat_col.kast')}</th>
+              <th className="text-center py-2 px-2 pr-3 font-semibold">{t('stat_col.adr')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p, i) => {
+              const icon = valorantAgentIcon(p.character);
+              const diff = p.kills != null && p.deaths != null ? p.kills - p.deaths : null;
+              return (
+                <tr key={i} className={`${i % 2 === 1 ? 'bg-[var(--color-bg-secondary)]/30' : ''} border-t border-[var(--color-border-primary)]/10`}>
+                  <td className="py-2 pl-3 pr-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-md overflow-hidden border border-[var(--color-border-primary)]/30 bg-gradient-to-br from-[#182859]/50 to-[#060B13]/80 flex-shrink-0" title={p.character || ''}>
+                        {icon && <img src={icon} alt={p.character || ''} className="w-full h-full object-cover" loading="lazy" />}
+                      </div>
+                      <span className="font-bold text-text-primary truncate">{p.player || '-'}</span>
+                    </div>
+                  </td>
+                  <td className="text-center py-2 px-2 tabular-nums font-bold text-text-primary">{round(p.extra?.acs)}</td>
+                  <td className="text-center py-2 px-2 tabular-nums font-semibold text-text-primary">{p.kills ?? '-'}</td>
+                  <td className="text-center py-2 px-2 tabular-nums text-text-secondary">{p.deaths ?? '-'}</td>
+                  <td className="text-center py-2 px-2 tabular-nums text-text-secondary">{p.assists ?? '-'}</td>
+                  <td className={`text-center py-2 px-2 tabular-nums font-bold ${
+                    diff === null ? 'text-text-muted' : diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-[var(--color-accent)]' : 'text-text-secondary'
+                  }`}>
+                    {diff === null ? '-' : diff > 0 ? `+${diff}` : diff}
+                  </td>
+                  <td className="text-center py-2 px-2 tabular-nums text-text-secondary">{pct(p.extra?.kast)}</td>
+                  <td className="text-center py-2 px-2 pr-3 tabular-nums text-text-secondary">{round(p.extra?.adr)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
 
 // Per-map blocks: the map splash hero (score) with that game's draft and player
 // stats nested right below it. Valorant-only replacement for the generic
 // gameResults + draft + playerStats trio.
-export default function ValorantGameCards({ match, isDark, game: gameEntry }: MatchSectionProps) {
+export default function ValorantGameCards({ match, isDark }: MatchSectionProps) {
   const t = useTranslations('pages_detail.match_detail');
-  const wiki = match.wiki || gameEntry?.wiki || 'valorant';
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
   const homeUrl = homeTeam ? teamHref({ wiki: match.wiki, template: homeTeam.template, id: homeTeam.id, name: homeTeam.name, acronym: homeTeam.acronym, image_url: homeTeam.image_url }) : null;
@@ -116,8 +176,7 @@ export default function ValorantGameCards({ match, isDark, game: gameEntry }: Ma
         const hasScores = homeMapScore !== undefined && awayMapScore !== undefined;
         const splash = valorantMapSplash(game.map);
         const draft = parseDraft(game);
-        const { team1: statRows1, team2: statRows2, columns } = buildPlayerRows(game, wiki);
-        const hasStats = columns.length > 0 && (statRows1.length > 0 || statRows2.length > 0);
+        const hasStats = (game.participants ?? []).some(p => p.team === 1 || p.team === 2);
         const hasDetails = !!draft || hasStats;
 
         return (
@@ -215,13 +274,9 @@ export default function ValorantGameCards({ match, isDark, game: gameEntry }: Ma
                   </div>
                 )}
                 {hasStats && (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-lg border border-[var(--color-border-primary)]/25 bg-[var(--color-bg-primary)]/30 p-2 overflow-x-auto">
-                      <StatsTable game={game} wiki={wiki} teamIndex={1} />
-                    </div>
-                    <div className="rounded-lg border border-[var(--color-border-primary)]/25 bg-[var(--color-bg-primary)]/30 p-2 overflow-x-auto">
-                      <StatsTable game={game} wiki={wiki} teamIndex={2} />
-                    </div>
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <TeamScoreboard game={game} team={homeTeam} teamIndex={1} isDark={isDark} />
+                    <TeamScoreboard game={game} team={awayTeam} teamIndex={2} isDark={isDark} />
                   </div>
                 )}
               </div>
