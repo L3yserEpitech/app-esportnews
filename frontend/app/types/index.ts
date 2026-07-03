@@ -271,6 +271,7 @@ export interface PandaExpectedRoster {
 export interface PandaPlayer {
   id: number;
   name: string;
+  slug?: string | null;
   role?: string | null;
   image_url?: string | null;
   active?: boolean;
