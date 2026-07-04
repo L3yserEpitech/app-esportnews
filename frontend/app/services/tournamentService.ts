@@ -271,10 +271,10 @@ class TournamentService {
   }
 
   // Tournoi par ID
-  async getTournamentById(id: string): Promise<PandaTournament> {
+  async getTournamentById(id: string, wiki?: string | null): Promise<PandaTournament> {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-      const url = `${baseUrl}/api/tournaments/${id}`;
+      const url = `${baseUrl}/api/tournaments/${id}${wiki ? `?wiki=${encodeURIComponent(wiki)}` : ''}`;
       console.log(`[TournamentService] 📡 GET ${url}`);
 
       const response = await fetch(url, {

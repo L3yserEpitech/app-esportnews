@@ -1,7 +1,15 @@
+import { wikiToSlug } from '../lib/gameRegistry';
+
 export const revalidate = 3600;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+
+// Game-first URL when the wiki is resolvable, legacy /tournois/<id> otherwise.
+const tournamentLoc = (t: any) => {
+  const slug = t.wiki ? wikiToSlug(t.wiki) : undefined;
+  return slug ? `${BASE_URL}/${slug}/tournois/${t.id}` : `${BASE_URL}/tournois/${t.id}`;
+};
 
 export async function GET() {
   let urls = '';
@@ -19,7 +27,7 @@ export async function GET() {
         .map(
           (t: any) => `
   <url>
-    <loc>${BASE_URL}/tournois/${t.id}</loc>
+    <loc>${tournamentLoc(t)}</loc>
     <lastmod>${new Date(t.modified_at || t.begin_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>

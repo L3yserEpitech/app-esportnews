@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Trophy, ChevronRight } from 'lucide-react';
 import { PandaTournament } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
+import { tournamentHref } from '../../lib/gameLinks';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
@@ -64,7 +65,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
 
   return (
     <a
-      href={`/tournois/${tournament.id}`}
+      href={tournamentHref(tournament)}
       className={`group relative flex overflow-hidden rounded-xl border border-border-primary/30 bg-[var(--color-bg-secondary)]/40 transition-all duration-300 hover:bg-[var(--color-bg-hover)] hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 ${
         isFinished ? 'opacity-75 hover:opacity-100' : ''
       }`}

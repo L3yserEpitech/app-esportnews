@@ -1,6 +1,7 @@
 import { Metadata, ResolvingMetadata } from 'next';
 import { notFound } from 'next/navigation';
-import TournamentDetailPageClient from './TournamentDetailPageClient';
+import { wikiToSlug } from '../../lib/gameRegistry';
+import TournamentDetailPageClient from '../_components/TournamentDetailPageClient';
 
 // Générer les métadonnées dynamiques pour chaque tournoi
 export async function generateMetadata(
@@ -29,7 +30,12 @@ export async function generateMetadata(
 
     const tournament = await response.json();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-    const url = `${siteUrl}/tournois/${tournament.id}`;
+    // Canonical points to the game-first URL when the wiki is known, so the
+    // legacy /tournois/<id> URLs consolidate onto /<slug>/tournois/<id>.
+    const slug = tournament.wiki ? wikiToSlug(tournament.wiki) : undefined;
+    const url = slug
+      ? `${siteUrl}/${slug}/tournois/${tournament.id}`
+      : `${siteUrl}/tournois/${tournament.id}`;
 
     return {
       title: `${tournament.name} | Tournoi Esport | EsportNews`,
