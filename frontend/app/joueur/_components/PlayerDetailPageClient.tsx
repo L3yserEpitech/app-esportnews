@@ -52,6 +52,17 @@ function formatMoney(v: number): string {
   return `$${Math.round(v).toLocaleString('en-US')}`;
 }
 
+// Les liens viennent de contenu wiki éditable — n'autoriser que http(s)
+// pour bloquer un éventuel javascript: injecté dans une page Liquipedia.
+function safeUrl(raw: string): string | null {
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 // Tuile de pick signature — icône par jeu quand une source d'assets existe.
 function SignaturePickTile({ pick, wiki, dotaMaps }: { pick: string; wiki: string; dotaMaps: ReturnType<typeof useDotaAssets> }) {
   const icon =
@@ -182,7 +193,10 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
     ? teamHref({ wiki, template: player.team_template, name: team?.name || player.team_pagename?.replace(/_/g, ' ') || '', image_url: team?.image_url })
     : null;
   const isActive = player.status?.toLowerCase() === 'active';
-  const socials = Object.entries(player.links || {}).filter(([k]) => SOCIAL_LABELS[k]);
+  const socials = Object.entries(player.links || {})
+    .filter(([k]) => SOCIAL_LABELS[k])
+    .map(([k, url]) => [k, safeUrl(url)] as const)
+    .filter((e): e is readonly [string, string] => e[1] !== null);
   const recentMatches = (matches?.recent || []).slice(0, 8);
   const upcomingMatches = matches?.upcoming || [];
 
