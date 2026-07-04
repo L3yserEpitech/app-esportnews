@@ -472,7 +472,8 @@
       "teams_count_singular": "equipo",
       "teams_count_plural": "equipos",
       "players_count_singular": "jugador",
-      "players_count_plural": "jugadores"
+      "players_count_plural": "jugadores",
+      "no_roster_info": "No hay información de equipos disponible"
     },
     "match_detail": {
       "loading": "Cargando partido...",
