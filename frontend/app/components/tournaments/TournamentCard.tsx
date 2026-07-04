@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { Trophy } from 'lucide-react';
+import { Trophy, ChevronRight } from 'lucide-react';
 import { PandaTournament } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
 
@@ -12,28 +12,11 @@ interface TournamentCardProps {
   showGameBadge?: boolean;
 }
 
-const getTierColor = (tier: string | null | undefined): string => {
-  if (!tier) return 'bg-[var(--color-tier-d)]';
-  switch (tier.toLowerCase()) {
-    case 's': return 'bg-[var(--color-tier-s)]';
-    case 'a': return 'bg-[var(--color-tier-a)]';
-    case 'b': return 'bg-[var(--color-tier-b)]';
-    case 'c': return 'bg-[var(--color-tier-c)]';
-    case 'd': return 'bg-[var(--color-tier-d)]';
-    default: return 'bg-[var(--color-tier-d)]';
-  }
-};
-
-const getTierDotColor = (tier: string | null | undefined): string => {
-  if (!tier) return 'bg-[var(--color-tier-d)]';
-  switch (tier.toLowerCase()) {
-    case 's': return 'bg-[var(--color-tier-s)]';
-    case 'a': return 'bg-[var(--color-tier-a)]';
-    case 'b': return 'bg-[var(--color-tier-b)]';
-    case 'c': return 'bg-[var(--color-tier-c)]';
-    case 'd': return 'bg-[var(--color-tier-d)]';
-    default: return 'bg-[var(--color-tier-d)]';
-  }
+const tierVar = (tier: string | null | undefined): string => {
+  const t = tier?.toLowerCase();
+  return ['s', 'a', 'b', 'c', 'd'].includes(t || '')
+    ? `var(--color-tier-${t})`
+    : 'var(--color-tier-d)';
 };
 
 const formatDateCompact = (dateString: string) => {
@@ -44,6 +27,9 @@ const formatDateCompact = (dateString: string) => {
   });
 };
 
+// Les noms de ligue Liquipedia sont des pagenames ("BLAST_Premier")
+const cleanLeagueName = (name: string) => name.replace(/_/g, ' ');
+
 const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBadge = false }) => {
   const t = useTranslations();
   const [iconError, setIconError] = useState(false);
@@ -51,11 +37,20 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
   const leagueUrl = tournament.league?.image_url;
   const resolvedIcon = iconUrl && !iconError ? proxyImageUrl(iconUrl) : leagueUrl ? proxyImageUrl(leagueUrl) : null;
 
-  const isLive =
-    tournament.begin_at &&
-    tournament.end_at &&
-    new Date(tournament.begin_at) <= new Date() &&
-    new Date(tournament.end_at) > new Date();
+  const now = Date.now();
+  const beginTs = tournament.begin_at ? new Date(tournament.begin_at).getTime() : null;
+  const endTs = tournament.end_at ? new Date(tournament.end_at).getTime() : null;
+
+  const isLive = tournament.status
+    ? tournament.status === 'running'
+    : beginTs !== null && endTs !== null && beginTs <= now && endTs > now;
+  const isFinished = tournament.status === 'finished' || (endTs !== null && endTs <= now);
+
+  // Progression temporelle du tournoi (uniquement quand il est en cours)
+  const progress =
+    isLive && beginTs !== null && endTs !== null && endTs > beginTs
+      ? Math.min(Math.max((now - beginTs) / (endTs - beginTs), 0.03), 1)
+      : null;
 
   const dateRange = (() => {
     if (!tournament.begin_at) return null;
@@ -65,23 +60,35 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
     return `${start} — ${end}`;
   })();
 
+  const tierColor = tierVar(tournament.tier);
+
   return (
     <a
       href={`/tournois/${tournament.id}`}
-      className="group relative flex overflow-hidden rounded-xl border border-border-primary/30 bg-[#F22E62]/[0.02] transition-all duration-300 hover:bg-[#F22E62]/[0.06] hover:border-[#F22E62]/30 hover:shadow-lg hover:shadow-[#F22E62]/10"
+      className={`group relative flex overflow-hidden rounded-xl border border-border-primary/30 bg-[var(--color-bg-secondary)]/40 transition-all duration-300 hover:bg-[var(--color-bg-hover)] hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 ${
+        isFinished ? 'opacity-75 hover:opacity-100' : ''
+      }`}
     >
-      {/* ── Content ── */}
-      <div className="flex flex-1 min-w-0 items-center px-5 py-4 gap-4">
+      {/* Liseré tier */}
+      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: tierColor }} />
+
+      <div className="flex flex-1 min-w-0 items-center pl-4 pr-4 md:pl-5 md:pr-5 py-4 gap-3.5 md:gap-4">
         {/* Tier badge */}
-        {tournament.tier && (
-          <span className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold text-white uppercase tracking-wider flex-shrink-0 ${getTierColor(tournament.tier)}`}>
-            {tournament.tier.toUpperCase()}
-          </span>
-        )}
+        <span
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold uppercase flex-shrink-0 ring-1"
+          style={{
+            color: tierColor,
+            backgroundColor: `color-mix(in srgb, ${tierColor} 12%, transparent)`,
+            // ring-1 lit ce var pour la bordure teintée
+            ['--tw-ring-color' as string]: `color-mix(in srgb, ${tierColor} 30%, transparent)`,
+          }}
+        >
+          {tournament.tier ? tournament.tier.toUpperCase() : '?'}
+        </span>
 
         {/* Icon */}
         <div className="flex-shrink-0 hidden sm:block">
-          <div className="w-12 h-12 rounded-lg bg-bg-tertiary/60 border border-border-primary/30 overflow-hidden flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-primary)]/60 border border-border-primary/25 overflow-hidden flex items-center justify-center">
             {resolvedIcon ? (
               <Image
                 src={resolvedIcon}
@@ -93,82 +100,71 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
                 onError={() => setIconError(true)}
               />
             ) : (
-              <Trophy className="w-5 h-5 text-text-muted" />
+              <Trophy className="w-5 h-5 text-text-muted/50" />
             )}
           </div>
         </div>
 
         {/* Main info */}
         <div className="flex-1 min-w-0">
-          {/* Row 1: Name + badges */}
-          <div className="flex items-start gap-2 mb-1">
-            <h3 className="text-base font-bold text-text-primary truncate">
-              {tournament.name}
-            </h3>
-          </div>
+          <h3 className="text-[15px] md:text-base font-bold text-text-primary truncate transition-colors group-hover:text-accent">
+            {tournament.name}
+          </h3>
 
-          {/* Row 2: Meta line */}
-          <div className="flex items-center gap-2 flex-wrap text-xs text-text-muted">
+          <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
             {tournament.league?.name && (
-              <span className="truncate max-w-[200px]">{tournament.league.name}</span>
+              <span className="truncate max-w-[200px]">{cleanLeagueName(tournament.league.name)}</span>
             )}
             {tournament.league?.name && dateRange && (
-              <span className="w-px h-3 bg-border-primary/50" />
+              <span className="w-px h-3 bg-border-primary/50 flex-shrink-0" />
             )}
             {dateRange && (
-              <span className="text-text-secondary whitespace-nowrap">{dateRange}</span>
+              <span className="text-text-secondary whitespace-nowrap tabular-nums">{dateRange}</span>
             )}
-            {tournament.region && (
+            {tournament.type && (
               <>
-                <span className="w-px h-3 bg-border-primary/50" />
-                <span className="capitalize whitespace-nowrap">{tournament.region}</span>
+                <span className="hidden md:block w-px h-3 bg-border-primary/50 flex-shrink-0" />
+                <span className="hidden md:inline whitespace-nowrap">{tournament.type}</span>
               </>
             )}
           </div>
+
+          {/* Progression du tournoi en cours */}
+          {progress !== null && (
+            <div className="mt-2 h-[3px] w-full max-w-[220px] rounded-full bg-[var(--color-bg-primary)]/80 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent/70"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Right side: Game + Prizepool + Status */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Game badge */}
-          {tournament.videogame?.slug && (
-            <span className="hidden md:inline-flex px-2.5 py-1 rounded-md text-[11px] font-semibold text-text-secondary bg-bg-tertiary/50 border border-border-primary/30 uppercase tracking-wide">
+        {/* Right side */}
+        <div className="flex items-center gap-2.5 md:gap-3 flex-shrink-0">
+          {showGameBadge && tournament.videogame?.slug && (
+            <span className="hidden md:inline-flex px-2 py-1 rounded-md text-[10px] font-bold text-text-secondary bg-[var(--color-bg-primary)]/50 border border-border-primary/30 uppercase tracking-widest">
               {tournament.videogame.slug.toUpperCase()}
             </span>
           )}
 
-          {/* Prizepool */}
           {tournament.prizepool && (
-            <span className="hidden sm:inline-flex text-sm font-bold text-[#F22E62] whitespace-nowrap">
+            <span className="hidden sm:inline-flex text-sm font-black text-accent tabular-nums whitespace-nowrap drop-shadow-[0_0_10px_rgba(242,46,98,0.25)]">
               {tournament.prizepool}
             </span>
           )}
 
-          {/* Tier dot indicator */}
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${getTierDotColor(tournament.tier)}`} />
-          </div>
-
-          {/* Live indicator */}
           {isLive && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/15 border border-red-500/25 rounded-md text-[11px] font-bold text-red-400 uppercase tracking-wider">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-status-live)]/12 border border-[var(--color-status-live)]/25 rounded-full text-[10px] font-bold text-[var(--color-status-live)] uppercase tracking-wider">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-status-live)] opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-status-live)]" />
               </span>
-              {t('pages.home.tournaments.live_badge')}
+              <span className="hidden sm:inline">{t('pages.home.tournaments.live_badge')}</span>
             </span>
           )}
 
-          {/* Arrow */}
-          <svg
-            className="w-4 h-4 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all flex-shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight className="w-4 h-4 text-text-muted/50 group-hover:text-accent group-hover:translate-x-0.5 transition-all flex-shrink-0" />
         </div>
       </div>
     </a>
