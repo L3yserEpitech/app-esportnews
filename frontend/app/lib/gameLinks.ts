@@ -1,5 +1,22 @@
 import { wikiToSlug } from './gameRegistry';
 
+// Next App Router route params arrive percent-encoded. Decode until stable
+// (bounded) so already double-encoded URLs in the wild resolve too.
+export function decodeRouteParam(value: string): string {
+  let out = value;
+  for (let i = 0; i < 3; i++) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(out);
+    } catch {
+      return out;
+    }
+    if (decoded === out) return out;
+    out = decoded;
+  }
+  return out;
+}
+
 // Narrow structural inputs — decoupled from the full Panda* types so these
 // helpers stay trivially testable. Any object carrying these fields works.
 export interface MatchLinkInput {

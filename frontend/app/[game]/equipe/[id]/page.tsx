@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { slugToWiki } from '../../../lib/gameRegistry';
+import { decodeRouteParam } from '../../../lib/gameLinks';
 import TeamDetailPageClient from '../../../equipe/_components/TeamDetailPageClient';
 
 export async function generateMetadata(
@@ -8,7 +9,8 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const baseUrl_api =
     process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-  const { game, id } = await params;
+  const { game, id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
   const wiki = slugToWiki(game) || '';
 
   try {
@@ -55,7 +57,8 @@ export async function generateMetadata(
 }
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ game: string; id: string }> }) {
-  const { game, id } = await params;
+  const { game, id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
   const wiki = slugToWiki(game) || '';
   return (
     <Suspense>
