@@ -585,7 +585,8 @@
         "barracks": "Barracks",
         "roshans": "Roshan"
       },
-      "penalties": "Elfmeter"
+      "penalties": "Elfmeter",
+      "no_game_details": "Keine detaillierten Informationen für dieses Match verfügbar"
     },
     "team_detail": {
       "loading": "Team wird geladen...",

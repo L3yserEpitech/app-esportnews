@@ -583,7 +583,8 @@
         "barracks": "Barracks",
         "roshans": "Roshan"
       },
-      "penalties": "Penaltis"
+      "penalties": "Penaltis",
+      "no_game_details": "No hay información detallada disponible para este partido"
     },
     "team_detail": {
       "loading": "Cargando equipo...",

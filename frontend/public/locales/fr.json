@@ -585,7 +585,8 @@
         "barracks": "Barracks",
         "roshans": "Roshan"
       },
-      "penalties": "T.A.B."
+      "penalties": "T.A.B.",
+      "no_game_details": "Pas d'informations détaillées disponibles pour ce match"
     },
     "team_detail": {
       "loading": "Chargement de l'équipe...",

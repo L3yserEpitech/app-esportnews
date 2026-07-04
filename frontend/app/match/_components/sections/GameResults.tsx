@@ -17,7 +17,20 @@ import FcGameCards from './easportsfc/FcGameCards';
 export default function GameResults(props: MatchSectionProps) {
   const { match, isDark, game: gameEntry } = props;
   const t = useTranslations('pages_detail.match_detail');
-  if (!match.games || match.games.length === 0) return null;
+
+  // Certains events ne renseignent que le score de série sur Liquipedia
+  // (match2games vide) — on le dit plutôt que de masquer la section.
+  if (!match.games || match.games.length === 0) {
+    return (
+      <section>
+        <SectionHeader icon={Gamepad2} title={t('section_game_details')} />
+        <div className="rounded-xl border border-[var(--color-border-primary)]/30 bg-[var(--color-bg-secondary)]/40 px-4 py-8 flex flex-col items-center gap-2 text-center">
+          <Gamepad2 className="w-5 h-5 text-text-muted/40" />
+          <span className="text-sm text-text-muted">{t('no_game_details')}</span>
+        </div>
+      </section>
+    );
+  }
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;

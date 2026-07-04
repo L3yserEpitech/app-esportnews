@@ -584,7 +584,8 @@
         "barracks": "Barracks",
         "roshans": "Roshan"
       },
-      "penalties": "Pens"
+      "penalties": "Pens",
+      "no_game_details": "No detailed information available for this match"
     },
     "team_detail": {
       "loading": "Loading team...",

@@ -585,7 +585,8 @@
         "barracks": "Barracks",
         "roshans": "Roshan"
       },
-      "penalties": "Rigori"
+      "penalties": "Rigori",
+      "no_game_details": "Nessuna informazione dettagliata disponibile per questa partita"
     },
     "team_detail": {
       "loading": "Caricamento squadra...",
