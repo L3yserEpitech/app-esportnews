@@ -162,8 +162,10 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		return nil, false
 	}
 
-	// Helper: on-demand fetch from Liquipedia for a given wiki
-	fetchOnDemand := func(wiki string) (*models.NormalizedTournament, bool) {
+	// Helper: on-demand fetch from Liquipedia for a given wiki. transient=true
+	// when at least one upstream call failed (429 backoff, budget, network) —
+	// the tournament may exist but be temporarily unreachable.
+	fetchOnDemandDetailed := func(wiki string) (t *models.NormalizedTournament, found bool, transient bool) {
 		_, isNumeric := strconv.Atoi(decodedID)
 		conditions := []string{fmt.Sprintf("[[pagename::%s]]", decodedID)}
 		if isNumeric == nil {
@@ -177,6 +179,7 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 
 			data, err := h.liqService.MakeRequest(ctx, wiki, "tournament", params, cacheKey, services.TTLTournamentDetail)
 			if err != nil {
+				transient = true
 				continue
 			}
 			resp, err := services.ParseResponse(data)
@@ -188,9 +191,13 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 				continue
 			}
 			normalized := models.NormalizeLiqTournament(liqT, wiki)
-			return &normalized, true
+			return &normalized, true, false
 		}
-		return nil, false
+		return nil, false, transient
+	}
+	fetchOnDemand := func(wiki string) (*models.NormalizedTournament, bool) {
+		t, found, _ := fetchOnDemandDetailed(wiki)
+		return t, found
 	}
 
 	// Helper: return enriched tournament + store wiki hint for future lookups
@@ -203,6 +210,31 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		}
 		enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
 		return c.JSON(http.StatusOK, enriched)
+	}
+
+	// Wiki-scoped path (game-first URLs /<slug>/tournois/<id>): cache-first,
+	// then a single on-demand fetch — no 10-wiki scan, no cross-wiki budget cost.
+	if wikiParam := c.QueryParam("wiki"); wikiParam != "" {
+		wiki, ok := models.GameWikiMapping[wikiParam]
+		if !ok {
+			if _, exists := models.WikiToAcronym[wikiParam]; exists {
+				wiki = wikiParam
+			} else {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "unknown game/wiki: " + wikiParam})
+			}
+		}
+		if t, found := findInCache(wiki); found {
+			return returnTournament(*t, wiki)
+		}
+		t, found, transient := fetchOnDemandDetailed(wiki)
+		if found {
+			return returnTournament(*t, wiki)
+		}
+		if transient {
+			// 503 (not 404) so a valid tournament isn't de-indexed on a 429 blip.
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "tournament temporarily unavailable"})
+		}
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "tournament not found"})
 	}
 
 	allWikis := getAllWikis()
