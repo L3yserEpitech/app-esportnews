@@ -75,15 +75,15 @@ func (sp *LiqSquadPlayer) UniqueKey() string {
 
 // NormalizedTeam matches the frontend Team interface from teamService.ts.
 type NormalizedTeam struct {
-	ID               int                 `json:"id"`
-	Name             string              `json:"name"`
-	Location         string              `json:"location"`
-	Slug             string              `json:"slug"`
+	ID               int                  `json:"id"`
+	Name             string               `json:"name"`
+	Location         string               `json:"location"`
+	Slug             string               `json:"slug"`
 	Players          []NormalizedPlayer   `json:"players"`
-	ModifiedAt       string              `json:"modified_at"`
-	Acronym          string              `json:"acronym"`
-	ImageURL         string              `json:"image_url"`
-	DarkModeImageURL *string             `json:"dark_mode_image_url"`
+	ModifiedAt       string               `json:"modified_at"`
+	Acronym          string               `json:"acronym"`
+	ImageURL         string               `json:"image_url"`
+	DarkModeImageURL *string              `json:"dark_mode_image_url"`
 	CurrentVideogame *NormalizedVideogame `json:"current_videogame,omitempty"`
 }
 
@@ -200,11 +200,13 @@ func NormalizeLiqSquadPlayer(sp LiqSquadPlayer) NormalizedPlayer {
 	}
 
 	return NormalizedPlayer{
-		Active:      isActive,
-		ID:          playerID,
-		Name:        sp.ID, // IGN / pseudo
-		Role:        role,
-		Slug:        pageNameToSlug(sp.Link),
+		Active: isActive,
+		ID:     playerID,
+		Name:   sp.ID, // IGN / pseudo
+		Role:   role,
+		// Case-preserving: the slug feeds /joueur/<pagename> lookups and
+		// Liquipedia pagenames are case-sensitive past the first letter.
+		Slug:        strings.ReplaceAll(sp.Link, " ", "_"),
 		ModifiedAt:  time.Now().UTC().Format(time.RFC3339),
 		Age:         nil, // Not available from squadplayer endpoint
 		Birthday:    nil, // Not available from squadplayer endpoint
@@ -259,14 +261,14 @@ type TeamLinks struct {
 // Returned by GET /api/teams/:id/detail.
 type EnrichedTeamDetail struct {
 	// Base team fields (backward compatible with NormalizedTeam)
-	ID               int                 `json:"id"`
-	Name             string              `json:"name"`
-	Location         string              `json:"location"`
-	Slug             string              `json:"slug"`
-	ModifiedAt       string              `json:"modified_at"`
-	Acronym          string              `json:"acronym"`
-	ImageURL         string              `json:"image_url"`
-	DarkModeImageURL *string             `json:"dark_mode_image_url"`
+	ID               int                  `json:"id"`
+	Name             string               `json:"name"`
+	Location         string               `json:"location"`
+	Slug             string               `json:"slug"`
+	ModifiedAt       string               `json:"modified_at"`
+	Acronym          string               `json:"acronym"`
+	ImageURL         string               `json:"image_url"`
+	DarkModeImageURL *string              `json:"dark_mode_image_url"`
 	CurrentVideogame *NormalizedVideogame `json:"current_videogame,omitempty"`
 
 	// Enriched team fields from LiqTeam

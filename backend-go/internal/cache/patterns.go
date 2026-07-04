@@ -18,24 +18,26 @@ const (
 	CacheUserFavorites   = "cache:user:favorites:%d"
 
 	// Liquipedia API cache keys — populated by poller & webhooks, read by handlers
-	LiqMatchesRunning  = "liq:matches:running:%s"  // %s = wiki (e.g. "valorant")
-	LiqMatchesUpcoming = "liq:matches:upcoming:%s"
-	LiqMatchesPast     = "liq:matches:past:%s"
-	LiqMatchesByDate   = "liq:matches:date:%s:%s" // %s = wiki, %s = YYYY-MM-DD
-	LiqMatch           = "liq:match:%s:%s"         // %s = wiki, %s = match id/page
+	LiqMatchesRunning      = "liq:matches:running:%s" // %s = wiki (e.g. "valorant")
+	LiqMatchesUpcoming     = "liq:matches:upcoming:%s"
+	LiqMatchesPast         = "liq:matches:past:%s"
+	LiqMatchesByDate       = "liq:matches:date:%s:%s" // %s = wiki, %s = YYYY-MM-DD
+	LiqMatch               = "liq:match:%s:%s"        // %s = wiki, %s = match id/page
 	LiqTournamentsRunning  = "liq:tournaments:running:%s"
 	LiqTournamentsUpcoming = "liq:tournaments:upcoming:%s"
 	LiqTournamentsFinished = "liq:tournaments:finished:%s"
-	LiqTournamentsByDate   = "liq:tournaments:date:%s:%s"    // %s = wiki, %s = YYYY-MM-DD
-	LiqTournament          = "liq:tournament:%s:%s"          // %s = wiki, %s = tournament id/page
-	LiqTournamentMatches   = "liq:tournament:matches:%s:%s" // %s = wiki, %s = tournament pagename
-	LiqTournamentSquads    = "liq:tournament:squads:%s:%s" // %s = wiki, %s = tournament pagename
-	LiqTeamSearch          = "liq:teams:search:%s:%s"      // %s = wiki, %s = query
-	LiqTeam                = "liq:team:%s:%s"              // %s = wiki, %s = team id/page
-	LiqTeamSquad           = "liq:team:squad:%s:%s"        // %s = wiki, %s = team pagename
+	LiqTournamentsByDate   = "liq:tournaments:date:%s:%s"      // %s = wiki, %s = YYYY-MM-DD
+	LiqTournament          = "liq:tournament:%s:%s"            // %s = wiki, %s = tournament id/page
+	LiqTournamentMatches   = "liq:tournament:matches:%s:%s"    // %s = wiki, %s = tournament pagename
+	LiqTournamentSquads    = "liq:tournament:squads:%s:%s"     // %s = wiki, %s = tournament pagename
+	LiqTeamSearch          = "liq:teams:search:%s:%s"          // %s = wiki, %s = query
+	LiqTeam                = "liq:team:%s:%s"                  // %s = wiki, %s = team id/page
+	LiqTeamSquad           = "liq:team:squad:%s:%s"            // %s = wiki, %s = team pagename
 	LiqTeamMatchesRecent   = "liq:team:matches:recent:%s:%s"   // %s = wiki, %s = team template
 	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
 	LiqTeamPlacements      = "liq:team:placements:%s:%s"       // %s = wiki, %s = team name
+	LiqPlayer              = "liq:player:%s:%s"                // %s = wiki, %s = player pagename
+	LiqPlayerTransfers     = "liq:player:transfers:%s:%s"      // %s = wiki, %s = player id
 
 	// Wiki hint — maps tournament/match ID to its wiki to avoid scanning all 10 wikis
 	LiqWikiHint = "liq:wikihint:%s" // %s = tournament/match ID
@@ -181,6 +183,14 @@ func LiqTeamMatchesUpcomingKey(wiki, teamTemplate string) string {
 
 func LiqTeamPlacementsKey(wiki, teamName string) string {
 	return fmt.Sprintf(LiqTeamPlacements, wiki, teamName)
+}
+
+func LiqPlayerKey(wiki, pagename string) string {
+	return fmt.Sprintf(LiqPlayer, wiki, pagename)
+}
+
+func LiqPlayerTransfersKey(wiki, playerID string) string {
+	return fmt.Sprintf(LiqPlayerTransfers, wiki, playerID)
 }
 
 // LiqWikiHintKey returns the Redis key for a tournament/match → wiki mapping.
