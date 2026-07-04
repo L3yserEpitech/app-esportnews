@@ -466,6 +466,7 @@ Query params communs : `game=valorant` (acronyme), `limit`, `offset`, `sort=date
 | `GET` | `/api/teams/:id/detail` | – | Détails enrichis (roster, achievements) |
 | `GET` | `/api/teams/:id/matches?type=recent\|upcoming` | – | Matchs récents/à venir de l'équipe |
 | `GET` | `/api/teams/:id/placements` | – | Placements en tournoi |
+| `GET` | `/api/players/:pagename?wiki=` | – | Profil joueur + transferts (`players.go` — wiki requis, 404 réel / 503 transitoire, fallback casse 1ʳᵉ lettre) |
 | `GET` | `/api/users/favorite-teams` | JWT | Équipes favorites (enrichies depuis Liquipedia) |
 | `GET` | `/api/users/favorite-teams/ids` | JWT | Juste les IDs (rapide) |
 | `POST` | `/api/users/favorite-teams/:teamId` | JWT | Ajouter aux favoris |

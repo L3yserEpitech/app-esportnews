@@ -617,6 +617,18 @@
       "total_tournaments": "Torneos",
       "see_all_results_short": "Ver todos los resultados",
       "see_all_short": "Ver todo"
+    },
+    "player_detail": {
+      "loading": "Cargando jugador...",
+      "not_available": "Jugador no disponible",
+      "years_old": "años",
+      "signature_picks": "Picks distintivos",
+      "upcoming_matches": "Próximos partidos",
+      "recent_matches": "Partidos recientes",
+      "earnings_by_year": "Ganancias por año",
+      "total": "en total",
+      "career": "Trayectoria",
+      "career_start": "Inicio de carrera"
     }
   },
   "toast": {

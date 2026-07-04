@@ -618,6 +618,18 @@
       "total_tournaments": "Tournaments",
       "see_all_results_short": "See all results",
       "see_all_short": "See all"
+    },
+    "player_detail": {
+      "loading": "Loading player...",
+      "not_available": "Player unavailable",
+      "years_old": "years old",
+      "signature_picks": "Signature picks",
+      "upcoming_matches": "Upcoming matches",
+      "recent_matches": "Recent matches",
+      "earnings_by_year": "Earnings by year",
+      "total": "total",
+      "career": "Career",
+      "career_start": "Career start"
     }
   },
   "toast": {
