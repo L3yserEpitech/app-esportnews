@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { slugToWiki } from '../../../lib/gameRegistry';
+import { decodeRouteParam } from '../../../lib/gameLinks';
 import TournamentDetailPageClient from '../../../tournois/_components/TournamentDetailPageClient';
 
 interface TournamentPageProps {
@@ -22,7 +23,8 @@ async function fetchTournament(game: string, id: string): Promise<Response | und
 }
 
 export async function generateMetadata({ params }: TournamentPageProps): Promise<Metadata> {
-  const { game, id } = await params;
+  const { game, id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
 
   const fallback = { title: 'Tournoi | EsportNews', description: 'Consultez les tournois esport sur EsportNews' };
   const response = await fetchTournament(game, id);
@@ -61,7 +63,8 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
 }
 
 export default async function TournamentDetailPage({ params }: TournamentPageProps) {
-  const { game, id } = await params;
+  const { game, id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
   // [game] validity is enforced by app/[game]/layout.tsx.
   const wiki = slugToWiki(game);
   if (!wiki) {

@@ -38,9 +38,12 @@ export function matchHref(match: MatchLinkInput): string {
 }
 
 // tournamentHref builds the game-first /<slug>/tournois/<id>, same fallback.
+// The id may be a Liquipedia pagename ("Project_Blender/2025/Phase_4") — its
+// slashes must stay inside the single [id] segment, hence the encoding.
 export function tournamentHref(t: TournamentLinkInput): string {
+  const idSeg = encodeURIComponent(String(t.id));
   const slug = t.wiki ? wikiToSlug(t.wiki) : undefined;
-  return slug ? `/${slug}/tournois/${t.id}` : `/tournois/${t.id}`;
+  return slug ? `/${slug}/tournois/${idSeg}` : `/tournois/${idSeg}`;
 }
 
 export interface TeamLinkInput {

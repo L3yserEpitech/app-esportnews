@@ -1,6 +1,7 @@
 import { Metadata, ResolvingMetadata } from 'next';
 import { notFound } from 'next/navigation';
 import { wikiToSlug } from '../../lib/gameRegistry';
+import { decodeRouteParam } from '../../lib/gameLinks';
 import TournamentDetailPageClient from '../_components/TournamentDetailPageClient';
 
 // Générer les métadonnées dynamiques pour chaque tournoi
@@ -9,11 +10,12 @@ export async function generateMetadata(
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const baseUrl_api = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
 
   try {
     // Récupérer le tournoi
-    const response = await fetch(`${baseUrl_api}/api/tournaments/${id}`, {
+    const response = await fetch(`${baseUrl_api}/api/tournaments/${encodeURIComponent(id)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -66,7 +68,8 @@ export async function generateMetadata(
 }
 
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
 
   // Return a real 404 for a genuinely missing tournament (e.g. a stale
   // PandaScore-era URL still indexed) instead of a soft-404. Only 404 on an

@@ -11,7 +11,7 @@ import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import AdColumn from '../../components/ads/AdColumn';
 import { Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
-import { teamHref } from '../../lib/gameLinks';
+import { teamHref, tournamentHref } from '../../lib/gameLinks';
 
 interface ResultatsPageClientProps {
   teamId: string;
@@ -162,9 +162,10 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
                 : '';
 
               return (
-                <div
+                <Link
                   key={p.tournament_page + '_' + i}
-                  className="group relative border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
+                  href={tournamentHref({ wiki, id: p.tournament_page })}
+                  className="group relative block border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                   style={{ animation: i < 30 ? 'fadeSlideIn 0.3s ease both' : undefined, animationDelay: i < 30 ? `${i * 20}ms` : undefined }}
                 >
                   {/* Desktop row */}
@@ -184,7 +185,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
                           <img src={proxyImageUrl(pickThemeLogo(isDark, p.icon_url, p.icon_dark_url)!)} alt="" className="w-4 h-4 object-contain" loading="lazy" />
                         </div>
                       )}
-                      <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate transition-colors group-hover:text-[var(--color-accent)]">
                         {p.tournament}
                       </span>
                       <span className="hidden lg:inline text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-primary)]/60 px-1.5 py-0.5 rounded flex-shrink-0">
@@ -260,7 +261,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

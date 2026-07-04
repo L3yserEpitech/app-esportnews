@@ -17,7 +17,7 @@ import AdColumn from '../../components/ads/AdColumn';
 import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
-import { teamResultatsHref } from '../../lib/gameLinks';
+import { teamResultatsHref, tournamentHref } from '../../lib/gameLinks';
 import 'flag-icons/css/flag-icons.min.css';
 import { countryCode } from '../../lib/countryCodes';
 
@@ -656,8 +656,9 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                       : '';
 
                     return (
-                      <div
+                      <Link
                         key={p.tournament_page + '_' + i}
+                        href={tournamentHref({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki, id: p.tournament_page })}
                         className="group relative grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto_auto] gap-2 sm:gap-3 items-center px-4 py-2.5 border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                         style={{ animation: 'fadeSlideIn 0.3s ease both', animationDelay: `${i * 25}ms` }}
                       >
@@ -679,7 +680,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                               <img src={proxyImageUrl(pickThemeLogo(isDark, p.icon_url, p.icon_dark_url)!)} alt="" className="w-4 h-4 object-contain" loading="lazy" />
                             </div>
                           )}
-                          <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                          <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate transition-colors group-hover:text-[var(--color-accent)]">
                             {p.tournament}
                           </span>
                           <span className="hidden lg:inline text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-primary)]/60 px-1.5 py-0.5 rounded flex-shrink-0">
@@ -728,7 +729,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                           {prizeFormatted && <span className="font-bold">{prizeFormatted}</span>}
                           <span className="tabular-nums">{dateFormatted}</span>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
