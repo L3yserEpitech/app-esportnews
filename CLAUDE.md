@@ -1178,6 +1178,25 @@ Les images de **joueurs pros** n'existent dans aucune de ces APIs (Liquipedia le
 
 **Pour ajouter un rendu custom à un jeu** : 1) créer `sections/<jeu>/` avec `<jeu>Assets.ts` (mapping statique) et le composant de blocs par game, 2) brancher dans `GameResults.tsx` (test sur `match.wiki`), 3) ajouter le preset dans `matchSections.ts`, 4) décliner les éléments du design system ci-dessus (hero d'arène/champ de bataille, tuiles de picks, scoreboard aux colonnes du jeu via `statColumns.ts`).
 
+### 18.4 Page détail tournoi — architecture modulaire par jeu
+
+Même pattern que les matchs, en plus simple (**la data tournoi Liquipedia est game-agnostic** — vérifié empiriquement 2026-07 sur 8 wikis : même schéma partout, extradata par jeu marginale : `maps` (map pool) sur CS, `dpcpoints`/`leagueid` sur Dota, `gamechangers` sur Valo, `mode` sur RL ; **Smash est la vraie exception** : events solo, `doubles_prizepool`/`doubles_participantsnumber`, circuits, `winner`/`runnerup` + `winnerheads` intégrés au record).
+
+**Fichiers** : `frontend/app/tournois/_components/`
+```
+tournamentSections.ts        — registre : SECTION_IDS + PRESETS (default | solo) + PRESET_BY_WIKI
+TournamentDetailPageClient.tsx — shell : resolveSections(wiki) → renderSection(id)
+sections/
+├── shared.tsx               — TournamentSectionProps + groupMatchesByDate
+├── TournamentHeader.tsx, LiveMatches.tsx, BracketSection.tsx,
+│   AllMatches.tsx, RostersSection.tsx, RelatedNews.tsx
+```
+
+* **Presets** : `default` = header/liveMatches/bracket/allMatches/rosters/relatedNews ; `solo` (smash, easportsfc) = sans rosters (jeux 1v1, pas d'équipes).
+* **URLs game-first** : `/<slug>/tournois/<id>` (`app/[game]/tournois/[id]/page.tsx`, SSR + metadata + vrai 404). La route legacy `/tournois/[id]` reste servie, son canonical + og:url pointent vers l'URL game-first quand `tournament.wiki` est connu. `tournamentHref()` (`lib/gameLinks.ts`) génère les liens partout (TournamentCard, page jeux, sitemap).
+* **Backend** : `GET /api/tournaments/:id?wiki=<wiki|acronyme>` — chemin scoped cache-first puis 1 fetch on-demand (pas de scan 10 wikis) ; 404 seulement si Liquipedia répond vide, **503 si échec transitoire** (429/budget) pour ne pas dé-indexer un tournoi valide (même politique que les matchs).
+* La section « Équipes & Rosters » réutilise le `PlayerCard` global et le `SectionHeader` du design system match.
+
 ---
 
 ## 19) Conventions de travail
