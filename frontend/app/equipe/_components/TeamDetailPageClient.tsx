@@ -18,6 +18,8 @@ import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import { teamResultatsHref } from '../../lib/gameLinks';
+import 'flag-icons/css/flag-icons.min.css';
+import { countryCode } from '../../lib/countryCodes';
 
 interface TeamDetailPageClientProps {
   teamId: string;
@@ -50,6 +52,7 @@ function PlayerRow({ player, index, isFormer = false }: { player: Player; index:
   const rc = getRoleConfig(player.role);
   const initials = player.name.slice(0, 2).toUpperCase();
   const num = String(index + 1).padStart(2, '0');
+  const flagCode = countryCode(player.nationality);
 
   return (
     <div
@@ -82,19 +85,26 @@ function PlayerRow({ player, index, isFormer = false }: { player: Player; index:
         {isFormer ? '—' : num}
       </span>
 
-      {/* Avatar */}
+      {/* Avatar — photo si dispo, sinon drapeau du pays, sinon initiales */}
       <div
-        className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs border border-[var(--color-border-primary)]/60"
+        className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center font-bold text-xs border border-[var(--color-border-primary)]/60"
         style={{
           background: 'var(--color-bg-tertiary)',
           color: rc?.color ?? 'var(--color-text-muted)',
           letterSpacing: '-0.03em',
         }}
+        title={player.nationality || undefined}
       >
-        {player.image_url
-          ? <img src={proxyImageUrl(player.image_url)} alt="" className="w-full h-full object-cover" loading="lazy" />
-          : initials
-        }
+        {player.image_url ? (
+          <img src={proxyImageUrl(player.image_url)} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : flagCode ? (
+          <span
+            className={`fi fi-${flagCode} fis ${isFormer ? 'grayscale' : ''}`}
+            style={{ width: '100%', height: '100%', fontSize: 'unset', lineHeight: 'unset', backgroundSize: 'cover' }}
+          />
+        ) : (
+          initials
+        )}
       </div>
 
       {/* Name block */}
