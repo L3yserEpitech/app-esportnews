@@ -92,21 +92,14 @@ export default function HomePageClient() {
     }
   }, [selectedGame, games, isLoadingGames]);
 
-  // Recharger les matchs quand selectedGame change
+  // Charger les matchs quand les jeux finissent de charger ou quand selectedGame change
+  // (games volontairement hors des deps pour éviter un refetch à chaque nouvelle référence)
   useEffect(() => {
     if (!isLoadingGames && games.length > 0) {
       loadBestMatches();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGame]); // Se déclencher UNIQUEMENT quand selectedGame change
-
-  // Charger les matchs quand les jeux sont chargés pour la première fois
-  useEffect(() => {
-    if (!isLoadingGames && games.length > 0) {
-      loadBestMatches();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingGames]); // Se déclencher quand isLoadingGames passe de true à false
+  }, [selectedGame, isLoadingGames]);
 
   // Charger les publicités depuis l'API
   const loadAds = useCallback(async () => {
