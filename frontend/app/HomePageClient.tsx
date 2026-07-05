@@ -125,11 +125,11 @@ export default function HomePageClient() {
     loadAds();
   }, [loadAds]);
 
-  // Charger tous les articles depuis l'API
+  // Charger les 7 articles les plus récents depuis l'API (1 vedette + 6 en liste)
   const loadAllNews = useCallback(async () => {
     try {
       setIsLoadingNews(true);
-      const allArticles = await articleService.getAllArticles();
+      const allArticles = await articleService.getAllArticles({ limit: 7 });
 
       if (allArticles.length > 0) {
         // Article en vedette : le plus récent
