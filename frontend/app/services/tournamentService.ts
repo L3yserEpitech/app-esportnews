@@ -97,7 +97,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -127,7 +126,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -158,7 +156,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -182,7 +179,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -206,7 +202,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -230,7 +225,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -254,7 +248,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -282,7 +275,6 @@ class TournamentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       console.log(`[TournamentService] Response status: ${response.status}`);

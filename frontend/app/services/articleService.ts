@@ -32,7 +32,6 @@ class ArticleService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -108,7 +107,6 @@ class ArticleService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -172,7 +170,6 @@ class ArticleService {
       const res = await fetch(`${this.baseUrl}/api/articles/search?${params.toString()}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
         signal: options?.signal,
       });
       if (!res.ok) {
@@ -209,7 +206,6 @@ class ArticleService {
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {

@@ -5,14 +5,11 @@ class AdvertisementService {
 
   async getActiveAdvertisements(): Promise<Advertisement[]> {
     try {
-      // Ajouter un timestamp pour éviter le cache du navigateur
-      const timestamp = Date.now();
-      const response = await fetch(`${this.baseUrl}/api/ads?t=${timestamp}`, {
+      const response = await fetch(`${this.baseUrl}/api/ads`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
       });
 
       if (!response.ok) {
