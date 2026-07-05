@@ -17,7 +17,7 @@ import AdColumn from '../../components/ads/AdColumn';
 import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
-import { teamResultatsHref, tournamentHref } from '../../lib/gameLinks';
+import { teamResultatsHref, tournamentHref, playerHref } from '../../lib/gameLinks';
 import 'flag-icons/css/flag-icons.min.css';
 import { countryCode } from '../../lib/countryCodes';
 
@@ -48,29 +48,32 @@ function getRoleConfig(role?: string | null): RoleConfig | null {
 // ─────────────────────────────────────────────────────────────────────────────
 // Player row — editorial roster table
 // ─────────────────────────────────────────────────────────────────────────────
-function PlayerRow({ player, index, isFormer = false }: { player: Player; index: number; isFormer?: boolean }) {
+function PlayerRow({ player, index, isFormer = false, wiki }: { player: Player; index: number; isFormer?: boolean; wiki?: string | null }) {
   const rc = getRoleConfig(player.role);
   const initials = player.name.slice(0, 2).toUpperCase();
   const num = String(index + 1).padStart(2, '0');
   const flagCode = countryCode(player.nationality);
+  const playerUrl = player.slug ? playerHref({ wiki, pagename: player.slug }) : null;
 
-  return (
-    <div
-      className="group relative flex items-center gap-3 sm:gap-4 px-4 py-3 transition-colors duration-100 cursor-default border-b border-[var(--color-border-primary)]/20"
-      style={{
-        opacity: isFormer ? 0.42 : 1,
-        animation: 'fadeSlideIn 0.3s ease both',
-        animationDelay: `${index * 35}ms`,
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-secondary)';
-        if (isFormer) (e.currentTarget as HTMLElement).style.opacity = '0.7';
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = 'transparent';
-        if (isFormer) (e.currentTarget as HTMLElement).style.opacity = '0.42';
-      }}
-    >
+  const rowProps = {
+    className: `group relative flex items-center gap-3 sm:gap-4 px-4 py-3 transition-colors duration-100 border-b border-[var(--color-border-primary)]/20 ${playerUrl ? 'cursor-pointer' : 'cursor-default'}`,
+    style: {
+      opacity: isFormer ? 0.42 : 1,
+      animation: 'fadeSlideIn 0.3s ease both',
+      animationDelay: `${index * 35}ms`,
+    },
+    onMouseEnter: (e: React.MouseEvent) => {
+      (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-secondary)';
+      if (isFormer) (e.currentTarget as HTMLElement).style.opacity = '0.7';
+    },
+    onMouseLeave: (e: React.MouseEvent) => {
+      (e.currentTarget as HTMLElement).style.background = 'transparent';
+      if (isFormer) (e.currentTarget as HTMLElement).style.opacity = '0.42';
+    },
+  };
+
+  const inner = (
+    <>
       {/* Hover left accent */}
       <div
         className="absolute left-0 top-2 bottom-2 w-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-full"
@@ -110,7 +113,7 @@ function PlayerRow({ player, index, isFormer = false }: { player: Player; index:
       {/* Name block */}
       <div className="flex-1 min-w-0">
         <span
-          className="block font-bold truncate leading-tight transition-colors duration-100 group-hover:text-[var(--color-text-primary)]"
+          className={`block font-bold truncate leading-tight transition-colors duration-100 ${playerUrl ? 'group-hover:text-[var(--color-accent)]' : 'group-hover:text-[var(--color-text-primary)]'}`}
           style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', letterSpacing: '-0.01em' }}
         >
           {player.name}
@@ -144,8 +147,13 @@ function PlayerRow({ player, index, isFormer = false }: { player: Player; index:
           {player.nationality || '—'}
         </span>
       </div>
-    </div>
+    </>
   );
+
+  if (playerUrl) {
+    return <Link href={playerUrl} {...rowProps}>{inner}</Link>;
+  }
+  return <div {...rowProps}>{inner}</div>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -577,7 +585,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
 
                 {/* Active players */}
                 {activePlayers.map((player, i) => (
-                  <PlayerRow key={player.id} player={player} index={i} />
+                  <PlayerRow key={player.id} player={player} index={i} wiki={wiki || (team as EnrichedTeamDetail)?.wiki} />
                 ))}
 
                 {/* Coaches */}
@@ -587,7 +595,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                       <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(251,191,36,0.5)' }}>Staff</span>
                     </div>
                     {coaches.map((player, i) => (
-                      <PlayerRow key={player.id} player={player} index={activePlayers.length + i} />
+                      <PlayerRow key={player.id} player={player} index={activePlayers.length + i} wiki={wiki || (team as EnrichedTeamDetail)?.wiki} />
                     ))}
                   </>
                 )}
@@ -599,7 +607,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                       <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)]">Anciens joueurs</span>
                     </div>
                     {formerPlayers.map((player, i) => (
-                      <PlayerRow key={player.id} player={player} index={i} isFormer />
+                      <PlayerRow key={player.id} player={player} index={i} isFormer wiki={wiki || (team as EnrichedTeamDetail)?.wiki} />
                     ))}
                   </>
                 )}
