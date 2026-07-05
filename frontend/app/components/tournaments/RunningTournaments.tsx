@@ -7,6 +7,23 @@ import { tournamentService } from '../../services/tournamentService';
 import { PandaTournament } from '../../types';
 import TournamentCard from './TournamentCard';
 
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const TIER_ORDER: Record<string, number> = { s: 0, a: 1, b: 2, c: 3, d: 4 };
+
+const sortByTier = (list: PandaTournament[]): PandaTournament[] =>
+  [...list].sort((a, b) => {
+    const ta = TIER_ORDER[a.tier?.toLowerCase() || ''] ?? 9;
+    const tb = TIER_ORDER[b.tier?.toLowerCase() || ''] ?? 9;
+    if (ta !== tb) return ta - tb;
+    return new Date(a.begin_at || 0).getTime() - new Date(b.begin_at || 0).getTime();
+  });
+
 const RunningTournaments: React.FC = () => {
   const t = useTranslations();
   const { selectedGame, getSelectedGameData } = useGame();
@@ -21,16 +38,16 @@ const RunningTournaments: React.FC = () => {
   const hasMoreTournaments = useMemo(() => tournaments.length > 6, [tournaments.length]);
   const memoizedTournaments = useMemo(() => tournaments, [tournaments]);
 
-  // Fonction pour charger les tournois (d'un jeu spécifique)
-  const loadTournaments = useCallback(async (gameAcronym: string) => {
-    if (!gameAcronym) return;
-
+  // Tournois actifs à la date du jour (by-date, on-demand) — même source que
+  // la page /tournois en mode calendrier, donc cache Redis partagé.
+  const loadTournaments = useCallback(async (gameAcronym?: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      const tournamentsData = await tournamentService.getRunningTournaments(gameAcronym, 'tier');
-      setTournaments(tournamentsData);
+      const today = formatDateToYYYYMMDD(new Date());
+      const tournamentsData = await tournamentService.getTournamentsByDate(today, gameAcronym);
+      setTournaments(sortByTier(Array.isArray(tournamentsData) ? tournamentsData : []));
     } catch (err) {
       console.error('Error loading tournaments:', err);
       setError('Erreur lors du chargement des tournois');
@@ -39,21 +56,7 @@ const RunningTournaments: React.FC = () => {
     }
   }, []);
 
-  // Fonction pour charger tous les tournois (tous jeux confondus)
-  const loadAllTournaments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const tournamentsData = await tournamentService.getAllRunningTournaments('tier');
-      setTournaments(tournamentsData);
-    } catch (err) {
-      console.error('Error loading all tournaments:', err);
-      setError('Erreur lors du chargement des tournois');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadAllTournaments = useCallback(() => loadTournaments(undefined), [loadTournaments]);
 
   // Charger les tournois quand le jeu sélectionné change
   useEffect(() => {
@@ -171,27 +174,26 @@ const RunningTournaments: React.FC = () => {
       )}
 
       {loading ? (
-        // Skeleton loading
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        // Skeleton loading — même silhouette que la card horizontale
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {[...Array(6)].map((_, index) => (
-            <div key={index} className="bg-bg-secondary rounded-xl border border-border-secondary overflow-hidden animate-pulse">
-              <div className="h-48 bg-bg-tertiary" />
-              <div className="p-4">
-                <div className="h-4 bg-bg-tertiary rounded mb-2" />
-                <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
-                <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
-                <div className="flex justify-between">
-                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
+            <div key={index} className="flex overflow-hidden rounded-xl border border-border-primary/30 bg-bg-secondary animate-pulse">
+              <div className="flex flex-1 items-center px-5 py-4 gap-4">
+                <div className="w-8 h-8 rounded-lg bg-bg-tertiary flex-shrink-0" />
+                <div className="w-12 h-12 rounded-xl bg-bg-tertiary/60 flex-shrink-0 hidden sm:block" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-bg-tertiary rounded w-3/5" />
+                  <div className="h-3 bg-bg-tertiary rounded w-2/5" />
                 </div>
+                <div className="h-4 bg-bg-tertiary rounded w-16 hidden sm:block" />
               </div>
             </div>
           ))}
         </div>
       ) : memoizedTournaments.length > 0 ? (
         <div>
-          {/* Grille des tournois */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Cards horizontales — 1 colonne, 2 en très large */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {displayedTournaments.map((tournament) => (
               <TournamentCard
                 key={tournament.id}
