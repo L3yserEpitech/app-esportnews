@@ -9,6 +9,7 @@ import { matchService } from '../../services/matchService';
 import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
 import AdColumn from '../../components/ads/AdColumn';
+import ContentLoader from '../../components/ui/ContentLoader';
 import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
 import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
 import { prewarmFromData } from '../../lib/imageProxy';
@@ -131,15 +132,15 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
 
   if (loading || !match) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative w-14 h-14 mx-auto mb-5">
-            <div className="absolute inset-0 border border-border-primary rounded-xl" />
-            <div className="absolute inset-0 border border-transparent border-t-accent rounded-xl animate-spin" />
-            <Swords className="absolute inset-0 m-auto w-5 h-5 text-accent/50" />
+      <div className="min-h-screen bg-bg-primary">
+        <main className="container mx-auto px-4 pt-24 md:pt-27 pb-16">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('loading')} icon={Swords} />
+            </div>
+            <AdColumn ads={memoizedAds} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
           </div>
-          <p className="text-text-muted text-xs uppercase tracking-[0.2em] font-semibold">{t('loading')}</p>
-        </div>
+        </main>
       </div>
     );
   }

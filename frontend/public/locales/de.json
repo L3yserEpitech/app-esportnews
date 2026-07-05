@@ -388,8 +388,10 @@
         "start_typing": "Beginnen Sie mit der Eingabe, um zu suchen",
         "search_by": "Suchen Sie nach Titel, Beschreibung, Kategorie, Autor oder Tags",
         "no_results": "Keine Ergebnisse gefunden",
-        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern"
-      }
+        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern",
+        "searching": "Suche läuft..."
+      },
+      "loading": "Artikel werden geladen..."
     },
     "calendar": {
       "type_affichage": "Anzeigetyp",

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
-  Shield, Trophy, Calendar, MapPin, ExternalLink, Loader2, Gamepad2,
+  Shield, Trophy, Calendar, MapPin, ExternalLink, Gamepad2,
   ArrowRight, Banknote, Users,
 } from 'lucide-react';
 import 'flag-icons/css/flag-icons.min.css';
@@ -22,6 +22,7 @@ import { useDotaAssets, dotaHeroImage } from '../../match/_components/sections/d
 import { owHeroPortrait } from '../../match/_components/sections/overwatch/owAssets';
 import TournamentMatchCard from '../../components/tournaments/TournamentMatchCard';
 import AdColumn from '../../components/ads/AdColumn';
+import ContentLoader from '../../components/ui/ContentLoader';
 import LiquipediaBadge from '../../components/common/LiquipediaBadge';
 
 interface PlayerDetailPageClientProps {
@@ -173,11 +174,15 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)] mx-auto mb-3" />
-          <p className="text-[var(--color-text-secondary)]">{t('loading')}</p>
-        </div>
+      <div className="min-h-screen bg-[var(--color-bg-primary)]">
+        <main className="container mx-auto px-4 pt-24 md:pt-27 pb-16">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('loading')} icon={Gamepad2} />
+            </div>
+            <AdColumn ads={ads} isSubscribed={false} isLoading={isLoadingAds} />
+          </div>
+        </main>
       </div>
     );
   }
@@ -375,9 +380,7 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
                   ) : undefined}
                 />
                 {matchesLoading ? (
-                  <div className="flex justify-center py-10">
-                    <Loader2 className="w-5 h-5 animate-spin text-accent" />
-                  </div>
+                  <ContentLoader label={t('loading')} icon={Gamepad2} compact />
                 ) : (
                   <div className="space-y-1.5">
                     {recentMatches.map(m => (

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { Search, X, ChevronLeft, ChevronRight, ArrowUpDown, Check, Calendar, Trophy, Star } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, ArrowUpDown, Check, Calendar, Trophy, Star, Swords } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import { useGame } from '../contexts/GameContext';
 import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { LiveMatch, Advertisement } from '../types';
@@ -311,27 +312,6 @@ const MatchPage: React.FC = () => {
   const handleNextRange = useCallback(() => {
     setDateRangeOffset((prev) => prev + 1);
   }, []);
-
-  // Loading skeletons (horizontal row style matching TournamentMatchCard)
-  const loadingSkeletons = useMemo(() =>
-    [...Array(8)].map((_, index) => (
-      <div key={`skeleton-${index}`} className="flex overflow-hidden rounded-lg border border-border-primary/30 bg-bg-secondary animate-pulse">
-        <div className="w-[3px] bg-bg-tertiary flex-shrink-0" />
-        <div className="flex-1 flex items-center px-2 sm:px-4 py-3 gap-3">
-          <div className="w-10 h-4 rounded bg-bg-tertiary flex-shrink-0" />
-          <div className="flex-1 flex items-center justify-end gap-2">
-            <div className="h-3.5 bg-bg-tertiary rounded w-20 hidden sm:block" />
-            <div className="w-7 h-7 rounded bg-bg-tertiary flex-shrink-0" />
-          </div>
-          <div className="w-14 h-5 rounded bg-bg-tertiary flex-shrink-0" />
-          <div className="flex-1 flex items-center gap-2">
-            <div className="w-7 h-7 rounded bg-bg-tertiary flex-shrink-0" />
-            <div className="h-3.5 bg-bg-tertiary rounded w-20 hidden sm:block" />
-          </div>
-          <div className="w-6 h-6 rounded bg-bg-tertiary flex-shrink-0 hidden md:block" />
-        </div>
-      </div>
-    )), []);
 
   // Grouper les matchs par statut : top tier, live, à venir, terminés
   const matchesByStatus = useMemo(() => {
@@ -667,9 +647,7 @@ const MatchPage: React.FC = () => {
               {/* Liste des matchs — key force React à détruire/recréer le DOM à chaque changement de date */}
               <div key={selectedDateStr}>
                 {loading ? (
-                  <div className="space-y-1.5">
-                    {loadingSkeletons}
-                  </div>
+                  <ContentLoader label={t('pages_detail.match.loading')} icon={Swords} />
                 ) : sortedMatches.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-text-muted text-lg">

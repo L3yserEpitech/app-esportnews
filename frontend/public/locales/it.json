@@ -388,8 +388,10 @@
         "start_typing": "Inizia a digitare per cercare",
         "search_by": "Cerca per titolo, descrizione, categoria, autore o tag",
         "no_results": "Nessun risultato trovato",
-        "try_other_keywords": "Prova con altre parole chiave"
-      }
+        "try_other_keywords": "Prova con altre parole chiave",
+        "searching": "Ricerca in corso..."
+      },
+      "loading": "Caricamento articoli..."
     },
     "calendar": {
       "type_affichage": "Tipo di visualizzazione",

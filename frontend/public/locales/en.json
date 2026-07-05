@@ -386,8 +386,10 @@
         "start_typing": "Start typing to search",
         "search_by": "Search by title, description, category, author or tags",
         "no_results": "No results found",
-        "try_other_keywords": "Try with other keywords"
-      }
+        "try_other_keywords": "Try with other keywords",
+        "searching": "Searching..."
+      },
+      "loading": "Loading articles..."
     },
     "calendar": {
       "type_affichage": "Display type",

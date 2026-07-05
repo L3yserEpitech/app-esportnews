@@ -9,7 +9,9 @@ import { tournamentService } from '@/app/services/tournamentService';
 import { matchService } from '@/app/services/matchService';
 import { advertisementService } from '@/app/services/advertisementService';
 import { articleService } from '@/app/services/articleService';
+import { Trophy } from 'lucide-react';
 import AdColumn from '@/app/components/ads/AdColumn';
+import ContentLoader from '@/app/components/ui/ContentLoader';
 import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 import { prewarmFromData } from '@/app/lib/imageProxy';
@@ -153,11 +155,15 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
 
   if (loading || !tournament) {
     return (
-      <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-[var(--color-text-secondary)]">{t('loading')}</p>
-        </div>
+      <div className="min-h-screen bg-[var(--color-bg-primary)]">
+        <main className="container mx-auto px-4 pt-24 md:pt-27 pb-16">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('loading')} icon={Trophy} />
+            </div>
+            <AdColumn ads={memoizedAds} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
+          </div>
+        </main>
       </div>
     );
   }

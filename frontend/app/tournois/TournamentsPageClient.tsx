@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, Check } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, Check, Trophy } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import { useGame } from '../contexts/GameContext';
 import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { PandaTournament, Advertisement } from '../types';
@@ -298,22 +299,6 @@ const TournamentsPage: React.FC = () => {
     }));
   }, []);
 
-  // Loading skeletons
-  const loadingSkeletons = useMemo(() =>
-    [...Array(8)].map((_, index) => (
-      <div key={`skeleton-${index}`} className="flex overflow-hidden rounded-xl border border-border-primary/30 bg-bg-secondary animate-pulse">
-        <div className="flex flex-1 items-center px-5 py-4 gap-4">
-          <div className="w-8 h-5 rounded bg-bg-tertiary flex-shrink-0" />
-          <div className="w-12 h-12 rounded-lg bg-bg-tertiary/60 flex-shrink-0 hidden sm:block" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-bg-tertiary rounded w-3/5" />
-            <div className="h-3 bg-bg-tertiary rounded w-2/5" />
-          </div>
-          <div className="h-4 bg-bg-tertiary rounded w-20 hidden sm:block" />
-        </div>
-      </div>
-    )), []);
-
   // Tournaments grid
   const tournamentsGrid = useMemo(() =>
     filteredTournaments.map((tournament) => (
@@ -577,9 +562,7 @@ const TournamentsPage: React.FC = () => {
               )}
 
               {loading ? (
-                <div className="flex flex-col gap-3">
-                  {loadingSkeletons}
-                </div>
+                <ContentLoader label={t('pages_detail.calendar.loading_tournaments')} icon={Trophy} />
               ) : filteredTournaments.length > 0 ? (
                 <div className="flex flex-col gap-3">
                   {tournamentsGrid}

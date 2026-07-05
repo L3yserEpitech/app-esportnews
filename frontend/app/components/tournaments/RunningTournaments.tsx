@@ -6,6 +6,8 @@ import { useGame } from '../../contexts/GameContext';
 import { tournamentService } from '../../services/tournamentService';
 import { PandaTournament } from '../../types';
 import TournamentCard from './TournamentCard';
+import ContentLoader from '../ui/ContentLoader';
+import { Trophy } from 'lucide-react';
 
 const formatDateToYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
@@ -174,22 +176,7 @@ const RunningTournaments: React.FC = () => {
       )}
 
       {loading ? (
-        // Skeleton loading — même silhouette que la card horizontale
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-          {[...Array(6)].map((_, index) => (
-            <div key={index} className="flex overflow-hidden rounded-xl border border-border-primary/30 bg-bg-secondary animate-pulse">
-              <div className="flex flex-1 items-center px-5 py-4 gap-4">
-                <div className="w-8 h-8 rounded-lg bg-bg-tertiary flex-shrink-0" />
-                <div className="w-12 h-12 rounded-xl bg-bg-tertiary/60 flex-shrink-0 hidden sm:block" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-bg-tertiary rounded w-3/5" />
-                  <div className="h-3 bg-bg-tertiary rounded w-2/5" />
-                </div>
-                <div className="h-4 bg-bg-tertiary rounded w-16 hidden sm:block" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <ContentLoader label={t('pages_detail.calendar.loading_tournaments')} icon={Trophy} />
       ) : memoizedTournaments.length > 0 ? (
         <div>
           {/* Cards horizontales — 1 colonne, 2 en très large */}

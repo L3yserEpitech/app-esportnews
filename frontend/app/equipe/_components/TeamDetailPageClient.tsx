@@ -8,12 +8,13 @@ import { useToast } from '../../contexts/ToastContext';
 import LiquipediaBadge from '../../components/common/LiquipediaBadge';
 import {
   Shield, Users, Trophy, Calendar, MapPin, ExternalLink,
-  Loader2, Gamepad2, ChevronDown, ChevronUp,
+  Gamepad2, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { teamService, EnrichedTeamDetail, Team, Player, TeamMatchesResponse, TeamPlacement } from '../../services/teamService';
 import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import TournamentMatchCard from '../../components/tournaments/TournamentMatchCard';
 import AdColumn from '../../components/ads/AdColumn';
+import ContentLoader from '../../components/ui/ContentLoader';
 import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
@@ -342,42 +343,18 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
     loadPlacements();
   }, [team, wiki]);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (loading) {
+  // ── Loading (aussi affiché sur erreur : le redirect est déjà déclenché) ──
+  if (loading || error || !team) {
     return (
       <div className="min-h-screen bg-[var(--color-bg-body)] pt-20">
-        <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-          <div className="animate-pulse h-52 rounded-2xl bg-[var(--color-bg-secondary)]" />
-          <div className="grid grid-cols-1 gap-2">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse h-14 rounded-lg bg-[var(--color-bg-secondary)]"
-                style={{ animationDelay: `${i * 60}ms` }}
-              />
-            ))}
+        <main className="container mx-auto px-4 py-10">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('loading')} icon={Shield} />
+            </div>
+            <AdColumn ads={ads} isLoading={isLoadingAds} />
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Error / No data (redirect already triggered, show loading while navigating) ──
-  if (error || !team) {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg-body)] pt-20">
-        <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-          <div className="animate-pulse h-52 rounded-2xl bg-[var(--color-bg-secondary)]" />
-          <div className="grid grid-cols-1 gap-2">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse h-14 rounded-lg bg-[var(--color-bg-secondary)]"
-                style={{ animationDelay: `${i * 60}ms` }}
-              />
-            ))}
-          </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -634,9 +611,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                 </Link>
               </div>
               {placementsLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#fbbf24' }} />
-                </div>
+                <ContentLoader label={t('loading')} icon={Trophy} compact />
               ) : (
                 <>
                 <div className="rounded-xl overflow-hidden border border-[var(--color-border-primary)]/30 bg-[var(--color-bg-secondary)]">
@@ -760,9 +735,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                 />
               </div>
               {matchesLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#22d3ee' }} />
-                </div>
+                <ContentLoader label={t('loading')} icon={Calendar} compact />
               ) : matches?.upcoming && matches.upcoming.length > 0 ? (
                 <div className="space-y-1.5">
                   {(matches.upcoming as PandaMatch[]).map(match => (
@@ -787,9 +760,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
                 />
               </div>
               {matchesLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#F22E62' }} />
-                </div>
+                <ContentLoader label={t('loading')} icon={Gamepad2} compact />
               ) : matches?.recent && matches.recent.length > 0 ? (
                 <div className="space-y-1.5">
                   {(matches.recent as PandaMatch[]).map(match => (

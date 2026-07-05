@@ -7,7 +7,8 @@ import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import RunningTournaments from './components/tournaments/RunningTournaments';
 import { useTranslations } from 'next-intl';
-import { Star } from 'lucide-react';
+import { Star, Swords } from 'lucide-react';
+import ContentLoader from './components/ui/ContentLoader';
 import { Match, NewsItem, Advertisement, LiveMatch } from './types';
 import { matchService } from './services/matchService';
 import { advertisementService } from './services/advertisementService';
@@ -182,7 +183,7 @@ export default function HomePageClient() {
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
             {/* Section Meilleurs matchs du jour */}
-            {memoizedBestMatches.length > 0 && (
+            {(isLoadingMatches || memoizedBestMatches.length > 0) && (
               <section aria-labelledby="best-matches">
                 <div className="flex items-center gap-3 mb-3">
                   <Star className="w-3.5 h-3.5 text-[var(--color-tier-s)]" />
@@ -190,14 +191,20 @@ export default function HomePageClient() {
                     {t('pages.home.best_matches.title')}
                   </span>
                   <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
-                  <span className="text-xs text-[var(--color-text-muted)]">
-                    {memoizedBestMatches.length} match{memoizedBestMatches.length > 1 ? 's' : ''}
-                  </span>
+                  {!isLoadingMatches && (
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      {memoizedBestMatches.length} match{memoizedBestMatches.length > 1 ? 's' : ''}
+                    </span>
+                  )}
                 </div>
-                <LiveMatchesCarousel
-                  matches={memoizedBestMatches}
-                  isLoading={isLoadingMatches}
-                />
+                {isLoadingMatches ? (
+                  <ContentLoader label={t('pages_detail.match.loading')} icon={Swords} compact />
+                ) : (
+                  <LiveMatchesCarousel
+                    matches={memoizedBestMatches}
+                    isLoading={isLoadingMatches}
+                  />
+                )}
               </section>
             )}
 

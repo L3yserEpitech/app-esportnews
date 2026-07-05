@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X } from 'lucide-react';
+import { Search, X, Newspaper } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import AdColumn from '../components/ads/AdColumn';
 import ArticleCard from '../components/article/ArticleCard';
 import FeaturedArticleCard from '../components/article/FeaturedArticleCard';
 import { NewsItem, Advertisement } from '../types';
 import { articleService } from '../services/articleService';
 import { advertisementService } from '../services/advertisementService';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useArticleSearch } from '../hooks/useArticleSearch';
 import {
   Dialog,
@@ -172,8 +172,15 @@ export default function ArticlesPageClient() {
 
   if (isLoadingArticles) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen bg-bg-primary">
+        <main className="container mx-auto px-4 py-8 pt-24">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('pages_detail.articles.loading')} icon={Newspaper} />
+            </div>
+            <AdColumn ads={ads} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
+          </div>
+        </main>
       </div>
     );
   }
@@ -360,10 +367,7 @@ export default function ArticlesPageClient() {
               </div>
             ) : isLoadingSearch ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <LoadingSpinner size="lg" />
-                  <p className="text-text-secondary text-lg mt-4">Recherche en cours…</p>
-                </div>
+                <ContentLoader label={t('pages_detail.articles.search.searching')} icon={Search} compact />
               </div>
             ) : filteredArticles.length === 0 ? (
               <div className="flex items-center justify-center h-full">

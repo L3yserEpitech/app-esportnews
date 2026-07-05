@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft, Loader2, Trophy, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Trophy, AlertCircle } from 'lucide-react';
+import ContentLoader from '../../components/ui/ContentLoader';
 import { teamService, TeamPlacement } from '../../services/teamService';
 import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
@@ -128,9 +129,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
 
         {/* Loading */}
         {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-[var(--color-accent)]" />
-          </div>
+          <ContentLoader label={t('loading')} icon={Trophy} />
         ) : placements.length === 0 ? (
           <div className="text-center py-20 text-[var(--color-text-muted)]">
             {t('no_matches')}

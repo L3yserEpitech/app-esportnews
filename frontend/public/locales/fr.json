@@ -387,8 +387,10 @@
         "start_typing": "Commencez à taper pour rechercher",
         "search_by": "Recherchez par titre, description, catégorie, auteur ou tags",
         "no_results": "Aucun résultat trouvé",
-        "try_other_keywords": "Essayez avec d'autres mots-clés"
-      }
+        "try_other_keywords": "Essayez avec d'autres mots-clés",
+        "searching": "Recherche en cours..."
+      },
+      "loading": "Chargement des articles..."
     },
     "calendar": {
       "type_affichage": "Type d'affichage",

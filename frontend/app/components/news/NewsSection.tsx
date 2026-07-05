@@ -6,7 +6,8 @@ import { NewsItem } from '../../types';
 import ArticleCard from '../article/ArticleCard';
 import FeaturedArticleCard from '../article/FeaturedArticleCard';
 import Button from '../ui/Button';
-import NewsSkeleton from '../ui/NewsSkeleton';
+import ContentLoader from '../ui/ContentLoader';
+import { Newspaper } from 'lucide-react';
 
 interface NewsSectionProps {
   featuredNews?: NewsItem | null;
@@ -62,28 +63,25 @@ const NewsSection: React.FC<NewsSectionProps> = ({
         </Button>
       </div>
 
-      {/* Article en vedette */}
       {isLoading ? (
-        <NewsSkeleton variant="featured" className="w-full" />
-      ) : memoizedFeaturedNews ? (
-        <FeaturedArticleCard
-          article={memoizedFeaturedNews}
-        />
-      ) : null}
+        <ContentLoader label={t('pages_detail.articles.loading')} icon={Newspaper} />
+      ) : (
+        <>
+          {/* Article en vedette */}
+          {memoizedFeaturedNews && (
+            <FeaturedArticleCard
+              article={memoizedFeaturedNews}
+            />
+          )}
 
-      {/* Liste des actualités */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {isLoading ? (
-          // Afficher 6 skeletons pendant le chargement (2 rangées × 3 colonnes)
-          Array.from({ length: 6 }).map((_, index) => (
-            <NewsSkeleton key={`skeleton-${index}`} variant="list" />
-          ))
-        ) : (
-          memoizedNewsList.map((news) => (
-            <ArticleCard key={news.id} article={news} />
-          ))
-        )}
-      </div>
+          {/* Liste des actualités */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {memoizedNewsList.map((news) => (
+              <ArticleCard key={news.id} article={news} />
+            ))}
+          </div>
+        </>
+      )}
 
       {!isLoading && !hasNews && (
         <div className="text-center py-12">
