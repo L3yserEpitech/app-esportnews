@@ -272,7 +272,8 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "tournament not found"})
 }
 
-// ListTournamentsByDate retrieves tournaments overlapping a specific date (on-demand, cache-aside).
+// ListTournamentsByDate retrieves tournaments overlapping a specific date.
+// Cache-first from the poller caches inside their coverage window, on-demand fallback otherwise.
 func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
 	defer cancel()
@@ -281,7 +282,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 	if date == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "date parameter required"})
 	}
-	_, err := time.Parse("2006-01-02", date)
+	dateTime, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid date format, expected YYYY-MM-DD"})
 	}
@@ -292,9 +293,36 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
+	// Poller coverage: finished cache = J-30 ; upcoming cache = startdate ASC
+	// limit 5000 → J-30/J+14 is fully served from Redis, zero Liquipedia call
+	// (calendar navigation caused the 2026-07-05 Cloudflare IP ban).
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -30)) && !dateTime.After(today.AddDate(0, 0, 14))
+
+	var allTournaments []models.NormalizedTournament
+	globalSeen := make(map[string]bool)
+	fallbackWikis := wikis
+
+	if inPollerWindow {
+		fallbackWikis = nil
+		for _, w := range wikis {
+			cached, ok := h.tournamentsForDateFromPollerCache(ctx, w, date)
+			if !ok {
+				fallbackWikis = append(fallbackWikis, w)
+				continue
+			}
+			h.log.WithFields(logrus.Fields{"wiki": w, "date": date, "count": len(cached)}).Info("[BYDATE] served from poller cache")
+			for _, t := range cached {
+				if !globalSeen[t.PageName] {
+					globalSeen[t.PageName] = true
+					allTournaments = append(allTournaments, t)
+				}
+			}
+		}
+	}
+
 	// Tournaments overlapping the given date: startdate < date+1 AND enddate > date-1
 	// Liquipedia API doesn't support <= and >= operators
-	dateTime, _ := time.Parse("2006-01-02", date)
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
 	prevDay := dateTime.Add(-24 * time.Hour).Format("2006-01-02")
 	conditions := fmt.Sprintf(
@@ -306,9 +334,9 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 		tournaments []models.NormalizedTournament
 		err         error
 	}
-	results := make(chan wikiResult, len(wikis))
+	results := make(chan wikiResult, len(fallbackWikis))
 
-	for _, wiki := range wikis {
+	for _, wiki := range fallbackWikis {
 		go func(w string) {
 			cacheKey := cache.LiqTournamentsByDateKey(w, date)
 			params := url.Values{}
@@ -328,9 +356,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 		}(wiki)
 	}
 
-	var allTournaments []models.NormalizedTournament
-	globalSeen := make(map[string]bool)
-	for i := 0; i < len(wikis); i++ {
+	for i := 0; i < len(fallbackWikis); i++ {
 		res := <-results
 		if res.err != nil {
 			h.log.WithError(res.err).Warn("Error fetching tournaments by date for a wiki")
@@ -562,6 +588,51 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 		Teams:                teams,
 		ExpectedRoster:       rosters,
 	}
+}
+
+// tournamentsForDateFromPollerCache reads the three poller caches of a wiki and
+// returns the tournaments active on dateStr — zero Liquipedia call. ok=false when
+// a cache key is missing (cold Redis / poller off) so the caller falls back on-demand.
+func (h *TournamentHandler) tournamentsForDateFromPollerCache(ctx context.Context, wiki, dateStr string) ([]models.NormalizedTournament, bool) {
+	var all []models.NormalizedTournament
+	for _, keyFunc := range []func(string) string{
+		cache.LiqTournamentsRunningKey,
+		cache.LiqTournamentsUpcomingKey,
+		cache.LiqTournamentsFinishedKey,
+	} {
+		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+		if err != nil || data == "" {
+			return nil, false
+		}
+		parsed, err := parseTournaments([]byte(data), wiki)
+		if err != nil {
+			return nil, false
+		}
+		all = append(all, parsed...)
+	}
+	return filterTournamentsActiveOn(all, dateStr), true
+}
+
+// filterTournamentsActiveOn keeps tournaments active on dateStr (startdate <= D <= enddate),
+// deduplicated by pagename — same overlap semantics as the on-demand condition
+// [[startdate::<D+1]] AND [[enddate::>D-1]].
+func filterTournamentsActiveOn(tournaments []models.NormalizedTournament, dateStr string) []models.NormalizedTournament {
+	out := make([]models.NormalizedTournament, 0)
+	seen := make(map[string]bool)
+	for _, t := range tournaments {
+		if t.BeginAt == nil || t.EndAt == nil || len(*t.BeginAt) < 10 || len(*t.EndAt) < 10 {
+			continue
+		}
+		// BeginAt/EndAt are "YYYY-MM-DDT00:00:00Z" — lexicographic compare on the date prefix
+		if (*t.BeginAt)[:10] > dateStr || (*t.EndAt)[:10] < dateStr {
+			continue
+		}
+		if !seen[t.PageName] {
+			seen[t.PageName] = true
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // readTournamentsFromCache reads tournaments from Redis for one or more wikis,

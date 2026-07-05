@@ -156,7 +156,8 @@ func (h *MatchHandler) GetPastMatches(c echo.Context) error {
 	return c.JSON(http.StatusOK, matches)
 }
 
-// GetMatchesByDate returns matches for a specific date (on-demand, cache-aside).
+// GetMatchesByDate returns matches for a specific date.
+// Cache-first from the poller caches inside their coverage window, on-demand fallback otherwise.
 // Returns NormalizedMatch[] with status derived per match.
 func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
@@ -185,14 +186,33 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 
-	// Cache-first for ANY date: the poller's running+upcoming+past caches span a
-	// wide window, so serve the requested date from cache whenever it has matches —
-	// zero API calls, and resilient to rate-limits and client/server clock skew.
-	// Fall back to on-demand only on a cache miss (e.g. dates outside the window).
-	if cached, ok := h.getMatchesForDateFromCache(ctx, wikis, date); ok && len(cached) > 0 {
-		sortNormalizedMatchesAsc(cached)
-		h.log.WithField("count", len(cached)).Debug("Served matches for date from poller cache")
-		return c.JSON(http.StatusOK, cached)
+	// Poller coverage: past cache = J-7 ; upcoming cache = date ASC limit 5000
+	// (nearest-first, >5000 matches within 14 days never happens) → J-7/J+14 is
+	// fully served from Redis, zero Liquipedia call. Days with zero matches are
+	// answered from cache too — calendar navigation must not fan out to the API
+	// (cause of the 2026-07-05 Cloudflare IP ban).
+	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -7)) && !dateTime.After(today.AddDate(0, 0, 14))
+
+	var allMatches []models.NormalizedMatch
+	globalSeen := make(map[string]bool)
+	fallbackWikis := wikis
+
+	if inPollerWindow {
+		fallbackWikis = nil
+		for _, w := range wikis {
+			cached, ok := h.matchesForDateFromPollerCache(ctx, w, date)
+			if !ok {
+				fallbackWikis = append(fallbackWikis, w)
+				continue
+			}
+			h.log.WithFields(logrus.Fields{"wiki": w, "date": date, "count": len(cached)}).Info("[BYDATE] served from poller cache")
+			for _, m := range cached {
+				if key := m.UniqueKey(); !globalSeen[key] {
+					globalSeen[key] = true
+					allMatches = append(allMatches, models.NormalizeLiqMatch(m, w, ""))
+				}
+			}
+		}
 	}
 
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
@@ -212,9 +232,9 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		matches []models.LiqMatch
 		err     error
 	}
-	results := make(chan wikiResult, len(wikis))
+	results := make(chan wikiResult, len(fallbackWikis))
 
-	for _, wiki := range wikis {
+	for _, wiki := range fallbackWikis {
 		go func(w string) {
 			cacheKey := cache.LiqMatchesByDateKey(w, date)
 			params := url.Values{}
@@ -238,9 +258,7 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		}(wiki)
 	}
 
-	var allMatches []models.NormalizedMatch
-	globalSeen := make(map[string]bool)
-	for i := 0; i < len(wikis); i++ {
+	for i := 0; i < len(fallbackWikis); i++ {
 		select {
 		case res := <-results:
 			if res.err != nil {
@@ -449,87 +467,46 @@ func (h *MatchHandler) findMatchInCache(ctx context.Context, wiki, matchID strin
 	return nil, false
 }
 
-// getMatchesForDateFromCache combines poller caches (running + upcoming + past)
-// and returns the matches dated dateStr without any Liquipedia API call.
-// Returns (matches, true) if any cache key had data, or (nil, false) to signal fallback.
-func (h *MatchHandler) getMatchesForDateFromCache(ctx context.Context, wikis []string, dateStr string) ([]models.NormalizedMatch, bool) {
-	type cacheSource struct {
-		keyFunc func(string) string
+// matchesForDateFromPollerCache reads the three poller caches of a wiki and
+// returns the matches dated dateStr — zero Liquipedia call. ok=false when a
+// cache key is missing (cold Redis / poller off) so the caller falls back on-demand.
+func (h *MatchHandler) matchesForDateFromPollerCache(ctx context.Context, wiki, dateStr string) ([]models.LiqMatch, bool) {
+	var all []models.LiqMatch
+	for _, keyFunc := range []func(string) string{
+		cache.LiqMatchesRunningKey,
+		cache.LiqMatchesUpcomingKey,
+		cache.LiqMatchesPastKey,
+	} {
+		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+		if err != nil || data == "" {
+			return nil, false
+		}
+		parsed, err := parseAndFilterMatches([]byte(data), nil)
+		if err != nil {
+			return nil, false
+		}
+		all = append(all, parsed...)
 	}
-	sources := []cacheSource{
-		{cache.LiqMatchesRunningKey},
-		{cache.LiqMatchesUpcomingKey},
-		{cache.LiqMatchesPastKey},
-	}
+	return filterLiqMatchesByDate(all, dateStr), true
+}
 
-	type parsed struct {
-		match models.LiqMatch
-		wiki  string
-	}
-
-	var allParsed []parsed
+// filterLiqMatchesByDate keeps matches whose UTC day equals dateStr (YYYY-MM-DD),
+// deduplicated by UniqueKey — same day semantics as the on-demand condition
+// [[date::>D 00:00:00]] AND [[date::<D+1 00:00:00]].
+func filterLiqMatchesByDate(matches []models.LiqMatch, dateStr string) []models.LiqMatch {
+	out := make([]models.LiqMatch, 0)
 	seen := make(map[string]bool)
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	foundAny := false
-
-	for _, src := range sources {
-		for _, wiki := range wikis {
-			wg.Add(1)
-			go func(w string, kf func(string) string) {
-				defer wg.Done()
-
-				key := kf(w)
-				data, err := h.redisCache.Get(ctx, key)
-				if err != nil || data == "" {
-					return
-				}
-
-				mu.Lock()
-				foundAny = true
-				mu.Unlock()
-
-				matches, err := parseAndFilterMatches([]byte(data), nil)
-				if err != nil {
-					return
-				}
-
-				mu.Lock()
-				for _, m := range matches {
-					t, err := m.ParsedDate()
-					if err != nil {
-						continue
-					}
-					if t.UTC().Format("2006-01-02") != dateStr {
-						continue
-					}
-					uk := m.UniqueKey()
-					if !seen[uk] {
-						seen[uk] = true
-						allParsed = append(allParsed, parsed{match: m, wiki: w})
-					}
-				}
-				mu.Unlock()
-			}(wiki, src.keyFunc)
+	for _, m := range matches {
+		t, err := m.ParsedDate()
+		if err != nil || t.UTC().Format("2006-01-02") != dateStr {
+			continue
+		}
+		if key := m.UniqueKey(); !seen[key] {
+			seen[key] = true
+			out = append(out, m)
 		}
 	}
-
-	wg.Wait()
-
-	if !foundAny {
-		return nil, false
-	}
-
-	result := make([]models.NormalizedMatch, 0, len(allParsed))
-	for _, p := range allParsed {
-		result = append(result, models.NormalizeLiqMatch(p.match, p.wiki, ""))
-	}
-
-	if result == nil {
-		result = []models.NormalizedMatch{}
-	}
-
-	return result, true
+	return out
 }
 
 // --- Helpers ---
