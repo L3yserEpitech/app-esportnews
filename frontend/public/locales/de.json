@@ -100,6 +100,9 @@
       "games": {
         "unselect_game": "Abwählen",
         "select_game": "Auswählen"
+      },
+      "best_matches": {
+        "title": "Top-Matches des Tages"
       }
     },
     "login": {
