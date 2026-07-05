@@ -11,10 +11,10 @@ func LoggingMiddleware(logger *logrus.Logger) echo.MiddlewareFunc {
 			err := next(c)
 
 			logger.WithFields(logrus.Fields{
-				"method":     c.Request().Method,
-				"path":       c.Request().URL.Path,
-				"status":     c.Response().Status,
-				"ip":         c.RealIP(),
+				"method": c.Request().Method,
+				"path":   c.Request().URL.Path,
+				"status": c.Response().Status,
+				"ip":     c.RealIP(),
 			}).Info("Request processed")
 
 			return err
