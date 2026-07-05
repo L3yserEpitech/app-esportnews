@@ -1,56 +1,64 @@
 import { Advertisement } from '../types';
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cached: Advertisement[] | null = null;
+let cachedAt = 0;
+let inflight: Promise<Advertisement[]> | null = null;
+
 class AdvertisementService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   async getActiveAdvertisements(): Promise<Advertisement[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/ads`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    if (cached && Date.now() - cachedAt < CACHE_TTL_MS) {
+      return cached;
+    }
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch advertisements: ${response.status}`);
-      }
+    if (inflight) {
+      return inflight;
+    }
 
-      const data = await response.json();
-
-      console.log('[AdvertisementService] Raw data from API:', data);
-
-      // Vérifier que data est un array valide
-      if (!data || !Array.isArray(data)) {
-        console.log('[AdvertisementService] Data is not an array:', data);
-        return [];
-      }
-
-      console.log('[AdvertisementService] Number of ads received:', data.length);
-
-      // Trier par position et limiter à 3 emplacements maximum
-      const filteredAds = data.filter((ad: Advertisement) => {
-        const isValid = ad.url && ad.redirect_link;
-        if (!isValid) {
-          console.log('[AdvertisementService] Invalid ad filtered out:', ad);
+    inflight = this.fetchAdvertisements()
+      .then((ads) => {
+        cached = ads;
+        cachedAt = Date.now();
+        return ads;
+      })
+      .catch((error) => {
+        if (cached) {
+          return cached;
         }
-        return isValid;
+        throw error;
+      })
+      .finally(() => {
+        inflight = null;
       });
 
-      console.log('[AdvertisementService] Ads after filtering:', filteredAds.length);
+    return inflight;
+  }
 
-      const sortedAds = filteredAds
-        .sort((a: Advertisement, b: Advertisement) => (a.position || 0) - (b.position || 0))
-        .slice(0, 3);
+  private async fetchAdvertisements(): Promise<Advertisement[]> {
+    const response = await fetch(`${this.baseUrl}/api/ads`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-      console.log('[AdvertisementService] Final ads to return:', sortedAds);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch advertisements: ${response.status}`);
+    }
 
-      return sortedAds;
+    const data = await response.json();
 
-    } catch (error) {
-      console.error('Error fetching advertisements:', error);
+    if (!data || !Array.isArray(data)) {
       return [];
     }
+
+    return data
+      .filter((ad: Advertisement) => ad.url && ad.redirect_link)
+      .sort((a: Advertisement, b: Advertisement) => (a.position || 0) - (b.position || 0))
+      .slice(0, 3);
   }
 }
 
