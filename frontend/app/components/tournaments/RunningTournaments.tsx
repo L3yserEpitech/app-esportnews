@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useGame } from '../../contexts/GameContext';
 import { tournamentService } from '../../services/tournamentService';
@@ -193,15 +194,15 @@ const RunningTournaments: React.FC = () => {
           {/* Bouton "Voir tout" - Redirige vers /tournament */}
           {memoizedTournaments.length > 0 && (
             <div className="mt-8 flex justify-end">
-              <button
-                onClick={() => window.location.href = '/tournois'}
+              <Link
+                href="/tournois"
                 className="flex items-center cursor-pointer px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary text-text-secondary hover:text-text-primary rounded-lg transition-colors text-sm font-medium"
               >
                 <span>{t('pages.home.tournaments.view_all_button')}</span>
                 <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </Link>
             </div>
           )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { NewsItem } from '../../types';
 import ArticleCard from '../article/ArticleCard';
@@ -23,6 +24,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   className = ''
 }) => {
   const t = useTranslations();
+  const router = useRouter();
   const newsListArray = newsList ?? [];
 
   const formatDate = useCallback((dateString: string) => {
@@ -39,8 +41,8 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   }, []);
 
   const handleViewAllClick = useCallback(() => {
-    window.location.href = '/news';
-  }, []);
+    router.push('/news');
+  }, [router]);
 
   // Mémorisation pour éviter les recalculs
   const hasNews = useMemo(() => newsListArray.length > 0 || !!featuredNews, [newsListArray.length, featuredNews]);
