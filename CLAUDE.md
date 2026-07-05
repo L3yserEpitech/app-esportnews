@@ -214,7 +214,7 @@ JWT expiration hardcodée : **7 jours**.
 | `LIQUIPEDIA_WEBHOOKS_ENABLED` | bool | `false` (dev) / `true` (prod) | Active le mode dirty-flags du poller | Une fois OFF, le poller fait du polling aveugle aux intervalles fixes (Scenario B) |
 | `LIQUIPEDIA_WEBHOOK_SECRET` | string | `""` | Secret validé via header `X-Webhook-Secret` ou query param `?secret=` (`crypto/subtle.ConstantTimeCompare`) | LiquipediaDB ne sait envoyer ni header ni signature → le secret passe dans l'URL. Empty = pas de vérification (dev local uniquement) |
 | `LIQUIPEDIA_SKIP_TLS` | bool | `false` | Désactive la vérification TLS du client HTTP Liquipedia | **Dev uniquement** — utile en local quand le cert IPv4 forcé pose souci |
-| `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` | int | `0` (désactivé) / `1500` (docker-compose.dev) | Espacement minimum entre appels HTTP sortants vers Liquipedia | L'API a une limite par IP en plus du quota horaire ; indispensable en local (cold cache = fetch massif). Recommandé en prod : `300` |
+| `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` | int | `0` (désactivé) / `1500` (docker-compose.dev) | Espacement minimum entre appels HTTP sortants vers Liquipedia | L'API a une limite par IP en plus du quota horaire ; indispensable en local (cold cache = fetch massif). **Prod/staging : `1500` obligatoire** — `300` (~3,3 req/s) fait bannir l'IP par le throttle Cloudflare de Liquipedia (vérifié 2026-07-05 : navigation calendrier = by-date × 10 wikis → ban IP en ~1h) |
 | `LIQUIPEDIA_DISABLE_IPV4` | bool | `false` | Désactive le forçage IPv4 vers api.liquipedia.net | Pour un host local avec IPv6 fonctionnel dont l'IPv4 est rate-limitée. **Ne jamais activer sur Railway** (pas d'IPv6) |
 
 ### Background services
