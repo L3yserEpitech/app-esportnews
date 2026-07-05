@@ -1027,7 +1027,7 @@ func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemp
 	params := url.Values{}
 	params.Set("conditions", conditions)
 	params.Set("order", order)
-	params.Set("limit", "10")
+	params.Set("limit", "25")
 
 	data, err := s.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLTeamMatches)
 	if err != nil {

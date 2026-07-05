@@ -135,24 +135,32 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagename, wiki]);
 
-  // Équipe actuelle (logo + lien) puis matchs de l'équipe.
+  // Équipe actuelle (logo + lien) puis matchs. Jeux solo (smash, easportsfc) :
+  // l'opponent Liquipedia est le pseudo du joueur, pas un template d'équipe.
+  const isSoloWiki = wiki === 'smash' || wiki === 'easportsfc';
   useEffect(() => {
-    if (!player?.team_template) return;
+    if (!player) return;
     let cancelled = false;
     const template = player.team_template;
 
-    teamService.getTeamByTemplate(template, wiki)
-      .then(data => { if (!cancelled) setTeam(data); })
-      .catch(() => {});
+    if (template) {
+      teamService.getTeamByTemplate(template, wiki)
+        .then(data => { if (!cancelled) setTeam(data); })
+        .catch(() => {});
+    }
+
+    const matchOpponent = isSoloWiki ? player.id : template;
+    if (!matchOpponent) return;
 
     setMatchesLoading(true);
-    teamService.getTeamMatches(player.pageid || template, wiki, template, player.team_pagename?.replace(/_/g, ' '))
+    teamService.getTeamMatches(player.pageid || matchOpponent, wiki, matchOpponent, player.team_pagename?.replace(/_/g, ' '))
       .then(data => { if (!cancelled) setMatches(data); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setMatchesLoading(false); });
 
     return () => { cancelled = true; };
-  }, [player?.team_template, player?.pageid, player?.team_pagename, wiki]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.team_template, player?.id, player?.pageid, wiki]);
 
   const earningsYears = useMemo(() => {
     const byYear = player?.earnings_by_year || {};
@@ -197,7 +205,7 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
     .filter(([k]) => SOCIAL_LABELS[k])
     .map(([k, url]) => [k, safeUrl(url)] as const)
     .filter((e): e is readonly [string, string] => e[1] !== null);
-  const recentMatches = (matches?.recent || []).slice(0, 8);
+  const recentMatches = (matches?.recent || []).slice(0, 15);
   const upcomingMatches = matches?.upcoming || [];
 
   return (
