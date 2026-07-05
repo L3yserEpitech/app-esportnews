@@ -59,6 +59,7 @@ func (h *TournamentHandler) ListTournaments(c echo.Context) error {
 	sortNormalizedTournaments(tournaments, sortParam)
 	tournaments = paginateTournaments(tournaments, limit, offset)
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, tournaments)
 }
 
@@ -74,6 +75,7 @@ func (h *TournamentHandler) ListAllTournaments(c echo.Context) error {
 
 	sortNormalizedTournaments(tournaments, sortParam)
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, tournaments)
 }
 
@@ -96,6 +98,7 @@ func (h *TournamentHandler) ListAllUpcomingTournaments(c echo.Context) error {
 	sortNormalizedTournaments(tournaments, sortParam)
 	tournaments = paginateTournaments(tournaments, limit, offset)
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, tournaments)
 }
 
@@ -118,6 +121,7 @@ func (h *TournamentHandler) ListAllFinishedTournaments(c echo.Context) error {
 	sortNormalizedTournaments(tournaments, sortParam)
 	tournaments = paginateTournaments(tournaments, limit, offset)
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, tournaments)
 }
 
@@ -209,6 +213,7 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(idStr), wiki, 24*time.Hour)
 		}
 		enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
+		setPublicCache(c, 300, 600)
 		return c.JSON(http.StatusOK, enriched)
 	}
 
@@ -397,6 +402,7 @@ func (h *TournamentHandler) FilterTournaments(c echo.Context) error {
 
 	sortNormalizedTournaments(tournaments, "tier")
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, tournaments)
 }
 

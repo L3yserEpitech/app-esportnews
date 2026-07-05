@@ -55,6 +55,7 @@ func (h *AdHandler) ListAds(c echo.Context) error {
 	if err == nil {
 		var ads interface{}
 		if err := json.Unmarshal([]byte(cached), &ads); err == nil {
+			setPublicCache(c, 300, 600)
 			return c.JSON(http.StatusOK, ads)
 		}
 	}
@@ -71,6 +72,7 @@ func (h *AdHandler) ListAds(c echo.Context) error {
 		h.service.Cache.Set(ctx, cache.CacheAds, string(data), 1*time.Hour)
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, ads)
 }
 

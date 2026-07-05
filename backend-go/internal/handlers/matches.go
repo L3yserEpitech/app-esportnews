@@ -100,6 +100,7 @@ func (h *MatchHandler) GetRunningMatches(c echo.Context) error {
 		filtered = []models.NormalizedMatch{}
 	}
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, filtered)
 }
 
@@ -125,6 +126,7 @@ func (h *MatchHandler) GetUpcomingMatches(c echo.Context) error {
 
 	sortNormalizedMatchesAsc(matches)
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, matches)
 }
 
@@ -150,6 +152,7 @@ func (h *MatchHandler) GetPastMatches(c echo.Context) error {
 
 	sortNormalizedMatchesDesc(matches)
 
+	setPublicCache(c, 600, 1200)
 	return c.JSON(http.StatusOK, matches)
 }
 
@@ -299,6 +302,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		// on-demand fetch (and its 429/budget failure mode) for already-cached matches.
 		if m, found := h.findMatchInCache(ctx, wiki, matchID); found {
 			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
+			setPublicCache(c, 60, 120)
 			return c.JSON(http.StatusOK, *m)
 		}
 
@@ -314,6 +318,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		}
 		// Store wiki hint for future lookups
 		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
+		setPublicCache(c, 60, 120)
 		return c.JSON(http.StatusOK, normalized)
 	}
 
@@ -338,6 +343,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	// Helper: return match + store wiki hint for future lookups
 	returnMatch := func(m models.NormalizedMatch, wiki string) error {
 		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
+		setPublicCache(c, 60, 120)
 		return c.JSON(http.StatusOK, m)
 	}
 

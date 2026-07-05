@@ -65,5 +65,6 @@ func (h *PlayerHandler) GetPlayer(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "player temporarily unavailable"})
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, player)
 }

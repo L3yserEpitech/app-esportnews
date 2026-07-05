@@ -33,6 +33,7 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 	if err == nil {
 		var games []*models.Game
 		if err := json.Unmarshal([]byte(cached), &games); err == nil {
+			setPublicCache(c, 3600, 0)
 			return c.JSON(http.StatusOK, games)
 		}
 	}
@@ -48,6 +49,7 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 		h.gameService.Cache.Set(ctx, cache.CacheGames, string(data), 24*time.Hour)
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, games)
 }
 
@@ -63,6 +65,7 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 	if err == nil {
 		var game models.Game
 		if err := json.Unmarshal([]byte(cached), &game); err == nil {
+			setPublicCache(c, 3600, 0)
 			return c.JSON(http.StatusOK, game)
 		}
 	}
@@ -73,6 +76,7 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, game)
 }
 
@@ -88,5 +92,6 @@ func (h *GameHandler) GetGameByAcronym(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, game)
 }

@@ -86,6 +86,7 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 	// Add total count header for pagination
 	c.Response().Header().Set("X-Total-Count", fmt.Sprintf("%d", totalCount))
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, articles)
 }
 
@@ -101,6 +102,7 @@ func (h *ArticleHandler) CountArticles(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, map[string]int64{
 		"count": count,
 	})
@@ -135,6 +137,7 @@ func (h *ArticleHandler) SearchArticles(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, articles)
 }
 
@@ -149,6 +152,7 @@ func (h *ArticleHandler) GetArticle(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, article)
 }
 
@@ -170,6 +174,7 @@ func (h *ArticleHandler) GetSimilarArticles(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	setPublicCache(c, 60, 300)
 	return c.JSON(http.StatusOK, articles)
 }
 

@@ -61,6 +61,7 @@ func (h *TeamHandler) SearchTeams(c echo.Context) error {
 		query = c.QueryParam("q")
 	}
 	if query == "" {
+		setPublicCache(c, 300, 600)
 		return c.JSON(http.StatusOK, []interface{}{})
 	}
 
@@ -84,6 +85,7 @@ func (h *TeamHandler) SearchTeams(c echo.Context) error {
 		return c.JSON(http.StatusOK, []interface{}{})
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, teams)
 }
 
@@ -112,6 +114,7 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, team)
 }
 
@@ -132,6 +135,7 @@ func (h *TeamHandler) GetTeam(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, team)
 }
 
@@ -152,6 +156,7 @@ func (h *TeamHandler) GetTeamDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, detail)
 }
 
@@ -247,6 +252,7 @@ func (h *TeamHandler) GetTeamMatches(c echo.Context) error {
 		allUpcoming = []models.NormalizedMatch{}
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, models.TeamMatchesResponse{
 		Recent:   recent,
 		Upcoming: allUpcoming,
@@ -289,6 +295,7 @@ func (h *TeamHandler) GetTeamPlacements(c echo.Context) error {
 		return c.JSON(http.StatusOK, models.TeamPlacementsResponse{Placements: []models.NormalizedPlacement{}})
 	}
 
+	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, models.TeamPlacementsResponse{Placements: placements})
 }
 
