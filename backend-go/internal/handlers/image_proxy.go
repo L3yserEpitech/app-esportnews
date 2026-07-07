@@ -28,11 +28,11 @@ const (
 	proxyMaxBytes      = 5 * 1024 * 1024 // 5 MB max
 	proxyCacheSecs     = 604800          // 7 days browser cache — logos rarely change
 	proxyTimeout       = 10 * time.Second
-	maxConcurrentProxy = 6                    // gentle: 100-parallel full-size bursts got the egress IP 429-blocked for image files too
-	memoryCacheMaxSize = 500                  // max images to keep in memory cache
-	throttleBackoff    = 60 * time.Second     // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
-	fetchInterval      = 0 * time.Millisecond // per-fetch pacing (concurrency cap above does the smoothing)
-	semaphoreWait      = 15 * time.Second     // max time to wait for semaphore before returning placeholder
+	maxConcurrentProxy = 3                      // gentle: parallel full-size bursts get the egress IP 429-blocked for image files too
+	memoryCacheMaxSize = 500                    // max images to keep in memory cache
+	throttleBackoff    = 60 * time.Second       // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
+	fetchInterval      = 500 * time.Millisecond // per-fetch pacing — concurrency cap alone still tripped the per-IP throttle (bans du 2026-07-05/07) ; L1/L2/R2 rendent les fetches upstream rares
+	semaphoreWait      = 15 * time.Second       // max time to wait for semaphore before returning placeholder
 )
 
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
