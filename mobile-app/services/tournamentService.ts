@@ -104,10 +104,12 @@ class TournamentService {
   /**
    * Récupérer un tournoi par son ID
    */
-  async getTournamentById(id: number): Promise<PandaTournament | null> {
+  async getTournamentById(id: number, wiki?: string | null): Promise<PandaTournament | null> {
     try {
       console.log(`📡 API Call: GET /api/tournaments/${id}`);
-      const response = await apiClient.get<PandaTournament>(`/api/tournaments/${id}`);
+      const response = await apiClient.get<PandaTournament>(`/api/tournaments/${id}`, {
+        params: wiki ? { wiki } : undefined,
+      });
       console.log(`✅ API Response:`, response.data?.name || 'No name');
       return response.data;
     } catch (error: any) {

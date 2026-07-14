@@ -32,10 +32,14 @@ class MatchService {
 
   /**
    * Récupérer un match par son ID
+   * wiki: requis par le backend pour scoper le fetch — sans lui, un ID numérique
+   * ne déclenche pas le scan 10-wikis et renvoie 404 (cf. CLAUDE.md §18.1).
    */
-  async getMatchById(id: number): Promise<PandaMatch | null> {
+  async getMatchById(id: number, wiki?: string | null): Promise<PandaMatch | null> {
     try {
-      const response = await apiClient.get<PandaMatch>(`/api/matches/${id}`);
+      const response = await apiClient.get<PandaMatch>(`/api/matches/${id}`, {
+        params: wiki ? { wiki } : undefined,
+      });
       return response.data;
     } catch (error: any) {
       console.error('Error fetching match:', error);
@@ -46,9 +50,9 @@ class MatchService {
   /**
    * Récupérer plusieurs matchs par leurs IDs
    */
-  async getMatchesByIds(ids: number[]): Promise<PandaMatch[]> {
+  async getMatchesByIds(ids: number[], wiki?: string | null): Promise<PandaMatch[]> {
     try {
-      const promises = ids.map(id => this.getMatchById(id));
+      const promises = ids.map(id => this.getMatchById(id, wiki));
       const results = await Promise.all(promises);
       return results.filter((match): match is PandaMatch => match !== null);
     } catch (error: any) {
