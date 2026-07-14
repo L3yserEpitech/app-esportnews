@@ -20,7 +20,8 @@ import { fr } from 'date-fns/locale';
 import { useAdPopup, useSubscription } from '@/hooks';
 
 export default function TournamentDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
+  const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -94,7 +95,7 @@ export default function TournamentDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await tournamentService.getTournamentById(Number(id));
+      const data = await tournamentService.getTournamentById(Number(id), wikiParam);
       if (!data) {
         setError('Tournoi introuvable');
         return;
@@ -108,7 +109,7 @@ export default function TournamentDetailScreen() {
         const matchIds = data.matches.map((m) => m.id);
 
         try {
-          const enrichedMatches = await matchService.getMatchesByIds(matchIds);
+          const enrichedMatches = await matchService.getMatchesByIds(matchIds, wikiParam);
           // Remplacer les matchs avec les données enrichies
           setTournament((prevTournament) => {
             if (!prevTournament) return prevTournament;

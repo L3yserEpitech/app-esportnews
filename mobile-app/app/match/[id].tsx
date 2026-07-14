@@ -17,7 +17,8 @@ import { fr } from 'date-fns/locale';
 import { useAdPopup, useSubscription } from '@/hooks';
 
 export default function MatchDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
+  const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [match, setMatch] = useState<PandaMatch | null>(null);
@@ -90,7 +91,7 @@ export default function MatchDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await matchService.getMatchById(Number(id));
+      const data = await matchService.getMatchById(Number(id), wikiParam);
       if (data) setMatch(data);
       else setError('Match introuvable');
     } catch (err) {
