@@ -33,6 +33,12 @@ const (
 	throttleBackoff    = 60 * time.Second       // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
 	fetchInterval      = 500 * time.Millisecond // per-fetch pacing — concurrency cap alone still tripped the per-IP throttle (bans du 2026-07-05/07) ; L1/L2/R2 rendent les fetches upstream rares
 	semaphoreWait      = 15 * time.Second       // max time to wait for semaphore before returning placeholder
+
+	// CESSEZ-LE-FEU 2026-07-14 : liquipedia.net (hors Database API) bannit notre
+	// IP sur les fetches d'images et chaque tentative prolonge le ban. Upstream
+	// coupé (on ne sert que L1/L2/R2 + placeholder) en attendant la méthode
+	// media via l'API confirmée par Liquipedia. Repasser à false avec la migration.
+	imageUpstreamDisabled = true
 )
 
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
@@ -321,6 +327,10 @@ func (h *ImageProxyHandler) redisStore(ctx context.Context, cacheKey string, img
 // populates both cache tiers. The shared fetch runs on a detached context so
 // one caller aborting doesn't fail the others.
 func (h *ImageProxyHandler) fetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
+	if imageUpstreamDisabled {
+		return nil, errProxyUnavailable
+	}
+
 	res, err, _ := h.fetchGroup.Do(cacheKey, func() (interface{}, error) {
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), proxyTimeout+semaphoreWait)
 		defer cancel()
