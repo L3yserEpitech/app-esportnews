@@ -11,10 +11,9 @@ import { PandaTournament } from '@/types';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
-  onPress: () => void;
 }
 
-export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPress }) => {
+export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament }) => {
   const router = useRouter();
   const handlePress = () => {
     router.push({ pathname: '/tournament/[id]', params: { id: String(tournament.id), wiki: tournament.wiki ?? '' } });

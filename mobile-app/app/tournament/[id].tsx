@@ -316,7 +316,6 @@ export default function TournamentDetailScreen() {
                   <View key={match.id} style={styles.cardWrapper}>
                     <LiveMatchCard
                       match={match as any}
-                      onPress={() => router.push(`/match/${match.id}`)}
                       fullWidth={true}
                     />
                   </View>

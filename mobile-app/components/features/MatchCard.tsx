@@ -15,10 +15,9 @@ const { width } = Dimensions.get('window');
 
 interface MatchCardProps {
   match: PandaMatch;
-  onPress: () => void;
 }
 
-export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
+export const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
   const router = useRouter();
   const handlePress = () => {
     router.push({ pathname: '/match/[id]', params: { id: String(match.id), wiki: match.wiki ?? '' } });
