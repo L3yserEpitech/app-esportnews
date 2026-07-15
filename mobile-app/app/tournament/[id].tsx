@@ -17,6 +17,9 @@ import type { TournamentSectionProps } from '@/components/tournament-detail/sect
 import TournamentHeader from '@/components/tournament-detail/sections/TournamentHeader';
 import LiveMatches from '@/components/tournament-detail/sections/LiveMatches';
 import AllMatches from '@/components/tournament-detail/sections/AllMatches';
+import BracketSection from '@/components/tournament-detail/sections/BracketSection';
+import RostersSection from '@/components/tournament-detail/sections/RostersSection';
+import RelatedNews from '@/components/tournament-detail/sections/RelatedNews';
 
 export default function TournamentDetailScreen() {
   const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
@@ -101,10 +104,9 @@ export default function TournamentDetailScreen() {
       case 'header': return <TournamentHeader key={sectionId} {...sectionProps} />;
       case 'liveMatches': return <LiveMatches key={sectionId} {...sectionProps} />;
       case 'allMatches': return <AllMatches key={sectionId} {...sectionProps} />;
-      // TODO(phase2.2): bracket, rosters, relatedNews — no component yet.
-      case 'bracket':
-      case 'rosters':
-      case 'relatedNews':
+      case 'bracket': return <BracketSection key={sectionId} {...sectionProps} />;
+      case 'rosters': return <RostersSection key={sectionId} {...sectionProps} />;
+      case 'relatedNews': return <RelatedNews key={sectionId} {...sectionProps} />;
       default:
         return null;
     }
