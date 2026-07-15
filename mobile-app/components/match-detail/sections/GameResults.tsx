@@ -8,6 +8,9 @@ import { SectionHeader, TeamLogo, parseGameWinner, formatDuration, type MatchSec
 import ValorantGameCards from './valorant/ValorantGameCards';
 import LolGameCards from './leagueoflegends/LolGameCards';
 import DotaGameCards from './dota2/DotaGameCards';
+import CsGameCards from './counterstrike/CsGameCards';
+import R6GameCards from './rainbowsix/R6GameCards';
+import OwGameCards from './overwatch/OwGameCards';
 
 // Per-game dispatcher. For the scaffold task only the generic fallback exists;
 // later phases branch on match.wiki to rich per-game components.
@@ -34,7 +37,12 @@ export default function GameResults(props: MatchSectionProps) {
             return <LolGameCards {...props} />;
           case 'dota2':
             return <DotaGameCards {...props} />;
-          // TODO(phase1): counterstrike rich per-game cards.
+          case 'counterstrike':
+            return <CsGameCards {...props} />;
+          case 'rainbowsix':
+            return <R6GameCards {...props} />;
+          case 'overwatch':
+            return <OwGameCards {...props} />;
           default:
             return <GenericGameCards {...props} />;
         }
