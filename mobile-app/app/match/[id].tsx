@@ -15,6 +15,7 @@ import { resolveSections, type SectionId } from '@/components/match-detail/match
 import type { MatchSectionProps } from '@/components/match-detail/sections/shared';
 import MatchHeader from '@/components/match-detail/sections/MatchHeader';
 import GameResults from '@/components/match-detail/sections/GameResults';
+import PlayerStatsTable from '@/components/match-detail/sections/PlayerStatsTable';
 import StreamPlayer from '@/components/match-detail/sections/StreamPlayer';
 import RostersPanel from '@/components/match-detail/sections/RostersPanel';
 import ExternalStatsLinks from '@/components/match-detail/sections/ExternalStatsLinks';
@@ -98,12 +99,12 @@ export default function MatchDetailScreen() {
     switch (sectionId) {
       case 'header': return <MatchHeader key={sectionId} {...sectionProps} />;
       case 'gameResults': return <GameResults key={sectionId} {...sectionProps} />;
+      case 'playerStats': return <PlayerStatsTable key={sectionId} {...sectionProps} />;
       case 'stream': return <StreamPlayer key={sectionId} {...sectionProps} />;
       case 'rosters': return <RostersPanel key={sectionId} {...sectionProps} />;
       case 'externalLinks': return <ExternalStatsLinks key={sectionId} {...sectionProps} />;
-      // TODO(phase1): 'draft' and 'playerStats' have no component yet — skip for now.
+      // 'draft' is embedded per-game in gameResults (rich wikis) — no standalone section.
       case 'draft':
-      case 'playerStats':
       default:
         return null;
     }

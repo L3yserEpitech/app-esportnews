@@ -11,6 +11,9 @@ import DotaGameCards from './dota2/DotaGameCards';
 import CsGameCards from './counterstrike/CsGameCards';
 import R6GameCards from './rainbowsix/R6GameCards';
 import OwGameCards from './overwatch/OwGameCards';
+import CodGameCards from './callofduty/CodGameCards';
+import RlGameCards from './rocketleague/RlGameCards';
+import FcGameCards from './easportsfc/FcGameCards';
 
 // Per-game dispatcher. For the scaffold task only the generic fallback exists;
 // later phases branch on match.wiki to rich per-game components.
@@ -43,6 +46,12 @@ export default function GameResults(props: MatchSectionProps) {
             return <R6GameCards {...props} />;
           case 'overwatch':
             return <OwGameCards {...props} />;
+          case 'callofduty':
+            return <CodGameCards {...props} />;
+          case 'rocketleague':
+            return <RlGameCards {...props} />;
+          case 'easportsfc':
+            return <FcGameCards {...props} />;
           default:
             return <GenericGameCards {...props} />;
         }
