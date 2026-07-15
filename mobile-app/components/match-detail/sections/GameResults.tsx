@@ -6,6 +6,7 @@ import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { SectionHeader, TeamLogo, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
 import ValorantGameCards from './valorant/ValorantGameCards';
+import LolGameCards from './leagueoflegends/LolGameCards';
 
 // Per-game dispatcher. For the scaffold task only the generic fallback exists;
 // later phases branch on match.wiki to rich per-game components.
@@ -28,7 +29,9 @@ export default function GameResults(props: MatchSectionProps) {
         switch (match.wiki) {
           case 'valorant':
             return <ValorantGameCards {...props} />;
-          // TODO(phase1): leagueoflegends / dota2 / counterstrike rich per-game cards.
+          case 'leagueoflegends':
+            return <LolGameCards {...props} />;
+          // TODO(phase1): dota2 / counterstrike rich per-game cards.
           default:
             return <GenericGameCards {...props} />;
         }
