@@ -3,9 +3,10 @@
 // exposed an expected_roster with players, lists them under each team.
 // Self-hides when there are no teams.
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
@@ -13,11 +14,32 @@ import { imageUrl } from '@/utils/imageUrl';
 import type { PandaTeam, PandaPlayer } from '@/types';
 import { SectionHeader, type TournamentSectionProps } from './shared';
 
-function TeamBlock({ team, players }: { team?: PandaTeam | null; players?: PandaPlayer[] }) {
+function TeamBlock({
+  team,
+  players,
+  wiki,
+}: {
+  team?: PandaTeam | null;
+  players?: PandaPlayer[];
+  wiki?: string | null;
+}) {
+  const router = useRouter();
   if (!team) return null;
   const logo = imageUrl(team.image_url);
+  const teamId = typeof team.id === 'number' ? team.id : null;
+  const goToTeam = () => {
+    if (teamId == null) return;
+    router.push({
+      pathname: '/team/[id]',
+      params: { id: String(teamId), wiki: wiki ?? '' },
+    });
+  };
   return (
-    <View style={styles.block}>
+    <Pressable
+      style={styles.block}
+      onPress={goToTeam}
+      disabled={teamId == null}
+    >
       <View style={styles.teamRow}>
         <View style={styles.logoBox}>
           {logo ? (
@@ -38,7 +60,7 @@ function TeamBlock({ team, players }: { team?: PandaTeam | null; players?: Panda
           ))}
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -53,8 +75,12 @@ export default function RostersSection({ tournament }: TournamentSectionProps) {
       <SectionHeader icon="account-group" title="Équipes & Rosters" />
       <View style={styles.grid}>
         {roster.length > 0
-          ? roster.map((r, i) => <TeamBlock key={r.team?.id ?? i} team={r.team} players={r.players} />)
-          : teams.map((t, i) => <TeamBlock key={t.id ?? i} team={t} />)}
+          ? roster.map((r, i) => (
+              <TeamBlock key={r.team?.id ?? i} team={r.team} players={r.players} wiki={tournament.wiki} />
+            ))
+          : teams.map((t, i) => (
+              <TeamBlock key={t.id ?? i} team={t} wiki={tournament.wiki} />
+            ))}
       </View>
     </View>
   );
