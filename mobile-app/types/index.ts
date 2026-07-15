@@ -309,6 +309,132 @@ export interface PandaMapPick {
   picking_team_id: number | null;
 }
 
+// --- Liquipedia team / player types (Phase 3) ---
+// Mirror the backend JSON tags from backend-go/internal/models/team.go
+// and the web frontend's teamService.ts / playerService.ts shapes.
+
+export interface NormalizedVideogame {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+// Squad player — GET /api/teams/:id/detail (players[]) and NormalizedTeam.players
+export interface NormalizedPlayer {
+  active: boolean;
+  id: number;
+  name: string;
+  role: string | null;
+  slug: string;
+  modified_at: string;
+  age: number | null;
+  birthday: string | null;
+  first_name: string;
+  last_name: string;
+  nationality: string;
+  image_url: string;
+}
+
+// GET /api/teams/search, /api/teams/:id, /api/users/favorite-teams
+export interface NormalizedTeam {
+  id: number;
+  name: string;
+  location: string;
+  slug: string;
+  players: NormalizedPlayer[];
+  modified_at: string;
+  acronym: string;
+  image_url: string;
+  dark_mode_image_url: string | null;
+  current_videogame?: NormalizedVideogame;
+}
+
+export interface TeamLinks {
+  website?: string;
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  youtube?: string;
+  discord?: string;
+  twitch?: string;
+}
+
+// GET /api/teams/:id/detail
+export interface TeamDetail extends NormalizedTeam {
+  status: string;
+  create_date?: string;
+  disband_date?: string;
+  earnings?: string;
+  earnings_by_year?: Record<string, string>;
+  links?: TeamLinks;
+  textless_logo_url?: string;
+  textless_logo_dark_url?: string;
+  region?: string;
+  wiki?: string;
+  template?: string;
+}
+
+// GET /api/teams/:id/matches → { recent, upcoming }
+export interface TeamMatchesResponse {
+  recent: PandaMatch[];
+  upcoming: PandaMatch[];
+}
+
+// GET /api/teams/:id/placements → { placements }
+export interface NormalizedPlacement {
+  tournament: string;
+  tournament_page: string;
+  placement: string;
+  date: string;
+  prize_money: number;
+  tier: string;
+  tier_type: string;
+  type: string;
+  icon_url: string;
+  icon_dark_url: string;
+  last_vs_name?: string;
+  last_vs_score?: number;
+}
+
+export interface TeamPlacementsResponse {
+  placements: NormalizedPlacement[];
+}
+
+// GET /api/players/:pagename?wiki=
+export interface PlayerTransfer {
+  date: string;
+  from_team: string;
+  to_team: string;
+  from_team_template: string;
+  to_team_template: string;
+  role: string;
+}
+
+export interface PlayerDetail {
+  pageid: number;
+  pagename: string;
+  id: string;
+  alternate_id?: string;
+  name: string;
+  localized_name?: string;
+  nationalities: string[];
+  region?: string;
+  birth_date?: string;
+  age?: number;
+  team_pagename?: string;
+  team_template?: string;
+  links?: Record<string, string>;
+  status?: string;
+  earnings: number;
+  earnings_by_year?: Record<string, number>;
+  roles?: string[];
+  signature_picks?: string[];
+  first_name?: string;
+  last_name?: string;
+  transfers: PlayerTransfer[];
+  wiki: string;
+}
+
 // Auth types
 export interface LoginCredentials {
   email: string;
