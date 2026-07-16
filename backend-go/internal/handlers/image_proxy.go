@@ -34,11 +34,12 @@ const (
 	fetchInterval      = 500 * time.Millisecond // per-fetch pacing — concurrency cap alone still tripped the per-IP throttle (bans du 2026-07-05/07) ; L1/L2/R2 rendent les fetches upstream rares
 	semaphoreWait      = 15 * time.Second       // max time to wait for semaphore before returning placeholder
 
-	// CESSEZ-LE-FEU 2026-07-14 : liquipedia.net (hors Database API) bannit notre
-	// IP sur les fetches d'images et chaque tentative prolonge le ban. Upstream
-	// coupé (on ne sert que L1/L2/R2 + placeholder) en attendant la méthode
-	// media via l'API confirmée par Liquipedia. Repasser à false avec la migration.
-	imageUpstreamDisabled = true
+	// Cessez-le-feu levé 2026-07-16 : la cause du ban était le fallback
+	// Special:FilePath (redirect PHP MediaWiki), retiré ci-dessous — pas le thumb
+	// CDN statique lui-même (confirmé par Ben/Liquipedia : les *url de l'API
+	// pointent vers ce même CDN). On resert donc l'upstream (thumb + original
+	// commons uniquement). Remettre à true en secours si un 429 réapparaît.
+	imageUpstreamDisabled = false
 )
 
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
@@ -350,14 +351,17 @@ var thumbRe = regexp.MustCompile(`^(https://[^/]+/commons)/images/thumb/(./../([
 // for files that may live on the game wiki instead of commons.
 var wikiHintRe = regexp.MustCompile(`^([^?]+)\?w=([a-z0-9]+)$`)
 
-// doFetchAndStore tries, in order: the URL itself (commons thumb), the commons
-// original, then Special:FilePath on the hinted game wiki (which resolves both
-// local and foreign files via a redirect). First success wins; results are
-// cached forever, so the extra attempts only ever happen once per image.
+// doFetchAndStore tries, in order: the URL itself (commons thumb), then the
+// commons original (in case the thumb is missing). Both are static CDN paths —
+// safe to fetch. We deliberately do NOT fall back to Special:FilePath: that
+// MediaWiki PHP redirect was the real trigger of the per-IP bans (2026-07),
+// and the correct resolved URLs now come straight from the API's *url fields.
+// A wrong/foreign-wiki file just 404s into a broken image, never a ban. Results
+// are cached forever, so the extra attempt only ever happens once per image.
 func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
-	fetchURL, wikiHint := rawURL, ""
+	fetchURL := rawURL
 	if m := wikiHintRe.FindStringSubmatch(rawURL); m != nil {
-		fetchURL, wikiHint = m[1], m[2]
+		fetchURL = m[1] // strip the now-unused "?w=<wiki>" hint
 	}
 
 	img, err := h.fetchOnce(ctx, fetchURL, cacheKey)
@@ -368,13 +372,7 @@ func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKe
 	if m == nil {
 		return nil, err
 	}
-	if img, err = h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey); err == nil {
-		return img, nil
-	}
-	if wikiHint != "" {
-		return h.fetchOnce(ctx, "https://liquipedia.net/"+wikiHint+"/Special:FilePath/"+m[3], cacheKey)
-	}
-	return nil, err
+	return h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey)
 }
 
 func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
