@@ -911,6 +911,35 @@ Layout responsive Tailwind. Important : **éviter le basculement prématuré ver
 * `POST /api/push-tokens` (enregistrement Expo token)
 * `POST /api/subscriptions/iap/validate`
 
+### 14.1) Migration Liquipedia mobile — port frontend (branche `liquipedia`)
+
+> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia` (rien pushé — Jules déploie lui-même). **Le backend de prod (`main`) est encore PandaScore** → le build mobile prod ne verra le Liquipedia qu'après merge de `main`. Test dev : `.env` → `EXPO_PUBLIC_API_URL=https://www.blitchapp.online` (backend preview Liquipedia).
+
+**Archi détail modulaire (miroir du web §18.3/18.4)** — composants colocalisés **hors `app/`** (Expo Router route tout ce qui est sous `app/`) :
+```
+app/match/[id].tsx  app/tournament/[id].tsx        # shells (routes)
+app/team/[id].tsx  app/player/[pagename].tsx  app/teams/index.tsx   # écrans Phase 3 (nouveaux)
+components/match-detail/{matchSections.ts registre, sections/…}
+components/tournament-detail/{tournamentSections.ts, sections/…}
+```
+* **Registre de sections** porté verbatim (pur TS) : `resolveSections(wiki, isLive)` → presets par wiki, `stream` promu en tête si live. Shell = fetch (avec `wiki`) + **polling 45s si running** + rendu des sections dans une `ScrollView`. Chaque section rend `null` si sa data manque.
+* **Game cards per-game (les 10 jeux)** dans `sections/<jeu>/<Jeu>GameCards.tsx`, branchées via `switch (match.wiki)` dans `GameResults.tsx`. Tier 1 riches (Valo map-hero+draft+scoreboard ACS ; LoL duel de champions+objectifs+scoreboard op.gg+items ; Dota duel de héros+vetophase+scoreboard Dotabuff) ; Tier 2 FPS (CS mi-temps CT/T, R6 bans+ATK/DEF, OW mode+bans) ; Tier 2/3 légers (CoD, RL OT, EAFC t.a.b., Smash via section générique `PlayerStatsTable`).
+* **Asset mappers** (`sections/<jeu>/<jeu>Assets.ts`) portés quasi verbatim du web (fonctions pures nom→URL CDN ; certains `fetch` lazy ddragon/dota → OK en RN). `Scoreboard.tsx` = tableau réutilisable (colonnes via `statColumns.ts`, tri, icône perso), `draft.ts` = parse picks/bans.
+* **Déviations RN** (vs web) : Tailwind→`StyleSheet`+`constants/{colors,theme}` ; iframe stream→bouton `Linking` ; grayscale→dim par opacité ; cartes par map en **pile verticale** ; tables scoreboard en `View` scroll horizontal.
+
+**Images** : `utils/imageUrl.ts` = point de bascule unique, **mode `direct`** (chaque device charge en direct → trafic distribué, pas de risque de ban serveur). Switch `proxy` **dormant** (route `liquipedia.net/commons` via `/api/proxy/image`) prêt pour le jour où la méthode media API Liquipedia est confirmée. Tout URL distant passe par ce helper.
+
+**Plomberie `wiki`** : obligatoire vers les endpoints détail (le backend skip le scan 10-wikis pour un ID numérique → 404 sans `wiki`). Les cartes s'auto-naviguent en portant `match.wiki`/`tournament.wiki` ; les shells le lisent via `useLocalSearchParams`.
+
+**Écrans Phase 3** : détail équipe (`getTeamDetail`→puis matchs/palmarès ; roster→joueur ; toggle favori JWT), détail joueur (`getPlayer(pagename, wiki)` — wiki requis), recherche+favoris (`app/teams/index.tsx`, entrée dans le profil). Équipes cliquables dans les rosters (match + tournoi).
+
+**⚠️ Quirks contrats API team/player** (la §6 était partiellement fausse) :
+* `GET /api/teams/:id/matches` exige `wiki`+`template` (**pas** `?type=`) et renvoie `{recent,upcoming}` d'un coup.
+* `GET /api/teams/:id/placements` exige `wiki`+`name` (nom d'équipe).
+* `GET /api/teams/search` = params `query`+`page_size`. Favoris (`/api/users/favorite-teams`) **plafonnés à 3** (400 au 4ᵉ).
+* `GET /api/players/:pagename` exige `?wiki=` (pas de fan-out).
+* Les résultats de recherche (`NormalizedTeam`) **ne portent pas** `wiki` — seul `TeamDetail` l'a. Mobile mappe `current_videogame.slug` (slug interne cs2/codmw…) → wiki via `utils/gameRegistry.ts` (miroir de `videogameSlugMap`) comme hint ; l'écran résout le wiki faisant autorité depuis `detail.wiki`.
+
 ### Doc spécifique
 `mobile-app/docs/PROGRESS.md` (peut être obsolète sur la partie data sources).
 
