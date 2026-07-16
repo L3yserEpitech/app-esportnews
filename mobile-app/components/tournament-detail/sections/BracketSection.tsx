@@ -43,9 +43,13 @@ function getSectionOrder(section: string): number {
 function groupAndSortSections(matches: PandaMatch[]) {
   const groups = new Map<string, PandaMatch[]>();
   const order: string[] = [];
+  const seen = new Set<string>();
   for (const m of matches) {
     const s = m.section || '';
     if (!s) continue;
+    const key = m.match2id || String(m.id);
+    if (seen.has(key)) continue; // guard against repeated match entries
+    seen.add(key);
     if (!groups.has(s)) {
       groups.set(s, []);
       order.push(s);
@@ -82,7 +86,7 @@ function TeamRow({ team, score, won, live }: {
   );
 }
 
-function BracketCell({ match }: { match: PandaMatch }) {
+function BracketCell({ match, full }: { match: PandaMatch; full?: boolean }) {
   const router = useRouter();
   const home = match.opponents?.[0]?.opponent;
   const away = match.opponents?.[1]?.opponent;
@@ -93,7 +97,7 @@ function BracketCell({ match }: { match: PandaMatch }) {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
+      style={({ pressed }) => [styles.cell, full ? styles.cellFull : styles.cellFixed, pressed && styles.cellPressed]}
       onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), wiki: match.wiki ?? '' } })}
     >
       {isLive && <View style={styles.liveBar} />}
@@ -108,28 +112,45 @@ export default function BracketSection({ matches }: TournamentSectionProps) {
   const sections = useMemo(() => groupAndSortSections(matches), [matches]);
   if (sections.length === 0) return null;
 
+  // A single round isn't a tree — render full-width cells (no dead space on the
+  // right). Only a real multi-round bracket gets the horizontal-scroll columns.
+  const single = sections.length === 1;
+
   return (
-    <View>
+    <View style={styles.wrap}>
       <SectionHeader icon="tournament" title="Bracket" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columns}>
-        {sections.map(group => (
-          <View key={group.section} style={styles.column}>
-            <View style={styles.roundLabel}>
-              <Text style={styles.roundLabelText} numberOfLines={1}>{group.section}</Text>
-            </View>
-            {group.matches.map(match => (
-              <BracketCell key={match.match2id || match.id} match={match} />
-            ))}
+      {single ? (
+        <View style={styles.singleColumn}>
+          <View style={styles.roundLabel}>
+            <Text style={styles.roundLabelText} numberOfLines={1}>{sections[0].section}</Text>
           </View>
-        ))}
-      </ScrollView>
+          {sections[0].matches.map(match => (
+            <BracketCell key={match.match2id || match.id} match={match} full />
+          ))}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columns}>
+          {sections.map(group => (
+            <View key={group.section} style={styles.column}>
+              <View style={styles.roundLabel}>
+                <Text style={styles.roundLabelText} numberOfLines={1}>{group.section}</Text>
+              </View>
+              {group.matches.map(match => (
+                <BracketCell key={match.match2id || match.id} match={match} />
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { paddingHorizontal: spacing.md },
+  singleColumn: { gap: spacing.md },
   columns: { gap: spacing.md, paddingBottom: spacing.sm },
-  column: { width: CELL_W, gap: spacing.md },
+  column: { gap: spacing.md },
   roundLabel: {
     alignSelf: 'center',
     paddingHorizontal: spacing.md,
@@ -153,6 +174,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
   },
+  cellFixed: { width: CELL_W },
+  cellFull: { width: '100%' },
   cellPressed: { borderColor: COLORS.primary, opacity: 0.9 },
   liveBar: { height: 2, backgroundColor: COLORS.primary, width: '100%' },
   cellDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)' },

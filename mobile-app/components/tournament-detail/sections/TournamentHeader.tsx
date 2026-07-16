@@ -108,27 +108,26 @@ export default function TournamentHeader({ tournament }: TournamentSectionProps)
 
       {/* Info */}
       <View style={styles.info}>
-        <View style={styles.topRow}>
-          {iconUri ? (
-            <View style={styles.iconBox}>
-              <Image source={{ uri: iconUri }} style={styles.icon} contentFit="contain" />
+        {iconUri ? (
+          <View style={styles.iconBox}>
+            <Image source={{ uri: iconUri }} style={styles.icon} contentFit="contain" />
+          </View>
+        ) : null}
+
+        <View style={styles.badges}>
+          {tournament.tier ? (
+            <View style={[styles.pill, { backgroundColor: `${tierColor(tournament.tier)}26`, borderColor: `${tierColor(tournament.tier)}55` }]}>
+              <Text style={[styles.pillText, { color: tierColor(tournament.tier) }]}>
+                {tournament.tier.toUpperCase()}
+              </Text>
             </View>
           ) : null}
-          <View style={styles.badges}>
-            {tournament.tier ? (
-              <View style={[styles.pill, { backgroundColor: `${tierColor(tournament.tier)}26`, borderColor: `${tierColor(tournament.tier)}55` }]}>
-                <Text style={[styles.pillText, { color: tierColor(tournament.tier) }]}>
-                  {tournament.tier.toUpperCase()}
-                </Text>
-              </View>
-            ) : null}
-            {StatusPill}
-            {tournament.videogame?.slug ? (
-              <View style={[styles.pill, styles.gamePill]}>
-                <Text style={[styles.pillText, styles.gamePillText]}>{tournament.videogame.slug}</Text>
-              </View>
-            ) : null}
-          </View>
+          {StatusPill}
+          {tournament.videogame?.slug ? (
+            <View style={[styles.pill, styles.gamePill]}>
+              <Text style={[styles.pillText, styles.gamePillText]}>{tournament.videogame.slug}</Text>
+            </View>
+          ) : null}
         </View>
 
         <Text style={styles.name} numberOfLines={3}>{tournament.name}</Text>
@@ -169,42 +168,37 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   banner: {
-    height: 160,
+    height: 200,
     width: '100%',
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
   },
   info: {
     paddingHorizontal: spacing.md,
-    marginTop: -spacing.xl,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginTop: -spacing.lg,
   },
   iconBox: {
-    width: 48,
-    height: 48,
+    width: 58,
+    height: 58,
     borderRadius: borderRadius.md,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    marginBottom: spacing.sm,
   },
   icon: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
   },
   badges: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
   pill: {
     flexDirection: 'row',
