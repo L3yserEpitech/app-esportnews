@@ -789,6 +789,38 @@ func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, 
 	return &normalized, nil
 }
 
+// GetTeamDetailByTemplate resolves a team by template and returns the enriched
+// detail in one shot. It does the exact same fetches as GetTeamByTemplate (team +
+// squad, sharing the same cache key), only with the richer normalizer — so a
+// caller that needs the full detail no longer pays a separate by-template→detail
+// round trip (which used a different cache key = a second team fetch when cold).
+func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki string, template string) (*models.EnrichedTeamDetail, error) {
+	cacheKey := cache.LiqTeamKey(wiki, template)
+	params := url.Values{}
+	params.Set("wiki", wiki)
+	params.Set("conditions", fmt.Sprintf("[[template::%s]]", template))
+	params.Set("limit", "1")
+
+	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil || len(resp.Result) == 0 {
+		return nil, fmt.Errorf("team %q not found in wiki %s", template, wiki)
+	}
+
+	var team models.LiqTeam
+	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+		return nil, fmt.Errorf("failed to parse team %q from wiki %s: %w", template, wiki, err)
+	}
+
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+	return &detail, nil
+}
+
 // GetTeamsByPageIDs fetches multiple teams by their Liquipedia pageids.
 // Uses parallel goroutines for efficiency.
 func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int64) []models.NormalizedTeam {

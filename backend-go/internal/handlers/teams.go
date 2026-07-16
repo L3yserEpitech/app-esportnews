@@ -109,6 +109,17 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
 	defer cancel()
 
+	// ?detail=1 returns the enriched detail directly (roster/achievements) in one
+	// call, so callers skip the separate by-template → /detail round trip.
+	if c.QueryParam("detail") == "1" {
+		detail, err := h.liquipediaService.GetTeamDetailByTemplate(ctx, wiki, template)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+		}
+		setPublicCache(c, 300, 600)
+		return c.JSON(http.StatusOK, detail)
+	}
+
 	team, err := h.liquipediaService.GetTeamByTemplate(ctx, wiki, template)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
