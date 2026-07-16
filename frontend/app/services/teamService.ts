@@ -246,6 +246,21 @@ class TeamService {
   }
 
   /**
+   * Résout une équipe par template ET renvoie le détail enrichi en un seul appel
+   * (?detail=1). Évite le round trip by-template → /detail (2 appels → 1).
+   */
+  async getTeamDetailByTemplate(template: string, wiki: string): Promise<EnrichedTeamDetail> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/teams/by-template?template=${encodeURIComponent(template)}&wiki=${encodeURIComponent(wiki)}&detail=1`,
+      { method: 'GET', headers: { 'Accept': 'application/json' } }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team detail ${template}: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
+  /**
    * Récupère les détails complets d'une équipe avec ses joueurs
    */
   async getTeamById(teamId: number | string, wiki?: string): Promise<Team> {

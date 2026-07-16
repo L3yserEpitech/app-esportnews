@@ -25,6 +25,9 @@ import { countryCode } from '../../lib/countryCodes';
 interface TeamDetailPageClientProps {
   teamId: string;
   wiki?: string;
+  // Team detail resolved server-side (SSR) and passed down, so the client skips
+  // the initial by-template/detail fetch entirely.
+  initialTeam?: EnrichedTeamDetail | Team | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +189,7 @@ const SOCIAL_ICONS: Record<string, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDetailPageClientProps) {
+export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTeam }: TeamDetailPageClientProps) {
   const t = useTranslations('pages_detail.team_detail');
   const tToast = useTranslations('toast');
   const isDark = useIsDarkTheme();
@@ -199,7 +202,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
   const urlAcronym = searchParams.get('acronym') || '';
   const urlLogo = searchParams.get('logo') || '';
 
-  const [team, setTeam] = useState<EnrichedTeamDetail | Team | null>(null);
+  const [team, setTeam] = useState<EnrichedTeamDetail | Team | null>(initialTeam ?? null);
   const [matches, setMatches] = useState<TeamMatchesResponse | null>(null);
   const [placements, setPlacements] = useState<TeamPlacement[]>([]);
   const [placementsLoading, setPlacementsLoading] = useState(false);
@@ -208,7 +211,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
   useEffect(() => {
     prewarmFromData([team, matches, placements]);
   }, [team, matches, placements]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialTeam);
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFormer, setShowFormer] = useState(false);
@@ -225,6 +228,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
 
   // ── Load team ────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (initialTeam) return; // seeded from SSR — no client refetch needed
     const loadTeam = async () => {
       setLoading(true);
       setError(null);
@@ -239,10 +243,8 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
         let data: EnrichedTeamDetail | Team;
 
         if (wiki && isNaN(Number(decodedId))) {
-          const fetchByTemplate = async (template: string): Promise<EnrichedTeamDetail | Team> => {
-            const basicTeam = await teamService.getTeamByTemplate(template, wiki);
-            try { return await teamService.getTeamDetail(basicTeam.id, wiki); } catch { return basicTeam; }
-          };
+          const fetchByTemplate = (template: string): Promise<EnrichedTeamDetail> =>
+            teamService.getTeamDetailByTemplate(template, wiki);
           try {
             data = await fetchByTemplate(decodedId);
           } catch {
@@ -288,7 +290,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp }: TeamDet
       }
     };
     loadTeam();
-  }, [teamId, wiki, urlName, urlAcronym, urlLogo, t]);
+  }, [teamId, wiki, urlName, urlAcronym, urlLogo, t, initialTeam]);
 
   // ── Load matches ─────────────────────────────────────────────────────────
   useEffect(() => {
