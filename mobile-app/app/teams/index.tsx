@@ -18,12 +18,14 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { teamService } from '@/services/teamService';
 import { imageUrl } from '@/utils/imageUrl';
 import { useAuth } from '@/hooks/useAuth';
+import { videogameSlugToWiki } from '@/utils/gameRegistry';
 import type { NormalizedTeam } from '@/types';
 
-// Search results carry current_videogame.slug (frontend slug e.g. "cs2"), not the
-// raw wiki. Passed as the wiki hint; team/[id] resolves the real wiki server-side.
+// Search results carry current_videogame.slug (internal slug e.g. "cs2"), not the
+// raw wiki. Map it to the wiki so team/[id] gets a usable hint (avoids a 10-wiki
+// fan-out); the screen still resolves the authoritative wiki from detail.wiki.
 function teamWiki(team: NormalizedTeam): string {
-  return team.current_videogame?.slug ?? '';
+  return videogameSlugToWiki(team.current_videogame?.slug) ?? '';
 }
 
 function TeamRow({
