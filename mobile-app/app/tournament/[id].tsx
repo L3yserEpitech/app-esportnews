@@ -21,6 +21,18 @@ import BracketSection from '@/components/tournament-detail/sections/BracketSecti
 import RostersSection from '@/components/tournament-detail/sections/RostersSection';
 import RelatedNews from '@/components/tournament-detail/sections/RelatedNews';
 
+// Backend tournament match lists can repeat entries; dedupe by stable key so
+// every section (bracket, all matches) renders each match once.
+function dedupeMatches(list: PandaMatch[]): PandaMatch[] {
+  const seen = new Set<string>();
+  return list.filter((m) => {
+    const key = m.match2id || String(m.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function TournamentDetailScreen() {
   const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
   const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
@@ -47,15 +59,17 @@ export default function TournamentDetailScreen() {
         return;
       }
       setTournament(data);
-      setMatches(data.matches ?? []);
+      setMatches(dedupeMatches(data.matches ?? []));
 
       // Enrich matches (base list often lacks opponents/scores) via detail fetch.
       if (data.matches && data.matches.length > 0) {
         setIsLoadingMatches(true);
-        const matchIds = data.matches.map((m) => m.id);
+        // Dedupe ids up front — the tournament match list can repeat entries,
+        // which otherwise duplicates cells + trips React's unique-key check.
+        const matchIds = [...new Set(data.matches.map((m) => m.id))];
         try {
           const enriched = await matchService.getMatchesByIds(matchIds, wikiParam);
-          if (enriched.length > 0) setMatches(enriched);
+          if (enriched.length > 0) setMatches(dedupeMatches(enriched));
         } catch (matchError) {
           console.error('[Tournament Detail] Error loading match details:', matchError);
         } finally {
