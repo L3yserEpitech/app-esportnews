@@ -66,7 +66,7 @@ export default function TournamentDetailScreen() {
         setIsLoadingMatches(true);
         // Dedupe ids up front — the tournament match list can repeat entries,
         // which otherwise duplicates cells + trips React's unique-key check.
-        const matchIds = [...new Set(data.matches.map((m) => m.id))];
+        const matchIds = [...new Set(data.matches.map((m) => m.match2id || String(m.id)))];
         try {
           const enriched = await matchService.getMatchesByIds(matchIds, wikiParam);
           if (enriched.length > 0) setMatches(dedupeMatches(enriched));

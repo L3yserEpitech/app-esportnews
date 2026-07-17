@@ -47,8 +47,11 @@ function GameDetailBlock({ match, game }: { match: PandaMatch; game: PandaGame }
 }
 
 export default function GameDetailScreen() {
-  const { id, n, wiki } = useLocalSearchParams<{ id: string; n: string; wiki?: string }>();
+  const { id, n, m2, wiki } = useLocalSearchParams<{ id: string; n: string; m2?: string; wiki?: string }>();
   const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
+  const m2Param = typeof m2 === 'string' && m2.length > 0 ? m2 : undefined;
+  // Backend only resolves the alphanumeric match2id on-demand; a numeric id 404s.
+  const detailKey = m2Param ?? id;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [match, setMatch] = useState<PandaMatch | null>(null);
@@ -63,7 +66,7 @@ export default function GameDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await matchService.getMatchById(Number(id), wikiParam);
+      const data = await matchService.getMatchById(detailKey, wikiParam);
       if (data) setMatch(data);
       else setError('Match introuvable');
     } catch {
@@ -71,7 +74,7 @@ export default function GameDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id, wikiParam]);
+  }, [id, detailKey, wikiParam]);
 
   useEffect(() => {
     loadMatch();
@@ -85,12 +88,12 @@ export default function GameDetailScreen() {
     if (!isLive) return;
     const timer = setInterval(async () => {
       try {
-        const fresh = await matchService.getMatchById(Number(id), wikiParam);
+        const fresh = await matchService.getMatchById(detailKey, wikiParam);
         if (fresh) setMatch(fresh);
       } catch { /* keep last good state */ }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [isLive, id, wikiParam]);
+  }, [isLive, detailKey, wikiParam]);
 
   if (loading) {
     return (

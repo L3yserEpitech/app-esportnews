@@ -61,6 +61,7 @@ export default function GameResults(props: MatchSectionProps) {
                       pathname: '/match/[id]/game/[n]',
                       params: {
                         id: String(match.id),
+                        m2: match.match2id ?? '',
                         n: String(game.position ?? idx + 1),
                         wiki: match.wiki ?? '',
                       },

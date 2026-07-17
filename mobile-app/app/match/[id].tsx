@@ -23,8 +23,11 @@ import ExternalStatsLinks from '@/components/match-detail/sections/ExternalStats
 const POLL_MS = 45000;
 
 export default function MatchDetailScreen() {
-  const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
+  const { id, m2, wiki } = useLocalSearchParams<{ id: string; m2?: string; wiki?: string }>();
   const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
+  const m2Param = typeof m2 === 'string' && m2.length > 0 ? m2 : undefined;
+  // Backend only resolves the alphanumeric match2id on-demand; a numeric id 404s.
+  const detailKey = m2Param ?? id;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [match, setMatch] = useState<PandaMatch | null>(null);
@@ -39,7 +42,7 @@ export default function MatchDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await matchService.getMatchById(Number(id), wikiParam);
+      const data = await matchService.getMatchById(detailKey, wikiParam);
       if (data) setMatch(data);
       else setError('Match introuvable');
     } catch {
@@ -47,7 +50,7 @@ export default function MatchDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id, wikiParam]);
+  }, [id, detailKey, wikiParam]);
 
   useEffect(() => {
     loadMatch();
@@ -62,12 +65,12 @@ export default function MatchDetailScreen() {
     if (!isLive) return;
     const timer = setInterval(async () => {
       try {
-        const fresh = await matchService.getMatchById(Number(id), wikiParam);
+        const fresh = await matchService.getMatchById(detailKey, wikiParam);
         if (fresh) setMatch(fresh);
       } catch { /* keep last good state */ }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [isLive, id, wikiParam]);
+  }, [isLive, detailKey, wikiParam]);
 
   if (loading) {
     return (

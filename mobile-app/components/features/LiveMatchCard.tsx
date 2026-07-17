@@ -23,7 +23,7 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, fullWidth }
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const handleNavigate = () => {
-    router.push({ pathname: '/match/[id]', params: { id: String(match.id), wiki: match.wiki ?? '' } });
+    router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } });
   };
 
   // Déterminer le statut basé sur le champ status

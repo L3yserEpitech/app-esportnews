@@ -20,7 +20,7 @@ interface MatchCardProps {
 export const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
   const router = useRouter();
   const handlePress = () => {
-    router.push({ pathname: '/match/[id]', params: { id: String(match.id), wiki: match.wiki ?? '' } });
+    router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } });
   };
 
   const team1 = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;

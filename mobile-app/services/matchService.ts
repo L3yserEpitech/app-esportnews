@@ -35,7 +35,7 @@ class MatchService {
    * wiki: requis par le backend pour scoper le fetch — sans lui, un ID numérique
    * ne déclenche pas le scan 10-wikis et renvoie 404 (cf. CLAUDE.md §18.1).
    */
-  async getMatchById(id: number, wiki?: string | null): Promise<PandaMatch | null> {
+  async getMatchById(id: string | number, wiki?: string | null): Promise<PandaMatch | null> {
     try {
       const response = await apiClient.get<PandaMatch>(`/api/matches/${id}`, {
         params: wiki ? { wiki } : undefined,
@@ -50,7 +50,7 @@ class MatchService {
   /**
    * Récupérer plusieurs matchs par leurs IDs
    */
-  async getMatchesByIds(ids: number[], wiki?: string | null): Promise<PandaMatch[]> {
+  async getMatchesByIds(ids: (string | number)[], wiki?: string | null): Promise<PandaMatch[]> {
     try {
       const promises = ids.map(id => this.getMatchById(id, wiki));
       const results = await Promise.all(promises);

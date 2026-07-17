@@ -98,7 +98,7 @@ function BracketCell({ match, full }: { match: PandaMatch; full?: boolean }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.cell, full ? styles.cellFull : styles.cellFixed, pressed && styles.cellPressed]}
-      onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), wiki: match.wiki ?? '' } })}
+      onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } })}
     >
       {isLive && <View style={styles.liveBar} />}
       <TeamRow team={home} score={homeScore} won={isFinished && match.winner_id === home?.id} live={isLive} />
