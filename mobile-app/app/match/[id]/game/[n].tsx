@@ -5,25 +5,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { matchService } from '@/services';
-import type { PandaMatch } from '@/types';
+import type { PandaMatch, PandaGame } from '@/types';
 import { useAdPopup, useSubscription } from '@/hooks';
-import { resolveSections, type SectionId } from '@/components/match-detail/matchSections';
-import type { MatchSectionProps } from '@/components/match-detail/sections/shared';
-import MatchHeader from '@/components/match-detail/sections/MatchHeader';
-import GameResults from '@/components/match-detail/sections/GameResults';
-import PlayerStatsTable from '@/components/match-detail/sections/PlayerStatsTable';
-import StreamPlayer from '@/components/match-detail/sections/StreamPlayer';
-import RostersPanel from '@/components/match-detail/sections/RostersPanel';
-import ExternalStatsLinks from '@/components/match-detail/sections/ExternalStatsLinks';
+import { ValorantGameBlock } from '@/components/match-detail/sections/valorant/ValorantGameCards';
 
 const POLL_MS = 45000;
 
-export default function MatchDetailScreen() {
-  const { id, wiki } = useLocalSearchParams<{ id: string; wiki?: string }>();
+// Per-wiki full-block dispatcher for the game page. Only Valorant is wired end
+// to end for now; other rich wikis keep their inline cards on the match page and
+// don't navigate here yet, so they fall through to a graceful message.
+function GameDetailBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
+  switch (match.wiki) {
+    case 'valorant':
+      return <ValorantGameBlock match={match} game={game} />;
+    // TODO(next): leagueoflegends / dota2 / counterstrike / rainbowsix / overwatch.
+    default:
+      return (
+        <View style={styles.unavailable}>
+          <MaterialCommunityIcons name="information-outline" size={40} color={COLORS.textMuted} />
+          <Text style={styles.unavailableText}>Détails indisponibles pour cette game.</Text>
+        </View>
+      );
+  }
+}
+
+export default function GameDetailScreen() {
+  const { id, n, wiki } = useLocalSearchParams<{ id: string; n: string; wiki?: string }>();
   const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -51,7 +61,6 @@ export default function MatchDetailScreen() {
 
   useEffect(() => {
     loadMatch();
-    // Show an ad when the user leaves the match screen.
     return () => { showAd(); };
   }, [loadMatch, showAd]);
 
@@ -78,11 +87,15 @@ export default function MatchDetailScreen() {
     );
   }
 
-  if (error || !match) {
+  const game = match
+    ? match.games?.find(g => String(g.position) === String(n)) ?? match.games?.[Number(n) - 1]
+    : undefined;
+
+  if (error || !match || !game) {
     return (
       <View style={[styles.container, styles.center]}>
         <MaterialCommunityIcons name="alert-decagram-outline" size={64} color={COLORS.error} />
-        <Text style={styles.errorText}>{error || 'Introuvable'}</Text>
+        <Text style={styles.errorText}>{error || 'Game introuvable'}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Retour</Text>
         </Pressable>
@@ -90,28 +103,8 @@ export default function MatchDetailScreen() {
     );
   }
 
-  const team1 = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
-  const team2 = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
-  const sectionProps: MatchSectionProps = { match, isLive: !!isLive };
-  const sections = resolveSections(match.wiki ?? wikiParam ?? undefined, !!isLive);
-
-  const renderSection = (sectionId: SectionId) => {
-    switch (sectionId) {
-      case 'header': return <MatchHeader key={sectionId} {...sectionProps} />;
-      case 'gameResults': return <GameResults key={sectionId} {...sectionProps} />;
-      case 'playerStats': return <PlayerStatsTable key={sectionId} {...sectionProps} />;
-      case 'stream': return <StreamPlayer key={sectionId} {...sectionProps} />;
-      case 'rosters': return <RostersPanel key={sectionId} {...sectionProps} />;
-      case 'externalLinks': return <ExternalStatsLinks key={sectionId} {...sectionProps} />;
-      // 'draft' is embedded per-game in gameResults (rich wikis) — no standalone section.
-      case 'draft':
-      default:
-        return null;
-    }
-  };
-
-  const headerIds = sections.filter(s => s === 'header');
-  const bodyIds = sections.filter(s => s !== 'header');
+  const gameLabel = `Game ${game.position ?? n}`;
+  const subtitle = game.map ? `${gameLabel} · ${game.map}` : gameLabel;
 
   return (
     <View style={styles.container}>
@@ -123,36 +116,22 @@ export default function MatchDetailScreen() {
           <MaterialCommunityIcons name="chevron-left" size={32} color={COLORS.text} />
         </Pressable>
         <View style={styles.headerInfo}>
-          <Text variant="labelLarge" style={styles.leagueNameHeader} numberOfLines={1}>
-            {match.league?.name || match.tournament?.name}
+          <Text variant="labelLarge" style={styles.matchNameHeader} numberOfLines={1}>
+            {match.name || match.tournament?.name || 'Match'}
           </Text>
-          {match.tournament?.name ? (
-            <Text variant="labelSmall" style={styles.tournamentNameHeader} numberOfLines={1}>
-              {match.tournament.name}
-            </Text>
-          ) : null}
+          <Text variant="labelSmall" style={styles.subtitleHeader} numberOfLines={1}>
+            {subtitle}
+          </Text>
         </View>
-        <SubscribeButton
-          type="match"
-          id={Number(id)}
-          meta={{
-            match_name: match.name || `${team1?.acronym || team1?.name || 'TBD'} vs ${team2?.acronym || team2?.name || 'TBD'}`,
-            tournament_name: match.tournament?.name || '',
-            game_acronym: match.videogame?.slug || '',
-            begin_at: match.begin_at || undefined,
-          }}
-          size={24}
-          style={styles.iconButton}
-        />
+        <View style={styles.iconButton} />
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.xxl }]}
         showsVerticalScrollIndicator={false}
       >
-        {headerIds.map(renderSection)}
         <View style={styles.body}>
-          {bodyIds.map(renderSection)}
+          <GameDetailBlock match={match} game={game} />
         </View>
       </ScrollView>
     </View>
@@ -195,15 +174,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.md,
   },
-  leagueNameHeader: {
+  matchNameHeader: {
     color: COLORS.text,
     fontWeight: '800',
     fontSize: 14,
     textTransform: 'uppercase',
   },
-  tournamentNameHeader: {
+  subtitleHeader: {
     color: COLORS.textSecondary,
     fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   scrollContent: {
     paddingBottom: 40,
@@ -212,6 +193,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.md,
     gap: spacing.xl,
+  },
+  unavailable: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xxl,
+  },
+  unavailableText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
   },
   loadingText: {
     color: COLORS.textSecondary,

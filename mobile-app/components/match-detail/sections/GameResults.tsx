@@ -2,10 +2,11 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { SectionHeader, TeamLogo, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
-import ValorantGameCards from './valorant/ValorantGameCards';
+import { ValorantGameBanner, ValorantGameBlock } from './valorant/ValorantGameCards';
 import LolGameCards from './leagueoflegends/LolGameCards';
 import DotaGameCards from './dota2/DotaGameCards';
 import CsGameCards from './counterstrike/CsGameCards';
@@ -15,13 +16,23 @@ import CodGameCards from './callofduty/CodGameCards';
 import RlGameCards from './rocketleague/RlGameCards';
 import FcGameCards from './easportsfc/FcGameCards';
 
-// Per-game dispatcher. For the scaffold task only the generic fallback exists;
-// later phases branch on match.wiki to rich per-game components.
+// Wikis rich enough to warrant a dedicated per-game page (banner drill-down).
+const RICH_WIKIS = new Set([
+  'valorant', 'leagueoflegends', 'dota2', 'counterstrike', 'rainbowsix', 'overwatch',
+]);
+
+// Per-game dispatcher. Rich multi-game matches render a compact banner per game
+// (tap → dedicated game page). BO1 rich matches render the full block inline.
+// Non-rich (INLINE) wikis keep their existing inline cards.
 export default function GameResults(props: MatchSectionProps) {
   const { match } = props;
+  const router = useRouter();
   if (!match.games || match.games.length === 0) return null;
 
-  const played = match.games.filter(g => g.finished).length;
+  const games = match.games;
+  const played = games.filter(g => g.finished).length;
+  const isRich = RICH_WIKIS.has(match.wiki ?? '');
+  const isMulti = games.length > 1;
 
   return (
     <View style={styles.section}>
@@ -33,19 +44,66 @@ export default function GameResults(props: MatchSectionProps) {
         ) : undefined}
       />
       {(() => {
+        // RICH + multi-game → banner per game (drill-down to the game page).
+        if (isRich && isMulti) {
+          switch (match.wiki) {
+            case 'valorant':
+              return (
+                <View style={styles.banners}>
+                  {games.map((game, idx) => (
+                    <ValorantGameBanner
+                      key={game.id ?? idx}
+                      match={match}
+                      game={game}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/match/[id]/game/[n]',
+                          params: {
+                            id: String(match.id),
+                            n: String(game.position ?? idx + 1),
+                            wiki: match.wiki ?? '',
+                          },
+                        })
+                      }
+                    />
+                  ))}
+                </View>
+              );
+            // TODO(next): banner+block for leagueoflegends/dota2/counterstrike/rainbowsix/overwatch.
+            // Until then, these rich wikis keep their inline cards (no drill-down).
+            case 'leagueoflegends':
+              return <LolGameCards {...props} />;
+            case 'dota2':
+              return <DotaGameCards {...props} />;
+            case 'counterstrike':
+              return <CsGameCards {...props} />;
+            case 'rainbowsix':
+              return <R6GameCards {...props} />;
+            case 'overwatch':
+              return <OwGameCards {...props} />;
+          }
+        }
+
+        // RICH + BO1 → single full block inline (no banner/drill for one game).
+        if (isRich && !isMulti) {
+          switch (match.wiki) {
+            case 'valorant':
+              return <ValorantGameBlock match={match} game={games[0]} />;
+            case 'leagueoflegends':
+              return <LolGameCards {...props} />;
+            case 'dota2':
+              return <DotaGameCards {...props} />;
+            case 'counterstrike':
+              return <CsGameCards {...props} />;
+            case 'rainbowsix':
+              return <R6GameCards {...props} />;
+            case 'overwatch':
+              return <OwGameCards {...props} />;
+          }
+        }
+
+        // INLINE tier (callofduty / rocketleague / easportsfc / smash / default).
         switch (match.wiki) {
-          case 'valorant':
-            return <ValorantGameCards {...props} />;
-          case 'leagueoflegends':
-            return <LolGameCards {...props} />;
-          case 'dota2':
-            return <DotaGameCards {...props} />;
-          case 'counterstrike':
-            return <CsGameCards {...props} />;
-          case 'rainbowsix':
-            return <R6GameCards {...props} />;
-          case 'overwatch':
-            return <OwGameCards {...props} />;
           case 'callofduty':
             return <CodGameCards {...props} />;
           case 'rocketleague':
@@ -140,9 +198,8 @@ function GenericGameCards({ match }: MatchSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    paddingHorizontal: spacing.md,
-  },
+  // Horizontal inset comes from the match shell body (single source).
+  section: {},
   countText: {
     color: COLORS.textMuted,
     fontSize: 11,
@@ -151,6 +208,9 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.sm,
+  },
+  banners: {
+    gap: spacing.md,
   },
   card: {
     borderRadius: borderRadius.md,

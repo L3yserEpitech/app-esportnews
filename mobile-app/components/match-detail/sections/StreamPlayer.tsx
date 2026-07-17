@@ -51,9 +51,8 @@ export default function StreamPlayer({ match, isLive }: MatchSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    paddingHorizontal: spacing.md,
-  },
+  // Horizontal inset comes from the match shell body (single source).
+  section: {},
   watchButton: {
     flexDirection: 'row',
     alignItems: 'center',
