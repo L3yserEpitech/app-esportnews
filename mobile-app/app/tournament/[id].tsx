@@ -224,6 +224,7 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingTop: spacing.lg,
+    paddingHorizontal: spacing.md,
     gap: spacing.xl,
   },
   loadingText: {

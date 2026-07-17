@@ -117,7 +117,7 @@ export default function BracketSection({ matches }: TournamentSectionProps) {
   const single = sections.length === 1;
 
   return (
-    <View style={styles.wrap}>
+    <View>
       <SectionHeader icon="tournament" title="Bracket" />
       {single ? (
         <View style={styles.singleColumn}>
@@ -147,7 +147,6 @@ export default function BracketSection({ matches }: TournamentSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: spacing.md },
   singleColumn: { gap: spacing.md },
   columns: { gap: spacing.md, paddingBottom: spacing.sm },
   column: { gap: spacing.md },
