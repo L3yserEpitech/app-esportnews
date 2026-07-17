@@ -11,17 +11,31 @@ import { matchService } from '@/services';
 import type { PandaMatch, PandaGame } from '@/types';
 import { useAdPopup, useSubscription } from '@/hooks';
 import { ValorantGameBlock } from '@/components/match-detail/sections/valorant/ValorantGameCards';
+import { LolGameBlock } from '@/components/match-detail/sections/leagueoflegends/LolGameCards';
+import { DotaGameBlock } from '@/components/match-detail/sections/dota2/DotaGameCards';
+import { CsGameBlock } from '@/components/match-detail/sections/counterstrike/CsGameCards';
+import { R6GameBlock } from '@/components/match-detail/sections/rainbowsix/R6GameCards';
+import { OwGameBlock } from '@/components/match-detail/sections/overwatch/OwGameCards';
 
 const POLL_MS = 45000;
 
-// Per-wiki full-block dispatcher for the game page. Only Valorant is wired end
-// to end for now; other rich wikis keep their inline cards on the match page and
-// don't navigate here yet, so they fall through to a graceful message.
+// Per-wiki full-block dispatcher for the game page. Covers all six rich wikis;
+// any other wiki (or a game with no drillable data) falls through to a graceful
+// message.
 function GameDetailBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
   switch (match.wiki) {
     case 'valorant':
       return <ValorantGameBlock match={match} game={game} />;
-    // TODO(next): leagueoflegends / dota2 / counterstrike / rainbowsix / overwatch.
+    case 'leagueoflegends':
+      return <LolGameBlock match={match} game={game} />;
+    case 'dota2':
+      return <DotaGameBlock match={match} game={game} />;
+    case 'counterstrike':
+      return <CsGameBlock match={match} game={game} />;
+    case 'rainbowsix':
+      return <R6GameBlock match={match} game={game} />;
+    case 'overwatch':
+      return <OwGameBlock match={match} game={game} />;
     default:
       return (
         <View style={styles.unavailable}>

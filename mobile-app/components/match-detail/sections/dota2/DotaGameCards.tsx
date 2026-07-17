@@ -17,12 +17,23 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { imageUrl } from '@/utils/imageUrl';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import type { PandaGame, PandaParticipant, PandaTeam } from '@/types';
-import { parseGameWinner, TeamLogo, formatDuration, type MatchSectionProps } from '../shared';
+import type { PandaMatch, PandaGame, PandaParticipant, PandaTeam } from '@/types';
+import { parseGameWinner, TeamLogo, formatDuration } from '../shared';
 import { parseDraft } from '../draft';
 import { Scoreboard } from '../Scoreboard';
 import type { StatColumn } from '../statColumns';
 import { useDotaAssets, dotaHeroImage, dotaItemIcon, type DotaAssetMaps } from './dotaAssets';
+
+// True when a game carries drill-down worthy data (draft picks or a per-player
+// scoreboard). Dota's real draft lives in vetophase, so pick-type veto steps
+// count too. Callers gate banner tappability / game-page existence on this.
+export function hasGameDetails(game: PandaGame): boolean {
+  const draft = parseDraft(game);
+  const hasPicks = !!draft && (draft.team1.picks.length > 0 || draft.team2.picks.length > 0);
+  const veto = parseVeto(game);
+  const hasVetoPicks = !!veto && veto.some(s => s.type === 'pick');
+  return hasPicks || hasVetoPicks || (game.participants?.length ?? 0) > 0;
+}
 
 const RADIANT = '#34D399'; // emerald-400
 const DIRE = '#F87171'; // red-400
@@ -415,98 +426,147 @@ function ExternalLinks({ pubId }: { pubId: string }) {
   );
 }
 
-export default function DotaGameCards({ match }: MatchSectionProps) {
-  const games = match.games ?? [];
-  const maps = useDotaAssets();
-  if (games.length === 0) return null;
+// Resolve home/away teams + per-game win/live/finished flags. Shared by the
+// banner (hero only) and the block (hero + details) so they stay in lockstep.
+function useGameState(match: PandaMatch, game: PandaGame) {
   const home = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const away = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
+  const winnerData = parseGameWinner(game.winner);
+  const winnerTeam = winnerData?.id
+    ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
+    : null;
+  const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
+  const isHomeWin = winId != null && winId === home?.id;
+  const isAwayWin = winId != null && winId === away?.id;
+  const isLive = game.status === 'running';
+  const isFinished = game.finished;
+  const isUpcoming = !isFinished && !isLive;
+  return { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming };
+}
+
+// Compact tappable banner for ONE game: rounded card wrapping the hero-duel.
+// When onPress is set AND the game has drill-down data, a chevron + faint
+// "STATS" affordance appears bottom-right. Draft/scoreboards live on the game
+// page, not here.
+export function DotaGameBanner({ match, game, onPress }: {
+  match: PandaMatch;
+  game: PandaGame;
+  onPress?: () => void;
+}) {
+  const maps = useDotaAssets();
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+  const drillable = !!onPress && hasGameDetails(game);
+
+  const hero = (
+    <HeroDuel
+      game={game}
+      maps={maps}
+      home={home}
+      away={away}
+      isHomeWin={isHomeWin}
+      isAwayWin={isAwayWin}
+      isLive={isLive}
+      isFinished={isFinished}
+      isUpcoming={isUpcoming}
+    />
+  );
+
+  const affordance = drillable ? (
+    <View style={styles.statsAffordance} pointerEvents="none">
+      <Text style={styles.statsAffordanceText}>STATS</Text>
+      <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textSecondary} />
+    </View>
+  ) : null;
+
+  if (drillable) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.block, isLive && styles.blockLive, pressed && styles.blockPressed]}
+      >
+        {hero}
+        {affordance}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.block, isLive && styles.blockLive]}>{hero}</View>;
+}
+
+// Full per-game block: hero-duel + details (vetophase draft + objectives + two
+// Dotabuff scoreboards + items + Dotabuff/OpenDota links). Rendered inline for
+// BO1 and on the dedicated game page for multi-game matches.
+export function DotaGameBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
+  const maps = useDotaAssets();
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
   const heroIcon = (name?: string | null) => dotaHeroImage(name, maps);
 
+  const draft = parseDraft(game);
+  const veto = parseVeto(game);
+  // vetophase gives the true draft order; else fall back to flat picks/bans.
+  const tiles: Record<1 | 2, { picks: DraftTile[]; bans: DraftTile[] }> = veto
+    ? {
+        1: { picks: vetoTiles(veto, 1, 'pick'), bans: vetoTiles(veto, 1, 'ban') },
+        2: { picks: vetoTiles(veto, 2, 'pick'), bans: vetoTiles(veto, 2, 'ban') },
+      }
+    : {
+        1: { picks: (draft?.team1.picks ?? []).map(name => ({ name })), bans: (draft?.team1.bans ?? []).map(name => ({ name })) },
+        2: { picks: (draft?.team2.picks ?? []).map(name => ({ name })), bans: (draft?.team2.bans ?? []).map(name => ({ name })) },
+      };
+  const hasDraft = tiles[1].picks.length > 0 || tiles[2].picks.length > 0 || tiles[1].bans.length > 0 || tiles[2].bans.length > 0;
+
+  const home1 = teamParts(game, 1);
+  const away1 = teamParts(game, 2);
+  const hasStats = home1.length > 0 || away1.length > 0;
+
+  const ed = game.extradata;
+  const pubId = ed?.publisherid != null && String(ed.publisherid).trim() !== '' ? String(ed.publisherid) : null;
+  const hasDetails = hasDraft || hasStats || !!pubId;
+
   return (
-    <View style={styles.stack}>
-      {games.map((game, idx) => {
-        const winnerData = parseGameWinner(game.winner);
-        const winnerTeam = winnerData?.id
-          ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
-          : null;
-        const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
-        const isHomeWin = winId != null && winId === home?.id;
-        const isAwayWin = winId != null && winId === away?.id;
-        const isLive = game.status === 'running';
-        const isFinished = game.finished;
-        const isUpcoming = !isFinished && !isLive;
+    <View style={[styles.block, isLive && styles.blockLive]}>
+      <HeroDuel
+        game={game}
+        maps={maps}
+        home={home}
+        away={away}
+        isHomeWin={isHomeWin}
+        isAwayWin={isAwayWin}
+        isLive={isLive}
+        isFinished={isFinished}
+        isUpcoming={isUpcoming}
+      />
 
-        const draft = parseDraft(game);
-        const veto = parseVeto(game);
-        // vetophase gives the true draft order; else fall back to flat picks/bans.
-        const tiles: Record<1 | 2, { picks: DraftTile[]; bans: DraftTile[] }> = veto
-          ? {
-              1: { picks: vetoTiles(veto, 1, 'pick'), bans: vetoTiles(veto, 1, 'ban') },
-              2: { picks: vetoTiles(veto, 2, 'pick'), bans: vetoTiles(veto, 2, 'ban') },
-            }
-          : {
-              1: { picks: (draft?.team1.picks ?? []).map(name => ({ name })), bans: (draft?.team1.bans ?? []).map(name => ({ name })) },
-              2: { picks: (draft?.team2.picks ?? []).map(name => ({ name })), bans: (draft?.team2.bans ?? []).map(name => ({ name })) },
-            };
-        const hasDraft = tiles[1].picks.length > 0 || tiles[2].picks.length > 0 || tiles[1].bans.length > 0 || tiles[2].bans.length > 0;
-
-        const home1 = teamParts(game, 1);
-        const away1 = teamParts(game, 2);
-        const hasStats = home1.length > 0 || away1.length > 0;
-
-        const ed = game.extradata;
-        const pubId = ed?.publisherid != null && String(ed.publisherid).trim() !== '' ? String(ed.publisherid) : null;
-        const hasDetails = hasDraft || hasStats || !!pubId;
-
-        return (
-          <View key={game.id ?? idx} style={[styles.block, isLive && styles.blockLive]}>
-            <HeroDuel
-              game={game}
-              maps={maps}
-              home={home}
-              away={away}
-              isHomeWin={isHomeWin}
-              isAwayWin={isAwayWin}
-              isLive={isLive}
-              isFinished={isFinished}
-              isUpcoming={isUpcoming}
-            />
-
-            {hasDetails && (
-              <View style={styles.details}>
-                {hasDraft && <DraftRow tiles={tiles} maps={maps} />}
-                <ObjectivesStrip game={game} />
-                {hasStats && (
-                  <View style={styles.scoreboards}>
-                    <View style={styles.teamCol}>
-                      <Scoreboard
-                        participants={home1}
-                        columns={DOTA_COLUMNS}
-                        characterIcon={heroIcon}
-                        teamLabel={home?.acronym || home?.name || '-'}
-                        teamLogo={home?.image_url}
-                      />
-                      <ItemsStrip rows={home1} maps={maps} />
-                    </View>
-                    <View style={styles.teamCol}>
-                      <Scoreboard
-                        participants={away1}
-                        columns={DOTA_COLUMNS}
-                        characterIcon={heroIcon}
-                        teamLabel={away?.acronym || away?.name || '-'}
-                        teamLogo={away?.image_url}
-                      />
-                      <ItemsStrip rows={away1} maps={maps} />
-                    </View>
-                  </View>
-                )}
-                {pubId && <ExternalLinks pubId={pubId} />}
+      {hasDetails && (
+        <View style={styles.details}>
+          {hasDraft && <DraftRow tiles={tiles} maps={maps} />}
+          <ObjectivesStrip game={game} />
+          {hasStats && (
+            <View style={styles.scoreboards}>
+              <View style={styles.teamCol}>
+                <Scoreboard
+                  participants={home1}
+                  columns={DOTA_COLUMNS}
+                  characterIcon={heroIcon}
+                  teamLabel={home?.acronym || home?.name || '-'}
+                  teamLogo={home?.image_url}
+                />
+                <ItemsStrip rows={home1} maps={maps} />
               </View>
-            )}
-          </View>
-        );
-      })}
+              <View style={styles.teamCol}>
+                <Scoreboard
+                  participants={away1}
+                  columns={DOTA_COLUMNS}
+                  characterIcon={heroIcon}
+                  teamLabel={away?.acronym || away?.name || '-'}
+                  teamLogo={away?.image_url}
+                />
+                <ItemsStrip rows={away1} maps={maps} />
+              </View>
+            </View>
+          )}
+          {pubId && <ExternalLinks pubId={pubId} />}
+        </View>
+      )}
     </View>
   );
 }
@@ -523,6 +583,24 @@ const styles = StyleSheet.create({
   },
   blockLive: {
     borderColor: `${COLORS.live}66`,
+  },
+  blockPressed: {
+    opacity: 0.85,
+  },
+  statsAffordance: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    opacity: 0.7,
+  },
+  statsAffordanceText: {
+    color: COLORS.textSecondary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   dimmed: {
     opacity: 0.5,

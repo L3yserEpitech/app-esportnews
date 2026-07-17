@@ -5,16 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+import type { PandaMatch, PandaGame } from '@/types';
 import { SectionHeader, TeamLogo, parseGameWinner, formatDuration, type MatchSectionProps } from './shared';
 import { ValorantGameBanner, ValorantGameBlock } from './valorant/ValorantGameCards';
-import LolGameCards from './leagueoflegends/LolGameCards';
-import DotaGameCards from './dota2/DotaGameCards';
-import CsGameCards from './counterstrike/CsGameCards';
-import R6GameCards from './rainbowsix/R6GameCards';
-import OwGameCards from './overwatch/OwGameCards';
+import { LolGameBanner, LolGameBlock } from './leagueoflegends/LolGameCards';
+import { DotaGameBanner, DotaGameBlock } from './dota2/DotaGameCards';
+import { CsGameBanner, CsGameBlock } from './counterstrike/CsGameCards';
+import { R6GameBanner, R6GameBlock } from './rainbowsix/R6GameCards';
+import { OwGameBanner, OwGameBlock } from './overwatch/OwGameCards';
 import CodGameCards from './callofduty/CodGameCards';
 import RlGameCards from './rocketleague/RlGameCards';
 import FcGameCards from './easportsfc/FcGameCards';
+
+type GameBannerComponent = React.ComponentType<{ match: PandaMatch; game: PandaGame; onPress?: () => void }>;
 
 // Wikis rich enough to warrant a dedicated per-game page (banner drill-down).
 const RICH_WIKIS = new Set([
@@ -46,41 +49,40 @@ export default function GameResults(props: MatchSectionProps) {
       {(() => {
         // RICH + multi-game → banner per game (drill-down to the game page).
         if (isRich && isMulti) {
+          const renderBanners = (Banner: GameBannerComponent) => (
+            <View style={styles.banners}>
+              {games.map((game, idx) => (
+                <Banner
+                  key={game.id ?? idx}
+                  match={match}
+                  game={game}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/match/[id]/game/[n]',
+                      params: {
+                        id: String(match.id),
+                        n: String(game.position ?? idx + 1),
+                        wiki: match.wiki ?? '',
+                      },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          );
           switch (match.wiki) {
             case 'valorant':
-              return (
-                <View style={styles.banners}>
-                  {games.map((game, idx) => (
-                    <ValorantGameBanner
-                      key={game.id ?? idx}
-                      match={match}
-                      game={game}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/match/[id]/game/[n]',
-                          params: {
-                            id: String(match.id),
-                            n: String(game.position ?? idx + 1),
-                            wiki: match.wiki ?? '',
-                          },
-                        })
-                      }
-                    />
-                  ))}
-                </View>
-              );
-            // TODO(next): banner+block for leagueoflegends/dota2/counterstrike/rainbowsix/overwatch.
-            // Until then, these rich wikis keep their inline cards (no drill-down).
+              return renderBanners(ValorantGameBanner);
             case 'leagueoflegends':
-              return <LolGameCards {...props} />;
+              return renderBanners(LolGameBanner);
             case 'dota2':
-              return <DotaGameCards {...props} />;
+              return renderBanners(DotaGameBanner);
             case 'counterstrike':
-              return <CsGameCards {...props} />;
+              return renderBanners(CsGameBanner);
             case 'rainbowsix':
-              return <R6GameCards {...props} />;
+              return renderBanners(R6GameBanner);
             case 'overwatch':
-              return <OwGameCards {...props} />;
+              return renderBanners(OwGameBanner);
           }
         }
 
@@ -90,15 +92,15 @@ export default function GameResults(props: MatchSectionProps) {
             case 'valorant':
               return <ValorantGameBlock match={match} game={games[0]} />;
             case 'leagueoflegends':
-              return <LolGameCards {...props} />;
+              return <LolGameBlock match={match} game={games[0]} />;
             case 'dota2':
-              return <DotaGameCards {...props} />;
+              return <DotaGameBlock match={match} game={games[0]} />;
             case 'counterstrike':
-              return <CsGameCards {...props} />;
+              return <CsGameBlock match={match} game={games[0]} />;
             case 'rainbowsix':
-              return <R6GameCards {...props} />;
+              return <R6GameBlock match={match} game={games[0]} />;
             case 'overwatch':
-              return <OwGameCards {...props} />;
+              return <OwGameBlock match={match} game={games[0]} />;
           }
         }
 

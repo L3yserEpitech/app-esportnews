@@ -7,19 +7,28 @@
 // (picks role-ordered + struck-through bans), and an op.gg-style scoreboard per
 // team (via the shared <Scoreboard> primitive) with an item-build strip below.
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { imageUrl } from '@/utils/imageUrl';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import type { PandaGame, PandaParticipant, PandaTeam } from '@/types';
-import { parseGameWinner, TeamLogo, formatDuration, type MatchSectionProps } from '../shared';
+import type { PandaMatch, PandaGame, PandaParticipant, PandaTeam } from '@/types';
+import { parseGameWinner, TeamLogo, formatDuration } from '../shared';
 import { parseDraft } from '../draft';
 import { Scoreboard } from '../Scoreboard';
 import type { StatColumn } from '../statColumns';
 import { lolChampSplash, lolChampIcon, lolSpellIcon, lolItemIcon, useLolItemMap } from './lolAssets';
+
+// True when a game carries drill-down worthy data (draft picks or a per-player
+// scoreboard). Callers gate banner tappability / game-page existence on this.
+export function hasGameDetails(game: PandaGame): boolean {
+  const draft = parseDraft(game);
+  const hasPicks = !!draft && (draft.team1.picks.length > 0 || draft.team2.picks.length > 0);
+  return hasPicks || (game.participants?.length ?? 0) > 0;
+}
 
 const BLUE = '#38BDF8'; // sky-400
 const RED = '#EF4444'; // red-500
@@ -365,79 +374,126 @@ function ChampionDuelHero({ game, home, away, isHomeWin, isAwayWin, isLive, isFi
   );
 }
 
-export default function LolGameCards({ match }: MatchSectionProps) {
-  const games = match.games ?? [];
-  const itemMap = useLolItemMap();
-  if (games.length === 0) return null;
+// Resolve home/away teams + per-game win/live/finished flags. Shared by the
+// banner (hero only) and the block (hero + details) so they stay in lockstep.
+function useGameState(match: PandaMatch, game: PandaGame) {
   const home = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const away = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
+  const winnerData = parseGameWinner(game.winner);
+  const winnerTeam = winnerData?.id
+    ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
+    : null;
+  const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
+  const isHomeWin = winId != null && winId === home?.id;
+  const isAwayWin = winId != null && winId === away?.id;
+  const isLive = game.status === 'running';
+  const isFinished = game.finished;
+  const isUpcoming = !isFinished && !isLive;
+  return { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming };
+}
+
+// Compact tappable banner for ONE game: rounded card wrapping the champion-duel
+// hero. When onPress is set AND the game has drill-down data, a chevron + faint
+// "STATS" affordance appears bottom-right. Draft/scoreboards live on the game
+// page, not here.
+export function LolGameBanner({ match, game, onPress }: {
+  match: PandaMatch;
+  game: PandaGame;
+  onPress?: () => void;
+}) {
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+  const drillable = !!onPress && hasGameDetails(game);
+
+  const hero = (
+    <ChampionDuelHero
+      game={game}
+      home={home}
+      away={away}
+      isHomeWin={isHomeWin}
+      isAwayWin={isAwayWin}
+      isLive={isLive}
+      isFinished={isFinished}
+      isUpcoming={isUpcoming}
+    />
+  );
+
+  const affordance = drillable ? (
+    <View style={styles.statsAffordance} pointerEvents="none">
+      <Text style={styles.statsAffordanceText}>STATS</Text>
+      <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textSecondary} />
+    </View>
+  ) : null;
+
+  if (drillable) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.block, isLive && styles.blockLive, pressed && styles.blockPressed]}
+      >
+        {hero}
+        {affordance}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.block, isLive && styles.blockLive]}>{hero}</View>;
+}
+
+// Full per-game block: champion-duel hero + details (draft + objectives + two
+// op.gg scoreboards + item builds). Rendered inline for BO1 and on the dedicated
+// game page for multi-game matches.
+export function LolGameBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
+  const itemMap = useLolItemMap();
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+
+  const draft = parseDraft(game);
+  const home1 = teamParts(game, 1);
+  const away1 = teamParts(game, 2);
+  const hasStats = home1.length > 0 || away1.length > 0;
+  const hasDetails = !!draft || hasStats;
 
   return (
-    <View style={styles.stack}>
-      {games.map((game, idx) => {
-        const winnerData = parseGameWinner(game.winner);
-        const winnerTeam = winnerData?.id
-          ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
-          : null;
-        const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
-        const isHomeWin = winId != null && winId === home?.id;
-        const isAwayWin = winId != null && winId === away?.id;
-        const isLive = game.status === 'running';
-        const isFinished = game.finished;
-        const isUpcoming = !isFinished && !isLive;
+    <View style={[styles.block, isLive && styles.blockLive]}>
+      <ChampionDuelHero
+        game={game}
+        home={home}
+        away={away}
+        isHomeWin={isHomeWin}
+        isAwayWin={isAwayWin}
+        isLive={isLive}
+        isFinished={isFinished}
+        isUpcoming={isUpcoming}
+      />
 
-        const draft = parseDraft(game);
-        const home1 = teamParts(game, 1);
-        const away1 = teamParts(game, 2);
-        const hasStats = home1.length > 0 || away1.length > 0;
-        const hasDetails = !!draft || hasStats;
-
-        return (
-          <View key={game.id ?? idx} style={[styles.block, isLive && styles.blockLive]}>
-            <ChampionDuelHero
-              game={game}
-              home={home}
-              away={away}
-              isHomeWin={isHomeWin}
-              isAwayWin={isAwayWin}
-              isLive={isLive}
-              isFinished={isFinished}
-              isUpcoming={isUpcoming}
-            />
-
-            {hasDetails && (
-              <View style={styles.details}>
-                {draft && <DraftRow draft={draft} />}
-                <ObjectivesStrip game={game} />
-                {hasStats && (
-                  <View style={styles.scoreboards}>
-                    <View style={styles.teamCol}>
-                      <Scoreboard
-                        participants={home1}
-                        columns={LOL_COLUMNS}
-                        characterIcon={lolChampIcon}
-                        teamLabel={home?.acronym || home?.name || '-'}
-                        teamLogo={home?.image_url}
-                      />
-                      <ItemBuilds game={game} teamIndex={1} itemMap={itemMap} />
-                    </View>
-                    <View style={styles.teamCol}>
-                      <Scoreboard
-                        participants={away1}
-                        columns={LOL_COLUMNS}
-                        characterIcon={lolChampIcon}
-                        teamLabel={away?.acronym || away?.name || '-'}
-                        teamLogo={away?.image_url}
-                      />
-                      <ItemBuilds game={game} teamIndex={2} itemMap={itemMap} />
-                    </View>
-                  </View>
-                )}
+      {hasDetails && (
+        <View style={styles.details}>
+          {draft && <DraftRow draft={draft} />}
+          <ObjectivesStrip game={game} />
+          {hasStats && (
+            <View style={styles.scoreboards}>
+              <View style={styles.teamCol}>
+                <Scoreboard
+                  participants={home1}
+                  columns={LOL_COLUMNS}
+                  characterIcon={lolChampIcon}
+                  teamLabel={home?.acronym || home?.name || '-'}
+                  teamLogo={home?.image_url}
+                />
+                <ItemBuilds game={game} teamIndex={1} itemMap={itemMap} />
               </View>
-            )}
-          </View>
-        );
-      })}
+              <View style={styles.teamCol}>
+                <Scoreboard
+                  participants={away1}
+                  columns={LOL_COLUMNS}
+                  characterIcon={lolChampIcon}
+                  teamLabel={away?.acronym || away?.name || '-'}
+                  teamLogo={away?.image_url}
+                />
+                <ItemBuilds game={game} teamIndex={2} itemMap={itemMap} />
+              </View>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -454,6 +510,24 @@ const styles = StyleSheet.create({
   },
   blockLive: {
     borderColor: `${COLORS.live}66`,
+  },
+  blockPressed: {
+    opacity: 0.85,
+  },
+  statsAffordance: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    opacity: 0.7,
+  },
+  statsAffordanceText: {
+    color: COLORS.textSecondary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   dimmed: {
     opacity: 0.5,

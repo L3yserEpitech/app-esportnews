@@ -4,16 +4,25 @@
 // aggregated ATK/DEF split chip per team. The v3 API only exposes aggregated
 // {atk, def} half totals (NOT sequential H1/H2/OT) and no per-player scoreboard.
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { imageUrl } from '@/utils/imageUrl';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import type { PandaGame, PandaTeam } from '@/types';
-import { parseGameWinner, TeamLogo, type MatchSectionProps } from '../shared';
+import type { PandaMatch, PandaGame, PandaTeam } from '@/types';
+import { parseGameWinner, TeamLogo } from '../shared';
 import { r6MapImage, r6OperatorIcon } from './r6Assets';
+
+// True when a game carries drill-down worthy data (operator bans or an ATK/DEF
+// split). Callers gate banner tappability / game-page existence on this.
+export function hasGameDetails(game: PandaGame): boolean {
+  const hasBans = bans(game, 1).length > 0 || bans(game, 2).length > 0;
+  const hasSplit = !!sideSplit(game, 1) || !!sideSplit(game, 2);
+  return hasBans || hasSplit;
+}
 
 // R6 side colours: attack orange, defence sky-blue.
 const SIDE_COLORS: Record<string, string> = {
@@ -254,77 +263,122 @@ function MapHero({ game, home, away, isHomeWin, isAwayWin, isLive, isFinished, i
   );
 }
 
-export default function R6GameCards({ match }: MatchSectionProps) {
-  const games = match.games ?? [];
-  if (games.length === 0) return null;
+// Resolve home/away teams + per-game win/live/finished flags. Shared by the
+// banner (hero only) and the block (hero + details) so they stay in lockstep.
+function useGameState(match: PandaMatch, game: PandaGame) {
   const home = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const away = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
+  const winnerData = parseGameWinner(game.winner);
+  const winnerTeam = winnerData?.id
+    ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
+    : null;
+  const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
+  const isHomeWin = winId != null && winId === home?.id;
+  const isAwayWin = winId != null && winId === away?.id;
+  const isLive = game.status === 'running';
+  const isFinished = game.finished;
+  const isUpcoming = !isFinished && !isLive;
+  return { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming };
+}
+
+// Compact tappable banner for ONE game: rounded card wrapping the map hero.
+// When onPress is set AND the game has drill-down data, a chevron + faint
+// "STATS" affordance appears bottom-right. Bans/splits live on the game page.
+export function R6GameBanner({ match, game, onPress }: {
+  match: PandaMatch;
+  game: PandaGame;
+  onPress?: () => void;
+}) {
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+  const drillable = !!onPress && hasGameDetails(game);
+
+  const hero = (
+    <MapHero
+      game={game}
+      home={home}
+      away={away}
+      isHomeWin={isHomeWin}
+      isAwayWin={isAwayWin}
+      isLive={isLive}
+      isFinished={isFinished}
+      isUpcoming={isUpcoming}
+    />
+  );
+
+  const affordance = drillable ? (
+    <View style={styles.statsAffordance} pointerEvents="none">
+      <Text style={styles.statsAffordanceText}>STATS</Text>
+      <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textSecondary} />
+    </View>
+  ) : null;
+
+  if (drillable) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.block, isLive && styles.blockLive, pressed && styles.blockPressed]}
+      >
+        {hero}
+        {affordance}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.block, isLive && styles.blockLive]}>{hero}</View>;
+}
+
+// Full per-game block: map hero + operator bans + ATK/DEF split chips. Rendered
+// inline for BO1 and on the dedicated game page for multi-game matches.
+export function R6GameBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+
+  const homeBans = bans(game, 1);
+  const awayBans = bans(game, 2);
+  const hasBans = homeBans.length > 0 || awayBans.length > 0;
+  const homeSplit = sideSplit(game, 1);
+  const awaySplit = sideSplit(game, 2);
+  const hasSplit = !!homeSplit || !!awaySplit;
+  const hasDetails = hasBans || hasSplit;
 
   return (
-    <View style={styles.stack}>
-      {games.map((game, idx) => {
-        const winnerData = parseGameWinner(game.winner);
-        const winnerTeam = winnerData?.id
-          ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
-          : null;
-        const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
-        const isHomeWin = winId != null && winId === home?.id;
-        const isAwayWin = winId != null && winId === away?.id;
-        const isLive = game.status === 'running';
-        const isFinished = game.finished;
-        const isUpcoming = !isFinished && !isLive;
+    <View style={[styles.block, isLive && styles.blockLive]}>
+      <MapHero
+        game={game}
+        home={home}
+        away={away}
+        isHomeWin={isHomeWin}
+        isAwayWin={isAwayWin}
+        isLive={isLive}
+        isFinished={isFinished}
+        isUpcoming={isUpcoming}
+      />
 
-        const homeBans = bans(game, 1);
-        const awayBans = bans(game, 2);
-        const hasBans = homeBans.length > 0 || awayBans.length > 0;
-        const homeSplit = sideSplit(game, 1);
-        const awaySplit = sideSplit(game, 2);
-        const hasSplit = !!homeSplit || !!awaySplit;
-        const hasDetails = hasBans || hasSplit;
-
-        return (
-          <View key={game.id ?? idx} style={[styles.block, isLive && styles.blockLive]}>
-            <MapHero
-              game={game}
-              home={home}
-              away={away}
-              isHomeWin={isHomeWin}
-              isAwayWin={isAwayWin}
-              isLive={isLive}
-              isFinished={isFinished}
-              isUpcoming={isUpcoming}
-            />
-
-            {hasDetails && (
-              <View style={styles.details}>
-                {hasBans && (
-                  <View style={styles.bansRow}>
-                    <View style={styles.bansSide}>
-                      {homeBans.length > 0 && <Text style={styles.bansLabel}>BANS</Text>}
-                      <View style={styles.bansTiles}>
-                        {homeBans.map((b, i) => <BanTile key={`${b.operator}-${i}`} ban={b} reverse={false} />)}
-                      </View>
-                    </View>
-                    <View style={[styles.bansSide, styles.bansSideRight]}>
-                      {awayBans.length > 0 && <Text style={[styles.bansLabel, styles.textRight]}>BANS</Text>}
-                      <View style={[styles.bansTiles, styles.bansTilesRight]}>
-                        {awayBans.map((b, i) => <BanTile key={`${b.operator}-${i}`} ban={b} reverse={true} />)}
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {hasSplit && (
-                  <View style={styles.splitRow}>
-                    {homeSplit && <SideSplitChip split={homeSplit} reverse={false} label={home?.acronym || home?.name || '-'} />}
-                    {awaySplit && <SideSplitChip split={awaySplit} reverse={true} label={away?.acronym || away?.name || '-'} />}
-                  </View>
-                )}
+      {hasDetails && (
+        <View style={styles.details}>
+          {hasBans && (
+            <View style={styles.bansRow}>
+              <View style={styles.bansSide}>
+                {homeBans.length > 0 && <Text style={styles.bansLabel}>BANS</Text>}
+                <View style={styles.bansTiles}>
+                  {homeBans.map((b, i) => <BanTile key={`${b.operator}-${i}`} ban={b} reverse={false} />)}
+                </View>
               </View>
-            )}
-          </View>
-        );
-      })}
+              <View style={[styles.bansSide, styles.bansSideRight]}>
+                {awayBans.length > 0 && <Text style={[styles.bansLabel, styles.textRight]}>BANS</Text>}
+                <View style={[styles.bansTiles, styles.bansTilesRight]}>
+                  {awayBans.map((b, i) => <BanTile key={`${b.operator}-${i}`} ban={b} reverse={true} />)}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {hasSplit && (
+            <View style={styles.splitRow}>
+              {homeSplit && <SideSplitChip split={homeSplit} reverse={false} label={home?.acronym || home?.name || '-'} />}
+              {awaySplit && <SideSplitChip split={awaySplit} reverse={true} label={away?.acronym || away?.name || '-'} />}
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -341,6 +395,24 @@ const styles = StyleSheet.create({
   },
   blockLive: {
     borderColor: `${COLORS.live}66`,
+  },
+  blockPressed: {
+    opacity: 0.85,
+  },
+  statsAffordance: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    opacity: 0.7,
+  },
+  statsAffordanceText: {
+    color: COLORS.textSecondary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
 
   // Map hero

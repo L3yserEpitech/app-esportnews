@@ -5,16 +5,24 @@
 // team that banned first via banstart). Overwatch has no per-player stats on the
 // Liquipedia v3 API, so no scoreboard is rendered.
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { imageUrl } from '@/utils/imageUrl';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
-import type { PandaGame, PandaTeam } from '@/types';
-import { parseGameWinner, TeamLogo, type MatchSectionProps } from '../shared';
+import type { PandaMatch, PandaGame, PandaTeam } from '@/types';
+import { parseGameWinner, TeamLogo } from '../shared';
 import { owMapImage, owMapMode, owHeroPortrait } from './owAssets';
+
+// True when a game carries drill-down worthy data (hero bans). Callers gate
+// banner tappability / game-page existence on this.
+export function hasGameDetails(game: PandaGame): boolean {
+  const ed = game.extradata;
+  return bansFor(ed, 1).length > 0 || bansFor(ed, 2).length > 0;
+}
 
 // Bans are numbered team{n}ban{k} (1 per team in OWCS, but read every present
 // index just in case).
@@ -193,66 +201,114 @@ function MapHero({ game, home, away, mode, isHomeWin, isAwayWin, isLive, isFinis
   );
 }
 
-export default function OwGameCards({ match }: MatchSectionProps) {
-  const games = match.games ?? [];
-  if (games.length === 0) return null;
+// Resolve home/away teams + per-game win/live/finished flags. Shared by the
+// banner (hero only) and the block (hero + bans) so they stay in lockstep.
+function useGameState(match: PandaMatch, game: PandaGame) {
   const home = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const away = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
+  const winnerData = parseGameWinner(game.winner);
+  const winnerTeam = winnerData?.id
+    ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
+    : null;
+  const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
+  const isHomeWin = winId != null && winId === home?.id;
+  const isAwayWin = winId != null && winId === away?.id;
+  const isLive = game.status === 'running';
+  const isFinished = game.finished;
+  const isUpcoming = !isFinished && !isLive;
+  return { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming };
+}
+
+// Compact tappable banner for ONE game: rounded card wrapping the map hero
+// (map + score + factual mode chip). When onPress is set AND the game has
+// drill-down data, a chevron + faint "STATS" affordance appears bottom-right.
+// Hero bans live on the game page.
+export function OwGameBanner({ match, game, onPress }: {
+  match: PandaMatch;
+  game: PandaGame;
+  onPress?: () => void;
+}) {
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+  const mode = owMapMode(game.map);
+  const drillable = !!onPress && hasGameDetails(game);
+
+  const hero = (
+    <MapHero
+      game={game}
+      home={home}
+      away={away}
+      mode={mode}
+      isHomeWin={isHomeWin}
+      isAwayWin={isAwayWin}
+      isLive={isLive}
+      isFinished={isFinished}
+      isUpcoming={isUpcoming}
+    />
+  );
+
+  const affordance = drillable ? (
+    <View style={styles.statsAffordance} pointerEvents="none">
+      <Text style={styles.statsAffordanceText}>STATS</Text>
+      <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textSecondary} />
+    </View>
+  ) : null;
+
+  if (drillable) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.block, isLive && styles.blockLive, pressed && styles.blockPressed]}
+      >
+        {hero}
+        {affordance}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.block, isLive && styles.blockLive]}>{hero}</View>;
+}
+
+// Full per-game block: map hero (+ mode chip) + hero-bans row. Rendered inline
+// for BO1 and on the dedicated game page for multi-game matches.
+export function OwGameBlock({ match, game }: { match: PandaMatch; game: PandaGame }) {
+  const { home, away, isHomeWin, isAwayWin, isLive, isFinished, isUpcoming } = useGameState(match, game);
+
+  const mode = owMapMode(game.map);
+  const ed = game.extradata;
+  const homeBans = bansFor(ed, 1);
+  const awayBans = bansFor(ed, 2);
+  const banstart = ed?.banstart != null ? Number(ed.banstart) : null;
+  const hasBans = homeBans.length > 0 || awayBans.length > 0;
 
   return (
-    <View style={styles.stack}>
-      {games.map((game, idx) => {
-        const winnerData = parseGameWinner(game.winner);
-        const winnerTeam = winnerData?.id
-          ? match.opponents?.find(o => (o.opponent || o.team)?.id === winnerData.id)
-          : null;
-        const winId = (winnerTeam?.opponent || winnerTeam?.team)?.id ?? null;
-        const isHomeWin = winId != null && winId === home?.id;
-        const isAwayWin = winId != null && winId === away?.id;
-        const isLive = game.status === 'running';
-        const isFinished = game.finished;
-        const isUpcoming = !isFinished && !isLive;
+    <View style={[styles.block, isLive && styles.blockLive]}>
+      <MapHero
+        game={game}
+        home={home}
+        away={away}
+        mode={mode}
+        isHomeWin={isHomeWin}
+        isAwayWin={isAwayWin}
+        isLive={isLive}
+        isFinished={isFinished}
+        isUpcoming={isUpcoming}
+      />
 
-        const mode = owMapMode(game.map);
-        const ed = game.extradata;
-        const homeBans = bansFor(ed, 1);
-        const awayBans = bansFor(ed, 2);
-        const banstart = ed?.banstart != null ? Number(ed.banstart) : null;
-        const hasBans = homeBans.length > 0 || awayBans.length > 0;
-
-        return (
-          <View key={game.id ?? idx} style={[styles.block, isLive && styles.blockLive]}>
-            <MapHero
-              game={game}
-              home={home}
-              away={away}
-              mode={mode}
-              isHomeWin={isHomeWin}
-              isAwayWin={isAwayWin}
-              isLive={isLive}
-              isFinished={isFinished}
-              isUpcoming={isUpcoming}
-            />
-
-            {hasBans && (
-              <View style={styles.bansRow}>
-                <View style={styles.bansSide}>
-                  <Text style={styles.bansLabel}>BANS</Text>
-                  <View style={styles.bansTiles}>
-                    {homeBans.map((b, i) => <BanTile key={`h-${b}-${i}`} name={b} first={banstart === 1 && i === 0} />)}
-                  </View>
-                </View>
-                <View style={[styles.bansSide, styles.bansSideRight]}>
-                  <Text style={[styles.bansLabel, styles.textRight]}>BANS</Text>
-                  <View style={[styles.bansTiles, styles.bansTilesRight]}>
-                    {awayBans.map((b, i) => <BanTile key={`a-${b}-${i}`} name={b} first={banstart === 2 && i === 0} />)}
-                  </View>
-                </View>
-              </View>
-            )}
+      {hasBans && (
+        <View style={styles.bansRow}>
+          <View style={styles.bansSide}>
+            <Text style={styles.bansLabel}>BANS</Text>
+            <View style={styles.bansTiles}>
+              {homeBans.map((b, i) => <BanTile key={`h-${b}-${i}`} name={b} first={banstart === 1 && i === 0} />)}
+            </View>
           </View>
-        );
-      })}
+          <View style={[styles.bansSide, styles.bansSideRight]}>
+            <Text style={[styles.bansLabel, styles.textRight]}>BANS</Text>
+            <View style={[styles.bansTiles, styles.bansTilesRight]}>
+              {awayBans.map((b, i) => <BanTile key={`a-${b}-${i}`} name={b} first={banstart === 2 && i === 0} />)}
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -269,6 +325,24 @@ const styles = StyleSheet.create({
   },
   blockLive: {
     borderColor: `${COLORS.live}66`,
+  },
+  blockPressed: {
+    opacity: 0.85,
+  },
+  statsAffordance: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    opacity: 0.7,
+  },
+  statsAffordanceText: {
+    color: COLORS.textSecondary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
 
   // Map hero
