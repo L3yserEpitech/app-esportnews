@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -89,6 +91,14 @@ func NewImageProxyHandler(redisCache *cache.RedisCache, storage *services.Storag
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout:     90 * time.Second,
 		ForceAttemptHTTP2:   true,
+	}
+
+	// Same outbound proxy as the API client: liquipedia.net media also blocks
+	// Railway egress IPs. No-op when LIQUIPEDIA_HTTP_PROXY is unset (direct egress).
+	if proxyURL := os.Getenv("LIQUIPEDIA_HTTP_PROXY"); proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+		}
 	}
 
 	return &ImageProxyHandler{

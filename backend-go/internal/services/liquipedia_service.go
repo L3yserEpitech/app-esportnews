@@ -280,6 +280,19 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
+	// Route API egress through an outbound proxy (a dedicated clean-IP VPS) when set —
+	// Liquipedia's edge blocks Railway's shared egress IPs wholesale. No-op when unset
+	// (direct egress). The IPv4-forcing dialer above is inert here: with a proxy the dial
+	// target is the proxy host, not api.liquipedia.net, so it takes the default branch.
+	if proxyURL := os.Getenv("LIQUIPEDIA_HTTP_PROXY"); proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+			logger.WithField("proxy", u.Host).Info("Liquipedia API egress via outbound proxy")
+		} else {
+			logger.WithError(err).Warn("Invalid LIQUIPEDIA_HTTP_PROXY — ignoring, egress stays direct")
+		}
+	}
+
 	httpClient.Transport = transport
 
 	minInterval := time.Duration(0)
