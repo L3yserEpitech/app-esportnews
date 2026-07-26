@@ -1,19 +1,28 @@
-// Mobile-adapted bracket: the web draws a 2-D tree with SVG connectors; on a
-// narrow screen we render horizontally-scrollable round columns (one per
-// `section`), each a vertical list of compact match cells. Works purely off the
-// enriched `matches` prop — no fetch. Self-hides when no match carries a section.
+// Mobile 2-D bracket tree — a faithful port of the web TournamentBracket. Round
+// columns laid left→right in bracket order, each match cell converging into the
+// next round through an SVG elbow connector (with a soft accent glow), the whole
+// thing horizontally scrollable. Works purely off the enriched `matches` prop —
+// no fetch. Self-hides when no match carries a section.
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import Svg, { Path, Line } from 'react-native-svg';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { imageUrl } from '@/utils/imageUrl';
 import type { PandaMatch } from '@/types';
 import { SectionHeader, type TournamentSectionProps } from './shared';
 
-const CELL_W = 210;
+// ─── Layout constants ────────────────────────────────────────────────
+const CELL_H = 56;                 // match cell height
+const GAP = 16;                    // min vertical gap between first-round cells
+const SLOT = CELL_H + GAP;         // first-round slot height
+const CELL_W = 196;                // match cell width
+const CONNECTOR_W = 44;            // SVG connector width between columns
+const CORNER_R = 5;                // rounded corner radius on bracket lines
+const LINE_COLOR = COLORS.primary; // #F22E62
 
 const SECTION_ORDER: Record<string, number> = {
   'round 1': 0, 'round of 64': 1, 'round of 32': 2, 'round of 16': 3,
@@ -86,7 +95,7 @@ function TeamRow({ team, score, won, live }: {
   );
 }
 
-function BracketCell({ match, full }: { match: PandaMatch; full?: boolean }) {
+function BracketCell({ match }: { match: PandaMatch }) {
   const router = useRouter();
   const home = match.opponents?.[0]?.opponent;
   const away = match.opponents?.[1]?.opponent;
@@ -97,7 +106,7 @@ function BracketCell({ match, full }: { match: PandaMatch; full?: boolean }) {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.cell, full ? styles.cellFull : styles.cellFixed, pressed && styles.cellPressed]}
+      style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
       onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } })}
     >
       {isLive && <View style={styles.liveBar} />}
@@ -108,50 +117,133 @@ function BracketCell({ match, full }: { match: PandaMatch; full?: boolean }) {
   );
 }
 
+// Build the "⊐" path (with rounded corners) that joins a pair of source-round
+// cells into their child cell in the next round.
+function bracketPath(topY: number, botY: number, midY: number, vertX: number, r: number): string {
+  const cr = Math.min(r, (botY - topY) / 2);
+  return [
+    `M 0,${topY}`,
+    `H ${vertX - cr}`,
+    `Q ${vertX},${topY} ${vertX},${topY + cr}`,
+    `V ${midY}`,
+    `H ${CONNECTOR_W}`,
+    `M ${vertX},${midY}`,
+    `V ${botY - cr}`,
+    `Q ${vertX},${botY} ${vertX - cr},${botY}`,
+    `H 0`,
+  ].join(' ');
+}
+
+function SVGConnector({ prevCount, nextCount, totalHeight }: {
+  prevCount: number; nextCount: number; totalHeight: number;
+}) {
+  const prevSlot = totalHeight / prevCount;
+  const isPerfect = prevCount === 2 * nextCount;
+
+  // Non-standard column progression (e.g. group→single-match): straight lines.
+  if (!isPerfect) {
+    const n = Math.min(prevCount, nextCount);
+    return (
+      <Svg width={CONNECTOR_W} height={totalHeight}>
+        {Array.from({ length: n }).map((_, i) => {
+          const y = (i + 0.5) * (totalHeight / n);
+          return <Line key={i} x1={0} y1={y} x2={CONNECTOR_W} y2={y} stroke={LINE_COLOR} strokeWidth={2} strokeOpacity={0.25} />;
+        })}
+      </Svg>
+    );
+  }
+
+  const vertX = CONNECTOR_W / 2;
+  const paths = Array.from({ length: nextCount }).map((_, j) => {
+    const topY = (2 * j + 0.5) * prevSlot;
+    const botY = (2 * j + 1.5) * prevSlot;
+    return bracketPath(topY, botY, (topY + botY) / 2, vertX, CORNER_R);
+  });
+
+  return (
+    <Svg width={CONNECTOR_W} height={totalHeight}>
+      {paths.map((d, j) => (
+        <Path key={`glow-${j}`} d={d} stroke={LINE_COLOR} strokeWidth={6} strokeOpacity={0.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+      {paths.map((d, j) => (
+        <Path key={`line-${j}`} d={d} stroke={LINE_COLOR} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+    </Svg>
+  );
+}
+
 export default function BracketSection({ matches }: TournamentSectionProps) {
   const sections = useMemo(() => groupAndSortSections(matches), [matches]);
   if (sections.length === 0) return null;
 
-  // A single round isn't a tree — render full-width cells (no dead space on the
-  // right). Only a real multi-round bracket gets the horizontal-scroll columns.
-  const single = sections.length === 1;
+  // Drive the tree height off the busiest column so no column is ever cramped
+  // (some tournaments have a later round with MORE matches than the first, e.g.
+  // a "Playoffs" catch-all). Every column then gets a slot ≥ one full cell.
+  const maxCount = Math.max(...sections.map(s => s.matches.length));
+  const totalHeight = maxCount * SLOT;
 
   return (
     <View>
       <SectionHeader icon="tournament" title="Bracket" />
-      {single ? (
-        <View style={styles.singleColumn}>
-          <View style={styles.roundLabel}>
-            <Text style={styles.roundLabelText} numberOfLines={1}>{sections[0].section}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        <View>
+          {/* Round labels row */}
+          <View style={styles.labelsRow}>
+            {sections.map((group, colIdx) => (
+              <React.Fragment key={`label-${group.section}`}>
+                <View style={styles.labelSlot}>
+                  <View style={styles.roundLabel}>
+                    <Text style={styles.roundLabelText} numberOfLines={1}>{group.section}</Text>
+                  </View>
+                </View>
+                {colIdx < sections.length - 1 && <View style={styles.connectorSpacer} />}
+              </React.Fragment>
+            ))}
           </View>
-          {sections[0].matches.map(match => (
-            <BracketCell key={match.match2id || match.id} match={match} full />
-          ))}
+
+          {/* Bracket tree */}
+          <View style={[styles.treeRow, { height: totalHeight }]}>
+            {sections.map((group, colIdx) => {
+              const slotH = totalHeight / group.matches.length;
+              return (
+                <React.Fragment key={`col-${group.section}`}>
+                  <View style={[styles.column, { height: totalHeight }]}>
+                    {group.matches.map(match => (
+                      <View key={match.match2id || match.id} style={[styles.cellSlot, { height: slotH }]}>
+                        <BracketCell match={match} />
+                      </View>
+                    ))}
+                  </View>
+                  {colIdx < sections.length - 1 && (
+                    <SVGConnector
+                      prevCount={group.matches.length}
+                      nextCount={sections[colIdx + 1].matches.length}
+                      totalHeight={totalHeight}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
         </View>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columns}>
-          {sections.map(group => (
-            <View key={group.section} style={styles.column}>
-              <View style={styles.roundLabel}>
-                <Text style={styles.roundLabelText} numberOfLines={1}>{group.section}</Text>
-              </View>
-              {group.matches.map(match => (
-                <BracketCell key={match.match2id || match.id} match={match} />
-              ))}
-            </View>
-          ))}
-        </ScrollView>
-      )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  singleColumn: { gap: spacing.md },
-  columns: { gap: spacing.md, paddingBottom: spacing.sm },
-  column: { gap: spacing.md },
+  scroll: { paddingBottom: spacing.sm, paddingRight: spacing.md },
+  labelsRow: { flexDirection: 'row', marginBottom: spacing.sm },
+  labelSlot: { width: CELL_W, alignItems: 'center' },
+  connectorSpacer: { width: CONNECTOR_W },
+  treeRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  column: { width: CELL_W },
+  cellSlot: { alignItems: 'center', justifyContent: 'center' },
   roundLabel: {
-    alignSelf: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
     borderRadius: borderRadius.xs,
@@ -167,18 +259,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   cell: {
+    width: CELL_W,
+    height: CELL_H,
     borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
+    justifyContent: 'center',
   },
-  cellFixed: { width: CELL_W },
-  cellFull: { width: '100%' },
   cellPressed: { borderColor: COLORS.primary, opacity: 0.9 },
-  liveBar: { height: 2, backgroundColor: COLORS.primary, width: '100%' },
+  liveBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: COLORS.primary },
   cellDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)' },
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  teamRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
   teamRowWon: { backgroundColor: 'rgba(242,46,98,0.08)' },
   logoBox: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 16, height: 16 },
