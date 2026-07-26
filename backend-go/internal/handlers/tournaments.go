@@ -293,22 +293,25 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	// Poller coverage: finished cache = J-30 ; upcoming cache = startdate ASC
-	// limit 5000 → J-30/J+14 is fully served from Redis, zero Liquipedia call
-	// (calendar navigation caused the 2026-07-05 Cloudflare IP ban).
+	// The poller caches cover [J-30, +∞) for tournaments: tournaments_finished
+	// holds the last 30 days, tournaments_upcoming holds ALL future (startdate ASC,
+	// limit 5000), tournaments_running covers active-now (incl. long events ending
+	// in the future). So every date from J-30 onward is fully served from Redis —
+	// calendar navigation must NEVER fan out within it (the on-demand burst caused
+	// the 2026-07 IP ban). Only pre-J-30 dates fall through to on-demand.
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -30)) && !dateTime.After(today.AddDate(0, 0, 14))
+	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -30))
 
 	var allTournaments []models.NormalizedTournament
 	globalSeen := make(map[string]bool)
-	fallbackWikis := wikis
+	var fallbackWikis []string
 
 	if inPollerWindow {
-		fallbackWikis = nil
+		// Cache-only (fresh→stale): a missing cache contributes nothing instead of
+		// fanning out, so a blocked or cold poller degrades gracefully.
 		for _, w := range wikis {
 			cached, ok := h.tournamentsForDateFromPollerCache(ctx, w, date)
 			if !ok {
-				fallbackWikis = append(fallbackWikis, w)
 				continue
 			}
 			h.log.WithFields(logrus.Fields{"wiki": w, "date": date, "count": len(cached)}).Info("[BYDATE] served from poller cache")
@@ -319,6 +322,9 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 				}
 			}
 		}
+	} else {
+		// Deep past (older than J-30): on-demand, immutable → cached 24h.
+		fallbackWikis = wikis
 	}
 
 	// Tournaments overlapping the given date: startdate < date+1 AND enddate > date-1
@@ -345,7 +351,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 			params.Set("limit", "5000")
 			params.Set("query", services.LiqTournamentQueryFields)
 
-			data, fetchErr := h.liqService.MakeRequest(ctx, w, "tournament", params, cacheKey, 10*time.Minute)
+			data, fetchErr := h.liqService.MakeRequest(ctx, w, "tournament", params, cacheKey, services.TTLTournamentsByDatePast)
 			if fetchErr != nil {
 				results <- wikiResult{err: fetchErr}
 				return
@@ -591,8 +597,10 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 }
 
 // tournamentsForDateFromPollerCache reads the three poller caches of a wiki and
-// returns the tournaments active on dateStr — zero Liquipedia call. ok=false when
-// a cache key is missing (cold Redis / poller off) so the caller falls back on-demand.
+// returns the tournaments active on dateStr — zero Liquipedia call. Each key
+// falls back to its :stale copy (TTLStale 6h) when the fresh one is gone, so
+// by-date keeps serving through a poller block instead of fanning out on-demand.
+// ok=false only when both fresh and stale are absent.
 func (h *TournamentHandler) tournamentsForDateFromPollerCache(ctx context.Context, wiki, dateStr string) ([]models.NormalizedTournament, bool) {
 	var all []models.NormalizedTournament
 	for _, keyFunc := range []func(string) string{
@@ -602,7 +610,10 @@ func (h *TournamentHandler) tournamentsForDateFromPollerCache(ctx context.Contex
 	} {
 		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
 		if err != nil || data == "" {
-			return nil, false
+			data, err = h.redisCache.Get(ctx, cache.StaleKey(keyFunc(wiki)))
+			if err != nil || data == "" {
+				return nil, false
+			}
 		}
 		parsed, err := parseTournaments([]byte(data), wiki)
 		if err != nil {

@@ -186,23 +186,27 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 
-	// Poller coverage: past cache = J-7 ; upcoming cache = date ASC limit 5000
-	// (nearest-first, >5000 matches within 14 days never happens) → J-7/J+14 is
-	// fully served from Redis, zero Liquipedia call. Days with zero matches are
-	// answered from cache too — calendar navigation must not fan out to the API
-	// (cause of the 2026-07-05 Cloudflare IP ban).
-	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -7)) && !dateTime.After(today.AddDate(0, 0, 14))
+	// The poller caches cover [J-7, +∞) for matches: matches_past holds the last
+	// 7 days, matches_upcoming holds ALL future matches (date ASC, limit 5000),
+	// matches_running covers now. So every date from J-7 onward is fully served
+	// from Redis — calendar navigation must NEVER fan out to the API within this
+	// window. The on-demand burst there (10 wikis × several dates) is exactly what
+	// got the egress IP Cloudflare-banned (2026-07). Only genuinely deep-past dates
+	// (older than J-7) fall through to a bounded on-demand fetch.
+	inPollerWindow := !dateTime.Before(today.AddDate(0, 0, -7))
 
 	var allMatches []models.NormalizedMatch
 	globalSeen := make(map[string]bool)
-	fallbackWikis := wikis
+	var fallbackWikis []string
 
 	if inPollerWindow {
-		fallbackWikis = nil
+		// Cache-only (fresh→stale). A missing cache contributes nothing instead of
+		// triggering an on-demand fetch, so a blocked or cold poller degrades to
+		// stale-then-empty rather than amplifying into an API burst (the 2026-07
+		// per-IP-throttle spiral).
 		for _, w := range wikis {
 			cached, ok := h.matchesForDateFromPollerCache(ctx, w, date)
 			if !ok {
-				fallbackWikis = append(fallbackWikis, w)
 				continue
 			}
 			h.log.WithFields(logrus.Fields{"wiki": w, "date": date, "count": len(cached)}).Info("[BYDATE] served from poller cache")
@@ -213,6 +217,10 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 				}
 			}
 		}
+	} else {
+		// Deep past (older than J-7): held by no poller cache. On-demand fetch of
+		// immutable data → cached 24h.
+		fallbackWikis = wikis
 	}
 
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
@@ -221,11 +229,8 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 		date, nextDay,
 	)
 
-	// Adaptive TTL: past dates won't change, cache them much longer
-	cacheTTL := 10 * time.Minute
-	if dateTime.Before(today) {
-		cacheTTL = services.TTLMatchesByDatePast
-	}
+	// Out-of-window dates are always deep-past (immutable) → long cache.
+	cacheTTL := services.TTLMatchesByDatePast
 
 	type wikiResult struct {
 		wiki    string
@@ -468,8 +473,10 @@ func (h *MatchHandler) findMatchInCache(ctx context.Context, wiki, matchID strin
 }
 
 // matchesForDateFromPollerCache reads the three poller caches of a wiki and
-// returns the matches dated dateStr — zero Liquipedia call. ok=false when a
-// cache key is missing (cold Redis / poller off) so the caller falls back on-demand.
+// returns the matches dated dateStr — zero Liquipedia call. Each key falls back
+// to its :stale copy (TTLStale 6h) when the fresh one is gone, so by-date keeps
+// serving last-known data through a poller block instead of the caller fanning
+// out on-demand. ok=false only when both fresh and stale are absent.
 func (h *MatchHandler) matchesForDateFromPollerCache(ctx context.Context, wiki, dateStr string) ([]models.LiqMatch, bool) {
 	var all []models.LiqMatch
 	for _, keyFunc := range []func(string) string{
@@ -479,7 +486,10 @@ func (h *MatchHandler) matchesForDateFromPollerCache(ctx context.Context, wiki, 
 	} {
 		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
 		if err != nil || data == "" {
-			return nil, false
+			data, err = h.redisCache.Get(ctx, cache.StaleKey(keyFunc(wiki)))
+			if err != nil || data == "" {
+				return nil, false
+			}
 		}
 		parsed, err := parseAndFilterMatches([]byte(data), nil)
 		if err != nil {

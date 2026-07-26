@@ -130,7 +130,7 @@ func TestGetTeamByPageIDUsesWikiHint(t *testing.T) {
 	}))
 
 	// Cold lookup: fans out, finds the team, must store the hint.
-	team, err := svc.GetTeamByPageID(context.Background(), 42)
+	team, err := svc.GetTeamByPageID(context.Background(), 42, "")
 	require.NoError(t, err)
 	require.NotNil(t, team)
 	hint, err := mr.Get("liq:wikihint:42")
@@ -144,7 +144,7 @@ func TestGetTeamByPageIDUsesWikiHint(t *testing.T) {
 		}
 	}
 	teamCalls.Store(0)
-	_, err = svc.GetTeamByPageID(context.Background(), 42)
+	_, err = svc.GetTeamByPageID(context.Background(), 42, "")
 	require.NoError(t, err)
 	require.Equal(t, int32(1), teamCalls.Load())
 }

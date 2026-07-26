@@ -49,20 +49,21 @@ var maxLiqResponseSize int64 = 20 * 1024 * 1024
 // Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
 // Aligned with reduced polling intervals (~17 req/wiki/hr).
 const (
-	TTLMatchesRunning      = 10 * time.Minute  // > PollIntervalMatchesRunning (8m)
-	TTLMatchesUpcoming     = 22 * time.Minute  // > PollIntervalMatchesUpcoming (20m)
-	TTLMatchesPast         = 50 * time.Minute  // > PollIntervalMatchesPast (45m)
-	TTLTournamentsRunning  = 22 * time.Minute  // > PollIntervalTournamentsRunning (20m)
-	TTLTournamentsUpcoming = 35 * time.Minute  // > PollIntervalTournamentsUpcoming (30m)
-	TTLTournamentsFinished = 100 * time.Minute // > PollIntervalTournamentsFinished (90m)
-	TTLMatchDetail         = 5 * time.Minute
-	TTLMatchDetailFinished = 24 * time.Hour
-	TTLMatchesByDatePast   = 6 * time.Hour
-	TTLTournamentDetail    = 10 * time.Minute
-	TTLTeam                = 6 * time.Hour // roster data changes infrequently
-	TTLTeamMatches         = 15 * time.Minute
-	TTLTeamPlacements      = 1 * time.Hour
-	TTLStale               = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
+	TTLMatchesRunning        = 10 * time.Minute  // > PollIntervalMatchesRunning (8m)
+	TTLMatchesUpcoming       = 22 * time.Minute  // > PollIntervalMatchesUpcoming (20m)
+	TTLMatchesPast           = 50 * time.Minute  // > PollIntervalMatchesPast (45m)
+	TTLTournamentsRunning    = 22 * time.Minute  // > PollIntervalTournamentsRunning (20m)
+	TTLTournamentsUpcoming   = 35 * time.Minute  // > PollIntervalTournamentsUpcoming (30m)
+	TTLTournamentsFinished   = 100 * time.Minute // > PollIntervalTournamentsFinished (90m)
+	TTLMatchDetail           = 5 * time.Minute
+	TTLMatchDetailFinished   = 24 * time.Hour
+	TTLMatchesByDatePast     = 24 * time.Hour // deep-past (< J-7) by-date: immutable, on-demand only
+	TTLTournamentsByDatePast = 24 * time.Hour // deep-past (< J-30) by-date: immutable, on-demand only
+	TTLTournamentDetail      = 10 * time.Minute
+	TTLTeam                  = 6 * time.Hour // roster data changes infrequently
+	TTLTeamMatches           = 15 * time.Minute
+	TTLTeamPlacements        = 1 * time.Hour
+	TTLStale                 = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
 )
 
 // RequestBudget tracks API usage per wiki (game) to enforce the 60 req/hour limit.

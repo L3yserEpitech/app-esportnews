@@ -586,9 +586,10 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 
 func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqMatchesPastKey(wiki)
-	// Only fetch matches from the last 7 days — requesting ALL finished matches
-	// returns a dataset too large and causes timeout on Liquipedia's side.
-	cutoff := time.Now().UTC().Add(-7 * 24 * time.Hour).Format("2006-01-02 15:04:05")
+	// Last 8 days — one day past the handler's J-7 by-date lower bound, so the
+	// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
+	// the boundary). Requesting ALL finished matches would time out on their side.
+	cutoff := time.Now().UTC().Add(-8 * 24 * time.Hour).Format("2006-01-02 15:04:05")
 
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf("[[finished::1]] AND [[date::>%s]]", cutoff)+gameConditionSuffix(wiki))
@@ -655,9 +656,10 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 
 func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsFinishedKey(wiki)
-	// Only fetch tournaments finished in the last 30 days — requesting ALL finished
-	// tournaments returns a dataset too large and risks timeout.
-	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour).Format("2006-01-02")
+	// Last 31 days — one day past the handler's J-30 by-date lower bound, so the
+	// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
+	// the boundary). Requesting ALL finished tournaments risks timeout.
+	cutoff := time.Now().UTC().Add(-31 * 24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff)+gameConditionSuffix(wiki))
