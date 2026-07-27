@@ -49,11 +49,13 @@ var maxLiqResponseSize int64 = 20 * 1024 * 1024
 // Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
 // Aligned with reduced polling intervals (~17 req/wiki/hr).
 const (
-	TTLMatchesRunning        = 10 * time.Minute  // > PollIntervalMatchesRunning (8m)
-	TTLMatchesUpcoming       = 22 * time.Minute  // > PollIntervalMatchesUpcoming (20m)
-	TTLMatchesPast           = 50 * time.Minute  // > PollIntervalMatchesPast (45m)
-	TTLTournamentsRunning    = 22 * time.Minute  // > PollIntervalTournamentsRunning (20m)
-	TTLTournamentsUpcoming   = 35 * time.Minute  // > PollIntervalTournamentsUpcoming (30m)
+	// TTLs stay above BOTH the blind-poll interval AND the (larger) webhook
+	// dirty-refresh cooldown, so the cache never lapses between refreshes.
+	TTLMatchesRunning        = 13 * time.Minute  // > DirtyCooldownMatchesRunning (10m)
+	TTLMatchesUpcoming       = 28 * time.Minute  // > DirtyCooldownMatchesUpcoming (25m)
+	TTLMatchesPast           = 55 * time.Minute  // > DirtyCooldownMatchesPast (50m)
+	TTLTournamentsRunning    = 45 * time.Minute  // > DirtyCooldownTournaments (40m)
+	TTLTournamentsUpcoming   = 45 * time.Minute  // > DirtyCooldownTournaments (40m)
 	TTLTournamentsFinished   = 100 * time.Minute // > PollIntervalTournamentsFinished (90m)
 	TTLMatchDetail           = 5 * time.Minute
 	TTLMatchDetailFinished   = 24 * time.Hour

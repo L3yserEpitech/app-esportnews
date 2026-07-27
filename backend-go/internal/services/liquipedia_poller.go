@@ -27,12 +27,18 @@ const (
 	// How often the poller checks dirty flags from webhooks
 	DirtyCheckInterval = 2 * time.Minute
 
-	// Webhook-driven refresh floors: half the blind-polling interval. Bounds
-	// the worst case at ~2× polling cost instead of 10× on busy wikis.
-	DirtyCooldownMatchesRunning  = PollIntervalMatchesRunning / 2     // 4 min
-	DirtyCooldownMatchesUpcoming = PollIntervalMatchesUpcoming / 2    // 10 min
-	DirtyCooldownMatchesPast     = PollIntervalMatchesPast / 2        // 22.5 min
-	DirtyCooldownTournaments     = PollIntervalTournamentsRunning / 2 // 10 min
+	// Webhook-driven refresh floors, set well ABOVE the blind-poll intervals so
+	// webhooks don't multiply the outbound rate on busy wikis. Every namespace-0
+	// edit marks ALL types dirty, and active wikis edit constantly — with short
+	// floors that pushed steady-state to ~360 req/h across all wikis. Our egress
+	// is a single dedicated datacenter IP whose Cloudflare reputation degrades
+	// under sustained volume (it got edge-throttled again 2026-07-27 after ~13h);
+	// keeping steady-state low (~130 req/h) is what keeps it from tripping. Live
+	// freshness stays acceptable: running matches refresh at most every 10 min.
+	DirtyCooldownMatchesRunning  = 10 * time.Minute
+	DirtyCooldownMatchesUpcoming = 25 * time.Minute
+	DirtyCooldownMatchesPast     = 50 * time.Minute
+	DirtyCooldownTournaments     = 40 * time.Minute
 
 	// Warmup: stagger between wikis at startup to avoid burst
 	WarmupStaggerInterval = 20 * time.Second // 10 wikis × 20s = ~3.3min total warmup
