@@ -171,6 +171,14 @@ func (h *ImageProxyHandler) servePlaceholder(c echo.Context) error {
 }
 
 // validateImageURL returns the cache key for an allowed https liquipedia URL.
+// It requires the path to be under /commons/images/ — the only place Liquipedia
+// static media lives. Two classes of URL are rejected here because fetching them
+// got our egress IP Cloudflare bot-blocked (confirmed by Liquipedia's own access
+// logs, 2026-07):
+//   - wiki PAGE URLs (liquipedia.net/<wiki>/<Page>) — e.g. league.url /
+//     tournament.url hyperlinks the frontend accidentally sent to /prewarm; they
+//     404 en masse and look like scraping.
+//   - /commons/Special:FilePath/... — a MediaWiki PHP redirect (not a static file).
 func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	if !strings.HasPrefix(rawURL, "https://") {
 		return "", false
@@ -182,6 +190,9 @@ func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	}
 	host := strings.ToLower(hostPart[:slashIdx])
 	if !allowedHosts[host] {
+		return "", false
+	}
+	if !strings.HasPrefix(hostPart[slashIdx:], "/commons/images/") {
 		return "", false
 	}
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(rawURL))), true
