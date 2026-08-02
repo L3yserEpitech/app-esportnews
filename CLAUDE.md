@@ -1227,6 +1227,31 @@ sections/
 * **Backend** : `GET /api/tournaments/:id?wiki=<wiki|acronyme>` — chemin scoped cache-first puis 1 fetch on-demand (pas de scan 10 wikis) ; 404 seulement si Liquipedia répond vide, **503 si échec transitoire** (429/budget) pour ne pas dé-indexer un tournoi valide (même politique que les matchs).
 * La section « Équipes & Rosters » réutilise le `PlayerCard` global et le `SectionHeader` du design system match.
 
+#### Bracket — topologie pilotée par `match2bracketdata`
+
+Le bracket **ne devine jamais** l'arbre : toute la structure vient de `match2bracketdata`, que Liquipedia renvoie sur chaque match (présent dans la réponse par défaut du endpoint `match`, donc `enrichTournamentWithMatches` n'a pas besoin de `query=`). Normalisé en `bracket_data` (`models.LiqBracketData` → `NormalizedBracketData`), consommé par `bracketModel.ts` (web : `app/components/tournaments/`, mobile : `components/tournament-detail/` — même algo, seuls les constantes de taille et les libellés diffèrent).
+
+Champs qui portent l'info :
+| Champ | Rôle |
+|-------|------|
+| `type` | `bracket` = vrai arbre à élimination · `matchlist` = round plat (Swiss, poules) |
+| `coordinates.round_index` | Colonne (0-based). Partagée entre upper et lower bracket. |
+| `coordinates.match_index_in_round` | **Ordre vertical** dans la colonne, numéroté à travers les deux sections (upper d'abord, puis lower). |
+| `coordinates.round_count` / `section_count` | `section_count > 1` = double élimination. |
+| `lower_match_ids` | Les matchs qui **alimentent réellement** celui-ci (1 ou 2). C'est la seule source des traits. |
+| `bracketsection` | `upper` / `lower` → badge UB/LB sur la carte. |
+| `bracketindex` | Ordre gauche→droite des *stages* sur la page Liquipedia. |
+
+Règles à ne pas casser :
+* **Ne jamais ordonner un round par date** — l'ordre chronologique n'a aucun rapport avec l'ordre du bracket (vérifié : le 1ᵉʳ tour des playoffs CCT sort en M002, M008, M003, M006… en `date ASC`). C'était le bug d'origine : les colonnes étaient triées par date et les connecteurs dessinés par arithmétique d'indices (`prev 2j, 2j+1 → next j`), donc le vainqueur n'était jamais reporté en face du trait.
+* **`type: 'matchlist'` ⇒ aucun connecteur.** Un round suisse n'a pas d'arbre : le perdant rejoue. On rend les colonnes (une par `section`, triées par `bracket_index` puis `match_index`) et rien d'autre. Un round Swiss peut se composer de plusieurs matchlists (`title` = « Round 3 High/Mid/Low Matches »), fusionnées dans la même colonne.
+* Un `section` unique peut contenir tout le bracket (les 15 matchs playoffs CCT sont tous en `section: "Playoffs"`) — **le découpage en rounds vient de `round_index`, pas de `section`**.
+* Les liens peuvent **sauter une colonne** : en double élimination la finale UB est alignée sur la finale LB, deux rounds à droite de ses parents. Les connecteurs sont donc un **overlay SVG unique** en coordonnées absolues sur toute la grille, pas un SVG par intervalle.
+* Position d'un enfant = moyenne des Y de ses parents ; `settle()` comble les slots sans parent connu puis écarte les cellules pour garantir zéro chevauchement.
+* Fallback : sans `bracket_data` (cache Redis antérieur), on regroupe par `section` **sans inventer de traits**. Auto-résorbé à l'expiration du cache (TTL détail tournoi 10 min).
+
+Tests : `backend-go/internal/models/liquipedia_bracket_test.go` (payloads verbatim) et `frontend/app/components/tournaments/bracketModel.test.ts` (élim. simple, double élim., rounds suisses, entrée dégradée).
+
 ---
 
 ## 19) Conventions de travail
