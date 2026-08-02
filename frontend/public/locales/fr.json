@@ -479,7 +479,15 @@
       "teams_count_plural": "équipes",
       "players_count_singular": "joueur",
       "players_count_plural": "joueurs",
-      "no_roster_info": "Aucune information d'équipe disponible"
+      "no_roster_info": "Aucune information d'équipe disponible",
+      "bracket_title": "Bracket",
+      "bracket_final": "Finale",
+      "bracket_semifinals": "Demi-finales",
+      "bracket_quarterfinals": "Quarts de finale",
+      "bracket_round_of_16": "Huitièmes de finale",
+      "bracket_round_of_32": "Seizièmes de finale",
+      "bracket_round_of_64": "Trente-deuxièmes de finale",
+      "bracket_round": "Tour {round}"
     },
     "match_detail": {
       "loading": "Chargement du match...",

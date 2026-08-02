@@ -478,7 +478,15 @@
       "teams_count_plural": "teams",
       "players_count_singular": "player",
       "players_count_plural": "players",
-      "no_roster_info": "No team information available"
+      "no_roster_info": "No team information available",
+      "bracket_title": "Bracket",
+      "bracket_final": "Final",
+      "bracket_semifinals": "Semifinals",
+      "bracket_quarterfinals": "Quarterfinals",
+      "bracket_round_of_16": "Round of 16",
+      "bracket_round_of_32": "Round of 32",
+      "bracket_round_of_64": "Round of 64",
+      "bracket_round": "Round {round}"
     },
     "match_detail": {
       "loading": "Loading match...",

@@ -480,7 +480,15 @@
       "teams_count_plural": "squadre",
       "players_count_singular": "giocatore",
       "players_count_plural": "giocatori",
-      "no_roster_info": "Nessuna informazione sulle squadre disponibile"
+      "no_roster_info": "Nessuna informazione sulle squadre disponibile",
+      "bracket_title": "Tabellone",
+      "bracket_final": "Finale",
+      "bracket_semifinals": "Semifinali",
+      "bracket_quarterfinals": "Quarti di finale",
+      "bracket_round_of_16": "Ottavi di finale",
+      "bracket_round_of_32": "Sedicesimi di finale",
+      "bracket_round_of_64": "Trentaduesimi di finale",
+      "bracket_round": "Turno {round}"
     },
     "match_detail": {
       "loading": "Caricamento della partita...",
