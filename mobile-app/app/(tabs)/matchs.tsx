@@ -237,7 +237,7 @@ export default function MatchsScreen() {
       {/* Matches List */}
       <FlatList
         data={matches}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.match2id || item.id.toString()}
         renderItem={renderItem}
         ListEmptyComponent={
           <EmptyState

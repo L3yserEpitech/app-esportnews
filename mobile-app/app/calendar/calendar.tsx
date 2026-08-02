@@ -125,7 +125,7 @@ export default function CalendarScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
         data={matches}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.match2id || item.id.toString()}
         renderItem={({ item }) => (
           <MatchCard
             match={item}

@@ -129,7 +129,7 @@ export default function HomeScreen() {
               <FlatList
                 horizontal
                 data={liveMatches}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => item.match2id || item.id.toString()}
                 renderItem={({ item }) => (
                   <LiveMatchCard
                     match={item}

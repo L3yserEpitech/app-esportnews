@@ -253,7 +253,7 @@ export default function TournamentsScreen() {
     <View style={styles.container}>
       <FlatList
         data={filteredTournaments}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.slug || item.id.toString()}
         renderItem={({ item }) => (
           <TournamentCard
             tournament={item}
