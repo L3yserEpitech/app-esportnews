@@ -488,7 +488,9 @@
       "bracket_round_of_16": "Achtelfinale",
       "bracket_round_of_32": "Sechzehntelfinale",
       "bracket_round_of_64": "Zweiunddreißigstelfinale",
-      "bracket_round": "Runde {round}"
+      "bracket_round": "Runde {round}",
+      "bracket_group_stage": "Gruppenphase",
+      "bracket_playoffs": "Playoffs"
     },
     "match_detail": {
       "loading": "Spiel wird geladen...",

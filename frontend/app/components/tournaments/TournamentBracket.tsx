@@ -10,6 +10,7 @@ import { proxyImageUrl } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import {
   buildBracketLayout,
+  buildGroupColumns,
   columnX,
   CELL_H,
   CELL_W,
@@ -129,13 +130,34 @@ function EdgeOverlay({ edges, width, height }: { edges: BracketEdge[]; width: nu
 
 // ─── Main component ──────────────────────────────────────────────────
 
+function RoundPill({ text }: { text: string }) {
+  return (
+    <div className="px-3 py-1 rounded bg-[var(--color-bg-hover)] border border-[var(--color-border-primary)]/30">
+      <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function BlockHeading({ text }: { text: string }) {
+  return (
+    <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+      {text}
+    </h3>
+  );
+}
+
 export default function TournamentBracket({ matches }: TournamentBracketProps) {
   const t = useTranslations('pages_detail.tournament_detail');
+  const groups = useMemo(() => buildGroupColumns(matches), [matches]);
   const layout = useMemo(() => buildBracketLayout(matches), [matches]);
 
-  if (layout.columns.length === 0) return null;
+  if (groups.length === 0 && layout.columns.length === 0) return null;
 
   const label = (l: ColumnLabel) => t(l.key, l.round !== undefined ? { round: l.round } : undefined);
+  // Sub-headings only earn their place when both blocks are on screen.
+  const bothBlocks = groups.length > 0 && layout.columns.length > 0;
 
   return (
     <section className="space-y-4">
@@ -144,54 +166,73 @@ export default function TournamentBracket({ matches }: TournamentBracketProps) {
         <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{t('bracket_title')}</h2>
       </div>
 
-      <div className="overflow-x-auto pb-4 -mx-4 px-4">
-        <div className="min-w-max">
-          {/* ── Labels row ── */}
-          <div className="flex">
-            {layout.columns.map((col, colIdx) => (
-              <React.Fragment key={`label-${col.key}`}>
-                {colIdx > 0 && <div style={{ width: CONNECTOR_W }} />}
-                <div className="flex justify-center mb-3" style={{ width: CELL_W }}>
-                  <div className="px-3 py-1 rounded bg-[var(--color-bg-hover)] border border-[var(--color-border-primary)]/30">
-                    <span className="text-[11px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                      {label(col.label)}
-                    </span>
-                  </div>
+      {/* ── Group / Swiss rounds: plain columns, stacked above the tree ── */}
+      {groups.length > 0 && (
+        <div className="space-y-3">
+          {bothBlocks && <BlockHeading text={t('bracket_group_stage')} />}
+          <div className="overflow-x-auto pb-4 -mx-4 px-4">
+            <div className="flex items-start gap-4 min-w-max">
+              {groups.map(col => (
+                <div key={col.key} className="flex flex-col items-center gap-2" style={{ width: CELL_W }}>
+                  <RoundPill text={col.label} />
+                  {col.matches.map(match => (
+                    <BracketMatchCell key={match.match2id || match.id} match={match} side={null} />
+                  ))}
                 </div>
-              </React.Fragment>
-            ))}
+              ))}
+            </div>
           </div>
+        </div>
+      )}
 
-          {/* ── Bracket area ── */}
-          <div className="relative" style={{ width: layout.width, height: layout.height }}>
-            <EdgeOverlay edges={layout.edges} width={layout.width} height={layout.height} />
+      {/* ── Elimination tree ── */}
+      {layout.columns.length > 0 && (
+        <div className="space-y-3">
+          {bothBlocks && <BlockHeading text={t('bracket_playoffs')} />}
+          <div className="overflow-x-auto pb-4 -mx-4 px-4">
+            <div className="min-w-max">
+              <div className="flex">
+                {layout.columns.map((col, colIdx) => (
+                  <React.Fragment key={`label-${col.key}`}>
+                    {colIdx > 0 && <div style={{ width: CONNECTOR_W }} />}
+                    <div className="flex justify-center mb-3" style={{ width: CELL_W }}>
+                      <RoundPill text={label(col.label)} />
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
 
-            {layout.columns.map((col, colIdx) => (
-              <div
-                key={`col-${col.key}`}
-                className="absolute top-0"
-                style={{ left: columnX(colIdx), width: CELL_W, height: layout.height }}
-              >
-                {col.startsStage && (
+              <div className="relative" style={{ width: layout.width, height: layout.height }}>
+                <EdgeOverlay edges={layout.edges} width={layout.width} height={layout.height} />
+
+                {layout.columns.map((col, colIdx) => (
                   <div
-                    className="absolute top-0 h-full border-l border-dashed border-[var(--color-border-primary)]/60"
-                    style={{ left: -CONNECTOR_W / 2 }}
-                  />
-                )}
-                {col.cells.map(cell => (
-                  <div
-                    key={cell.match.match2id || cell.match.id}
-                    className="absolute left-0"
-                    style={{ top: cell.centerY - CELL_H / 2, width: CELL_W, height: CELL_H }}
+                    key={`col-${col.key}`}
+                    className="absolute top-0"
+                    style={{ left: columnX(colIdx), width: CELL_W, height: layout.height }}
                   >
-                    <BracketMatchCell match={cell.match} side={cell.side} />
+                    {col.startsStage && (
+                      <div
+                        className="absolute top-0 h-full border-l border-dashed border-[var(--color-border-primary)]/60"
+                        style={{ left: -CONNECTOR_W / 2 }}
+                      />
+                    )}
+                    {col.cells.map(cell => (
+                      <div
+                        key={cell.match.match2id || cell.match.id}
+                        className="absolute left-0"
+                        style={{ top: cell.centerY - CELL_H / 2, width: CELL_W, height: CELL_H }}
+                      >
+                        <BracketMatchCell match={cell.match} side={cell.side} />
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

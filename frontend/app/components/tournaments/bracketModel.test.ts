@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBracketLayout, columnX, CELL_H, CELL_W, SLOT, type BracketLayout } from './bracketModel';
+import { buildBracketLayout, buildGroupColumns, columnX, CELL_H, CELL_W, SLOT, type BracketLayout } from './bracketModel';
 import type { PandaMatch, PandaBracketData } from '../../types';
 
 /** Edges landing on a given column, in emission order. */
@@ -263,8 +263,22 @@ describe('buildBracketLayout — everything that is not a declared tree', () => 
     listNode('INSrpGDVA0_0001', 'Round 4', 6, 1),
   ];
 
-  it('drops matchlist rounds entirely — Swiss, groups and tiebreakers are not brackets', () => {
+  it('keeps matchlist rounds out of the tree — Swiss, groups and tiebreakers have none', () => {
     expect(buildBracketLayout(swiss).columns).toHaveLength(0);
+  });
+
+  it('surfaces them as plain group columns instead, in the page order', () => {
+    const columns = buildGroupColumns([...swiss].reverse());
+    expect(columns.map(c => c.label)).toEqual(['Round 3', 'Round 4']);
+    expect(columns[0].matches.map(m => m.match2id)).toEqual([
+      'C1Fqjy4lmv_0001', 'C1Fqjy4lmv_0002', 'wCFxgw4ieC_0001',
+    ]);
+  });
+
+  it('never puts a tree match in the group block, nor the reverse', () => {
+    const mixed = [...swiss, ...singleElim16()];
+    expect(buildGroupColumns(mixed).flatMap(c => c.matches)).toHaveLength(swiss.length);
+    expect(buildBracketLayout(mixed).columns.flatMap(c => c.cells)).toHaveLength(15);
   });
 
   it('keeps only the tree when a tournament mixes both', () => {

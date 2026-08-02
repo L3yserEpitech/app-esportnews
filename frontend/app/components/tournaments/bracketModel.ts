@@ -50,6 +50,14 @@ export interface BracketLayout {
   height: number;
 }
 
+/** A round with no tree: one column of matches, never any connector. */
+export interface GroupColumn {
+  key: string;
+  /** Liquipedia's raw section name — the only header these rounds have. */
+  label: string;
+  matches: PandaMatch[];
+}
+
 const EMPTY: BracketLayout = { columns: [], edges: [], width: 0, height: 0 };
 
 /** Left offset of a column on the canvas. */
@@ -64,12 +72,12 @@ function matchKey(m: PandaMatch): string {
 }
 
 /**
- * Only a declared elimination tree belongs in a bracket. Liquipedia's other
- * shape, `matchlist`, covers Swiss rounds, group stages, tiebreakers and plain
- * day-by-day lists indiscriminately — there is no field distinguishing them and
- * no reliable structural signal either (a DreamLeague "May 13-A" column mixes
- * teams playing twice, a CCT Swiss round does not). None of them has a tree, so
- * none of them is drawn here; the tournament's match list already covers them.
+ * Liquipedia has exactly two shapes. `bracket` is a declared elimination tree —
+ * the only thing that gets connectors. `matchlist` covers Swiss rounds, group
+ * stages, tiebreakers and plain day-by-day lists indiscriminately: no field
+ * distinguishes them, and no structural signal does either (a DreamLeague
+ * "May 13-A" column has teams playing twice, a CCT Swiss round does not). They
+ * are laid out as plain columns above the tree, with no linkage invented.
  */
 function isTree(m: PandaMatch): boolean {
   return m.bracket_data?.type === 'bracket' && !!m.bracket_data.coordinates;
@@ -209,6 +217,37 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
     width: columnX(columns.length - 1) + CELL_W,
     height,
   };
+}
+
+/**
+ * The non-tree rounds, one column per Liquipedia section, in the page's own
+ * order. No positioning and no edges: nothing advances into a fixed slot here,
+ * so anything drawn between these columns would be a lie.
+ */
+export function buildGroupColumns(matches: PandaMatch[]): GroupColumn[] {
+  const seen = new Set<string>();
+  const lists = new Map<string, PandaMatch[]>();
+  for (const m of matches) {
+    const k = matchKey(m);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if (m.bracket_data?.type === 'matchlist' && m.section) push(lists, m.section, m);
+  }
+
+  return [...lists.entries()]
+    .map(([section, group]) => ({
+      key: `group:${section}`,
+      label: section,
+      order: Math.min(...group.map(m => m.bracket_data!.bracket_index)),
+      matches: [...group].sort(
+        (a, b) =>
+          a.bracket_data!.bracket_index - b.bracket_data!.bracket_index ||
+          (a.bracket_data!.match_index ?? 0) - (b.bracket_data!.match_index ?? 0) ||
+          String(a.begin_at ?? '').localeCompare(String(b.begin_at ?? '')),
+      ),
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ key, label, matches: cells }) => ({ key, label, matches: cells }));
 }
 
 /** One column per round of each declared bracket, left to right. */

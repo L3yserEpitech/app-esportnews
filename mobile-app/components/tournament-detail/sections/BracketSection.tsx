@@ -17,6 +17,7 @@ import type { PandaMatch } from '@/types';
 import { SectionHeader, type TournamentSectionProps } from './shared';
 import {
   buildBracketLayout,
+  buildGroupColumns,
   columnX,
   CELL_H,
   CELL_W,
@@ -119,58 +120,103 @@ function EdgeOverlay({ edges, width, height }: { edges: BracketEdge[]; width: nu
   );
 }
 
+function RoundPill({ text }: { text: string }) {
+  return (
+    <View style={styles.roundLabel}>
+      <Text style={styles.roundLabelText} numberOfLines={1}>{text}</Text>
+    </View>
+  );
+}
+
 export default function BracketSection({ matches }: TournamentSectionProps) {
+  const groups = useMemo(() => buildGroupColumns(matches), [matches]);
   const layout = useMemo(() => buildBracketLayout(matches), [matches]);
-  if (layout.columns.length === 0) return null;
+  if (groups.length === 0 && layout.columns.length === 0) return null;
+
+  // Sub-headings only earn their place when both blocks are on screen.
+  const bothBlocks = groups.length > 0 && layout.columns.length > 0;
 
   return (
     <View>
       <SectionHeader icon="tournament" title="Bracket" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View>
-          {/* Round labels row */}
-          <View style={styles.labelsRow}>
-            {layout.columns.map((col, colIdx) => (
-              <React.Fragment key={`label-${col.key}`}>
-                {colIdx > 0 && <View style={styles.connectorSpacer} />}
-                <View style={styles.labelSlot}>
-                  <View style={styles.roundLabel}>
-                    <Text style={styles.roundLabelText} numberOfLines={1}>{col.label}</Text>
-                  </View>
+
+      {/* Group / Swiss rounds: plain columns, stacked above the tree */}
+      {groups.length > 0 && (
+        <View style={styles.block}>
+          {bothBlocks && <Text style={styles.blockHeading}>Phase de groupes</Text>}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+            <View style={styles.groupRow}>
+              {groups.map(col => (
+                <View key={col.key} style={styles.groupColumn}>
+                  <RoundPill text={col.label} />
+                  {col.matches.map(match => (
+                    <BracketCell key={match.match2id || match.id} match={match} side={null} />
+                  ))}
                 </View>
-              </React.Fragment>
-            ))}
-          </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      )}
 
-          {/* Bracket tree */}
-          <View style={{ width: layout.width, height: layout.height }}>
-            <EdgeOverlay edges={layout.edges} width={layout.width} height={layout.height} />
+      {/* Elimination tree */}
+      {layout.columns.length > 0 && (
+        <View style={styles.block}>
+          {bothBlocks && <Text style={styles.blockHeading}>Phase finale</Text>}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+            <View>
+              <View style={styles.labelsRow}>
+                {layout.columns.map((col, colIdx) => (
+                  <React.Fragment key={`label-${col.key}`}>
+                    {colIdx > 0 && <View style={styles.connectorSpacer} />}
+                    <View style={styles.labelSlot}>
+                      <RoundPill text={col.label} />
+                    </View>
+                  </React.Fragment>
+                ))}
+              </View>
 
-            {layout.columns.map((col, colIdx) => (
-              <View
-                key={`col-${col.key}`}
-                style={[styles.column, { left: columnX(colIdx), height: layout.height }]}
-              >
-                {col.startsStage && <View style={styles.stageDivider} />}
-                {col.cells.map(cell => (
+              <View style={{ width: layout.width, height: layout.height }}>
+                <EdgeOverlay edges={layout.edges} width={layout.width} height={layout.height} />
+
+                {layout.columns.map((col, colIdx) => (
                   <View
-                    key={cell.match.match2id || cell.match.id}
-                    style={[styles.cellSlot, { top: cell.centerY - CELL_H / 2 }]}
+                    key={`col-${col.key}`}
+                    style={[styles.column, { left: columnX(colIdx), height: layout.height }]}
                   >
-                    <BracketCell match={cell.match} side={cell.side} />
+                    {col.startsStage && <View style={styles.stageDivider} />}
+                    {col.cells.map(cell => (
+                      <View
+                        key={cell.match.match2id || cell.match.id}
+                        style={[styles.cellSlot, { top: cell.centerY - CELL_H / 2 }]}
+                      >
+                        <BracketCell match={cell.match} side={cell.side} />
+                      </View>
+                    ))}
                   </View>
                 ))}
               </View>
-            ))}
-          </View>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { paddingBottom: spacing.sm, paddingRight: spacing.md },
+  block: { marginBottom: spacing.sm },
+  blockHeading: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: spacing.sm,
+  },
+  groupRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  groupColumn: { width: CELL_W, alignItems: 'center', gap: spacing.sm },
   labelsRow: { flexDirection: 'row', marginBottom: spacing.sm },
   labelSlot: { width: CELL_W, alignItems: 'center' },
   connectorSpacer: { width: CONNECTOR_W },

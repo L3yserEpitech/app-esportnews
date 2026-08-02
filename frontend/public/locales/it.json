@@ -488,7 +488,9 @@
       "bracket_round_of_16": "Ottavi di finale",
       "bracket_round_of_32": "Sedicesimi di finale",
       "bracket_round_of_64": "Trentaduesimi di finale",
-      "bracket_round": "Turno {round}"
+      "bracket_round": "Turno {round}",
+      "bracket_group_stage": "Fase a gironi",
+      "bracket_playoffs": "Fase finale"
     },
     "match_detail": {
       "loading": "Caricamento della partita...",

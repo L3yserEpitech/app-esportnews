@@ -486,7 +486,9 @@
       "bracket_round_of_16": "Round of 16",
       "bracket_round_of_32": "Round of 32",
       "bracket_round_of_64": "Round of 64",
-      "bracket_round": "Round {round}"
+      "bracket_round": "Round {round}",
+      "bracket_group_stage": "Group stage",
+      "bracket_playoffs": "Playoffs"
     },
     "match_detail": {
       "loading": "Loading match...",
