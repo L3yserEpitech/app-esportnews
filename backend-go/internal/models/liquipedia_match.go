@@ -93,6 +93,30 @@ func (m *LiqMatch) HasTwoNamedOpponents() bool {
 	return named >= 2
 }
 
+// LiqBracketCoordinates locates a match inside its bracket grid. matchIndexInRound
+// is numbered across both sections of a round, so upper and lower bracket matches
+// of the same round share one continuous vertical ordering.
+type LiqBracketCoordinates struct {
+	RoundIndex        int `json:"roundIndex"`
+	MatchIndexInRound int `json:"matchIndexInRound"`
+	RoundCount        int `json:"roundCount"`
+	SectionIndex      int `json:"sectionIndex"`
+	SectionCount      int `json:"sectionCount"`
+}
+
+// LiqBracketData is match2bracketdata: Liquipedia's own description of the bracket
+// topology. Type is "bracket" (elimination tree, lowerMatchIds carries the real
+// edges) or "matchlist" (a flat round — Swiss, group stage — with no tree at all).
+type LiqBracketData struct {
+	Type           string                 `json:"type"`
+	BracketSection string                 `json:"bracketsection"`
+	BracketIndex   int                    `json:"bracketindex"`
+	Title          string                 `json:"title"`
+	MatchIndex     int                    `json:"matchIndex"`
+	LowerMatchIDs  []string               `json:"lowerMatchIds"`
+	Coordinates    *LiqBracketCoordinates `json:"coordinates"`
+}
+
 // UniqueKey returns a deduplication key for this match.
 func (m *LiqMatch) UniqueKey() string {
 	return m.ObjectName
@@ -137,14 +161,35 @@ type NormalizedMatch struct {
 	Wiki     string `json:"wiki,omitempty"`
 
 	// Bracket fields for tournament bracket tree
-	Section         string `json:"section,omitempty"`
-	Match2BracketID string `json:"match2bracketid,omitempty"`
+	Section         string                 `json:"section,omitempty"`
+	Match2BracketID string                 `json:"match2bracketid,omitempty"`
+	BracketData     *NormalizedBracketData `json:"bracket_data,omitempty"`
 
 	// Match-level extras (Tier-1+): previously fetched but dropped.
 	Mvp   *string           `json:"mvp,omitempty"`
 	Vod   *string           `json:"vod,omitempty"`
 	Patch *string           `json:"patch,omitempty"`
 	Links map[string]string `json:"links,omitempty"`
+}
+
+// NormalizedBracketCoordinates mirrors LiqBracketCoordinates for the frontend.
+type NormalizedBracketCoordinates struct {
+	RoundIndex        int `json:"round_index"`
+	MatchIndexInRound int `json:"match_index_in_round"`
+	RoundCount        int `json:"round_count"`
+	SectionIndex      int `json:"section_index"`
+	SectionCount      int `json:"section_count"`
+}
+
+// NormalizedBracketData mirrors LiqBracketData for the frontend.
+type NormalizedBracketData struct {
+	Type           string                        `json:"type"`
+	BracketSection string                        `json:"bracket_section,omitempty"`
+	BracketIndex   int                           `json:"bracket_index"`
+	Title          string                        `json:"title,omitempty"`
+	MatchIndex     int                           `json:"match_index,omitempty"`
+	LowerMatchIDs  []string                      `json:"lower_match_ids,omitempty"`
+	Coordinates    *NormalizedBracketCoordinates `json:"coordinates,omitempty"`
 }
 
 // NormalizedOpponent matches the frontend PandaOpponent interface.
@@ -365,6 +410,30 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		}
 	}
 
+	var bracketData *NormalizedBracketData
+	if len(m.Match2BracketData) > 0 {
+		var bd LiqBracketData
+		if json.Unmarshal(m.Match2BracketData, &bd) == nil && bd.Type != "" {
+			bracketData = &NormalizedBracketData{
+				Type:           bd.Type,
+				BracketSection: bd.BracketSection,
+				BracketIndex:   bd.BracketIndex,
+				Title:          bd.Title,
+				MatchIndex:     bd.MatchIndex,
+				LowerMatchIDs:  bd.LowerMatchIDs,
+			}
+			if c := bd.Coordinates; c != nil {
+				bracketData.Coordinates = &NormalizedBracketCoordinates{
+					RoundIndex:        c.RoundIndex,
+					MatchIndexInRound: c.MatchIndexInRound,
+					RoundCount:        c.RoundCount,
+					SectionIndex:      c.SectionIndex,
+					SectionCount:      c.SectionCount,
+				}
+			}
+		}
+	}
+
 	return NormalizedMatch{
 		ID:              m.PageID,
 		Name:            name,
@@ -390,6 +459,7 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		Wiki:            wiki,
 		Section:         m.Section,
 		Match2BracketID: m.Match2BracketID,
+		BracketData:     bracketData,
 		Mvp:             mvp,
 		Vod:             vod,
 		Patch:           patch,
