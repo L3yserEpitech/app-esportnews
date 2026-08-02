@@ -1,9 +1,9 @@
 // Mobile bracket — a faithful port of the web TournamentBracket. Every position
 // comes from Liquipedia's own topology (`bracketModel`): columns from
 // `coordinates.round_index`, vertical order from `match_index_in_round`, and one
-// connector per real `lower_match_ids` link. Rounds that are not trees (Swiss,
-// group stages) get columns but no connectors, because no winner advances into a
-// fixed slot there. Horizontally scrollable. Self-hides when nothing is placeable.
+// connector per real link. Only declared elimination trees are drawn — Swiss
+// rounds and group stages have no tree and live in the match list instead.
+// Horizontally scrollable. Self-hides when the tournament has no bracket.
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';

@@ -72,10 +72,10 @@ describe('buildBracketLayout — single elimination', () => {
 
   it('names rounds from the distance to the final', () => {
     expect(layout.columns.map(c => c.label)).toEqual([
-      { kind: 'i18n', key: 'bracket_round_of_16' },
-      { kind: 'i18n', key: 'bracket_quarterfinals' },
-      { kind: 'i18n', key: 'bracket_semifinals' },
-      { kind: 'i18n', key: 'bracket_final' },
+      { key: 'bracket_round_of_16' },
+      { key: 'bracket_quarterfinals' },
+      { key: 'bracket_semifinals' },
+      { key: 'bracket_final' },
     ]);
   });
 
@@ -138,7 +138,7 @@ describe('buildBracketLayout — double elimination', () => {
   });
 
   it('falls back to numeric round names when both sections are present', () => {
-    expect(layout.columns[0].label).toEqual({ kind: 'i18n', key: 'bracket_round', round: 1 });
+    expect(layout.columns[0].label).toEqual({ key: 'bracket_round', round: 1 });
   });
 
   it('tags each cell with its bracket side', () => {
@@ -233,9 +233,9 @@ describe('buildBracketLayout — bracket split into one mini-bracket per round',
   it('merges the three mini-brackets into one chain: no dividers, real round names', () => {
     expect(layout.columns.map(c => c.startsStage)).toEqual([false, false, false]);
     expect(layout.columns.map(c => c.label)).toEqual([
-      { kind: 'i18n', key: 'bracket_quarterfinals' },
-      { kind: 'i18n', key: 'bracket_semifinals' },
-      { kind: 'i18n', key: 'bracket_final' },
+      { key: 'bracket_quarterfinals' },
+      { key: 'bracket_semifinals' },
+      { key: 'bracket_final' },
     ]);
   });
 
@@ -254,7 +254,7 @@ describe('buildBracketLayout — bracket split into one mini-bracket per round',
   });
 });
 
-describe('buildBracketLayout — non-tree rounds', () => {
+describe('buildBracketLayout — everything that is not a declared tree', () => {
   // Round 3 of the CCT Swiss stage: three separate matchlists (High/Mid/Low).
   const swiss = [
     listNode('C1Fqjy4lmv_0001', 'Round 3', 4, 1),
@@ -263,53 +263,48 @@ describe('buildBracketLayout — non-tree rounds', () => {
     listNode('INSrpGDVA0_0001', 'Round 4', 6, 1),
   ];
 
-  it('collapses a section into one column and draws no connectors', () => {
-    const layout = buildBracketLayout(swiss);
-    expect(layout.columns.map(c => c.label)).toEqual([
-      { kind: 'raw', text: 'Round 3' },
-      { kind: 'raw', text: 'Round 4' },
-    ]);
-    expect(layout.columns.map(c => c.cells.length)).toEqual([3, 1]);
-    expect(layout.edges).toHaveLength(0);
+  it('drops matchlist rounds entirely — Swiss, groups and tiebreakers are not brackets', () => {
+    expect(buildBracketLayout(swiss).columns).toHaveLength(0);
   });
 
-  it('orders a section by bracketIndex then matchIndex', () => {
-    const layout = buildBracketLayout([...swiss].reverse());
-    expect(layout.columns[0].cells.map(c => c.match.match2id)).toEqual([
-      'C1Fqjy4lmv_0001', 'C1Fqjy4lmv_0002', 'wCFxgw4ieC_0001',
-    ]);
-  });
-
-  it('puts the tree after the Swiss rounds and separates the two stages', () => {
+  it('keeps only the tree when a tournament mixes both', () => {
     const layout = buildBracketLayout([...swiss, ...singleElim16()]);
-    expect(layout.columns.map(c => c.label.kind)).toEqual([
-      'raw', 'raw', 'i18n', 'i18n', 'i18n', 'i18n',
+    expect(layout.columns.map(c => c.label)).toEqual([
+      { key: 'bracket_round_of_16' },
+      { key: 'bracket_quarterfinals' },
+      { key: 'bracket_semifinals' },
+      { key: 'bracket_final' },
     ]);
-    expect(layout.columns.map(c => c.startsStage)).toEqual([
-      false, false, true, false, false, false,
-    ]);
+    expect(layout.columns.every(c => !c.startsStage)).toBe(true);
+  });
+
+  it('separates two brackets that nothing links together', () => {
+    const other = singleElim16().map(m => ({
+      ...m,
+      match2id: `X-${m.match2id}`,
+      match2bracketid: 'X',
+      bracket_data: { ...m.bracket_data!, bracket_index: 20, lower_match_ids: [] },
+    })) as PandaMatch[];
+    const layout = buildBracketLayout([...singleElim16(), ...other]);
+    expect(layout.columns).toHaveLength(8);
+    expect(layout.columns[4].startsStage).toBe(true);
   });
 });
 
 describe('buildBracketLayout — degraded input', () => {
-  it('still groups by section when bracket_data is missing, without inventing links', () => {
+  it('renders nothing when bracket_data is missing, rather than guessing from section', () => {
+    // Entries cached before the backend started sending bracket_data. The section
+    // hides itself and recovers on its own once the 10 min cache expires.
     const legacy = [
       { id: 1, match2id: 'a', section: 'Round 1' },
-      { id: 2, match2id: 'b', section: 'Round 1' },
-      { id: 3, match2id: 'c', section: 'Quarterfinals' },
+      { id: 2, match2id: 'b', section: 'Quarterfinals' },
     ] as unknown as PandaMatch[];
 
-    const layout = buildBracketLayout(legacy);
-    expect(layout.columns.map(c => c.label)).toEqual([
-      { kind: 'raw', text: 'Round 1' },
-      { kind: 'raw', text: 'Quarterfinals' },
-    ]);
-    expect(layout.edges).toHaveLength(0);
+    expect(buildBracketLayout(legacy)).toEqual({ columns: [], edges: [], width: 0, height: 0 });
   });
 
-  it('drops matches with neither a section nor bracket data', () => {
-    const layout = buildBracketLayout([{ id: 1, match2id: 'a' }] as unknown as PandaMatch[]);
-    expect(layout.columns).toHaveLength(0);
+  it('drops matches with no bracket data', () => {
+    expect(buildBracketLayout([{ id: 1, match2id: 'a' }] as unknown as PandaMatch[]).columns).toHaveLength(0);
   });
 
   it('deduplicates repeated match entries', () => {

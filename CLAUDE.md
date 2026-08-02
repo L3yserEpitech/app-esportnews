@@ -1234,7 +1234,7 @@ Le bracket **ne devine jamais** l'arbre : toute la structure vient de `match2bra
 Champs qui portent l'info :
 | Champ | Rôle |
 |-------|------|
-| `type` | `bracket` = vrai arbre à élimination · `matchlist` = round plat (Swiss, poules) |
+| `type` | `bracket` = vrai arbre à élimination (**le seul rendu**) · `matchlist` = round plat : suisse, poules, tiebreaker, liste par journée |
 | `coordinates.round_index` | Colonne (0-based). Partagée entre upper et lower bracket. |
 | `coordinates.match_index_in_round` | **Ordre vertical** dans la colonne, numéroté à travers les deux sections (upper d'abord, puis lower). |
 | `coordinates.round_count` / `section_count` | `section_count > 1` = double élimination. |
@@ -1255,13 +1255,13 @@ Conséquences dans le modèle : les libellés de round viennent de la **position
 
 Règles à ne pas casser :
 * **Ne jamais ordonner un round par date** — l'ordre chronologique n'a aucun rapport avec l'ordre du bracket (vérifié : le 1ᵉʳ tour des playoffs CCT sort en M002, M008, M003, M006… en `date ASC`). C'était le bug d'origine : les colonnes étaient triées par date et les connecteurs dessinés par arithmétique d'indices (`prev 2j, 2j+1 → next j`), donc le vainqueur n'était jamais reporté en face du trait.
-* **`type: 'matchlist'` ⇒ aucun connecteur.** Un round suisse n'a pas d'arbre : le perdant rejoue. On rend les colonnes (une par `section`, triées par `bracket_index` puis `match_index`) et rien d'autre. Un round Swiss peut se composer de plusieurs matchlists (`title` = « Round 3 High/Mid/Low Matches »), fusionnées dans la même colonne.
-* Un `section` unique peut contenir tout le bracket (les 15 matchs playoffs CCT sont tous en `section: "Playoffs"`) — **le découpage en rounds vient de `round_index`, pas de `section`**.
+* **Seul `type: 'bracket'` est rendu.** `matchlist` couvre indistinctement rounds suisses, phases de poules, tiebreakers et simples listes par journée : **aucun champ ne les distingue**, et aucun signal structurel non plus (vérifié sur `DreamLeague/29` : la colonne « May 13-A » a des équipes jouant 2×, un round suisse CCT non). Comme aucun n'a d'arbre, aucun n'est affiché ici — ils restent dans « Tous les matchs », groupés par date. Sans cette règle, DreamLeague sortait 11 colonnes intitulées par des dates avant l'arbre.
+* Corollaire : **la section se masque** si le tournoi n'a pas d'arbre du tout (qualifier 100 % suisse), et sans `bracket_data` (cache Redis antérieur) elle se masque aussi — auto-résorbé à l'expiration du cache (TTL détail tournoi 10 min). On ne devine jamais depuis `section`.
+* Un `section` unique peut contenir tout le bracket (les 15 matchs playoffs CCT sont tous en `section: "Playoffs"`) — **le découpage en rounds vient de `round_index`, pas de `section`**, qui n'est jamais lu.
 * Les liens peuvent **sauter une colonne** : en double élimination la finale UB est alignée sur la finale LB, deux rounds à droite de ses parents. Les connecteurs sont donc un **overlay SVG unique** en coordonnées absolues sur toute la grille, pas un SVG par intervalle.
 * Position d'un enfant = moyenne des Y de ses parents ; `settle()` comble les slots sans parent connu puis écarte les cellules pour garantir zéro chevauchement.
-* Fallback : sans `bracket_data` (cache Redis antérieur), on regroupe par `section` **sans inventer de traits**. Auto-résorbé à l'expiration du cache (TTL détail tournoi 10 min).
 
-Tests : `backend-go/internal/models/liquipedia_bracket_test.go` (payloads verbatim) et `frontend/app/components/tournaments/bracketModel.test.ts` (élim. simple, double élim., rounds suisses, entrée dégradée).
+Tests : `backend-go/internal/models/liquipedia_bracket_test.go` (payloads verbatim) et `frontend/app/components/tournaments/bracketModel.test.ts` (élim. simple, double élim., mini-brackets par round, exclusion des matchlists, entrée dégradée).
 
 ---
 

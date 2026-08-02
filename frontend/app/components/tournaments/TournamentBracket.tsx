@@ -89,12 +89,10 @@ function BracketMatchCell({ match, side }: { match: PandaMatch; side: string | n
 
 // ─── Connectors ──────────────────────────────────────────────────────
 //
-// One path per real parent→child link, taken from Liquipedia's `lower_match_ids`.
-// Two parents converging on the same child produce the familiar bracket elbow;
-// a single parent (lower-bracket drop-in) produces one line. Rounds with no
-// links — Swiss, group stages — get no connector at all. The elbow always turns
-// in the gap right before the child, so a link spanning several columns runs
-// straight through at the parent's height.
+// One path per real parent→child link. Two parents converging on the same child
+// produce the familiar bracket elbow; a single parent (lower-bracket drop-in)
+// produces one line. The elbow always turns in the gap right before the child,
+// so a link spanning several columns runs straight through at the parent's height.
 
 function edgePath({ fromX, fromY, toX, toY }: BracketEdge): string {
   const vertX = toX - CONNECTOR_W / 2;
@@ -137,8 +135,7 @@ export default function TournamentBracket({ matches }: TournamentBracketProps) {
 
   if (layout.columns.length === 0) return null;
 
-  const label = (l: ColumnLabel) =>
-    l.kind === 'raw' ? l.text : t(l.key, l.round !== undefined ? { round: l.round } : undefined);
+  const label = (l: ColumnLabel) => t(l.key, l.round !== undefined ? { round: l.round } : undefined);
 
   return (
     <section className="space-y-4">
