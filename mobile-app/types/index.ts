@@ -174,10 +174,39 @@ export interface PandaMatch {
   // Bracket fields for tournament bracket tree
   section?: string | null;
   match2bracketid?: string | null;
+  bracket_data?: PandaBracketData | null;
   mvp?: string | null;
   vod?: string | null;
   patch?: string | null;
   links?: Record<string, string>;
+}
+
+/**
+ * Liquipedia's own description of where a match sits in its bracket.
+ * `match_index_in_round` is numbered across both sections of a round, so upper
+ * and lower bracket matches of the same round share one vertical ordering.
+ */
+export interface PandaBracketCoordinates {
+  round_index: number;
+  match_index_in_round: number;
+  round_count: number;
+  section_index: number;
+  section_count: number;
+}
+
+/**
+ * `type: 'bracket'` is a real elimination tree — `lower_match_ids` carries the
+ * actual edges (which matches feed this one). `type: 'matchlist'` is a flat round
+ * (Swiss, group stage) with no tree structure at all: never draw connectors for it.
+ */
+export interface PandaBracketData {
+  type: string;
+  bracket_section?: string | null;
+  bracket_index: number;
+  title?: string | null;
+  match_index?: number;
+  lower_match_ids?: string[];
+  coordinates?: PandaBracketCoordinates | null;
 }
 
 export interface PandaStream {
