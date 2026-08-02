@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { NewsItem } from '@/app/types';
 import { canUseNextImage, isVideoUrl } from '@/app/lib/imageUtils';
+import { articleHref } from '@/app/lib/articleUrl';
 
 interface ArticleCardProps {
   article: NewsItem;
@@ -58,7 +59,7 @@ function CardMedia({ src, alt }: { src?: string | null; alt: string }) {
 }
 
 export default function ArticleCard({ article, onClick }: ArticleCardProps) {
-  const href = `/article/${article.slug}`;
+  const href = articleHref(article);
 
   return (
     <Link

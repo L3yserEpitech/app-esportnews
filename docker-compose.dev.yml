@@ -65,8 +65,19 @@ services:
       # JWT
       JWT_SECRET: ${JWT_SECRET}
       # External APIs
-      PANDASCORE_API_KEY: ${PANDASCORE_API_KEY}
-      SPORTDEVS_API_KEY: ${SPORTDEVS_API_KEY}
+      LIQUIPEDIA_API_KEY: ${LIQUIPEDIA_API_KEY}
+      LIQUIPEDIA_BUDGET_PER_WIKI: ${LIQUIPEDIA_BUDGET_PER_WIKI:-1000}
+      LIQUIPEDIA_WEBHOOKS_ENABLED: ${LIQUIPEDIA_WEBHOOKS_ENABLED:-false}
+      LIQUIPEDIA_WEBHOOK_SECRET: ${LIQUIPEDIA_WEBHOOK_SECRET}
+      # Space API calls so a cold local cache doesn't trip Liquipedia's sustained rate limit.
+      LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS: ${LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS:-1500}
+      LIQUIPEDIA_SKIP_TLS: "true"
+      # Local network's shared IPv4 egress is rate-limited by Liquipedia; prefer IPv6 (container has IPv6 egress).
+      LIQUIPEDIA_DISABLE_IPV4: ${LIQUIPEDIA_DISABLE_IPV4:-false}
+      # Dev default OFF: the 60-req warmup burst trips Liquipedia's per-IP throttle.
+      LIQUIPEDIA_POLLER_ENABLED: ${LIQUIPEDIA_POLLER_ENABLED:-false}
+      # Background services
+      NOTIFICATION_SCHEDULER_ENABLED: ${NOTIFICATION_SCHEDULER_ENABLED:-true}
       # Stripe
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_SECRET_KEY_LIVE: ${STRIPE_SECRET_KEY_LIVE}
@@ -123,6 +134,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
       - NEXT_PUBLIC_API_URL=http://localhost:4000/api
+      - BACKEND_INTERNAL_URL=http://backend:4000
       - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${NEXT_PUBLIC_STRIPE_PUBLIC_KEY}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -147,3 +159,8 @@ volumes:
 networks:
   esportnews:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: "192.168.97.0/24"
+        - subnet: "fd00:db8:1::/64"

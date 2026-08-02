@@ -1,573 +1,1273 @@
-# CLAUDE.md — Maquette (squelette)
+# CLAUDE.md — EsportNews
 
-> Ce document sert de source unique de vérité pour cadrer le produit, la DA, la structure du site et les exigences techniques. Il doit rester court par section, mais exhaustif par les rubriques.
+> Source unique de vérité pour cadrer le produit, la stack, l'architecture, les variables d'environnement, les services, les handlers, le cache, la base de données et les procédures opérationnelles. **Toute future session Claude doit pouvoir prendre la main sur le projet en lisant ce seul document.**
 
 ---
 
-## 1) Vision & Contexte
+## 0) Index
 
-* **Pitch (1 phrase)** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par bannières publicitaires (gérées en interne, sans tracking tiers) et SEO solide sur les contenus éditoriaux.
+1. [Vision & contexte produit](#1-vision--contexte-produit)
+2. [Architecture globale](#2-architecture-globale)
+3. [Stack technique](#3-stack-technique)
+4. [Variables d'environnement](#4-variables-denvironnement-référence-exhaustive)
+5. [Backend Go — Services](#5-backend-go--services)
+6. [Backend Go — Handlers & routes](#6-backend-go--handlers--routes-http)
+7. [Backend Go — Models](#7-backend-go--models)
+8. [Cache Redis](#8-cache-redis)
+9. [Base de données PostgreSQL](#9-base-de-données-postgresql)
+10. [Intégration Liquipedia API v3](#10-intégration-liquipedia-api-v3)
+11. [Webhooks Liquipedia](#11-webhooks-liquipedia)
+12. [Notification Scheduler (push Expo)](#12-notification-scheduler-push-expo)
+13. [Frontend Next.js](#13-frontend-nextjs)
+14. [Mobile App (Expo)](#14-mobile-app-expo)
+15. [Déploiement Railway (prod + preview)](#15-déploiement-railway-prod--preview)
+16. [Procédures opérationnelles courantes](#16-procédures-opérationnelles-courantes)
+17. [Historique de migration](#17-historique-de-migration)
+18. [Pages spécifiques (Match / Admin Ads)](#18-pages-spécifiques)
+19. [Conventions de travail](#19-conventions-de-travail)
+
+---
+
+## 1) Vision & contexte produit
+
+* **Pitch** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par bannières publicitaires **gérées en interne** (zéro tracking tiers) et SEO solide sur les contenus éditoriaux.
 * **Problème utilisateur** : Difficile de trouver rapidement les matchs live pertinents et les actus fiables par jeu.
-* **Valeur clé / différenciation** : Focus **live-only** agrégé (SportDevs), tournois/équipes/matchs structurés (PandaScore), UX rapide par **jeu** et calendrier simple.
-* **Mesure du succès (KPI)** : CTR jeux en home, temps sur « Direct », clics pubs, impressions bannières publicitaires, conversions abonnement (no-popup-ads mobile), pages vues News/Articles, retour visiteurs.
-* **Contraintes business** : Pas de back-office à développer (déjà existant). Pas de conservation de données côté app. Pas de limite API contractuelle.
-* **Infrastructure** : Migration de Vercel/Supabase vers déploiement local (PostgreSQL + Redis + Go backend en Docker Compose).
-* **Backend** : Backend Go en cours de finalisation dans `/backend-go` (remplace ancien Node.js `/backend/api`)
+* **Différenciation** : Focus **live-only** agrégé, tournois/équipes/matchs structurés (Liquipedia API v3), UX rapide par jeu et calendrier simple.
+* **KPI principaux** : CTR jeux en home, temps sur "Direct", clics pubs, impressions bannières, conversions abonnement (no-ad mobile), pages vues News/Articles, retour visiteurs.
+* **Cibles** : Visuellement → **fans** ; panneau publicitaire → **joueurs**.
+* **Contraintes business** : Pas de back-office à développer (déjà existant). Pas de conservation de données esport côté app (cache Redis uniquement). Pas de limite API contractuelle.
 
-### Décisions actées (20/09/2025)
+### Jeux supportés au lancement (10)
+| Acronyme interne | Wiki Liquipedia | Nom complet |
+|------------------|-----------------|-------------|
+| `csgo`           | `counterstrike` | Counter-Strike 2 |
+| `valorant`       | `valorant`      | Valorant |
+| `lol`            | `leagueoflegends` | League of Legends |
+| `dota2`          | `dota2`         | Dota 2 |
+| `rl`             | `rocketleague`  | Rocket League |
+| `codmw`          | `callofduty`    | Call of Duty |
+| `r6siege`        | `rainbowsix`    | Rainbow Six Siege |
+| `ow`             | `overwatch`     | Overwatch |
+| `fifa`           | `easportsfc`    | EA Sports FC (anciennement FIFA) |
+| `lol-wild-rift`  | `wildrift`      | Wild Rift |
 
-* **Jeux au lancement** : Valorant, FIFA, Wild Rift, Dota, Overwatch, Call of Duty, League of Legends, Rainbow Six Siege, Rocket League, CS2.
-* **Cibles** : Visuellement s’adresser aux **fans** ; **panneau publicitaire** pensé pour les joueurs.
-* **Périmètre** : Pas de MVP — développement **complet** de l’app dès V1. Back-office **déjà fait**.
-* **Sources de données** :
+> Source de vérité : `backend-go/internal/models/liquipedia.go` (`GameWikiMapping`).
 
-  * **SportDevs** → *uniquement* flux **en direct** + **news**.
-  * **PandaScore** → tournois, équipes, matchs (hors live) et structure compétitions.
-* **Données** : Aucune **conservation** locale (no persistence au-delà du cache volatile).
-* **API** : Aucune limite de requêtes imposée.
-* **Qualité des données** : Gestion des incohérences/doublons **plus tard** (hors V1).
-* **Navigation** : Liens de diffusion **ouvrent dans un nouvel onglet**.
-* **Monétisation** :
-  * **Bannières publicitaires gérées en interne** (sans régies externes type Google AdSense / Meta Ads)
-  * **Desktop** : 3 emplacements pub dans une colonne droite pleine hauteur (visibles pour tous utilisateurs, y compris abonnés)
-  * **Mobile** : Aucun popup publicitaire pour les **abonnés Premium**. Popups autorisés uniquement pour les utilisateurs gratuits.
-  * **Données** : Aucun cookie publicitaire tiers, aucun tracking comportemental. Affichage simple d'images/vidéos fournies par les partenaires commerciaux.
-* **SEO** : H1/H2 optimisés ; articles avec **mots-clés** injectés automatiquement depuis la base de données.
+### Palette de couleurs
+`#060B13` (background principal) · `#091626` (fond secondaire) · `#182859` (accent navy) · `#F22E62` (rose primary — calendrier, CTA actifs)
 
-## 5) Design & Direction Artistique (DA)
+### Monétisation
+* **Bannières publicitaires gérées en interne** (pas de Google AdSense / Meta Ads). Images/vidéos uploadées dans Cloudflare R2, métadonnées en DB.
+* **Desktop** : 3 emplacements pub dans une colonne droite pleine hauteur (visibles pour tous, abonnés compris).
+* **Mobile** : aucun popup publicitaire pour les abonnés **Premium** ; autorisés pour les utilisateurs gratuits.
+* **Aucun cookie publicitaire tiers, aucun tracking comportemental.**
 
-* **Intent** : priorité **fans** (lisibilité live, hiérarchie forte par jeu), codes visuels e-sport.
-* **Design System** : tokens couleurs, typo, composants (Button, Card, Tabs jeux, Banner pub, LiveMatchItem).
-* **Responsive** : Desktop sans bascule prématurée vers layout tablet quand on réduit la fenêtre.
-* **Accessibilité** : WCAG 2.1 AA, focus visible, contraste OK.
-* **Palette De Couleur** :#060B13, #091626, #182859, #F22E62
-
-## 6) Contenus & SEO
-
-* **SEO** : H1/H2/H3, meta Title/Description, OpenGraph. **Articles** : mots-clés auto depuis DB, champs éditoriaux existants via BO.
-* **URLs** : slugs par jeu/compétition/article ; canonical sur listings avec filtres.
-* **News** : une principale + liste ; règles d’épinglage via BO existant.
-* **Charte éditoriale** : voix, tutoiement/vouvoiement, terminologie bannie/autorisé.
-* **Modèle de page SEO** : Title (≤60), Meta description (≤155), H1–H3, schémas.
-* **Stratégie mots-clés** : primaire / secondaires, intention.
-* **Règles URL** : kebab-case, i18n, redirections (301/302), canonical.
-
-## 2bis) Infrastructure & Déploiement
-
-* **Stack infrastructure** :
-  - **Backend** : Go 1.22 + Echo framework (remplace Node.js)
-  - **Database** : PostgreSQL 15 (local, via Docker)
-  - **ORM** : GORM pour toutes les opérations utilisateur (authentification, préférences, équipes favorites)
-  - **Cache** : Redis 7 (live data + sessions)
-  - **Frontend** : Next.js 15 (Node.js + Turbopack)
-  - **Orchestration** : Docker Compose (3 conteneurs : postgres, redis, backend-go)
-
-* **Architecture de synchronisation** :
-  - Backend Go polling **PandaScore toutes les 5 minutes**
-  - Insertion/update automatique des tournaments et matches
-  - Déduplication via `panda_id` unique
-  - Aucun stockage persistant de données **SportDevs** (cache Redis seulement)
-
-* **Données persistantes vs volatiles** :
-  - **Persistantes** : users, articles, ads (édités via back-office)
-  - **Volatiles/Sync'd** : tournaments, matches, games_pandascore (PandaScore)
-  - **Cache Redis** : live data (30 sec TTL), sessions utilisateur
-
-* **Base de données - Table utilisateurs** :
-  - **Table GORM** : `public.user` (source unique de vérité pour les utilisateurs)
-  - **Accès** : Tous les handlers (NotificationHandler, TeamHandler, AuthHandler) utilisent GORM pour lire/écrire les données utilisateurs
-  - **NOTE** : ❌ **DEPRECATED** - La table `public.users` (pgxpool) n'est plus utilisée. Tous les accès utilisateurs passent par GORM sur `public.user`
-  - **Colonnes clés** : id, email, password, avatar, admin, age, favorite_teams (BIGINT[]), notifi_push, notif_articles, notif_news, notif_matchs
-
-## 3bis) API Endpoints — Documentation Complète
-
-### **Tournois (Tournaments)**
-
-| Endpoint | Méthode | Description | Paramètres |
-|----------|---------|-------------|-----------|
-| `/api/tournaments` | GET | Tournois en cours (running) | `limit`, `offset`, `sort`, `game` |
-| `/api/tournaments/all` | GET | Tous les tournois en cours | `sort` |
-| `/api/tournaments/upcoming` | GET | Tournois à venir (upcoming) | `limit`, `offset`, `sort` |
-| `/api/tournaments/finished` | GET | Tournois terminés (past) | `limit`, `offset`, `sort` |
-| `/api/tournaments/by-date` | POST | Tournois à une date précise | `date` (form), `game` (form, optionnel) |
-| `/api/tournaments/:id` | GET | Détails d'un tournoi | `id` (path) |
-| `/api/tournaments/filtered` | GET | Tournois avec filtres | `game`, `status`, `filter[tier]` |
-
-**Paramètres de query disponibles** :
-- `limit` : nombre de résultats par page (défaut: 20)
-- `offset` : décalage de pagination (défaut: 0)
-- `sort` : critère de tri (valeurs: `tier`, `-tier`, `begin_at`, `-begin_at`)
-- `game` : acronyme du jeu pour filtrer (ex: `valorant`, `lol`, `cs2`)
-- `status` : statut du tournoi (`running`, `upcoming`, `finished`)
-- `filter[tier]` : rang du tournoi (`s`, `a`, `b`, `c`, `d`)
-
-**Statuts supportés** :
-- `running` → PandaScore: `/running`
-- `upcoming` → PandaScore: `/upcoming`
-- `finished` → PandaScore: `/past` (mappé automatiquement)
-
-### **Matchs (Matches)**
-
-| Endpoint | Méthode | Description | Paramètres |
-|----------|---------|-------------|-----------|
-| `/api/matches/by-date` | POST | Matchs à une date précise | `date` (form YYYY-MM-DD), `game` (form, optionnel) |
-| `/api/matches/:id` | GET | Détails d'un match | `id` (path) |
-| `/api/matches/running` | GET | Matchs en cours (live) | `game` (query, optionnel) |
-| `/api/matches/upcoming` | GET | Matchs à venir | `game` (query, optionnel) |
-| `/api/matches/past` | GET | Matchs terminés | `game` (query, optionnel) |
-
-**Note importante** :
-- L'endpoint `/api/matches/by-date` utilise `Content-Type: application/x-www-form-urlencoded`
-- Frontend : Utiliser `URLSearchParams` (pas `FormData`) pour construire le body
-
-### **Autres Endpoints**
-
-| Endpoint | Méthode | Description | Paramètres |
-|----------|---------|-------------|-----------|
-| `/api/games` | GET | Liste des jeux supportés | - |
-| `/api/articles` | GET | Articles éditoriaux | `limit`, `offset`, `category` |
-| `/api/ads` | GET | Publicités actives | - |
-| `/api/live` | GET | Matchs en direct (SportDevs) | - |
-
-**Exemple de requête avec paramètres** :
-```
-GET /api/tournaments?limit=12&offset=0&sort=tier&game=valorant
-GET /api/tournaments/upcoming?limit=20&offset=0&sort=-begin_at
-POST /api/tournaments/by-date (body: date=2025-11-19&game=lol)
-```
-
-## 7) Technique — Stack & Architecture
-
-* **Données & APIs** :
-
-  * **SportDevs** (live-only + news) → lecture en temps réel (polling court ou webhooks si dispo). Aucun stockage persistant ; **cache Redis** uniquement.
-  * **PandaScore** (tournois/équipes/matchs structurels) → sync toutes les 5 min par backend Go, stockage en DB avec `panda_id` comme clé de déduplication.
-* **Stratégie data** : Base de données PostgreSQL pour persistance (users, articles, ads) + auto-sync PandaScore. Aucun stockage SportDevs. Prévoir **adapters** + **normalizers** post-V1 pour nettoyage.
-* **Infra** : Docker local (dev/prod identique) + CDN + edge cache pour assets ; SSR/ISR pour pages éditoriales (SEO), live en CSR.
-* **Interop** : liens de diffusion ouverts en **new tab**.
-
-## 8) Base de Données — Architecture Détaillée
-
-* **7 tables principales** :
-
-  1. **users** - Comptes utilisateurs + préférences
-     - Persistant | Édité par : authentification frontend + back-office
-     - Cols clés : id, email (unique), avatar, favorite_teams[], notif_* (push/articles/news/matchs)
-
-  2. **games** - Référence des 10 jeux supportés
-     - Persistant | Édité par : back-office
-     - Cols clés : id, name, acronym, selected_image, unselected_image
-
-  3. **articles** - Contenu éditorial
-     - Persistant | Édité par : back-office + CMS
-     - Cols clés : id, slug (unique), title, content, category, tags[], featuredImage, videoUrl, credit
-     - Support vidéo : youtube/vimeo/mp4
-     - Credit : attribution source (ex. © VCT EMEA, © Studio X, etc.)
-
-  4. **ads** - Bannières publicitaires gérées en interne
-     - Persistant | Édité par : back-office
-     - Cols clés : id, title, position (max 3), url, redirect_link, type
-
-  5. **tournaments** - Tournois PandaScore
-     - Synced (5 min polling) | Source : PandaScore API
-     - Clé déduplication : **panda_id** (unique)
-     - Cols clés : id, panda_id, name, slug, status, begin_at/end_at, tier, prizepool, raw_data (JSONB)
-
-  6. **matches** - Matchs de tournois PandaScore
-     - Synced (5 min polling) | Source : PandaScore API
-     - Clé déduplication : **panda_id** (unique)
-     - FK : tournament_id → tournaments(id)
-     - Cols clés : id, panda_id, name, status, begin_at, end_at, live_supported, live_url, raw_data (JSONB)
-
-  7. **games_pandascore** - Sous-matchs individuels (map/game)
-     - Synced (5 min polling) | Source : PandaScore API
-     - Clé déduplication : **panda_id** (unique)
-     - FK : match_id → matches(id)
-     - Cols clés : id, panda_id, position, status, begin_at/end_at, winner_id, raw_data (JSONB)
-
-* **Indexes pour perf** :
-  - users(email), articles(slug), tournaments(panda_id, videogame_id, status)
-  - matches(panda_id, tournament_id, begin_at), games_pandascore(panda_id, match_id)
-
-* **Politique de données** :
-  - **Persistance** : users, articles, ads (jamais supprimés, soft-delete si besoin)
-  - **Sync** : tournaments, matches, games_pandascore (re-sync complète à chaque polling, upsert via panda_id)
-  - **Cache** : live data dans Redis (TTL 30s)
-  - **Aucun tracking tiers** : pas de cookies de régies publicitaires
-
-## 9) Migration Supabase → Local
-
-* **Données à exporter de Supabase** :
-  - Export complet `.sql` des 7 tables
-  - Exports séparés par table (plus facile à vérifier)
-  - Vérifier intégrité des foreign keys après import
-
-* **Procédure de migration** :
-  1. Dump complet Supabase : `pg_dump -U postgres supabase_db > backup.sql`
-  2. Nettoyer le dump : supprimer les extensions Supabase spécifiques (postgrest, jwt, etc.)
-  3. Importer en local : `psql -U postgres -d esportnews < backup.sql`
-  4. Vérifier FK et indexes : `\d+` dans psql
-  5. Valider : compter les lignes par table (users, articles, ads)
-
-* **Points d'attention** :
-  - URLs images (articles.featuredImage, ads.url) doivent rester accessibles
-  - Métadonnées Supabase (created_at, updated_at) seront préservées
-  - Contrevérifier les contraintes UNIQUE après import (id, email, slug, panda_id)
-  - **Tournois/matchs ne se migrent PAS** : re-synced à chaque démarrage du backend Go
-
-## 9.1) Seeding Articles — Procédure
-
-* **Source de données** :
-  - JSON export depuis Supabase : `/backend-go/initial_data/articles_rows.json`
-  - Format : Array de 47 objets Article avec tous les champs (title, content, tags[], etc.)
-  - Dépourvu de migrations SQL volumineux (idéal pour 40+ articles)
-
-* **Script de seeding** :
-  - Binaire Go : `./seed` (compilé automatiquement par Docker)
-  - Logique : `internal/seed/articles.go` + `cmd/seed/main.go`
-  - Gère les doublons via `ON CONFLICT (slug) DO NOTHING`
-
-* **Procédure d'import** :
-  1. S'assurer que Docker Compose est up : `docker-compose ps`
-  2. Lancer le seeding :
-     ```bash
-     docker-compose exec -T backend ./seed --data=initial_data/articles_rows.json
-     ```
-  3. Vérifier le résultat (logs affichent nombre inséré + total en DB)
-  4. Le script est **idempotent** : peut être re-exécuté sans créer de doublons
-
-* **Flags disponibles** :
-  - `--data=<path>` : chemin vers le fichier JSON (défaut: `initial_data/articles_rows.json`)
-  - `--dry-run` : teste sans insérer (valide JSON + structure)
-  - `-v` : verbose output (GORM debug logs)
-
-* **Vérification** :
-  ```sql
-  -- Compter articles en BD
-  SELECT COUNT(*) FROM articles;
-
-  -- Vérifier un article par slug
-  SELECT slug, title, author, array_length(tags, 1) as tag_count
-  FROM articles WHERE slug = '<article-slug>';
-  ```
-
-## 9bis) Données & Contrats
-
-* **Modèle logique** : Game → Tournament → Match → SubMatch (game_pandascore) → Live streams
-  - News (source SportDevs) → Article cache
-  - Article (via BO) → DB persistant
-* **Politiques** :
-  - **users, articles, ads** : rétention permanente (soft-delete si besoin)
-  - **tournaments, matches, games_pandascore** : aucune rétention (re-sync à chaque cycle)
-  - Pas de sauvegardes de données SportDevs en DB. Seuls logs techniques non-PII.
-* **RGPD** : abonnement géré côté BO/processor ; bannières publicitaires internes sans tracking tiers (pas de consentement requis pour l'affichage simple).
-* **Contrats d'API** : wrappers typed (Go structs), timeouts/retries (5 min polling), circuit-breaker Redis.
-
-## 10) Observabilité & Qualité Produit (Backend)
-
-* **Metrics** : Web Vitals (LCP<2.5s, CLS<0.1), temps de réponse APIs tierces, taux d’erreur fetch.
-* **Alerting** : flux live down, dépassement temps réponse, anomalies volume.
-* **Feature flags** : **no-popup-ads-mobile** pour abonnés (bannières desktop restent visibles pour tous).
-* **Logs** : structure JSON, corrélation traceId, pas de PII en clair.
-* **Metrics** : RED/USE pour backend, Web Vitals pour frontend.
-* **Alerting** : seuils, canaux, astreintes.
-* **Feature flags** : rollout progressif, kill switch.
-
-## 11) Analytics & Expérimentation
-
-* **Plan de marquage (exemples)** : select\_game, view\_live\_list, open\_stream, click\_ad, view\_news, read\_article, subscribe\_noads.
-* **Consentement** : déclenchement selon CMP.
-
-## 12) Notes de Transition & Dépréciations
-
-* **DEPRECATED** :
-  - ❌ Backend Node.js (`/backend/api`) - remplacé par Go backend
-  - ❌ Supabase hosted - migré vers PostgreSQL local
-  - ❌ Vercel deployment - infrastructure locale Docker
-
-* **En cours** :
-  - 🔄 Backend Go (`/backend-go`) - finalisation des endpoints + gestion erreurs
-
-* **Complétés** :
-  - ✅ Migration données Supabase (users, articles, ads)
-  - ✅ Seeding articles (47 articles importés via script Go + JSON)
+### SEO
+* H1/H2/H3, meta Title/Description, OpenGraph.
+* Articles : mots-clés (champ `tags` en DB) + slug unique.
+* URL : kebab-case, slugs par jeu/compétition/article.
+* Pas de canonical sur les filtres dynamiques (listings de matchs).
 
 ---
 
-### Schéma Database (Référence complète)
+## 2) Architecture globale
 
-create table public.users (
-  id bigint generated by default as identity not null,
-  created_at timestamp with time zone not null default now(),
-  name text not null,
-  email text not null,
-  password text not null,
-  avatar text null,
-  admin boolean not null default false,
-  favorite_teams integer[] null,
-  notifi_push boolean null default false,
-  notif_articles boolean null default false,
-  notif_news boolean null default false,
-  notif_matchs boolean null,
-  constraint users_pkey primary key (id),
-  constraint users_email_key unique (email),
-  constraint users_id_key unique (id)
-) TABLESPACE pg_default;
+```
+                          ┌──────────────────────────┐
+                          │   Liquipedia API v3      │
+                          │  (api.liquipedia.net)    │
+                          └─────────┬────────────────┘
+                                    │ HTTP (1000 req/wiki/h)
+                                    │ Apikey + User-Agent
+                                    │
+                  ┌─────────────────┴────────────────┐
+                  │       LiquipediaService          │
+                  │   (singleflight + budget         │
+                  │    tracker + stale-while-        │
+                  │    revalidate)                   │
+                  └───────┬────────────────┬─────────┘
+              writes      │                │  on-demand
+                          ▼                ▼
+                     ┌────────────────────────┐
+                     │   Redis Cache          │
+                     │ (liq:* + cache:* keys) │
+                     └────────┬───────────────┘
+                              │
+                  reads only  │  (handlers ne touchent JAMAIS Liquipedia direct)
+                              │
+              ┌───────────────┴────────────────┐
+              │     Echo HTTP handlers          │
+              │  matches / tournaments / teams  │
+              │  articles / ads / auth / ...    │
+              └─────┬────────────────────┬──────┘
+                    │                    │
+                    ▼                    ▼
+          ┌─────────────────┐    ┌──────────────────┐
+          │ Frontend Next.js│    │  Mobile App      │
+          │  (Vercel/local) │    │  (Expo)          │
+          └─────────────────┘    └──────────────────┘
 
-create table public.games (
-  id bigint generated by default as identity not null,
-  created_at time without time zone not null default now(),
-  name text null,
-  selected_image text null,
-  unselected_image text null,
-  acronym text null,
-  full_name text null,
-  constraint games_pkey primary key (id),
-  constraint games_id_key unique (id)
-) TABLESPACE pg_default;
+                  ┌──────────────────────────┐
+                  │   PostgreSQL (Supabase)  │
+                  │  users · articles · ads  │
+                  │  notifications · games   │
+                  │  match_subscription      │
+                  │  tournament_subscription │
+                  │  push_token              │
+                  └──────────────────────────┘
+                              ▲
+                              │  GORM + pgxpool
+                              │
+                  ┌──────────┴───────────────┐
+                  │ Backend Go (Echo, port   │
+                  │ 4000 local / 8080 prod)  │
+                  └──────────────────────────┘
+```
 
-create table public.articles (
-  id bigint generated by default as identity not null,
-  created_at timestamp with time zone not null default now(),
-  slug text null,
-  tags text[] null,
-  title text null,
-  views integer null default 0,
-  author text null,
-  content text null,
-  category text null,
-  subtitle text null,
-  description text null,
-  content_black text null,
-  content_white text null,
-  "featuredImage" text null,
-  credit text null,
-  constraint articles_pkey primary key (id),
-  constraint articles_id_key unique (id)
-) TABLESPACE pg_default;
+### Flux des données « live » (matchs, tournois, équipes)
+1. **Poller** (goroutine background, 1 par wiki) appelle Liquipedia à intervalles fixes → écrit dans Redis.
+2. **Webhook** LiquipediaDB POST `/api/webhooks/liquipedia` → marque dirty flags → poller fait un refresh ciblé (au prochain tick `DirtyCheckInterval` = 2 min).
+3. **Handlers HTTP** lisent uniquement Redis (jamais d'appel direct à Liquipedia depuis un handler synchrone — sauf détails on-demand qui passent par `MakeRequest` cache-aside).
+4. **NotificationScheduler** (goroutine) lit Redis via `LiquipediaReader` pour détecter les matchs qui passent en live et déclencher des push notifications Expo.
 
-create table public.ads (
-  id bigint generated by default as identity not null,
-  created_at time without time zone not null default now(),
-  title text null,
-  position smallint null,
-  type text null,
-  url text null,
-  redirect_link text null,
-  constraint ads_pkey primary key (id),
-  constraint ads_id_key unique (id)
-) TABLESPACE pg_default;
+### Flux des données persistantes
+* **users / articles / ads / push_token / match_subscription / tournament_subscription** : PostgreSQL via GORM (source de vérité).
+* **games** : PostgreSQL (10 lignes statiques, alimentées via back-office).
+* **Aucune table `matches` ou `tournaments`** : ces données vivent uniquement dans Redis (cache des appels Liquipedia).
 
-create table public.notifications (
-  id bigint generated by default as identity not null,
-  created_at timestamp with time zone not null default now(),
-  push_notifications boolean null default false,
-  starting_match boolean null default false,
-  articles boolean null default false,
-  news boolean null default false,
-  constraint notifications_pkey primary key (id)
-) TABLESPACE pg_default;
+---
 
-## 12bis) Page Match — Navigation par Calendrier
+## 3) Stack technique
 
-* **Route** : `/match` (remplace l'ancienne route `/live`)
-* **Navigation** : Lien "Matchs" dans la navbar
+### Backend
+* **Langage** : Go 1.22
+* **Framework HTTP** : Echo v4 (`github.com/labstack/echo/v4`)
+* **ORM principal** : GORM v2 (`gorm.io/gorm`) → table `users`, `articles`, `ads`, `match_subscription`, `tournament_subscription`, `push_token`, `notifications`, `games`
+* **Driver PostgreSQL bas niveau** : `github.com/jackc/pgx/v5` (pgxpool, conservé pour la rétro-compat de certains handlers historiques)
+* **Cache** : `github.com/redis/go-redis/v9`
+* **Logger** : `github.com/sirupsen/logrus` (format JSON)
+* **Singleflight** : `golang.org/x/sync/singleflight` (déduplication des appels API concurrents)
+* **Env loader** : `github.com/joho/godotenv` (lecture `.env` en dev local)
 
-### Concept et UX
+### Frontend (web)
+* **Framework** : Next.js 15 (App Router + Turbopack)
+* **Langage** : TypeScript
+* **State** : RTK Query (services API + cache normalisé)
+* **Styling** : Tailwind CSS
+* **Internationalisation** : 5 langues (fr, en, es, de, it)
 
-* **Système de temporalité par jour** : Calendrier de 11 cases affichant les dates
-  - Jour actuel toujours **centré** (case 6/11)
-  - Navigation avec flèches gauche/droite (décalage de 11 jours)
-  - Date sélectionnée en **rose (#F22E62)** pour mise en évidence
-  - Jour actuel avec bordure rose mais fond gris (distinction visuelle)
+### Mobile
+* **Runtime** : Expo + React Native
+* **Push notifications** : Expo Push Notifications API
 
-* **Affichage des dates** :
-  - Format : Jour (3 lettres) + Numéro + Mois (abrégé)
-  - Exemple : `lun`, `2`, `jan`
-  - Responsive : 5 colonnes mobile, 11 colonnes desktop
+### Infrastructure
+* **Base de données** : PostgreSQL (Supabase managed) — partagée entre prod et preview Railway
+* **Cache** : Redis (managed Railway)
+* **Object storage** : Cloudflare R2 (`pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev`) pour les images d'articles, ads, avatars
+* **Déploiement** : Railway (2 projets : prod + preview)
+* **CDN frontend** : Vercel (esportnews.fr)
+* **Domaines** :
+  - Prod : `https://www.esportnews.fr` (frontend) + backend Railway prod
+  - Preview R&D : `https://www.blitchapp.online` (backend Railway preview, custom domain en cours)
 
-* **Filtrage** :
-  - Par **date** : Sélection d'un jour dans le calendrier
-  - Par **jeu** : GameSelector (sticky desktop, accordion mobile)
-  - Combinaison date + jeu supportée
+### Paiements
+* **Web** : Stripe (Checkout + Customer Portal + webhooks)
+* **iOS** : Apple In-App Purchase (App Store Server Notifications V2 + JWS verification)
+* **Android** : Google Play Billing (Real-time Developer Notifications via Pub/Sub)
 
-### Fonctionnalités
+### Email
+* **Resend** (`https://resend.com`)
 
-* **Chargement des matchs** :
-  - Endpoint : `POST /api/matches/by-date` avec `date` (YYYY-MM-DD) et `game` (optionnel)
-  - Filtrage automatique : N'affiche **que les matchs avec les 2 équipes définies**
-  - Validation : `match.opponents.length >= 2` + `opponent.name` présents
+---
 
-* **Recherche modale (⌘K)** :
-  - Style identique à la page Articles
-  - Modale plein écran (98vw × 90vh) avec fond `bg-background`
-  - Affichage : **1 match par ligne** (`grid-cols-1`)
-  - Recherche multi-critères : nom, équipe, tournoi, ligue, jeu
-  - Compteur de résultats dynamique
+## 4) Variables d'environnement (référence exhaustive)
 
-* **Actualisation** :
-  - Pas d'auto-refresh (contrairement à l'ancienne page live)
-  - Bouton "Actualiser" manuel
-  - Rechargement automatique au changement de date ou de jeu
+Toutes lues dans `backend-go/internal/config/config.go` via `LoadConfig()`. Source de vérité par défaut dans `.env.example`. Surchargées dans les `docker-compose*.yml` (dev/prod) ou les variables Railway (prod/preview).
 
-### Design
+### Server
+| Variable | Type | Défaut | Rôle | Pourquoi |
+|----------|------|--------|------|----------|
+| `PORT` | string | `4000` | Port d'écoute HTTP du backend Go | Railway l'override à `8080` automatiquement |
+| `ENV` | string | `development` | Étiquette d'environnement (purement informatif) | Utilisé par GORM pour activer/désactiver les logs SQL |
+| `FRONTEND_URL` | url | `http://localhost:3000` | URL canonique du frontend | Ajoutée automatiquement à la whitelist CORS |
+| `CORS_ORIGINS` | csv | `""` | Origines additionnelles séparées par virgules | Permet d'ajouter des previews ad-hoc sans recompiler |
 
-* **Calendrier** :
-  - Cases carrées avec padding, bordure arrondie (`rounded-lg`)
-  - États visuels :
-    - **Sélectionné** : `bg-[#F22E62]` (rose) + texte blanc
-    - **Aujourd'hui** : `bg-bg-tertiary` + bordure rose
-    - **Autre** : `bg-bg-secondary` + hover `bg-bg-tertiary`
+### Database & Cache
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `DATABASE_URL` | dsn | `postgres://esportnews:secret@localhost:5432/esportnews` | DSN PostgreSQL (utilisé par pgxpool ET GORM) |
+| `REDIS_URL` | url | `redis://localhost:6379` | URL Redis (cache live + sessions + budgets) |
+| `DB_MAX_CONNECTIONS` | int | `25` | Pool size pgxpool (hardcoded dans `MaxConnections`) |
 
-* **Layout** :
-  - Padding top `pt-20` pour éviter superposition navbar
-  - GameSelector sticky en desktop (z-40)
-  - Grille 3 colonnes pour les cartes de matchs (responsive)
-  - Colonne pub à droite (desktop uniquement)
+### Auth
+| Variable | Type | Défaut | Rôle | Pourquoi |
+|----------|------|--------|------|----------|
+| `JWT_SECRET` | string | `your-secret-key` | Clé de signature HS256 des access tokens | **Doit être unique et secret en prod**, sinon JWT forgeables |
 
-### Traductions
+JWT expiration hardcodée : **7 jours**.
 
-* **Langues supportées** : fr, en, es, de, it
-* **Clés principales** :
-  - `pages_detail.match.title` : "Matchs" / "Matches" / "Partidos" / "Spiele" / "Partite"
-  - `pages_detail.match.prev_dates` : "Dates précédentes" / "Previous dates"
-  - `pages_detail.match.next_dates` : "Dates suivantes" / "Next dates"
-  - `pages_detail.match.today` : "Aujourd'hui" / "Today" / "Hoy" / "Heute" / "Oggi"
-  - `pages_detail.match.no_matches` : "Aucun match disponible pour cette date"
+### Liquipedia
+| Variable | Type | Défaut | Rôle | Pourquoi |
+|----------|------|--------|------|----------|
+| `LIQUIPEDIA_API_KEY` | string | `""` | Clé API v3 → header `Authorization: Apikey <key>` | Si vide, le poller log un warning et **ne démarre pas** |
+| `LIQUIPEDIA_BUDGET_PER_WIKI` | int | `1000` | Quota requêtes/heure/wiki appliqué par le `RequestBudget` | Passé de 60 → 1000 en juin 2026 après extension officielle du quota |
+| `LIQUIPEDIA_WEBHOOKS_ENABLED` | bool | `false` (dev) / `true` (prod) | Active le mode dirty-flags du poller | Une fois OFF, le poller fait du polling aveugle aux intervalles fixes (Scenario B) |
+| `LIQUIPEDIA_WEBHOOK_SECRET` | string | `""` | Secret validé via header `X-Webhook-Secret` ou query param `?secret=` (`crypto/subtle.ConstantTimeCompare`) | LiquipediaDB ne sait envoyer ni header ni signature → le secret passe dans l'URL. Empty = pas de vérification (dev local uniquement) |
+| `LIQUIPEDIA_SKIP_TLS` | bool | `false` | Désactive la vérification TLS du client HTTP Liquipedia | **Dev uniquement** — utile en local quand le cert IPv4 forcé pose souci |
+| `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` | int | `0` (désactivé) / `1500` (docker-compose.dev) | Espacement minimum entre appels HTTP sortants vers Liquipedia | L'API a une limite par IP en plus du quota horaire ; indispensable en local (cold cache = fetch massif). **Prod/staging : `1500` obligatoire** — `300` (~3,3 req/s) fait bannir l'IP par le throttle Cloudflare de Liquipedia (vérifié 2026-07-05 : navigation calendrier = by-date × 10 wikis → ban IP en ~1h) |
+| `LIQUIPEDIA_DISABLE_IPV4` | bool | `false` | Désactive le forçage IPv4 vers api.liquipedia.net | Pour un host local avec IPv6 fonctionnel dont l'IPv4 est rate-limitée. **Ne jamais activer sur Railway** (pas d'IPv6) |
 
-### Notes techniques
+### Background services
+| Variable | Type | Défaut | Rôle | Pourquoi |
+|----------|------|--------|------|----------|
+| `NOTIFICATION_SCHEDULER_ENABLED` | bool | `true` | Lance le NotificationScheduler au boot | **Doit être `false`** sur l'env preview pour éviter d'envoyer 2× les push notifs (preview partage la DB de prod) |
 
-* **Service frontend** : `matchService.getMatchesByDate(date, gameAcronym)`
-* **Format de requête** : `URLSearchParams` (pas FormData) avec `Content-Type: application/x-www-form-urlencoded`
-* **Gestion d'état** :
-  - `selectedDate` : Date object (défaut: aujourd'hui)
-  - `dateRangeOffset` : Nombre de décalages de 11 jours (défaut: 0)
-  - Fonction `generateDateRange(centerDate, offset)` pour calculer les 11 dates
+### Stripe
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `STRIPE_SECRET_KEY` | string | `""` | Clé secrète Stripe (`sk_test_...` ou `sk_live_...`) |
+| `STRIPE_PRICE_ID` | string | `price_1SZoti3MOTiy12q9vCQLg1wG` | Price ID de l'abonnement Premium |
+| `STRIPE_WEBHOOK_SECRET` | string | `""` | Secret pour vérifier la signature du webhook `/api/webhooks/stripe` |
 
-* **Composants** :
-  - `MatchPageClient.tsx` : Composant principal client-side
-  - `LiveMatchCard` : Réutilisé pour l'affichage des matchs
-  - `GameSelector` : Sélecteur de jeux (commun avec Tournois)
+### Resend
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `RESEND_API_KEY` | string | `""` | Clé API Resend pour envoyer les emails de bienvenue/reset password |
+| `EMAIL_FROM` | string | `noreply@resend.dev` | Adresse `From` des emails |
 
-## 13) Panel Admin — Gestion des Publicités
+### Apple IAP
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `APPLE_IAP_KEY_PATH` | path | `""` | Chemin local vers `AuthKey_XXXX.p8` (clé privée App Store Server API) |
+| `APPLE_IAP_KEY_ID` | string | `""` | Identifiant 10 chars de la clé Apple |
+| `APPLE_IAP_ISSUER_ID` | uuid | `""` | Issuer ID de l'App Store Connect |
+| `APPLE_IAP_BUNDLE_ID` | string | `com.esportnews-app.mobile` | Bundle ID de l'app iOS |
+| `APPLE_IAP_ENVIRONMENT` | string | `sandbox` | `sandbox` ou `production` |
 
-* **Accès** : `/admin/ads` (authentification JWT requise)
-* **Navigation** : Section "Publicité" dans le menu admin (remplace "Médias")
+### Google IAP
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `GOOGLE_IAP_KEY_PATH` | path | `""` | Chemin vers le JSON du service account Google |
+| `GOOGLE_IAP_PACKAGE` | string | `com.esportnewsapp.mobile` | Package name Android |
+| `GOOGLE_WEBHOOK_TOKEN` | string | `""` | Secret partagé pour authentifier les notifications RTDN via Pub/Sub push |
 
-### Fonctionnalités CRUD
+### Cloudflare R2
+| Variable | Type | Défaut | Rôle |
+|----------|------|--------|------|
+| `CLOUDFLARE_ACCOUNT_ID` | string | `""` | ID du compte Cloudflare |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID` | string | `""` | Access key R2 |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | string | `""` | Secret access key R2 |
+| `CLOUDFLARE_R2_BUCKET_NAME` | string | `esportnews-bucket` | Nom du bucket |
+| `CLOUDFLARE_R2_ENDPOINT` | url | `""` | Endpoint S3 du bucket (`https://<accountid>.r2.cloudflarestorage.com`) |
+| `CLOUDFLARE_R2_PUBLIC_URL` | url | `""` | URL publique CDN du bucket (`https://pub-...r2.dev`) |
+| `MAX_UPLOAD_SIZE` | int64 | `524288000` (500 MB) | Limite taille fichier upload |
+| `UPLOAD_TIMEOUT` | int (s) | `600` (10 min) | Timeout requêtes upload |
 
-1. **Liste des publicités** (`/admin/ads`)
-   - Affiche toutes les publicités avec preview image
-   - Compteur "X/3" pour limiter les emplacements
-   - Colonnes : Position, Aperçu, Titre, Type, Lien, Actions
-   - Actions : Éditer, Supprimer (avec confirmation)
-   - Tri automatique par position (1 → 3)
+### Frontend (Next.js — `.env.local`)
+| Variable | Type | Rôle |
+|----------|------|------|
+| `NEXT_PUBLIC_API_URL` | url | Base URL backend (ex: `https://api.esportnews.fr` ou `http://localhost:4000`) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | string | Clé publique Stripe pour Checkout |
 
-2. **Créer une publicité** (`/admin/ads/new`)
-   - Champs requis :
-     - **Titre** : nom de la publicité
-     - **Position** : 1, 2 ou 3 (maximum 3 emplacements)
-     - **Type** : image ou video
-     - **URL** : lien vers l'image/vidéo (upload vers R2 ou URL externe)
-     - **Lien de redirection** : URL de destination au clic
-   - Upload d'image :
-     - Stockage : Cloudflare R2 (`ads/images/`)
-     - Preview en temps réel après upload
-     - Formats supportés : JPG, PNG, WebP
-   - Validation frontend + backend
+---
 
-3. **Modifier une publicité** (`/admin/ads/[id]/edit`)
-   - Formulaire pré-rempli avec données existantes
-   - Possibilité de changer l'image (nouvel upload)
-   - Cache invalidé automatiquement après modification
+## 5) Backend Go — Services
 
-4. **Supprimer une publicité**
-   - Dialogue de confirmation avant suppression
-   - Suppression définitive (pas de soft-delete)
-   - Cache invalidé automatiquement
+Tous les services vivent dans `backend-go/internal/services/`. Convention : un service par responsabilité métier, injection de dépendances par constructeur, état partagé protégé par mutex/sync.
 
-### API Endpoints Admin
+### 5.1 `LiquipediaService` — Client HTTP central
+**Fichier** : `liquipedia_service.go`
 
-| Endpoint | Méthode | Description | Auth |
-|----------|---------|-------------|------|
-| `/admin/ads` | GET | Liste toutes les pubs | JWT Admin |
-| `/admin/ads` | POST | Créer une pub | JWT Admin |
-| `/admin/ads/:id` | GET | Détails d'une pub | JWT Admin |
-| `/admin/ads/:id` | PUT | Modifier une pub | JWT Admin |
-| `/admin/ads/:id` | DELETE | Supprimer une pub | JWT Admin |
-| `/admin/ads/upload` | POST | Upload image vers R2 | JWT Admin |
+Responsabilité unique : **toutes** les communications HTTP avec Liquipedia passent par ce service. Personne d'autre n'instancie un `http.Client` vers `api.liquipedia.net`.
 
-### Affichage Frontend
+Fonctionnalités principales :
+* **Client HTTP** : timeout 30 s, User-Agent obligatoire, header `Authorization: Apikey <key>`, IPv4 forcé sur `api.liquipedia.net` (Railway/Docker n'ont pas d'IPv6 → sinon Happy Eyeballs ajoute 3 s par requête ; désactivable via `LIQUIPEDIA_DISABLE_IPV4`).
+* **Concurrence sortante** : 1 seul appel HTTP en vol à la fois (sémaphore global) + espacement optionnel `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS` — l'API a un burst limit et une limite par IP en plus du quota horaire.
+* **Cap de taille réponse** : 20 MB ; un dépassement n'est JAMAIS caché (fallback stale) pour éviter de servir du JSON tronqué.
+* **Sélection de champs** : les requêtes match/tournament passent `query=<json tags des structs>` (`LiqMatchQueryFields`/`LiqTournamentQueryFields`) — divise la taille des payloads par 3-10×.
+* **`RequestBudget` par wiki** : compteur in-memory + persistance Redis (`liq:budget:<wiki>:<YYYYMMDDHH>`). Reset à chaque heure pleine. **Survit aux redémarrages** dans l'heure courante.
+* **Backoff sur 429** : 5 min → 10 → 20, capé à 30 min. Reset automatique à l'heure suivante. N'épuise PAS le budget horaire (seul le timer de backoff bloque, puis expire).
+* **Stale-while-revalidate** : à chaque écriture fraîche, une copie est stockée avec le suffixe `:stale` (TTL 6 h). En cas d'erreur ou budget épuisé, on retourne le stale plutôt qu'une erreur.
+* **Singleflight** : N requêtes concurrentes pour la même clé cache → 1 seul appel API (`golang.org/x/sync/singleflight`). Le fetch partagé tourne sur un contexte détaché (35 s) — l'annulation du premier caller ne fait pas échouer les autres.
+* **Méthode publique principale** : `MakeRequest(ctx, wiki, endpoint, params, cacheKey, ttl)` — fait tout le cycle (cache hit / singleflight / budget / HTTP / cache write).
+* **Helpers métier** : `SearchTeams`, `GetTeamByPageID`, `GetTeamByTemplate`, `GetTeamsByPageIDs`, `GetTeamDetailByPageID`, `FetchBatchSquadPlayers`, `FetchTeamMatches`, `FetchTeamPlacements`, `MapAcronymToWiki`, `GetBudgetStatus`, `ParseResponse`.
 
-* **Composants** :
-  - `AdBanner` : affiche une publicité individuelle
-  - `AdColumn` : colonne droite contenant jusqu'à 3 pubs (desktop uniquement)
-  - `AdSkeleton` : loading state pendant le chargement
+Constructeur : `NewLiquipediaService(apiKey, budgetPerWiki, redisCache, logger)`. `budgetPerWiki <= 0` retombe sur `defaultBudgetLimitPerWiki = 1000`.
 
-* **Comportement** :
-  - Images chargées via Next.js `<Image>` (optimisation automatique + gestion CORS)
-  - Hover effect : overlay avec titre + badge "Publicité"
-  - Clic : ouvre `redirect_link` dans nouvel onglet (`_blank`, `noopener,noreferrer`)
-  - Visible uniquement pour utilisateurs non-abonnés (sauf desktop où tous voient les pubs)
-  - Cache Redis 1h, invalidé à chaque modification
+### 5.2 `LiquipediaPoller` — Background sync
+**Fichier** : `liquipedia_poller.go`
 
-* **Gestion d'erreurs** :
-  - Si image échoue au chargement → pub masquée automatiquement
-  - Reset automatique de l'état d'erreur si l'URL change
-  - Logs console pour debugging (à retirer en production)
+Lance, au boot, une goroutine par wiki (10 wikis = 10 goroutines) + 1 goroutine `consumeDirtyFlags`.
 
-### Stockage & CDN
+Chaque goroutine de wiki :
+1. **Phase 1 — Warmup** : attend son slot (`wikiIdx × WarmupStaggerInterval = 20s`, donc 0/20/40/60... secondes), puis fait 6 appels (1 par type) espacés de `WarmupIntraDelay = 2s`. Total : ~12 s pour warmup d'un wiki.
+2. **Phase 2 — Polling régulier** : 6 tickers, un par type :
 
-* **Cloudflare R2** :
-  - Bucket configuré avec permissions publiques
-  - Path : `ads/images/`
-  - Nommage : `{timestamp}-{random}.{ext}`
-  - URL publique : `https://pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev/ads/images/{filename}`
+| Type | Intervalle | TTL associée | req/h |
+|------|------------|--------------|-------|
+| `matches_running` | 8 min | 10 min | 7.5 |
+| `matches_upcoming` | 20 min | 22 min | 3 |
+| `matches_past` (7 derniers jours) | 45 min | 50 min | 1.3 |
+| `tournaments_running` | 20 min | 22 min | 3 |
+| `tournaments_upcoming` | 30 min | 35 min | 2 |
+| `tournaments_finished` (30 derniers jours) | 90 min | 100 min | 0.7 |
+| **Total background** | | | **~17.5 req/wiki/h** |
 
-* **CORS R2** (si nécessaire pour balises `<img>` standard) :
-  ```json
-  {
-    "AllowedOrigins": ["http://localhost:3002", "*"],
-    "AllowedMethods": ["GET", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
-  }
-  ```
-  Note : Next.js `<Image>` gère CORS via proxy interne, donc pas besoin de CORS sur R2 si on utilise `<Image>`
+> **Note** : Ces intervalles ont été calibrés pour un quota de 60 req/wiki/h. Avec le quota actuel de **1000 req/wiki/h**, il reste **~982 req/h libres** par wiki pour les requêtes on-demand (détails de match, recherche d'équipes, etc.). Les intervalles n'ont volontairement pas été serrés pour rester conservateur pendant la phase de stabilisation.
 
-### Validation & Contraintes
+**Mode dirty-flags** : si `LIQUIPEDIA_WEBHOOKS_ENABLED=true`, les tickers se déclenchent toujours mais ne refresh que si `safetyMultiplier × intervalle` s'est écoulé (filet de sécurité). Les vrais refresh sont déclenchés par `consumeDirtyFlags` (toutes les 2 min) en lisant les `DirtyFlag` du `DirtyTracker`.
 
-* **Backend (Go)** :
-  - Position : entre 1 et 3 (validation stricte)
-  - Type : `image` ou `video` uniquement
-  - URL et redirect_link : requis, non-vides
-  - Timeout upload : 10 minutes max
+### 5.3 `LiquipediaReader` — Lecture cache pour callers internes
+**Fichier** : `liquipedia_reader.go` (créé dans cette session)
 
-* **Frontend (React)** :
-  - Formulaire contrôlé avec validation en temps réel
-  - Preview image obligatoire avant soumission
-  - Gestion loading states (skeleton, spinners)
-  - Messages d'erreur utilisateur clairs
+Méthodes haut niveau attachées à `*LiquipediaService` pour les callers internes (scheduler notamment) :
 
-* **Cache** :
-  - Endpoint public `/api/ads` : cache Redis 1h
-  - Invalidation automatique après CREATE/UPDATE/DELETE
-  - Timestamp query param `?t={timestamp}` pour éviter cache navigateur
+* `MatchesByStatus(ctx, gameAcronym, status)` — Lit le cache du poller (running/upcoming/past). **Cache-only**, ne fait JAMAIS d'appel Liquipedia. Retourne `[]NormalizedMatch` ou `ErrUnknownGame`.
+* `TournamentMatches(ctx, gameAcronym, tournamentID)` — Lookup en 2 étapes (pageid → pagename → matchs) via `MakeRequest` (cache-aside + budget + singleflight + stale).
 
-### Notes Techniques
+Pourquoi un module séparé : découple le `NotificationScheduler` du layout cache Redis. Si demain les clés `liq:*` changent, seuls `liquipedia_reader.go` et le poller sont touchés.
 
-* **Next.js Image vs `<img>`** :
-  - ✅ Utiliser `<Image>` de Next.js pour éviter problèmes CORS
-  - ✅ Optimisation automatique (WebP, responsive)
-  - ❌ Ne pas utiliser `<img>` standard avec URLs R2 (bloqué par CORS)
+### 5.4 `DirtyTracker` — Webhook → poller bus
+**Fichier** : `liquipedia_poller.go` (struct `DirtyTracker`)
 
-* **React State Management** :
-  - `useState` pour hasError, loading states
-  - `useEffect` pour reset hasError quand ad.url change
-  - `useMemo` pour filtrage/tri des pubs
-  - `useCallback` pour handlers (optimisation)
+Map thread-safe `wiki → *DirtyFlag` avec champs booléens (`MatchesRunning`, `MatchesUpcoming`, `MatchesPast`, `Tournaments`, `Teams`).
 
-## 14) Notifications Push (Mobile App)
+* `MarkDirty(event)` : appelé depuis `WebhookHandler` quand un webhook arrive. Convertit l'event Liquipedia en flags (namespace -10 = teams, namespace 0 = tout sauf teams).
+* `GetAndResetDirty()` : appelé par `consumeDirtyFlags` du poller toutes les 2 min. Atomique (lock + swap).
+* **Debounce** : N webhooks pour le même wiki dans l'intervalle = 1 seul refresh batch.
+
+### 5.5 `NotificationScheduler` — Push notifications Expo
+**Fichier** : `notification_scheduler.go`
+
+Goroutine background avec 3 tickers :
+| Ticker | Fréquence | Job |
+|--------|-----------|-----|
+| `mainTicker` | 60 s | `processMatchNotifications` — pour chaque `match_subscription` non encore notifié, vérifie si le match est passé en running dans Redis → envoie push "Match en direct" via Expo → marque `notified_start=true`. Détecte aussi les reschedules (changement de `begin_at`). |
+| `cleanupTicker` | 30 min | Supprime les `match_subscription`/`tournament_subscription` finis depuis +7 jours. |
+| `hydrationTicker` | 10 min | Pour chaque `tournament_subscription` actif, lit les matchs du tournoi via `LiquipediaReader.TournamentMatches`, crée les `match_subscription` manquantes. Déduplique les fetches par tournoi. |
+
+Activable via `NOTIFICATION_SCHEDULER_ENABLED` (cf. section 4).
+
+### 5.6 `ExpoPushService` — Dispatch Expo
+**Fichier** : `expo_push.go`
+
+Wrapper autour de l'API Expo Push (`https://exp.host/--/api/v2/push/send`). Méthode `SendBatch(ctx, messages)` retourne la liste des tokens invalides (à désactiver dans `push_token`).
+
+### 5.7 Autres services (référence rapide)
+
+| Service | Rôle | DB | Cache |
+|---------|------|----|----|
+| `AuthService` | Signup, login, JWT, refresh tokens, change password, delete account | GORM `users` | `auth:jwt:*`, `auth:refresh:*` |
+| `GameService` | Liste statique des 10 jeux | GORM `games` | `cache:games` |
+| `ArticleService` | CRUD articles, recherche full-text, similaires | GORM `articles` | `cache:articles:*` |
+| `AdService` | CRUD bannières publicitaires | GORM `ads` | `cache:ads` |
+| `StorageService` | Upload R2 (S3-compatible) | – | – |
+| `StripeService` | Checkout, webhooks, portail customer, abonnements | GORM `users` (`stripe_*`) | – |
+| `EmailService` | Envoi Resend | – | – |
+| `IAPService` | Validation receipts Apple/Google, sync subscription_status | GORM `users` (`iap_*`) | – |
+| `IAPValidationScheduler` | Re-validation quotidienne des receipts IAP | GORM `users` | – |
+| `AnalyticsService` | Page views, stats visiteurs, exports | GORM `page_views` | – |
+| `TeamService` | Wrapper autour de `LiquipediaService.SearchTeams` + favoris GORM | GORM `users` (`favorite_teams`) | `liq:team:*`, `liq:teams:search:*` |
+| `MatchService` | (Legacy — wrapper minimal autour de `LiquipediaService`) | – | `liq:matches:*` |
+| `TournamentService` | (Legacy — wrapper minimal autour de `LiquipediaService`) | – | `liq:tournaments:*` |
+
+---
+
+## 6) Backend Go — Handlers & routes HTTP
+
+Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `/api`. Les routes admin sont sous le sous-groupe `apiGroup.Group("")` avec middleware `RequireAdmin(authService)`.
+
+### Public — Health & utilitaires
+| Méthode | Route | Handler | Description |
+|---------|-------|---------|-------------|
+| `GET` | `/health` | inline | Health check `{ "status": "ok" }` |
+| `OPTIONS` | `/api/*` | inline | Preflight CORS |
+| `GET` | `/api/proxy/image` | `image_proxy.go` | Proxy image (Liquipedia → assets, contournement CORS frontend) |
+
+### Auth (`auth.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/auth/signup` | – | Création de compte (email + password) |
+| `POST` | `/api/auth/login` | – | Login → JWT |
+| `GET` | `/api/auth/me` | JWT | Profil de l'utilisateur courant |
+| `POST` | `/api/auth/me` | JWT | Mise à jour du profil |
+| `POST` | `/api/auth/avatar` | JWT | Upload avatar (URL) — web |
+| `POST` | `/api/auth/avatar/upload` | JWT | Upload avatar (fichier multipart) — mobile |
+| `DELETE` | `/api/auth/avatar` | JWT | Supprimer l'avatar |
+| `POST` | `/api/auth/change-password` | JWT | Changer le mot de passe |
+| `POST` | `/api/auth/logout` | JWT | Logout (révoque le refresh token) |
+| `POST` | `/api/auth/refresh` | – | Renouvelle le JWT |
+| `DELETE` | `/api/auth/account` | JWT | Suppression définitive du compte |
+
+### Games (`games.go`)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/games` | Liste des 10 jeux supportés |
+| `GET` | `/api/games/:id` | Jeu par ID |
+| `GET` | `/api/games/acronym/:acronym` | Jeu par acronyme |
+
+### Articles (`articles.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/api/articles` | – | Liste paginée |
+| `GET` | `/api/articles/search` | – | Full-text search |
+| `GET` | `/api/count-articles` | – | Compte total (pour pagination) |
+| `GET` | `/api/articles/:slug` | – | Article par slug |
+| `GET` | `/api/articles/:slug/similar` | – | Articles similaires (tags) |
+| `POST` | `/api/articles/:slug/view` | – | Incrémente le compteur de vues |
+| `POST` | `/api/admin/articles` | Admin | Créer un article |
+| `GET` | `/api/admin/articles` | Admin | Liste admin (incluant brouillons) |
+| `GET` | `/api/admin/articles/:id` | Admin | Détail admin |
+| `PUT` | `/api/admin/articles/:id` | Admin | Modifier |
+| `DELETE` | `/api/admin/articles/:id` | Admin | Supprimer |
+| `POST` | `/api/admin/articles/upload-cover` | Admin | Upload featured image vers R2 |
+| `POST` | `/api/admin/articles/upload-content` | Admin | Upload image dans le contenu vers R2 |
+
+### Ads (`ads.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/api/ads` | – | Liste des bannières actives (cache Redis 1h) |
+| `POST` | `/api/admin/ads` | Admin | Créer (max 3 positions) |
+| `GET` | `/api/admin/ads` | Admin | Liste admin |
+| `GET` | `/api/admin/ads/:id` | Admin | Détail |
+| `PUT` | `/api/admin/ads/:id` | Admin | Modifier |
+| `DELETE` | `/api/admin/ads/:id` | Admin | Supprimer |
+| `POST` | `/api/admin/ads/upload` | Admin | Upload image vers R2 |
+
+### Matches (`matches.go`)
+| Méthode | Route | Description | Source |
+|---------|-------|-------------|--------|
+| `GET` | `/api/live` | Alias de `/matches/running` (compat historique) | Cache Redis |
+| `GET` | `/api/matches/running` | Matchs en direct | Cache Redis |
+| `GET` | `/api/matches/upcoming` | Matchs à venir | Cache Redis |
+| `GET` | `/api/matches/past` | Matchs récents (7 derniers jours) | Cache Redis |
+| `POST` | `/api/matches/by-date` | Matchs d'une date précise (body form-encoded : `date=YYYY-MM-DD&game=acronyme`) | Cache-aside (Liquipedia on-demand) |
+| `GET` | `/api/matches/:id` | Détail d'un match | Cache-aside |
+
+Query params communs : `game=valorant` (acronyme), `limit`, `offset`, `sort=date|-date`.
+
+### Tournaments (`tournaments.go`)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/tournaments` | Tournois en cours (par défaut) |
+| `GET` | `/api/tournaments/all` | Tous les tournois en cours, sans filtre tier |
+| `GET` | `/api/tournaments/upcoming` | Tournois à venir |
+| `GET` | `/api/tournaments/finished` | Tournois terminés (30 derniers jours) |
+| `GET` | `/api/tournaments/filtered` | Avec filtres `game`, `status`, `filter[tier]` |
+| `GET` | `/api/tournaments/:id` | Détail tournoi |
+| `POST` | `/api/tournaments/by-date` | Tournois d'une date (form-encoded) |
+
+### Teams (`teams.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/api/teams/search?q=` | – | Recherche d'équipes (parallèle sur 10 wikis) |
+| `GET` | `/api/teams/by-template?wiki=&template=` | – | Équipe par shortname |
+| `GET` | `/api/teams/:id` | – | Équipe par pageid |
+| `GET` | `/api/teams/:id/detail` | – | Détails enrichis (roster, achievements) |
+| `GET` | `/api/teams/:id/matches?type=recent\|upcoming` | – | Matchs récents/à venir de l'équipe |
+| `GET` | `/api/teams/:id/placements` | – | Placements en tournoi |
+| `GET` | `/api/players/:pagename?wiki=` | – | Profil joueur + transferts (`players.go` — wiki requis, 404 réel / 503 transitoire, fallback casse 1ʳᵉ lettre) |
+| `GET` | `/api/users/favorite-teams` | JWT | Équipes favorites (enrichies depuis Liquipedia) |
+| `GET` | `/api/users/favorite-teams/ids` | JWT | Juste les IDs (rapide) |
+| `POST` | `/api/users/favorite-teams/:teamId` | JWT | Ajouter aux favoris |
+| `DELETE` | `/api/users/favorite-teams/:teamId` | JWT | Retirer des favoris |
+
+### Notifications (`notifications.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/api/notifications/preferences` | JWT | Préférences (push, articles, news, matchs) |
+| `PATCH` | `/api/notifications/preferences` | JWT | Mise à jour groupée |
+| `POST` | `/api/notifications/:type/toggle` | JWT | Toggle individuel par type |
+
+### Subscriptions matchs/tournois (`subscription_match_handler.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/push-tokens` | JWT | Enregistre un token Expo (`ExponentPushToken[xxx]`) |
+| `DELETE` | `/api/push-tokens` | JWT | Désinscrit un token |
+| `GET` | `/api/subscriptions/matches` | JWT | Liste des abonnements matchs |
+| `GET` | `/api/subscriptions/matches/ids` | JWT | Juste les match_id |
+| `POST` | `/api/subscriptions/matches/:matchId` | JWT | S'abonner à un match |
+| `DELETE` | `/api/subscriptions/matches/:matchId` | JWT | Se désabonner |
+| `GET` | `/api/subscriptions/tournaments` | JWT | Liste des abonnements tournois |
+| `GET` | `/api/subscriptions/tournaments/ids` | JWT | Juste les tournament_id |
+| `POST` | `/api/subscriptions/tournaments/:tournamentId` | JWT | S'abonner à un tournoi |
+| `DELETE` | `/api/subscriptions/tournaments/:tournamentId` | JWT | Se désabonner |
+
+### Stripe (`subscription_handler.go`, `stripe_webhook_handler.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/subscriptions/checkout` | JWT | Crée une session Stripe Checkout |
+| `GET` | `/api/subscriptions/status` | JWT | Statut de l'abonnement |
+| `GET` | `/api/subscriptions/portal` | JWT | URL Stripe Customer Portal |
+| `POST` | `/api/webhooks/stripe` | Signature | Webhook Stripe (events checkout/subscription) |
+
+### IAP mobile (`iap_handler.go`, `apple_webhook_handler.go`, `google_webhook_handler.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/subscriptions/iap/validate` | JWT | Validation receipt App Store / Play Store |
+| `POST` | `/api/webhooks/apple` | JWS | App Store Server Notifications V2 |
+| `POST` | `/api/webhooks/google` | Token | Google Play Real-Time Developer Notifications (via Pub/Sub) |
+
+### Analytics (`analytics.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/analytics/track` | – | Tracking page view (IP, UA, referer) |
+| `GET` | `/api/analytics/visitors` | Admin | Stats visiteurs |
+| `GET` | `/api/analytics/registrations` | Admin | Inscriptions par jour |
+| `GET` | `/api/analytics/summary` | Admin | Résumé global |
+| `GET` | `/api/analytics/export` | Admin | Export CSV |
+| `GET` | `/api/analytics/age-distribution` | Admin | Distribution par âge |
+
+### Webhooks Liquipedia (`webhooks.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `POST` | `/api/webhooks/liquipedia` | `X-Webhook-Secret` ou `?secret=` | LiquipediaDB → DirtyTracker → poller refresh |
+
+### Admin monitoring (inline dans `main.go`)
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/api/admin/api-budget` | Admin | Budget Liquipedia par wiki + total — `{ budgets: {...}, total_used, total_limit }` |
+
+---
+
+## 7) Backend Go — Models
+
+### Modèles GORM (persistance PostgreSQL)
+
+#### `User` — `users`
+Source de vérité utilisateur. Tous les handlers passent par GORM ici.
+
+Champs clés : `id`, `email` (unique), `password` (jamais exposé), `avatar`, `admin`, `age`, `favorite_teams` (`int[]`), `notifi_push`, `notif_articles`, `notif_news`, `notif_matchs`, `premium`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `iap_platform`, `iap_product_id`, `iap_transaction_id`, `iap_original_transaction_id`, `iap_expires_at`.
+
+> **Note** : Il existait historiquement une seconde table `public.users` accédée via pgxpool. **Cette voie est dépréciée** — tous les handlers actuels (`NotificationHandler`, `TeamHandler`, `AuthHandler`) utilisent GORM sur `public.users`.
+
+#### `Article` — `articles`
+Champs : `id`, `slug` (unique), `tags` (`text[]`), `title`, `views`, `author`, `content` (markdown ?), `article_content` (HTML brut moderne), `category`, `subtitle`, `description`, `content_black`/`content_white` (variants thème), `featuredImage`, `videoUrl`, `videoType`, `credit`.
+
+#### `Ad` — `ads`
+Champs : `id`, `title`, `position` (1-3), `type` (`image`|`video`), `url` (R2), `redirect_link`.
+
+#### `MatchSubscription` — `match_subscription`
+Champs : `id`, `user_id`, `match_id` (ID Liquipedia volatile), `game_acronym`, `match_name`, `tournament_name`, `begin_at`, `status` (`upcoming`|`running`|`finished`|`canceled`), `notified_start`, `notified_schedule`, `from_tournament` (nullable : non-null si auto-créé via `tournament_subscription`).
+Contrainte unique : `(user_id, match_id)`.
+
+#### `TournamentSubscription` — `tournament_subscription`
+Champs : `id`, `user_id`, `tournament_id` (ID Liquipedia volatile), `game_acronym`, `tournament_name`, `begin_at`, `end_at`, `status`.
+Contrainte unique : `(user_id, tournament_id)`.
+
+#### `PushToken` — `push_token`
+Champs : `id`, `user_id`, `token` (unique, format `ExponentPushToken[xxx]`), `platform` (`ios`|`android`), `active`.
+
+### Modèles Liquipedia (parsing API v3)
+
+#### `LiqMatch` (`liquipedia_match.go`)
+~37 champs reflétant la réponse brute de Liquipedia (`pageid`, `pagename`, `bestof`, `dateexact`, `finished`, `winner`, `match2opponents`, `match2games`, `stream`, etc.).
+
+`NormalizedMatch` (`liquipedia_match.go` également) : version aplatie compatible avec le frontend (format historiquement compatible avec l'ancien `PandaMatch`).
+Helpers : `m.HasTwoNamedOpponents()`, `m.UniqueKey()`, `NormalizeLiqMatch(liqMatch, wiki, statusHint) NormalizedMatch`.
+
+#### `LiqTournament` (`liquipedia_tournament.go`)
+~27 champs. `NormalizedTournament` + `NormalizedMatchCompact` (entrées de la liste matchs d'un tournoi).
+Helper : `NormalizeLiqTournament(liqTournament, wiki) NormalizedTournament`.
+
+#### `LiqTeam`, `LiqSquadPlayer`, `LiqPlacement` (`team.go`)
+Modèles équipes/joueurs/placements. Normalizers :
+* `NormalizeLiqTeam(team, wiki, players) NormalizedTeam`
+* `NormalizeLiqTeamDetail(team, wiki, players) EnrichedTeamDetail`
+* `NormalizeLiqSquadPlayers(players) []NormalizedPlayer`
+* `NormalizeLiqPlacement(p) NormalizedPlacement`
+
+#### `LiquipediaResponse`, `LiquipediaWebhookEvent`, `GameWikiMapping`, `WikiToAcronym` (`liquipedia.go`)
+Wrappers techniques + mapping acronymes ↔ wikis.
+
+### Convention de nommage frontend
+Le frontend conserve les noms `PandaMatch`, `PandaTournament` dans `frontend/app/types/index.ts` — héritage historique, **kept untouched** pour éviter un refactor blast-radius. Ces types sont **compatibles** avec les `Normalized*` du backend.
+
+---
+
+## 8) Cache Redis
+
+Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les clés sont accédées via les helpers (jamais en raw `fmt.Sprintf`).
+
+### Clés non-Liquipedia (préfixe `cache:` ou autres)
+
+| Clé | TTL | Source | Invalidation |
+|-----|-----|--------|--------------|
+| `cache:games` | – | `GameService` | Sur reload manuel |
+| `cache:games:<id>` | – | `GameService` | – |
+| `cache:articles:<slug>` | – | `ArticleService.GetBySlug` | CREATE/UPDATE/DELETE article |
+| `cache:articles:similar:<slug>` | – | `ArticleService.GetSimilar` | idem |
+| `cache:articles:search:<sha1(query)>:<category>:<bool>:<limit>` | – | `ArticleService.Search` | wildcard `cache:articles:search:*` purgé sur CUD |
+| `cache:ads` | 1h | `AdService.List` | CUD via `/api/admin/ads/*` |
+| `cache:teams:<id>` | – | (cache rapide id-only) | – |
+| `cache:user:favorites:<id>` | – | – | – |
+| `auth:jwt:<token_id>` | 7j (JWT exp) | `AuthService` | Logout |
+| `auth:refresh:<user_id>` | 30j | `AuthService` | Logout/refresh |
+| `ratelimit:<ip>` | sliding window | `RateLimitMiddleware` | – |
+
+### Clés Liquipedia (préfixe `liq:`)
+
+| Pattern | Helper | TTL | Source d'écriture |
+|---------|--------|-----|-------------------|
+| `liq:matches:running:<wiki>` | `LiqMatchesRunningKey` | 10 min | Poller (8 min) ou webhook dirty |
+| `liq:matches:upcoming:<wiki>` | `LiqMatchesUpcomingKey` | 22 min | Poller (20 min) ou webhook dirty |
+| `liq:matches:past:<wiki>` | `LiqMatchesPastKey` | 50 min | Poller (45 min) ou webhook dirty |
+| `liq:matches:date:<wiki>:<YYYY-MM-DD>` | `LiqMatchesByDateKey` | 6h (passé) / 10 min (auj.+futur) | On-demand (cache-aside) |
+| `liq:match:<wiki>:<id>` | `LiqMatchKey` | 5 min ou 24h (finished) | On-demand |
+| `liq:tournaments:running:<wiki>` | `LiqTournamentsRunningKey` | 22 min | Poller (20 min) |
+| `liq:tournaments:upcoming:<wiki>` | `LiqTournamentsUpcomingKey` | 35 min | Poller (30 min) |
+| `liq:tournaments:finished:<wiki>` | `LiqTournamentsFinishedKey` | 100 min | Poller (90 min) |
+| `liq:tournaments:date:<wiki>:<date>` | `LiqTournamentsByDateKey` | 10 min | On-demand |
+| `liq:tournament:<wiki>:<id>` | `LiqTournamentKey` | 10 min | On-demand (`GET /tournaments/:id`) |
+| `liq:tournament:matches:<wiki>:<pagename>` | `LiqTournamentMatchesKey` | 10 min | On-demand (hydration scheduler) |
+| `liq:tournament:squads:<wiki>:<pagename>` | `LiqTournamentSquadsKey` | 10 min | On-demand |
+| `liq:teams:search:<wiki>:<query>` | `LiqTeamSearchKey` | 30 min | On-demand (`/teams/search`) |
+| `liq:team:<wiki>:<id\|template>` | `LiqTeamKey` | 6h | On-demand |
+| `liq:team:squad:<wiki>:<pagename>` | `LiqTeamSquadKey` | 6h | On-demand |
+| `liq:team:matches:recent:<wiki>:<template>` | `LiqTeamMatchesRecentKey` | 15 min | On-demand |
+| `liq:team:matches:upcoming:<wiki>:<template>` | `LiqTeamMatchesUpcomingKey` | 15 min | On-demand |
+| `liq:team:placements:<wiki>:<name>` | `LiqTeamPlacementsKey` | 1h | On-demand |
+| `liq:wikihint:<id>` | `LiqWikiHintKey` | 24h | Écrit quand un user consulte un tournoi/match (sert à retrouver le wiki depuis l'ID) |
+| `liq:budget:<wiki>:<YYYYMMDDHH>` | `RequestBudget.budgetRedisKey` | 1h + 2min | `RequestBudget.RecordRequest` (best-effort) |
+| `<any_above>:stale` | `StaleKey` | 6h | Copie auto à chaque écriture via `MakeRequest` |
+
+### Règle d'or
+**Aucun handler HTTP ne fait d'appel direct à Liquipedia.** Soit il lit le cache, soit il passe par `LiquipediaService.MakeRequest` (qui gère cache-aside + budget + singleflight + stale).
+
+---
+
+## 9) Base de données PostgreSQL
+
+### Tables persistantes (8)
+1. **`users`** — Comptes + préférences notifications + Stripe + IAP
+2. **`games`** — Référence des 10 jeux (alimentée via back-office)
+3. **`articles`** — Contenu éditorial
+4. **`ads`** — Bannières publicitaires (max 3 positions)
+5. **`notifications`** — Préférences notifications (legacy ? — coexiste avec colonnes `notif_*` sur `users`)
+6. **`match_subscription`** — Abonnements push aux matchs (GORM)
+7. **`tournament_subscription`** — Abonnements push aux tournois (GORM)
+8. **`push_token`** — Tokens Expo par device (GORM)
+9. **`page_views`** — Analytics (IP, UA, referer, timestamp, url)
+
+### Tables supprimées (historique)
+* ~~`tournaments`~~ — données en cache Redis (source Liquipedia)
+* ~~`matches`~~ — idem
+* ~~`games_pandascore`~~ — idem
+
+### Migrations
+Fichiers SQL dans `backend-go/migrations/` :
+```
+00000_init_user.sql              — création du user PostgreSQL
+00000_init.sh                    — script d'init (extensions)
+00001_initial_schema.sql         — schéma initial
+00001a_add_age_to_users.sql
+00001b_add_stripe_fields_to_users.sql
+00002_users.sql                  — seed users (admin initial)
+00003_games.sql                  — seed 10 jeux
+00004_ads.sql                    — schéma ads
+00005_add_article_content.sql
+00006_add_credit_to_articles.sql
+00007_import_articles.sql        — seed initial articles (47 articles)
+00009_create_page_views.sql
+00010_notifications.sql
+00011_page_views.sql
+00012_add_iap_fields_to_users.sql
+00013_articles_search.sql        — index GIN pour full-text search
+```
+
+> Les tables GORM (`match_subscription`, `tournament_subscription`, `push_token`) sont créées par **AutoMigrate** au démarrage du backend, pas par les migrations SQL.
+
+### Seeding des articles
+Script Go dédié : `backend-go/cmd/seed/main.go` + `internal/seed/articles.go`.
+
+```bash
+docker compose exec -T backend ./seed --data=initial_data/articles_rows.json
+```
+
+* Source JSON : `backend-go/initial_data/articles_rows.json` (export Supabase, 47 articles)
+* Idempotent : `ON CONFLICT (slug) DO NOTHING`
+* Flags : `--dry-run`, `-v` (verbose)
+
+### Politique de rétention
+* **Persistantes** (users, articles, ads, …) : pas de suppression auto. Soft-delete si besoin.
+* **Volatiles** (matchs, tournois, équipes) : aucune rétention DB, uniquement cache Redis.
+* **Cleanup auto** : `NotificationScheduler.cleanupStaleSubscriptions` supprime les subscriptions finished/canceled depuis +7 jours.
+
+---
+
+## 10) Intégration Liquipedia API v3
+
+### Connexion
+* **Base URL** : `https://api.liquipedia.net/api/v3`
+* **Auth** : header `Authorization: Apikey <LIQUIPEDIA_API_KEY>`
+* **User-Agent** : obligatoire — `EsportNews/1.0 (contact@esportnews.fr)`
+* **Rate limit** : **1000 requêtes par wiki (jeu) par heure** (depuis juin 2026 ; 60 avant)
+* **Format réponse** : `{ "result": [ ...objets... ] }`
+
+### Mapping jeux → wikis
+Voir section 1 (tableau des 10 jeux). Source : `models.GameWikiMapping` (acronyme → wiki) et `models.WikiToAcronym` (inverse).
+
+### Endpoints utilisés
+* `GET /match?wiki=X&conditions=...` — Liste de matchs (poller + on-demand)
+* `GET /tournament?wiki=X&conditions=...` — Liste de tournois
+* `GET /team?wiki=X&conditions=...` — Liste/recherche d'équipes
+* `GET /squadplayer?wiki=X&conditions=[[pagename::...]]` — Roster d'une équipe (par pagename OR batch)
+* `GET /placement?wiki=X&conditions=[[opponentname::...]]` — Placements en tournoi
+
+### Conditions API (langage de query Liquipedia)
+Format `[[field::value]]`, combiné avec `AND` et `OR`.
+
+Exemples utilisés :
+* Matchs running : `[[finished::0]] AND [[dateexact::1]] AND [[date::<cutoff]] AND [[date::>past_cutoff]]`
+* Matchs upcoming : `[[finished::0]] AND [[dateexact::1]] AND [[date::>now]]`
+* Matchs past (7j) : `[[finished::1]] AND [[date::>cutoff_7days_ago]]`
+* Tournois running : `[[status::!finished]] AND [[startdate::<tomorrow]] AND [[enddate::>yesterday]]`
+* Détail match : `[[pageid::<id>]]`
+* Recherche équipe par template : `[[template::<shortname>]]`
+* Matchs d'une équipe : `[[opponent::<teamTemplate>]] AND [[finished::1]]` (recent) ou `AND [[date::>now]]` (upcoming)
+
+### Quotas et fallback
+* Budget par wiki tracké par `RequestBudget` (in-memory + Redis).
+* Si budget épuisé : `getStaleOrError` → retourne le cache `:stale` (TTL 6h) ou erreur 503.
+* Sur 429 : backoff exponentiel (5/10/20 min, cap 30 min) + reset à l'heure pleine.
+
+### Monitoring
+```
+GET /api/admin/api-budget   (JWT admin requis)
+
+{
+  "budgets": {
+    "valorant": { "wiki": "valorant", "used": 17, "limit": 1000, "remaining": 983, "resets_at": "..." },
+    "leagueoflegends": { ... },
+    ...
+  },
+  "total_used": 170,
+  "total_limit": 10000
+}
+```
+
+---
+
+## 11) Webhooks Liquipedia
+
+### Vue d'ensemble
+LiquipediaDB peut envoyer un POST à notre backend chaque fois qu'une page est éditée/supprimée/déplacée/purgée. Le backend marque la wiki concernée comme "dirty" et le poller fait un refresh ciblé au prochain tick (2 min).
+
+### Configuration côté LiquipediaDB
+Dashboard LiquipediaDB → Webhooks → Webhook #49. **Le dashboard ne permet de régler qu'une URL + un commentaire** : aucun header custom, aucune signature dans le payload. Le secret voyage donc **dans l'URL en query param** (`?secret=`) — c'est le seul moyen d'authentifier les livraisons réelles.
+* **URL** : `https://www.blitchapp.online/api/webhooks/liquipedia?secret=<LIQUIPEDIA_WEBHOOK_SECRET>` (preview) ou `https://www.esportnews.fr/api/webhooks/liquipedia?secret=<...>` (prod, à venir)
+* **Events** : `edit`, `delete`, `move`, `purge`
+
+### Payload reçu
+```json
+{
+  "page": "Match:Vitality_vs_Heroic",
+  "from_page": "...",            // si event=move
+  "namespace": 0,                 // 0 = main, -10 = teamtemplates
+  "from_namespace": 0,            // si event=move
+  "wiki": "counterstrike",
+  "event": "edit"
+}
+```
+
+### Côté backend
+1. **Validation** : `crypto/subtle.ConstantTimeCompare` sur le header `X-Webhook-Secret` (tests manuels curl) puis, si absent, sur le query param `secret` (livraisons réelles LiquipediaDB). Si `LIQUIPEDIA_WEBHOOK_SECRET=""`, validation désactivée (dev uniquement).
+2. **Parsing** : `models.LiquipediaWebhookEvent`
+3. **Mark dirty** : `DirtyTracker.MarkDirty(event)` (thread-safe). Namespace -10 = teams only, sinon = matches + tournaments.
+4. **Réponse** : `HTTP 200` (vide, immédiat — le refresh est async).
+
+### Consumer
+`LiquipediaPoller.consumeDirtyFlags` toutes les 2 min :
+* Lit `dirtyTracker.GetAndResetDirty()` (atomique)
+* **Cooldown par wiki+type** (`dirtyRefreshGate`) : un type ne se refetch pas plus souvent que la moitié de son intervalle de polling (running 4 min, upcoming 10 min, past 22.5 min, tournaments 10 min) — borne le coût webhook à ~2× le polling aveugle au lieu de 10×.
+* Les events `Main_Page` (purges automatiques des wikis) sont ignorés dès le handler.
+* Flag `Teams` (namespace -10) : invalide `liq:teams:search:<wiki>:*` au lieu de refetcher.
+
+### Mode activation
+* `LIQUIPEDIA_WEBHOOKS_ENABLED=true` → consumer actif + tickers en mode "safety net" (refresh seulement si `3× intervalle` écoulé).
+* `LIQUIPEDIA_WEBHOOKS_ENABLED=false` → polling aveugle aux intervalles fixes (Scenario B).
+
+### Test manuel
+```bash
+curl -i -X POST https://www.blitchapp.online/api/webhooks/liquipedia \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: <secret>" \
+  -d '{"page":"Test","namespace":0,"wiki":"valorant","event":"edit"}'
+# Attendu : HTTP 200 (body vide)
+```
+
+Logs attendus côté backend :
+```
+[WEBHOOK] ✅ Received and accepted — marking dirty   wiki=valorant
+[DIRTY] Consuming dirty flags — triggering targeted refresh
+[REFRESH] Starting   type=matches_running   wiki=valorant
+[REFRESH] ✅ Success — data cached
+```
+
+---
+
+## 12) Notification Scheduler (push Expo)
+
+### Vue d'ensemble
+Background goroutine qui :
+1. Détecte les matchs qui passent en live → push "Match en direct"
+2. Détecte les reschedules (changement de `begin_at`) → met à jour la subscription
+3. Crée automatiquement les `match_subscription` pour les abonnés tournois (hydration)
+4. Purge les subscriptions vieilles de +7 jours
+
+### Démarrage
+Wired dans `cmd/server/main.go:231-242`. Conditionné par `cfg.NotificationSchedulerEnabled` (`NOTIFICATION_SCHEDULER_ENABLED=true` par défaut).
+
+```go
+if cfg.NotificationSchedulerEnabled {
+    notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
+    go notifScheduler.Start(schedulerCtx)
+    logger.Info("Notification scheduler started")
+} else {
+    logger.Info("Notification scheduler disabled (NOTIFICATION_SCHEDULER_ENABLED=false)")
+}
+```
+
+**Important** : doit être `false` sur l'env preview parce que la DB est partagée avec la prod. Sans ça, prod + preview enverraient chacun leur push → notifications dupliquées et race conditions sur `match_subscription.notified_start`.
+
+### Architecture interne
+Voir `notification_scheduler.go` :
+
+* `Start(ctx)` lance 3 tickers (60s, 30 min, 10 min)
+* `processMatchNotifications` (60s) :
+  - Charge max 500 `match_subscription` non encore notifiées (`status IN ('upcoming', 'running') AND notified_start = false`)
+  - Groupe par `game_acronym`
+  - Pour chaque jeu : `liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusRunning)` → map `match_id → NormalizedMatch`
+  - Pour chaque sub : si le match est dans la map running, envoie push + flag `notified_start=true` + status=`running`
+  - Détecte les reschedules : si `match.BeginAt` (RFC3339) ≠ `sub.BeginAt` → update
+  - Batch send via `ExpoPushService.SendBatch` → désactive les tokens invalides retournés par Expo
+* `cleanupStaleSubscriptions` (30 min) — supprime les subs `status IN ('finished', 'canceled') AND created_at < now - 7j`
+* `hydrateTournamentMatches` (10 min) :
+  - Charge tous les `tournament_subscription` actifs
+  - Pour chaque tournoi unique : `liqService.TournamentMatches(ctx, gameAcronym, tournamentID)` (avec dédup via `matchesByTournament` map)
+  - Pour chaque match du tournoi : crée la `match_subscription` correspondante si elle n'existe pas (avec `from_tournament=tournamentID`)
+
+### Push token lifecycle
+* User signup → frontend mobile demande un push token Expo → `POST /api/push-tokens`
+* Backend stocke dans `push_token` (unique sur `token`)
+* Expo renvoie des tokens invalides dans la réponse `SendBatch` → `deactivateTokens` flips `active=false`
+
+### Préférences notifs
+`User.NotifiPush` (push global) + `User.NotifMatches` (matchs spécifiquement). `userWantsMatchNotifs(userID)` retourne true si les deux sont true.
+
+---
+
+## 13) Frontend Next.js
+
+### Structure
+```
+frontend/
+├── app/
+│   ├── HomePageClient.tsx        — Page d'accueil (live matches + actus + ads)
+│   ├── components/               — Composants partagés (Navbar, AdColumn, LiveMatchCard, ...)
+│   ├── lib/                      — Utilitaires (imageUtils, API client, helpers i18n)
+│   ├── types/index.ts            — Types TypeScript (PandaMatch, PandaTournament — héritage)
+│   ├── store/                    — RTK store + slices
+│   ├── article/[slug]/           — Page article
+│   ├── match/                    — Page matchs avec calendrier 11 cases
+│   ├── tournaments/              — Liste tournois
+│   ├── teams/                    — Liste équipes + détail
+│   ├── admin/                    — Back-office (articles, ads, stats, analytics)
+│   ├── account/                  — Profil utilisateur, préférences
+│   └── auth/                     — Pages login/signup
+├── next.config.ts                — Config Next + images.remotePatterns
+└── package.json
+```
+
+### API client
+Centralisé dans `frontend/app/lib/api.ts` (axios + intercepteurs JWT). RTK Query services par domaine (`matchesApi`, `tournamentsApi`, `articlesApi`, ...).
+
+### Images autorisées
+`frontend/app/lib/imageUtils.ts` maintient la liste `ALLOWED_IMAGE_HOSTS` qui doit rester en sync avec `next.config.ts` → `images.remotePatterns` :
+* `olybccviffjiqjmnsysn.supabase.co` (héritage images Supabase, en cours de migration vers R2)
+* `pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev` (Cloudflare R2)
+* `i.postimg.cc` (images externes admin)
+
+Les images Liquipedia passent par le **proxy backend** (`/api/proxy/image`) pour contourner CORS.
+
+### i18n
+5 langues : `fr`, `en`, `es`, `de`, `it`. Fichiers de traduction par page/composant.
+
+### Détection mobile vs desktop
+Layout responsive Tailwind. Important : **éviter le basculement prématuré vers tablet** quand on réduit la fenêtre depuis desktop.
+
+---
+
+## 14) Mobile App (Expo)
+
+### Stack
+* Expo + React Native
+* Push notifications via Expo
+* In-App Purchases (StoreKit iOS / Play Billing Android)
+* Sécurité : pas de stockage de password, JWT en `expo-secure-store`
+
+### Endpoints spécifiques mobile
+* `POST /api/auth/avatar/upload` (multipart)
+* `POST /api/push-tokens` (enregistrement Expo token)
+* `POST /api/subscriptions/iap/validate`
+
+### 14.1) Migration Liquipedia mobile — port frontend (branche `liquipedia`)
+
+> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia` (rien pushé — Jules déploie lui-même). **Le backend de prod (`main`) est encore PandaScore** → le build mobile prod ne verra le Liquipedia qu'après merge de `main`. Test dev : `.env` → `EXPO_PUBLIC_API_URL=https://www.blitchapp.online` (backend preview Liquipedia).
+
+**Archi détail modulaire (miroir du web §18.3/18.4)** — composants colocalisés **hors `app/`** (Expo Router route tout ce qui est sous `app/`) :
+```
+app/match/[id].tsx  app/tournament/[id].tsx        # shells (routes)
+app/team/[id].tsx  app/player/[pagename].tsx  app/teams/index.tsx   # écrans Phase 3 (nouveaux)
+components/match-detail/{matchSections.ts registre, sections/…}
+components/tournament-detail/{tournamentSections.ts, sections/…}
+```
+* **Registre de sections** porté verbatim (pur TS) : `resolveSections(wiki, isLive)` → presets par wiki, `stream` promu en tête si live. Shell = fetch (avec `wiki`) + **polling 45s si running** + rendu des sections dans une `ScrollView`. Chaque section rend `null` si sa data manque.
+* **Game cards per-game (les 10 jeux)** dans `sections/<jeu>/<Jeu>GameCards.tsx`, branchées via `switch (match.wiki)` dans `GameResults.tsx`. Tier 1 riches (Valo map-hero+draft+scoreboard ACS ; LoL duel de champions+objectifs+scoreboard op.gg+items ; Dota duel de héros+vetophase+scoreboard Dotabuff) ; Tier 2 FPS (CS mi-temps CT/T, R6 bans+ATK/DEF, OW mode+bans) ; Tier 2/3 légers (CoD, RL OT, EAFC t.a.b., Smash via section générique `PlayerStatsTable`).
+* **Asset mappers** (`sections/<jeu>/<jeu>Assets.ts`) portés quasi verbatim du web (fonctions pures nom→URL CDN ; certains `fetch` lazy ddragon/dota → OK en RN). `Scoreboard.tsx` = tableau réutilisable (colonnes via `statColumns.ts`, tri, icône perso), `draft.ts` = parse picks/bans.
+* **Déviations RN** (vs web) : Tailwind→`StyleSheet`+`constants/{colors,theme}` ; iframe stream→bouton `Linking` ; grayscale→dim par opacité ; cartes par map en **pile verticale** ; tables scoreboard en `View` scroll horizontal.
+
+**Images** : `utils/imageUrl.ts` = point de bascule unique, **mode `direct`** (chaque device charge en direct → trafic distribué, pas de risque de ban serveur). Switch `proxy` **dormant** (route `liquipedia.net/commons` via `/api/proxy/image`) prêt pour le jour où la méthode media API Liquipedia est confirmée. Tout URL distant passe par ce helper.
+
+**Plomberie `wiki`** : obligatoire vers les endpoints détail (le backend skip le scan 10-wikis pour un ID numérique → 404 sans `wiki`). Les cartes s'auto-naviguent en portant `match.wiki`/`tournament.wiki` ; les shells le lisent via `useLocalSearchParams`.
+
+**Écrans Phase 3** : détail équipe (`getTeamDetail`→puis matchs/palmarès ; roster→joueur ; toggle favori JWT), détail joueur (`getPlayer(pagename, wiki)` — wiki requis), recherche+favoris (`app/teams/index.tsx`, entrée dans le profil). Équipes cliquables dans les rosters (match + tournoi).
+
+**⚠️ Quirks contrats API team/player** (la §6 était partiellement fausse) :
+* `GET /api/teams/:id/matches` exige `wiki`+`template` (**pas** `?type=`) et renvoie `{recent,upcoming}` d'un coup.
+* `GET /api/teams/:id/placements` exige `wiki`+`name` (nom d'équipe).
+* `GET /api/teams/search` = params `query`+`page_size`. Favoris (`/api/users/favorite-teams`) **plafonnés à 3** (400 au 4ᵉ).
+* `GET /api/players/:pagename` exige `?wiki=` (pas de fan-out).
+* Les résultats de recherche (`NormalizedTeam`) **ne portent pas** `wiki` — seul `TeamDetail` l'a. Mobile mappe `current_videogame.slug` (slug interne cs2/codmw…) → wiki via `utils/gameRegistry.ts` (miroir de `videogameSlugMap`) comme hint ; l'écran résout le wiki faisant autorité depuis `detail.wiki`.
+
+### Doc spécifique
+`mobile-app/docs/PROGRESS.md` (peut être obsolète sur la partie data sources).
+
+---
+
+## 15) Déploiement Railway (prod + preview)
+
+### Deux projets Railway
+
+| Projet | Frontend | Backend | DB | Redis | Domain |
+|--------|----------|---------|----|----|--------|
+| **Prod** | Vercel (esportnews.fr) | Railway prod | Supabase (partagée) | Railway prod | `https://www.esportnews.fr` |
+| **Preview R&D** | (pas de frontend dédié) | Railway preview | **Supabase (même qu'en prod)** | Railway preview | `https://www.blitchapp.online` (custom domain en cours) + `https://app-esportnews-preview-production.up.railway.app` |
+
+### Variables d'environnement clés par env
+
+**Prod** (Railway → projet prod → Settings → Variables) :
+```
+LIQUIPEDIA_API_KEY=<secret>
+LIQUIPEDIA_BUDGET_PER_WIKI=1000
+LIQUIPEDIA_WEBHOOKS_ENABLED=true        # à activer quand prêt
+LIQUIPEDIA_WEBHOOK_SECRET=<random prod>
+NOTIFICATION_SCHEDULER_ENABLED=true
+DATABASE_URL=<Supabase pooler>
+REDIS_URL=<Railway Redis>
+JWT_SECRET=<random>
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=<Stripe webhook>
+APPLE_IAP_*, GOOGLE_IAP_* (production keys)
+CLOUDFLARE_R2_*
+```
+
+**Preview** (Railway → projet preview → Settings → Variables) :
+```
+LIQUIPEDIA_API_KEY=<same as prod>
+LIQUIPEDIA_BUDGET_PER_WIKI=1000
+LIQUIPEDIA_WEBHOOKS_ENABLED=true
+LIQUIPEDIA_WEBHOOK_SECRET=<random preview, different from prod>
+NOTIFICATION_SCHEDULER_ENABLED=false    # CRUCIAL — DB partagée
+DATABASE_URL=<same as prod — Supabase pooler>
+REDIS_URL=<Railway Redis preview>
+JWT_SECRET=<same as prod si les sessions doivent être valides cross-env>
+... (Stripe et IAP idéalement en test/sandbox)
+```
+
+### Custom domain Railway
+1. Railway → projet → Settings → Networking → Custom Domain
+2. Ajouter le domaine (ex `www.blitchapp.online`)
+3. Railway donne un CNAME cible
+4. Chez le registrar DNS : créer le CNAME (sans proxy Cloudflare)
+5. Attendre 1-5 min → Railway provisionne le cert Let's Encrypt automatiquement
+
+### Port
+Railway injecte `PORT=8080`. Le backend Go lit `cfg.Port = getEnv("PORT", "4000")` donc s'adapte automatiquement.
+
+### IPv4 forcé
+Important sur Railway : `LiquipediaService` force IPv4 sur `api.liquipedia.net` parce que Railway/Docker n'ont pas d'IPv6 et Happy Eyeballs ajoute 3 s par requête sinon.
+
+---
+
+## 16) Procédures opérationnelles courantes
+
+### Changer le quota Liquipedia
+1. Updater `LIQUIPEDIA_BUDGET_PER_WIKI` dans Railway (ou `.env` en dev)
+2. Redéployer le backend
+3. Vérifier dans les logs au boot : `[BUDGET] Initial budget status at startup limit=<nouvelle valeur>`
+4. Optionnellement, ré-équilibrer les `PollInterval*` dans `liquipedia_poller.go` si on veut profiter du quota (actuellement intervalles calibrés pour 60 req/h, conservés malgré le bump à 1000).
+
+### Désactiver le scheduler sur preview
+```
+NOTIFICATION_SCHEDULER_ENABLED=false
+```
+Redémarrer. Logs : `Notification scheduler disabled (NOTIFICATION_SCHEDULER_ENABLED=false)`.
+
+### Activer les webhooks Liquipedia
+1. Générer un secret : `openssl rand -hex 32`
+2. Setter `LIQUIPEDIA_WEBHOOK_SECRET=<secret>` + `LIQUIPEDIA_WEBHOOKS_ENABLED=true` dans Railway
+3. Redéployer
+4. Configurer le webhook côté dashboard LiquipediaDB (URL + commentaire uniquement, pas de header possible) :
+   - URL : `https://<domain>/api/webhooks/liquipedia?secret=<secret>`
+   - Events : edit, delete, move, purge
+5. Tester avec un edit de page → logs : `[WEBHOOK] ✅ Received and accepted`
+
+### Ajouter un nouveau jeu
+1. Ajouter l'entrée dans `models.GameWikiMapping` (`backend-go/internal/models/liquipedia.go`)
+2. Migration SQL pour insérer la ligne dans `games` (acronyme, nom, images selected/unselected)
+3. Le poller le détectera automatiquement au prochain restart (10 → 11 wikis = 11 goroutines)
+4. Frontend : ajouter le jeu dans la liste statique d'icônes
+5. Vérifier le quota : 11 wikis × 1000 = 11 000 req/h total
+
+### Seed des articles initiaux
+```bash
+docker compose exec -T backend ./seed --data=initial_data/articles_rows.json
+```
+Idempotent (`ON CONFLICT (slug) DO NOTHING`).
+
+### Debug un webhook qui ne marche pas
+1. `curl -i -X POST ...` direct contre l'URL Railway interne (`*.up.railway.app`) → confirme que le backend reçoit
+2. Si 200 OK → problème côté DNS/cert du custom domain
+3. Si 403 → secret côté backend != secret côté LiquipediaDB
+4. Si 404 → route pas enregistrée (`webhookHandler.RegisterRoutes(apiGroup)` dans `main.go`)
+5. Si timeout → backend offline ou nginx route pas vers le backend
+
+### Vider le cache Liquipedia (purge complète)
+```bash
+# Via redis-cli (depuis le conteneur Redis Railway)
+redis-cli -u <REDIS_URL> KEYS 'liq:*' | xargs redis-cli -u <REDIS_URL> DEL
+```
+**Attention** : redémarre le warmup au prochain boot (~3.3 min total pour 10 wikis).
+
+### Monitorer le budget API
+```bash
+curl -H "Authorization: Bearer <jwt_admin>" \
+  https://www.esportnews.fr/api/admin/api-budget | jq
+```
+
+---
+
+## 17) Historique de migration
+
+### Migrations terminées
+| Étape | Avant | Après | Statut |
+|-------|-------|-------|--------|
+| Backend | Node.js (`/backend/api`) | Go (`/backend-go`) | ✅ |
+| DB | Supabase hosted | Supabase managed (toujours) | ✅ |
+| Déploiement | Vercel (full-stack) | Vercel (frontend) + Railway (backend) | ✅ |
+| Source data esport | PandaScore + SportDevs | Liquipedia API v3 | ✅ |
+| Tables DB esport | `tournaments`, `matches`, `games_pandascore` | Cache Redis uniquement | ✅ |
+
+### Migration PandaScore → Liquipedia — Phases (toutes complètes)
+| Phase | Description |
+|-------|-------------|
+| 0 | Nettoyage code PandaScore/SportDevs |
+| 1 | Fondation Liquipedia (service HTTP, budget, poller, webhooks) |
+| 2 | Matchs (LiqMatch, 5 endpoints, poller conditions) |
+| 3 | Tournois (LiqTournament, 7 endpoints) |
+| 4 | Équipes/joueurs (LiqTeam, LiqSquadPlayer, search parallel, favoris) |
+| 5 | Live/streams (validation carousel, normalisation streams) |
+| 6 | Documentation |
+| Post | Activation webhooks + variable d'env budget + scheduler toggle + cleanup frontend (juin 2026) |
+
+> Les docs de planification par phase (`docs/phase*.md`) et `docs/strategie-rate-limiting.md` ont été supprimés une fois la migration terminée (prémisse obsolète « 60 req/h », statuts périmés). **La référence technique à jour est `docs/liquipedia.md`** (état des lieux + architecture complète) ; cette section §10-11 en donne la vue d'ensemble.
+
+### Décisions clés
+* **Garder les noms de types `PandaMatch`/`PandaTournament` sur le frontend** : refactor blast-radius énorme pour zéro bénéfice utilisateur. Les `Normalized*` du backend sont construits compatibles.
+* **Aucune table DB pour les matchs/tournois** : Liquipedia est la source, Redis le cache. Pas de réplication, pas de divergence.
+* **Quota augmenté 60 → 1000** (juin 2026) : permet 16× plus de marge pour les requêtes on-demand. Polling intervals conservés pour rester conservateur.
+* **Webhooks + polling en parallèle** : webhooks pour la fraîcheur, polling comme filet de sécurité (refresh forcé si `3× intervalle` écoulé sans webhook).
+
+---
+
+## 18) Pages spécifiques
+
+### 18.1 Page Match (`/match`)
+> Remplace l'ancienne route `/live`.
+
+**Calendrier 11 cases** :
+* Jour actuel toujours centré (case 6/11)
+* Navigation par flèches gauche/droite (offset de 11 jours)
+* Date sélectionnée en `bg-[#F22E62]`
+* Jour actuel : `bg-bg-tertiary` + bordure rose
+* Format : `lun 2 jan` (3 lettres jour + numéro + 3 lettres mois)
+
+**Filtres** :
+* Par date (`POST /api/matches/by-date` avec `date=YYYY-MM-DD&game=<acronyme>`)
+* Par jeu (`GameSelector` sticky en desktop, accordion en mobile)
+* Combinables
+
+**Recherche modale (⌘K)** :
+* Style identique à la page Articles
+* Modale plein écran `98vw × 90vh`
+* 1 match par ligne (`grid-cols-1`)
+* Filtre multi-critères : nom, équipe, tournoi, ligue, jeu
+
+**Filtrage automatique** : n'affiche que les matchs avec **2 opponents définis** (`match.opponents.length >= 2 && opponent.name présent`).
+
+**Traductions** :
+* `pages_detail.match.title` : Matchs / Matches / Partidos / Spiele / Partite
+* `pages_detail.match.prev_dates`, `next_dates`, `today`, `no_matches`
+
+**Composant principal** : `frontend/app/match/MatchPageClient.tsx`. Service : `matchService.getMatchesByDate(date, gameAcronym)`. **Important** : utiliser `URLSearchParams` (pas `FormData`) pour le body, `Content-Type: application/x-www-form-urlencoded`.
+
+#### Politique 404 sur entités absentes (SEO — pas de redirect)
+Les pages détail `match/[id]` et `tournois/[id]` **fetchent côté serveur** et appellent `notFound()` (vrai HTTP 404) quand le backend renvoie 404 — jamais de soft-404 (HTTP 200 + contenu "non trouvé"), qui garderait l'URL indexée. **Aucun redirect** : il n'existe aucun mapping ancien ID PandaScore (numérique) → ID Liquipedia, donc on laisse les vieilles URLs indexées tomber proprement en 404 (Google dé-indexe). **404 uniquement sur un 404 explicite du backend** : une erreur transitoire (timeout/réseau) laisse rendre le client pour ne pas dé-indexer une entité valide. Côté backend, `GET /api/matches/:id` **skip le scan on-demand 10-wikis pour un ID numérique** (un `match2id` Liquipedia est alphanumérique ; un ID numérique ne peut être qu'un `pageid` déjà couvert par le cache, ou un vieil ID PandaScore) → 404 immédiat, budget API préservé.
+
+### 18.2 Panel Admin — Gestion des publicités (`/admin/ads`)
+
+**Auth** : JWT + `admin=true` sur l'utilisateur.
+
+**Fonctionnalités CRUD** :
+* Liste avec preview, position, type, lien
+* Création : titre, position (1-3), type (image/video), upload image vers R2, lien de redirection
+* Modification (cache invalidé après update)
+* Suppression (avec confirmation, hard delete)
+
+**Stockage R2** :
+* Path : `ads/images/`
+* Nommage : `{timestamp}-{random}.{ext}`
+* URL : `https://pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev/ads/images/{filename}`
+
+**Affichage frontend** :
+* `AdBanner` : pub individuelle (Next/Image, hover overlay, clic ouvre `redirect_link` en `_blank` `noopener,noreferrer`)
+* `AdColumn` : colonne droite desktop (max 3 pubs)
+* `AdSkeleton` : loading state
+* Cache Redis `cache:ads` 1h, invalidé à chaque CUD
+
+**Validation** :
+* Backend Go : position 1-3 strict, type ∈ `{image, video}`, url + redirect_link required
+* Timeout upload 10 min (`UPLOAD_TIMEOUT`)
+* `MAX_UPLOAD_SIZE` : 500 MB par défaut
+
+**Important** :
+* ✅ Utiliser `<Image>` Next.js (CORS géré via proxy interne, optimisation auto)
+* ❌ Ne pas utiliser `<img>` standard avec URLs R2 (CORS si pas configuré côté R2)
+
+### 18.3 Page détail de match — architecture modulaire par jeu
+
+**Fichiers** : `frontend/app/match/_components/`
+```
+matchSections.ts                    — registre : SECTION_IDS + PRESETS + PRESET_BY_WIKI
+MatchDetailPageClient.tsx           — shell : resolveSections(wiki) → renderSection(id)
+sections/
+├── shared.tsx                      — MatchSectionProps, TeamLogo, SectionHeader, helpers
+├── MatchHeader.tsx, GameResults.tsx, DraftPanel.tsx, PlayerStatsTable.tsx,
+│   StreamPlayer.tsx, RostersPanel.tsx, ExternalStatsLinks.tsx   — sections génériques
+├── draft.ts, statColumns.ts        — parsing draft + config colonnes stats par wiki
+└── valorant/                       — ⚠️ un dossier par jeu à rendu custom
+    ├── ValorantGameCards.tsx       — bloc par map : hero + draft + scoreboard
+    └── valorantAssets.ts           — mapping statique nom → UUID valorant-api.com
+```
+
+**Principe** : chaque wiki mappe vers un preset (liste ordonnée de sections). Une section rend `null` si ses données manquent. Un jeu qui mérite un rendu custom reçoit **son propre dossier** sous `sections/<jeu>/` + son preset ; les sections génériques ne bougent pas. Preset `valorant` : `gameResults` (branché sur `ValorantGameCards`) embarque draft + stats **par map** → pas de sections `draft`/`playerStats` séparées ni de sélecteur « Game N ». La section `matchInfo` (IDs internes) a été supprimée partout.
+
+**Design system Valorant (référence esthétique à décliner pour les autres jeux)** :
+* **Bloc par game** = carte « map hero » + panneau attaché dessous (draft + stats de CETTE map).
+* **Map hero** : splash de la map en fond full-bleed (~132px desktop, `object-cover`, zoom `scale-105` au hover 700ms) + **dégradé latéral** (bords `#060B13` ~96% → centre ~25%) + léger voile vertical. Scores `text-5xl font-black tabular-nums` : gagnant en accent + `drop-shadow` glow rose, perdant `text-white/45` et côté à `opacity-50`. **Liseré vertical 3px accent côté gagnant** (live : liseré + badge pulsants couleur live). Nom de map au centre en capitales `tracking-[0.25em]` entre deux traits. Game à venir : carte réduite (~84px), splash `grayscale opacity-50`, « À venir ».
+* **Draft** : tuiles d'agents (portrait carré ~44px arrondi, dégradé navy en fond, nom en dessous 8px uppercase, hover bordure accent + scale) — home à gauche, away à droite, « VS » discret au centre.
+* **Scoreboard** (façon vlr.gg) : un tableau par équipe, header logo + acronyme, portrait d'agent à côté du joueur, tri **ACS décroissant**, colonnes K/D/A séparées, **+/- calculé (K−D)** vert/rose selon signe, KAST arrondi en %, texte 13px, zebra rows. Côte à côte en `xl:` seulement.
+* **Header de match épuré** : pills réduites (statut + BO + rescheduled), scoreboard central, une seule ligne d'info (tournoi + date + badge Liquipedia en fin). Fond : splash de la map de la game 1 en **grayscale `opacity-[0.16]`** + dégradé vertical fondu vers `--color-bg-primary` (jeux sans assets : fond uni actuel).
+* **Équipes cliquables partout** : bloc logo + nom = `<Link>` via `teamHref()` (`lib/gameLinks.ts`), hover nom → accent. Le score reste hors du lien.
+
+**Assets externes par jeu** (CDN publics, pas de CORS, hotlink prévu — mapping statique nom → id dans `<jeu>Assets.ts`, fallback null → dégradé navy, rien ne casse) :
+| Jeu | Source | Contenu |
+|-----|--------|---------|
+| Valorant | `media.valorant-api.com` (via valorant-api.com) | maps (splash/listview/minimap), 29 agents (displayicon/portraits), abilités |
+| LoL | Data Dragon (`ddragon.leagueoflegends.com`) | splashs champions (non versionnés), portraits/sorts/items (versionnés `DDRAGON_VER` dans `lolAssets.ts`), items par NOM → id via `item.json` fetché lazy 1× (module cache) |
+| CS2 | GitHub raw (`ghostcap-gaming/cs2-map-images`) | screenshots officiels des maps 1920×1080 (mapping statique + fallback `de_<slug>` dans `csAssets.ts`) |
+| Dota 2 | Steam CDN (`cdn.steamstatic.com`) + dotaconstants (odota, GitHub raw) | art héros paysage 256×144 + icônes items ; mapping nom affiché → chemin image via `heroes.json`+`items.json` fetchés lazy 1× (~600 KB, module cache, `dotaAssets.ts`) |
+| R6 Siege | jsdelivr (`r6operators@2.12.0`) + GitHub raw (`danielwerg/r6data`) | icônes SVG des 81 opérateurs (slug ASCII-normalisé) + backgrounds webp des 25 maps (`r6Assets.ts`) |
+| Overwatch | OverFast API (`overfast-api.tekrop.fr/static/maps`) + CDN Blizzard (`d15f34w2p8l1cc.cloudfront.net`) | screenshots des 57 maps + mode de jeu factuel par map + portraits des 52 héros (URLs hashées hardcodées, `owAssets.ts`) |
+| CoD / RL / EA FC | aucune (403/404 partout : callofduty.com, fandom, octane.gg) | fallback typographique assumé — dégradé navy + nom de map/arène en grosses capitales. `codAssets.ts`/`rlAssets.ts` sont des points d'entrée vides prêts à être alimentés |
+
+**Spécificités LoL** (`sections/leagueoflegends/`, preset `lol` = même forme que valorant) : pas de variété de maps → **hero = duel de champions** (splash du champion clé de chaque équipe — meilleur impact KDA/dégâts — fondus au centre, côté perdant `grayscale brightness-75`) ; gros chiffres = **kills d'équipe** (le score de game 1-0 n'a pas d'intérêt visuel) ; pastille side **bleu/rouge** (`extradata.teamNside`) à côté de l'acronyme ; bande d'**objectifs comparés** en chips (tours/dragons/barons/hérauts/larves/atakhan/inhibiteurs, valeur dominante en gras teintée par side) ; draft = picks (ordre de rôle top→sup) + **bans barrés** en tuiles réduites grayscale ; scoreboard façon op.gg (portrait champion + 2 sorts + rôle, K/D/A coloré, KP%, CS, or, dégâts, **build d'items en icônes** `lg:` only). `parseDraft` (partagé) lit aussi les clés numérotées `teamNbanK`/`teamNchampionK` (format LoL/Dota). Backdrop du header = splash du champion clé de la game 1 (`lolHeaderBackdrop`).
+
+**Spécificités CS2** (`sections/counterstrike/`, preset `cs`) : **aucune stat joueur sur Liquipedia** (les modules Lua CS2 n'implémentent pas `getPlayersOfMapOpponent` — ADR/KAST/rating vivent sur HLTV, accessible via `match.links` → section `externalLinks`). Le max de data réel = blocs par map (hero screenshot + score en rounds + **mi-temps CT/T en chips** colorées par side : CT `sky-400`, T `orange-400`, depuis `extradata.tNhalfs`/`tNsides`, OT gérées). **⚠️ mapveto : ne pas re-chasser cette donnée** — l'API v3 ne la renvoie PAS pour CS (vérifié empiriquement 2026-07 jusque sur la finale du Major Cologne 2026, zéro occurrence de « veto » dans le payload brut), bien que les modules Lua la calculent pour le rendu wiki. Une strip de veto complète (backend `MapVeto` + `MapVetoStrip` + `flattenVeto`) a été implémentée puis **retirée** pour cette raison (voir historique git si Liquipedia expose la donnée un jour).
+
+**Spécificités Dota 2** (`sections/dota2/`, preset `dota` = même forme que lol) : hero = **duel de héros** (art paysage du héros clé de chaque équipe, même scoring KDA+dégâts que LoL) ; gros chiffres = kills d'équipe ; pastille side **Radiant vert / Dire rouge** (`extradata.teamNside`) ; objectifs en chips (tours/barracks/Roshan, `teamNobjectives`) ; draft = picks + bans barrés en **tuiles paysage 16/9** (l'art héros Dota n'est pas carré), clés `teamNheroK`/`teamNbanK` (fallback `team1hero` ajouté à `parseDraft`) ; scoreboard façon Dotabuff **trié par net worth** (pas de rôles dans les participants) : portrait héros + badge de **niveau**, K/D/A, net worth en ambre, GPM, XPM, LH/DN, dégâts, **items 6 slots + item neutre rond** (`extra.items[].name` → icône Steam), **Aghanim scepter/shard** en icônes bordure bleue (`extra.scepter`/`shard`), **backpack** estompé, facet en tooltip, nom de héros en fallback si joueur non nommé. **`vetophase`** (contrairement à CS, Dota l'expose : 24 étapes ordonnées `{character, team, type, vetoNumber}`) trie picks/bans et numérote les tuiles de picks. `publisherid` → liens **Dotabuff/OpenDota** par game. Données riches (participants/objectives/vetophase) seulement sur les matchs importés BigMatch — les petits events n'ont que picks/bans/side.
+
+**Spécificités R6 Siege** (`sections/rainbowsix/`, câblé sur `wiki === 'rainbowsix'`, preset `default`) : map hero (backgrounds r6data) + scores en rounds ; **bans d'opérateurs** en tuiles barrées (icône SVG + mini-badge atk/def) depuis `extradata.tNbans`/`tNbantypes` (objets Lua à clés numériques, vides sur les petits events, remplis en NAL/ligues majeures) ; **split ATK/DEF** par équipe en chips (`tNhalfs` = `{atk, def}` **agrégé**, PAS des mi-temps séquentielles — pas de H1/H2/OT dans l'API), ordonné par `tNfirstside.rt`. ATK `text-orange-400` / DEF `text-sky-400`. Aucune stat joueur.
+
+**Spécificités Overwatch** (`sections/overwatch/`, câblé sur `wiki === 'overwatch'`, preset `default`) : map hero (screenshots OverFast) + **chip de mode factuel** (Control/Escort/Hybrid/Push/Flashpoint/Clash, sourcé du endpoint /maps d'OverFast, pas deviné) ; **bans de héros** (1 par équipe en OWCS : `team1ban1`/`team2ban1`) en tuiles portrait barrées, badge « 1 » sur le premier ban (`banstart`). Aucune stat joueur.
+
+**Spécificités CoD / RL / EA FC** (rendus légers, presets `default`) : CoD (`callofduty/`) = map + scores uniquement (extradata vide sur 40 matchs sondés, **le mode Hardpoint/SnD n'est PAS dans l'API — ne pas l'inventer**), carte typographique. RL (`rocketleague/`) = arène + buts + **badge OT** (`extradata.ot` = "true"/"t", `otlength` = chaîne "+M:SS" affichée telle quelle) ; opponents souvent `type: "solo"` (1v1, pas de logo/lien). EA FC (`easportsfc/`) = carte de score football, `map` vaut « Game N » (pas un stade, ignoré), **pill tirs au but** depuis `extradata.penaltyscores` `{"1": home, "2": away}` avec clé i18n `penalties` ; un game peut avoir un winner sur score nul (t.a.b.).
+
+Les images de **joueurs pros** n'existent dans aucune de ces APIs (Liquipedia les a mais pas via l'API v3 → coût quota, non implémenté).
+
+**Pour ajouter un rendu custom à un jeu** : 1) créer `sections/<jeu>/` avec `<jeu>Assets.ts` (mapping statique) et le composant de blocs par game, 2) brancher dans `GameResults.tsx` (test sur `match.wiki`), 3) ajouter le preset dans `matchSections.ts`, 4) décliner les éléments du design system ci-dessus (hero d'arène/champ de bataille, tuiles de picks, scoreboard aux colonnes du jeu via `statColumns.ts`).
+
+### 18.4 Page détail tournoi — architecture modulaire par jeu
+
+Même pattern que les matchs, en plus simple (**la data tournoi Liquipedia est game-agnostic** — vérifié empiriquement 2026-07 sur 8 wikis : même schéma partout, extradata par jeu marginale : `maps` (map pool) sur CS, `dpcpoints`/`leagueid` sur Dota, `gamechangers` sur Valo, `mode` sur RL ; **Smash est la vraie exception** : events solo, `doubles_prizepool`/`doubles_participantsnumber`, circuits, `winner`/`runnerup` + `winnerheads` intégrés au record).
+
+**Fichiers** : `frontend/app/tournois/_components/`
+```
+tournamentSections.ts        — registre : SECTION_IDS + PRESETS (default | solo) + PRESET_BY_WIKI
+TournamentDetailPageClient.tsx — shell : resolveSections(wiki) → renderSection(id)
+sections/
+├── shared.tsx               — TournamentSectionProps + groupMatchesByDate
+├── TournamentHeader.tsx, LiveMatches.tsx, BracketSection.tsx,
+│   AllMatches.tsx, RostersSection.tsx, RelatedNews.tsx
+```
+
+* **Presets** : `default` = header/liveMatches/bracket/allMatches/rosters/relatedNews ; `solo` (smash, easportsfc) = sans rosters (jeux 1v1, pas d'équipes).
+* **URLs game-first** : `/<slug>/tournois/<id>` (`app/[game]/tournois/[id]/page.tsx`, SSR + metadata + vrai 404). La route legacy `/tournois/[id]` reste servie, son canonical + og:url pointent vers l'URL game-first quand `tournament.wiki` est connu. `tournamentHref()` (`lib/gameLinks.ts`) génère les liens partout (TournamentCard, page jeux, sitemap).
+* **Backend** : `GET /api/tournaments/:id?wiki=<wiki|acronyme>` — chemin scoped cache-first puis 1 fetch on-demand (pas de scan 10 wikis) ; 404 seulement si Liquipedia répond vide, **503 si échec transitoire** (429/budget) pour ne pas dé-indexer un tournoi valide (même politique que les matchs).
+* La section « Équipes & Rosters » réutilise le `PlayerCard` global et le `SectionHeader` du design system match.
+
+---
+
+## 19) Conventions de travail
+
+### Code Go
+* **Pas de commentaires WHAT** (le code se lit) ; commentaires WHY uniquement quand non-obvious (workaround, contrainte cachée, invariant subtil).
+* **Pas de docstrings multi-paragraphes**, une ligne max.
+* **Pas d'erreur handling défensif** pour des cas qui ne peuvent pas arriver. Trust the framework.
+* **Pas de feature flags / shims rétrocompat** : changer le code directement.
+* **Pas de helpers prématurés** : 3 lignes similaires > abstraction prématurée.
+
+### Git
+* **Branches** : `liquipedia` (branche de R&D actuelle). `main` = prod, à puller manuellement.
+* **Commits atomiques** : 1 commit = 1 changement logique. Découper via `git add -p` au besoin.
+* **Messages** : convention `type(scope): description courte` + corps explicatif (Conventional Commits-ish).
+  - Types : `feat`, `fix`, `chore`, `docs`, `refactor`, `style`, `test`
+  - Scope : `backend`, `frontend`, `mobile`, `infra`, `claude`
+* **Pas de `--no-verify`** : si un hook bloque, comprendre pourquoi, ne pas contourner.
+* **`gofmt -w`** systématique avant commit (sinon la CI peut râler).
+
+### Données
+* **Aucune donnée fictive** sauf demande explicite de l'utilisateur.
+* **Aucune donnée esport en DB** : matchs/tournois/équipes vivent uniquement dans Redis.
+* **Demander les endpoints API** si besoin d'en consommer un nouveau (cf. section 6 pour les existants).
+
+### Tooling Claude
+* **Tâches simples** : éditer directement, pas de plan ni todos
+* **Tâches multi-steps** : TodoWrite obligatoire, mise à jour en temps réel
+* **Pas de fichiers .md de planning/decisions** : la conversation suffit
+* **Pas d'emojis** sauf demande explicite
+* **Toujours valider `go build ./...` avant commit**
+
+### Sécurité
+* **JWT_SECRET, STRIPE_SECRET_KEY, LIQUIPEDIA_*_SECRET, GOOGLE_WEBHOOK_TOKEN** : jamais en clair dans les logs, jamais en clair dans le code
+* **Comparaisons de secrets** : `crypto/subtle.ConstantTimeCompare` (cf. `webhooks.go`, `google_webhook_handler.go`, `stripe_webhook_handler.go`)
+* **Webhook validation** : signature/secret obligatoire en prod, désactivable uniquement en dev local
+* **Aucun cookie tiers**, aucun tracking comportemental
+* **Mots de passe** : bcrypt cost 10, jamais retournés dans une réponse JSON (`json:"-"`)
+* **CORS** : whitelist stricte (origines précises + `*-esport-news.vercel.app` pour les previews Vercel)
+
+## 20) Notifications Push (Mobile App)
 
 * **Stack** : Expo Push Service (`https://exp.host/--/api/v2/push/send`) → relais vers **APNs** (iOS) et **FCM V1** (Android). Aucune intégration FCM/APNs directe côté app.
 
@@ -599,23 +1299,21 @@ create table public.notifications (
 * Toute config native (entitlement, plist, google-services) impose un **`eas build`** (l'OTA `eas update` ne suffit pas). Le changement de message backend est serveur (Railway, branche `main`).
 * **Expo Go utilise les credentials push d'Expo** → les notifs « marchent » en Expo Go mais nécessitent TES credentials APNs/FCM en build standalone. Tester sur **vrai device** (pas simulateur), connecté, abonné à un match.
 
-## 15) Publicités AdMob (Mobile App)
+## 21) Publicités AdMob (Mobile App)
 
-> ⚠️ Distinct des **bannières internes** (site web, table `ads`, `/api/ads`, `AdColumn`/`AdBanner`, gérées au back-office) décrites en §13. Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
+> ⚠️ Distinct des **bannières internes** (site web, table `ads`, `/api/ads`, `AdColumn`/`AdBanner`, gérées au back-office). Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
 
 * **Init** : `app/_layout.tsx` (`mobileAds().initialize()` + ATT iOS via `expo-tracking-transparency`).
-* **Compte AdMob** : Publisher ID `pub-4019532498018851` (compte courant). **Ancien compte `pub-5118678813787741` abandonné** (changement de compte le 28/06/2026) — toutes ses apps/unités sont obsolètes.
-* **IDs (publics, embarqués dans le binaire — TOUT est par plateforme : une app/unité AdMob appartient à une seule plateforme)** — dans `app.config.js` :
-  - App ID iOS : `ca-app-pub-4019532498018851~9375398922`
-  - App ID Android : `ca-app-pub-4019532498018851~8443596219`
-  - Interstitiel iOS : `ca-app-pub-4019532498018851/1689083231`
-  - Interstitiel Android : `ca-app-pub-4019532498018851/4650288493`
-* **Dev vs prod** : `getInterstitialAdUnitId()` (dans `contexts/AdContext.tsx` et `hooks/useAdPopup.ts`) → `TestIds.INTERSTITIAL` si `__DEV__` (Expo Go/`expo run`, fill 100 %), sinon choix par `Platform.OS` → `extra.admobInterstitialIdIos` / `extra.admobInterstitialIdAndroid`.
+* **IDs (publics, embarqués dans le binaire, par plateforme)** — dans `app.config.js` :
+  - App ID iOS : `ca-app-pub-5118678813787741~6090534381`
+  - App ID Android : `ca-app-pub-5118678813787741~6893939034`
+  - Interstitiel : `ca-app-pub-5118678813787741/1903877366`
+* **Dev vs prod** : `getInterstitialAdUnitId()` (dans `contexts/AdContext.tsx` et `hooks/useAdPopup.ts`) → `TestIds.INTERSTITIAL` si `__DEV__` (Expo Go/`expo run`, fill 100 %), sinon `Constants.expoConfig.extra.admobInterstitialId`.
 * **⚠️ Piège prod (env non uploadé à EAS)** : les vrais IDs sont dans le **`.env` racine gitignoré**, chargé par `app.config.js` via `dotenv`. **EAS cloud respecte `.gitignore` → `.env` n'est PAS uploadé** → `process.env.ADMOB_*` undefined au build → ce sont les **fallbacks `|| "..."` de app.config.js qui partent en prod**. ⇒ **Ces fallbacks doivent TOUJOURS valoir les vrais IDs prod.** (Bug initial : fallback iOS = App ID Android → AdMob refusait de servir.)
 * **Déclenchement** : `useAdPopup({ skipIfSubscribed, isSubscribed })` — cooldown 5 min (`adCooldownService`), `requestNonPersonalizedAdsOnly: true`, skip pour abonnés Premium. Écrans index/match/tournoi/article.
 * **Gap connu** : consentement UMP/GDPR (`AdsConsent`) **non implémenté** (`requestConsent()` = placeholder) → risque de no-fill EEA (France). Les nouvelles apps/units AdMob peuvent aussi no-fill quelques heures à ~2 j (warm-up).
 
-## 16) Build & Release Mobile (EAS)
+## 22) Build & Release Mobile (EAS)
 
 * **Profils** (`mobile-app/eas.json`) : `production` (AAB iOS/Android, `autoIncrement` du **build number**, API prod), `preview` (APK installable, distribution interne, **API prod**), `development`.
 * **Versioning** : `appVersionSource: "remote"` → EAS gère le **build number** (`autoIncrement`). La **version marketing** (`CFBundleShortVersionString`) vient de `version` dans `app.config.js`.

@@ -1,75 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
+import { Tweet } from 'react-tweet';
 import styles from './ArticleContent.module.css';
 
-// Charge le script officiel X (widgets.js) une seule fois pour toute la page.
-// Le rendu se fait dans le navigateur du visiteur (son IP, via l'iframe X) :
-// ça contourne à la fois le blocage IP datacenter du endpoint syndication ET
-// le CORS — contrairement à un fetch serveur (api/tweet) qui échoue en prod.
-let twitterWidgetsPromise: Promise<TwttrApi | null> | null = null;
-
-interface TwttrApi {
-  widgets: { load: (el?: HTMLElement) => Promise<void> };
-}
-
-function loadTwitterWidgets(): Promise<TwttrApi | null> {
-  if (typeof window === 'undefined') return Promise.resolve(null);
-
-  const existingApi = (window as unknown as { twttr?: TwttrApi }).twttr;
-  if (existingApi?.widgets) return Promise.resolve(existingApi);
-  if (twitterWidgetsPromise) return twitterWidgetsPromise;
-
-  twitterWidgetsPromise = new Promise((resolve) => {
-    const ready = () => resolve((window as unknown as { twttr?: TwttrApi }).twttr ?? null);
-    const existingScript = document.getElementById('twitter-wjs') as HTMLScriptElement | null;
-    if (existingScript) {
-      existingScript.addEventListener('load', ready, { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'twitter-wjs';
-    script.src = 'https://platform.twitter.com/widgets.js';
-    script.async = true;
-    script.charset = 'utf-8';
-    script.addEventListener('load', ready, { once: true });
-    script.addEventListener('error', () => resolve(null), { once: true });
-    document.body.appendChild(script);
-  });
-
-  return twitterWidgetsPromise;
-}
-
-// `id` est garanti numérique (regex \d{10,20} dans parseSegments) → pas
-// d'injection possible dans le innerHTML ci-dessous.
-function TwitterEmbed({ id, isDark }: { id: string; isDark: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let cancelled = false;
-
-    setLoaded(false);
-    el.innerHTML =
-      `<blockquote class="twitter-tweet" data-theme="${isDark ? 'dark' : 'light'}" data-dnt="true">` +
-      `<a href="https://twitter.com/i/status/${id}">Voir le tweet sur X</a></blockquote>`;
-
-    loadTwitterWidgets().then((twttr) => {
-      if (cancelled || !twttr?.widgets || !ref.current) return;
-      twttr.widgets.load(ref.current).then(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, isDark]);
-
-  return <div ref={ref} className={styles.tweetEmbed} data-loaded={loaded} />;
+class TweetErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    console.error('[TweetErrorBoundary] Tweet render failed:', error.message);
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
 }
 
 interface ArticleContentProps {
@@ -153,7 +98,18 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
     >
       {segments.map((segment, i) => {
         if (segment.type === 'tweet') {
-          return <TwitterEmbed key={`tweet-${segment.id}-${i}`} id={segment.id} isDark={isDarkMode} />;
+          return (
+            <TweetErrorBoundary key={segment.id} fallback={null}>
+              <figure
+                className={styles.tweetEmbed}
+                role="article"
+                aria-label="Tweet intégré"
+                data-theme={isDarkMode ? 'dark' : 'light'}
+              >
+                <Tweet apiUrl="/api/tweet" id={segment.id} fallback={null} />
+              </figure>
+            </TweetErrorBoundary>
+          );
         }
         return <HtmlBlock key={i} html={segment.html} />;
       })}

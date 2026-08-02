@@ -17,19 +17,33 @@ const (
 	CacheTeams           = "cache:teams:%d"
 	CacheUserFavorites   = "cache:user:favorites:%d"
 
-	// PandaScore API (5 min cache)
-	PandaScoreTournament          = "pandascore:tournament:%s"
-	PandaScoreTournaments         = "pandascore:tournaments:%s:%s"
-	PandaScoreTournamentsAllGames = "pandascore:tournaments:all:%s"
-	PandaScoreTournamentsByDate   = "pandascore:tournaments:date:%s:%s"
-	PandaScoreFilteredTournaments = "pandascore:tournaments:filtered:%s:%s:%s"
-	PandaScoreMatch               = "pandascore:match:%s"
-	PandaScoreMatches             = "pandascore:matches:%s:%s"
-	PandaScoreRunningMatches      = "pandascore:matches:running:%s"
-	PandaScoreUpcomingMatches     = "pandascore:matches:upcoming:%s"
-	PandaScorePastMatches         = "pandascore:matches:past:%s"
-	PandaScoreTeam                = "pandascore:team:%s"
-	PandaScoreSearchTeams         = "pandascore:teams:search:%s"
+	// Liquipedia API cache keys — populated by poller & webhooks, read by handlers
+	LiqMatchesRunning      = "liq:matches:running:%s" // %s = wiki (e.g. "valorant")
+	LiqMatchesUpcoming     = "liq:matches:upcoming:%s"
+	LiqMatchesPast         = "liq:matches:past:%s"
+	LiqMatchesByDate       = "liq:matches:date:%s:%s" // %s = wiki, %s = YYYY-MM-DD
+	LiqMatch               = "liq:match:%s:%s"        // %s = wiki, %s = match id/page
+	LiqTournamentsRunning  = "liq:tournaments:running:%s"
+	LiqTournamentsUpcoming = "liq:tournaments:upcoming:%s"
+	LiqTournamentsFinished = "liq:tournaments:finished:%s"
+	LiqTournamentsByDate   = "liq:tournaments:date:%s:%s"      // %s = wiki, %s = YYYY-MM-DD
+	LiqTournament          = "liq:tournament:%s:%s"            // %s = wiki, %s = tournament id/page
+	LiqTournamentMatches   = "liq:tournament:matches:%s:%s"    // %s = wiki, %s = tournament pagename
+	LiqTournamentSquads    = "liq:tournament:squads:%s:%s"     // %s = wiki, %s = tournament pagename
+	LiqTeamSearch          = "liq:teams:search:%s:%s"          // %s = wiki, %s = query
+	LiqTeam                = "liq:team:%s:%s"                  // %s = wiki, %s = team id/page
+	LiqTeamSquad           = "liq:team:squad:%s:%s"            // %s = wiki, %s = team pagename
+	LiqTeamMatchesRecent   = "liq:team:matches:recent:%s:%s"   // %s = wiki, %s = team template
+	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
+	LiqTeamPlacements      = "liq:team:placements:%s:%s"       // %s = wiki, %s = team name
+	LiqPlayer              = "liq:player:%s:%s"                // %s = wiki, %s = player pagename
+	LiqPlayerTransfers     = "liq:player:transfers:%s:%s"      // %s = wiki, %s = player id
+
+	// Wiki hint — maps tournament/match ID to its wiki to avoid scanning all 10 wikis
+	LiqWikiHint = "liq:wikihint:%s" // %s = tournament/match ID
+
+	// Stale cache suffix — appended to any key above for stale-while-revalidate
+	LiqStaleSuffix = ":stale"
 
 	// Auth
 	AuthJWT     = "auth:jwt:%s"
@@ -97,76 +111,94 @@ func RateLimitKey(ip string) string {
 	return fmt.Sprintf(RateLimit, ip)
 }
 
-// PandaScore cache key builders
-func PandaScoreTournamentKey(id string) string {
-	return fmt.Sprintf(PandaScoreTournament, id)
+// --- Liquipedia key builders ---
+
+func LiqMatchesRunningKey(wiki string) string {
+	return fmt.Sprintf(LiqMatchesRunning, wiki)
 }
 
-func PandaScoreTournamentsKey(game, status string) string {
-	return fmt.Sprintf(PandaScoreTournaments, game, status)
+func LiqMatchesUpcomingKey(wiki string) string {
+	return fmt.Sprintf(LiqMatchesUpcoming, wiki)
 }
 
-func PandaScoreTournamentsAllGamesKey(status string) string {
-	return fmt.Sprintf(PandaScoreTournamentsAllGames, status)
+func LiqMatchesPastKey(wiki string) string {
+	return fmt.Sprintf(LiqMatchesPast, wiki)
 }
 
-func PandaScoreTournamentsByDateKey(date string, game *string) string {
-	gameStr := "all"
-	if game != nil && *game != "" {
-		gameStr = *game
-	}
-	return fmt.Sprintf(PandaScoreTournamentsByDate, date, gameStr)
+func LiqMatchesByDateKey(wiki, date string) string {
+	return fmt.Sprintf(LiqMatchesByDate, wiki, date)
 }
 
-func PandaScoreFilteredTournamentsKey(game, status, tier string) string {
-	return fmt.Sprintf(PandaScoreFilteredTournaments, game, status, tier)
+func LiqMatchKey(wiki, matchID string) string {
+	return fmt.Sprintf(LiqMatch, wiki, matchID)
 }
 
-func PandaScoreMatchKey(id string) string {
-	return fmt.Sprintf(PandaScoreMatch, id)
+func LiqTournamentsRunningKey(wiki string) string {
+	return fmt.Sprintf(LiqTournamentsRunning, wiki)
 }
 
-func PandaScoreMatchesKey(date string, game *string) string {
-	gameStr := "all"
-	if game != nil && *game != "" {
-		gameStr = *game
-	}
-	return fmt.Sprintf(PandaScoreMatches, date, gameStr)
+func LiqTournamentsUpcomingKey(wiki string) string {
+	return fmt.Sprintf(LiqTournamentsUpcoming, wiki)
 }
 
-func PandaScoreMatchesByDateKey(date string, game *string) string {
-	// Alias for PandaScoreMatchesKey for consistency with service naming
-	return PandaScoreMatchesKey(date, game)
+func LiqTournamentsFinishedKey(wiki string) string {
+	return fmt.Sprintf(LiqTournamentsFinished, wiki)
 }
 
-func PandaScoreRunningMatchesKey(gameAcronym *string) string {
-	gameStr := "all"
-	if gameAcronym != nil && *gameAcronym != "" {
-		gameStr = *gameAcronym
-	}
-	return fmt.Sprintf(PandaScoreRunningMatches, gameStr)
+func LiqTournamentsByDateKey(wiki, date string) string {
+	return fmt.Sprintf(LiqTournamentsByDate, wiki, date)
 }
 
-func PandaScoreUpcomingMatchesKey(gameAcronym *string) string {
-	gameStr := "all"
-	if gameAcronym != nil && *gameAcronym != "" {
-		gameStr = *gameAcronym
-	}
-	return fmt.Sprintf(PandaScoreUpcomingMatches, gameStr)
+func LiqTournamentKey(wiki, tournamentID string) string {
+	return fmt.Sprintf(LiqTournament, wiki, tournamentID)
 }
 
-func PandaScorePastMatchesKey(gameAcronym *string) string {
-	gameStr := "all"
-	if gameAcronym != nil && *gameAcronym != "" {
-		gameStr = *gameAcronym
-	}
-	return fmt.Sprintf(PandaScorePastMatches, gameStr)
+func LiqTournamentMatchesKey(wiki, tournamentPageName string) string {
+	return fmt.Sprintf(LiqTournamentMatches, wiki, tournamentPageName)
 }
 
-func PandaScoreTeamKey(id string) string {
-	return fmt.Sprintf(PandaScoreTeam, id)
+func LiqTournamentSquadsKey(wiki, tournamentPageName string) string {
+	return fmt.Sprintf(LiqTournamentSquads, wiki, tournamentPageName)
 }
 
-func PandaScoreSearchTeamsKey(query string) string {
-	return fmt.Sprintf(PandaScoreSearchTeams, query)
+func LiqTeamSearchKey(wiki, query string) string {
+	return fmt.Sprintf(LiqTeamSearch, wiki, query)
+}
+
+func LiqTeamKey(wiki, teamID string) string {
+	return fmt.Sprintf(LiqTeam, wiki, teamID)
+}
+
+func LiqTeamSquadKey(wiki, teamPageName string) string {
+	return fmt.Sprintf(LiqTeamSquad, wiki, teamPageName)
+}
+
+func LiqTeamMatchesRecentKey(wiki, teamTemplate string) string {
+	return fmt.Sprintf(LiqTeamMatchesRecent, wiki, teamTemplate)
+}
+
+func LiqTeamMatchesUpcomingKey(wiki, teamTemplate string) string {
+	return fmt.Sprintf(LiqTeamMatchesUpcoming, wiki, teamTemplate)
+}
+
+func LiqTeamPlacementsKey(wiki, teamName string) string {
+	return fmt.Sprintf(LiqTeamPlacements, wiki, teamName)
+}
+
+func LiqPlayerKey(wiki, pagename string) string {
+	return fmt.Sprintf(LiqPlayer, wiki, pagename)
+}
+
+func LiqPlayerTransfersKey(wiki, playerID string) string {
+	return fmt.Sprintf(LiqPlayerTransfers, wiki, playerID)
+}
+
+// LiqWikiHintKey returns the Redis key for a tournament/match → wiki mapping.
+func LiqWikiHintKey(id string) string {
+	return fmt.Sprintf(LiqWikiHint, id)
+}
+
+// StaleKey returns the stale-while-revalidate variant of any cache key.
+func StaleKey(key string) string {
+	return key + LiqStaleSuffix
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text, Surface } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,10 +15,14 @@ const { width } = Dimensions.get('window');
 
 interface MatchCardProps {
   match: PandaMatch;
-  onPress: () => void;
 }
 
-export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
+export const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
+  const router = useRouter();
+  const handlePress = () => {
+    router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } });
+  };
+
   const team1 = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const team2 = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
   
@@ -51,7 +56,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
   const formatText = match.number_of_games ? `BO${match.number_of_games}` : '';
 
   return (
-    <Pressable onPress={onPress} style={styles.pressable}>
+    <Pressable onPress={handlePress} style={styles.pressable}>
       {({ pressed }) => (
         <Surface style={[styles.card, pressed && styles.pressed, { backgroundColor: statusInfo.glow }]} elevation={1}>
           <LinearGradient

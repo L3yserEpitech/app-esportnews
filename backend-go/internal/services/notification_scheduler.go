@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
 )
@@ -20,26 +19,34 @@ const (
 	cleanupTickInterval    = 30 * time.Minute
 	hydrationTickInterval  = 10 * time.Minute
 	maxSubsPerTick         = 500
-	staleFinishedThreshold = 7 * 24 * time.Hour // 7 days
+	staleFinishedThreshold = 7 * 24 * time.Hour
 )
 
-// NotificationScheduler checks match subscriptions and dispatches push notifications
+// NotificationScheduler dispatches push notifications when subscribed matches
+// go live, hydrates tournament-wide subscriptions with per-match subscriptions,
+// and prunes stale subscriptions.
+//
+// It is a pure consumer of Liquipedia data: all live-data reads go through
+// LiquipediaService (which fronts Redis + Liquipedia API), keeping the
+// scheduler decoupled from the cache layout and from PandaScore legacy code.
 type NotificationScheduler struct {
 	gormDB      interface{}
-	redisClient *cache.RedisCache
+	liqService  *LiquipediaService
 	pushService *ExpoPushService
 	logger      *logrus.Logger
 }
 
+// NewNotificationScheduler builds a scheduler. gormDB may be either a
+// *gorm.DB or a *database.Database — both shapes are accepted to ease wiring.
 func NewNotificationScheduler(
 	gormDB interface{},
-	redisClient *cache.RedisCache,
+	liqService *LiquipediaService,
 	pushService *ExpoPushService,
 	logger *logrus.Logger,
 ) *NotificationScheduler {
 	return &NotificationScheduler{
 		gormDB:      gormDB,
-		redisClient: redisClient,
+		liqService:  liqService,
 		pushService: pushService,
 		logger:      logger,
 	}
@@ -56,7 +63,7 @@ func (s *NotificationScheduler) getDB() *gorm.DB {
 	}
 }
 
-// Start runs the scheduler in a goroutine. Blocks until context is canceled.
+// Start runs the scheduler until the given context is cancelled.
 func (s *NotificationScheduler) Start(ctx context.Context) {
 	s.logger.Info("[NotifScheduler] Starting notification scheduler")
 
@@ -83,11 +90,13 @@ func (s *NotificationScheduler) Start(ctx context.Context) {
 	}
 }
 
-// processMatchNotifications checks active match subscriptions against Redis match data
+// processMatchNotifications walks active match subscriptions, detects which
+// ones just went live in the Liquipedia running cache, and dispatches a push
+// notification to the subscribing user. Reschedules (begin_at drift) are
+// persisted back to the subscription row.
 func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	db := s.getDB()
 
-	// Fetch active subscriptions that haven't been fully notified
 	var subs []models.MatchSubscription
 	if err := db.WithContext(ctx).
 		Where("status IN ? AND notified_start = ?", []string{"upcoming", "running"}, false).
@@ -101,83 +110,65 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 		return
 	}
 
-	// Group subscriptions by game acronym to batch Redis lookups
-	subsByGame := make(map[string][]models.MatchSubscription)
+	// Batch Redis lookups by game so we only build the running map once per game.
+	subsByGame := make(map[string][]models.MatchSubscription, len(subs))
 	for _, sub := range subs {
 		subsByGame[sub.GameAcronym] = append(subsByGame[sub.GameAcronym], sub)
 	}
 
-	var messages []ExpoPushMessage
-	var subsToUpdate []subUpdate
+	var (
+		messages     []ExpoPushMessage
+		subsToUpdate []subUpdate
+	)
 
 	for gameAcronym, gameSubs := range subsByGame {
-		// Build a match lookup from Redis running matches
-		runningMatches := s.getMatchesFromRedis(ctx, "running", gameAcronym)
-		runningMap := make(map[int64]models.PandaMatch)
-		for _, m := range runningMatches {
-			runningMap[m.ID] = m
+		runningMap, err := s.runningMatchesByID(ctx, gameAcronym)
+		if err != nil {
+			s.logger.WithError(err).WithField("game", gameAcronym).
+				Warn("[NotifScheduler] Skipping game — failed to load running matches")
+			continue
 		}
 
 		for _, sub := range gameSubs {
 			match, isRunning := runningMap[sub.MatchID]
+			if !isRunning {
+				continue
+			}
 
-			if isRunning && !sub.NotifiedStart {
-				// Match is now running — send "match started" notification
-				tokens := s.getUserPushTokens(ctx, sub.UserID)
-				// Preference gating intentionally disabled: any subscriber with an
-				// active push token gets the match-start notification.
-				if len(tokens) > 0 {
-					label := matchLabel(match, sub.MatchName)
-					body := "Le match commence maintenant !"
-					if label != "" {
-						body = fmt.Sprintf("%s commence maintenant !", label)
-					}
-					messages = append(messages, ExpoPushMessage{
-						To:        tokens,
-						Title:     "Match en direct",
-						Body:      body,
-						Sound:     "default",
-						Priority:  "high",         // both: APNs priority 10 (iOS) + FCM high priority (Android)
-						ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
-						Data: map[string]interface{}{
-							"type":         "match_start",
-							"match_id":     sub.MatchID,
-							"game_acronym": sub.GameAcronym,
-						},
-					})
+			if !sub.NotifiedStart {
+				msg, ok := s.buildStartNotification(ctx, sub, match)
+				if ok {
+					messages = append(messages, msg)
 				}
 				subsToUpdate = append(subsToUpdate, subUpdate{
-					id:     sub.ID,
-					fields: map[string]interface{}{"notified_start": true, "status": "running"},
+					id: sub.ID,
+					fields: map[string]interface{}{
+						"notified_start": true,
+						"status":         "running",
+					},
 				})
 			}
 
-			// Check for reschedule
-			if isRunning && match.BeginAt != nil && sub.BeginAt != nil {
-				if !match.BeginAt.Equal(*sub.BeginAt) {
-					subsToUpdate = append(subsToUpdate, subUpdate{
-						id:     sub.ID,
-						fields: map[string]interface{}{"begin_at": match.BeginAt},
-					})
-				}
+			if newBeginAt := matchBeginsAt(match); newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
+				subsToUpdate = append(subsToUpdate, subUpdate{
+					id:     sub.ID,
+					fields: map[string]interface{}{"begin_at": newBeginAt},
+				})
 			}
 		}
 	}
 
-	// Send all notifications in batch
 	if len(messages) > 0 {
 		invalidTokens, err := s.pushService.SendBatch(ctx, messages)
 		if err != nil {
 			s.logger.Errorf("[NotifScheduler] Failed to send batch: %v", err)
 		}
-		// Deactivate invalid tokens
 		if len(invalidTokens) > 0 {
 			s.deactivateTokens(ctx, invalidTokens)
 		}
 		s.logger.Infof("[NotifScheduler] Sent %d notifications", len(messages))
 	}
 
-	// Apply DB updates
 	for _, upd := range subsToUpdate {
 		if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
 			Where("id = ?", upd.id).
@@ -187,99 +178,62 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	}
 }
 
-// cleanupStaleSubscriptions marks finished subs and deletes old ones
-func (s *NotificationScheduler) cleanupStaleSubscriptions(ctx context.Context) {
-	db := s.getDB()
-	threshold := time.Now().Add(-staleFinishedThreshold)
-
-	// Delete old finished/canceled match subscriptions
-	result := db.WithContext(ctx).
-		Where("status IN ? AND created_at < ?", []string{"finished", "canceled"}, threshold).
-		Delete(&models.MatchSubscription{})
-	if result.Error != nil {
-		s.logger.Errorf("[NotifScheduler] Cleanup match subs error: %v", result.Error)
-	} else if result.RowsAffected > 0 {
-		s.logger.Infof("[NotifScheduler] Cleaned up %d stale match subscriptions", result.RowsAffected)
+// runningMatchesByID returns the currently running matches for a game, keyed
+// by their numeric MatchID. The key type matches MatchSubscription.MatchID
+// (int64) to avoid conversions at every lookup site.
+func (s *NotificationScheduler) runningMatchesByID(ctx context.Context, gameAcronym string) (map[int64]models.NormalizedMatch, error) {
+	matches, err := s.liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusRunning)
+	if err != nil {
+		if errors.Is(err, ErrUnknownGame) {
+			// Stale acronym (e.g. legacy PandaScore data) — treat as empty, never crash.
+			s.logger.WithField("game", gameAcronym).Debug("[NotifScheduler] Skipping unknown game")
+			return map[int64]models.NormalizedMatch{}, nil
+		}
+		return nil, err
 	}
 
-	// Delete old finished tournament subscriptions
-	result = db.WithContext(ctx).
-		Where("status = ? AND end_at < ?", "finished", threshold).
-		Delete(&models.TournamentSubscription{})
-	if result.Error != nil {
-		s.logger.Errorf("[NotifScheduler] Cleanup tournament subs error: %v", result.Error)
-	} else if result.RowsAffected > 0 {
-		s.logger.Infof("[NotifScheduler] Cleaned up %d stale tournament subscriptions", result.RowsAffected)
+	indexed := make(map[int64]models.NormalizedMatch, len(matches))
+	for _, m := range matches {
+		indexed[int64(m.ID)] = m
 	}
+	return indexed, nil
 }
 
-// hydrateTournamentMatches creates missing match subscriptions for tournament subscribers
-func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
-	db := s.getDB()
-
-	var tournamentSubs []models.TournamentSubscription
-	if err := db.WithContext(ctx).
-		Where("status IN ?", []string{"running", "upcoming"}).
-		Find(&tournamentSubs).Error; err != nil {
-		s.logger.Errorf("[NotifScheduler] Failed to fetch tournament subs: %v", err)
-		return
+// buildStartNotification returns the ExpoPushMessage to send for a match that
+// just went live. The second return value is false when the user has no
+// active push token. Preference gating is intentionally disabled: any
+// subscriber with a token gets the match-start notification.
+func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub models.MatchSubscription, match models.NormalizedMatch) (ExpoPushMessage, bool) {
+	tokens := s.getUserPushTokens(ctx, sub.UserID)
+	if len(tokens) == 0 {
+		return ExpoPushMessage{}, false
 	}
 
-	for _, ts := range tournamentSubs {
-		// Read tournament from Redis to get current match list
-		tournamentKey := cache.PandaScoreTournamentKey(fmt.Sprintf("%d", ts.TournamentID))
-		data, err := s.redisClient.Get(ctx, tournamentKey)
-		if err != nil {
-			continue // Tournament not in cache, skip
-		}
-
-		var tournament models.Tournament
-		if err := json.Unmarshal([]byte(data), &tournament); err != nil {
-			s.logger.Warnf("[NotifScheduler] Failed to unmarshal tournament %d: %v", ts.TournamentID, err)
-			continue
-		}
-
-		// Check each match in the tournament
-		for _, match := range tournament.Matches {
-			var count int64
-			if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
-				Where("user_id = ? AND match_id = ?", ts.UserID, match.ID).
-				Count(&count).Error; err != nil {
-				s.logger.Errorf("[NotifScheduler] Failed to count match subs for user %d match %d: %v", ts.UserID, match.ID, err)
-				continue
-			}
-
-			if count == 0 {
-				// Create missing match subscription
-				matchSub := models.MatchSubscription{
-					UserID:         ts.UserID,
-					MatchID:        match.ID,
-					GameAcronym:    ts.GameAcronym,
-					MatchName:      match.Name,
-					TournamentName: ts.TournamentName,
-					BeginAt:        match.BeginAt,
-					Status:         "upcoming",
-					FromTournament: &ts.TournamentID,
-				}
-				if err := db.WithContext(ctx).Create(&matchSub).Error; err != nil {
-					s.logger.Errorf("[NotifScheduler] Failed to create match sub for user %d match %d: %v", ts.UserID, match.ID, err)
-				}
-			}
-		}
+	label := matchLabel(match, sub.MatchName)
+	body := "Le match commence maintenant !"
+	if label != "" {
+		body = fmt.Sprintf("%s commence maintenant !", label)
 	}
-}
 
-// --- Helpers ---
-
-type subUpdate struct {
-	id     int64
-	fields map[string]interface{}
+	return ExpoPushMessage{
+		To:        tokens,
+		Title:     "Match en direct",
+		Body:      body,
+		Sound:     "default",
+		Priority:  "high",         // APNs priority 10 (iOS) + FCM high priority (Android)
+		ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
+		Data: map[string]interface{}{
+			"type":         "match_start",
+			"match_id":     sub.MatchID,
+			"game_acronym": sub.GameAcronym,
+		},
+	}, true
 }
 
 // matchLabel builds a concise "Équipe A contre Équipe B" label.
-// Prefers the two opponent team names from the live match data; falls back to
-// the stored match name (normalizing PandaScore's " vs " to " contre ").
-func matchLabel(m models.PandaMatch, fallback string) string {
+// Prefers the two opponent team names from the live match; falls back to the
+// stored match name (normalizing Liquipedia's " vs " to " contre ").
+func matchLabel(m models.NormalizedMatch, fallback string) string {
 	var names []string
 	for _, o := range m.Opponents {
 		if o.Opponent != nil {
@@ -293,40 +247,135 @@ func matchLabel(m models.PandaMatch, fallback string) string {
 	}
 
 	label := strings.TrimSpace(fallback)
+	if label == "" {
+		label = strings.TrimSpace(m.Name)
+	}
 	label = strings.ReplaceAll(label, " vs ", " contre ")
 	label = strings.ReplaceAll(label, " VS ", " contre ")
 	return label
 }
 
-// getMatchesFromRedis reads cached matches for a given status and game
-func (s *NotificationScheduler) getMatchesFromRedis(ctx context.Context, status, gameAcronym string) []models.PandaMatch {
-	var cacheKey string
-	switch status {
-	case "running":
-		cacheKey = cache.PandaScoreRunningMatchesKey(&gameAcronym)
-	case "upcoming":
-		cacheKey = cache.PandaScoreUpcomingMatchesKey(&gameAcronym)
-	case "past":
-		cacheKey = cache.PandaScorePastMatchesKey(&gameAcronym)
-	default:
-		return nil
+// cleanupStaleSubscriptions deletes subscriptions whose underlying match or
+// tournament has been finished for more than staleFinishedThreshold.
+func (s *NotificationScheduler) cleanupStaleSubscriptions(ctx context.Context) {
+	db := s.getDB()
+	threshold := time.Now().Add(-staleFinishedThreshold)
+
+	result := db.WithContext(ctx).
+		Where("status IN ? AND created_at < ?", []string{"finished", "canceled"}, threshold).
+		Delete(&models.MatchSubscription{})
+	if result.Error != nil {
+		s.logger.Errorf("[NotifScheduler] Cleanup match subs error: %v", result.Error)
+	} else if result.RowsAffected > 0 {
+		s.logger.Infof("[NotifScheduler] Cleaned up %d stale match subscriptions", result.RowsAffected)
 	}
 
-	data, err := s.redisClient.Get(ctx, cacheKey)
+	result = db.WithContext(ctx).
+		Where("status = ? AND end_at < ?", "finished", threshold).
+		Delete(&models.TournamentSubscription{})
+	if result.Error != nil {
+		s.logger.Errorf("[NotifScheduler] Cleanup tournament subs error: %v", result.Error)
+	} else if result.RowsAffected > 0 {
+		s.logger.Infof("[NotifScheduler] Cleaned up %d stale tournament subscriptions", result.RowsAffected)
+	}
+}
+
+// hydrateTournamentMatches makes sure every user subscribed to a tournament
+// also has a match subscription for each known match in that tournament.
+// Missing match subscriptions are created with the current begin_at value;
+// subsequent reschedules are caught by processMatchNotifications.
+func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
+	db := s.getDB()
+
+	var tournamentSubs []models.TournamentSubscription
+	if err := db.WithContext(ctx).
+		Where("status IN ?", []string{"running", "upcoming"}).
+		Find(&tournamentSubs).Error; err != nil {
+		s.logger.Errorf("[NotifScheduler] Failed to fetch tournament subs: %v", err)
+		return
+	}
+
+	// Cache the fetched match list once per tournament so multiple subscribers
+	// to the same tournament don't each trigger their own lookup.
+	matchesByTournament := make(map[int64][]models.NormalizedMatch, len(tournamentSubs))
+
+	for _, ts := range tournamentSubs {
+		matches, ok := matchesByTournament[ts.TournamentID]
+		if !ok {
+			fetched, err := s.liqService.TournamentMatches(ctx, ts.GameAcronym, ts.TournamentID)
+			if err != nil {
+				if !errors.Is(err, ErrUnknownGame) {
+					s.logger.WithError(err).WithFields(logrus.Fields{
+						"game":          ts.GameAcronym,
+						"tournament_id": ts.TournamentID,
+					}).Warn("[NotifScheduler] Failed to fetch tournament matches")
+				}
+				matchesByTournament[ts.TournamentID] = nil
+				continue
+			}
+			matches = fetched
+			matchesByTournament[ts.TournamentID] = fetched
+		}
+
+		for _, match := range matches {
+			matchID := int64(match.ID)
+			if matchID == 0 {
+				continue
+			}
+
+			var count int64
+			if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
+				Where("user_id = ? AND match_id = ?", ts.UserID, matchID).
+				Count(&count).Error; err != nil {
+				s.logger.Errorf("[NotifScheduler] Failed to count match subs for user %d match %d: %v", ts.UserID, matchID, err)
+				continue
+			}
+			if count > 0 {
+				continue
+			}
+
+			matchSub := models.MatchSubscription{
+				UserID:         ts.UserID,
+				MatchID:        matchID,
+				GameAcronym:    ts.GameAcronym,
+				MatchName:      match.Name,
+				TournamentName: ts.TournamentName,
+				BeginAt:        matchBeginsAt(match),
+				Status:         "upcoming",
+				FromTournament: &ts.TournamentID,
+			}
+			if err := db.WithContext(ctx).Create(&matchSub).Error; err != nil {
+				s.logger.Errorf("[NotifScheduler] Failed to create match sub for user %d match %d: %v", ts.UserID, matchID, err)
+			}
+		}
+	}
+}
+
+// --- Helpers ---
+
+type subUpdate struct {
+	id     int64
+	fields map[string]interface{}
+}
+
+// matchBeginsAt parses the RFC3339 begin_at field of a normalized match into
+// a *time.Time, returning nil on missing/invalid values.
+func matchBeginsAt(m models.NormalizedMatch) *time.Time {
+	return parseRFC3339Pointer(m.BeginAt)
+}
+
+func parseRFC3339Pointer(s *string) *time.Time {
+	if s == nil || *s == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, *s)
 	if err != nil {
 		return nil
 	}
-
-	var matches []models.PandaMatch
-	if err := json.Unmarshal([]byte(data), &matches); err != nil {
-		s.logger.Warnf("[NotifScheduler] Failed to unmarshal matches for %s/%s: %v", status, gameAcronym, err)
-		return nil
-	}
-
-	return matches
+	return &t
 }
 
-// getUserPushTokens returns active push tokens for a user
+// getUserPushTokens returns the active push tokens for a user.
 func (s *NotificationScheduler) getUserPushTokens(ctx context.Context, userID int64) []string {
 	db := s.getDB()
 
@@ -337,11 +386,11 @@ func (s *NotificationScheduler) getUserPushTokens(ctx context.Context, userID in
 		s.logger.Errorf("[NotifScheduler] Failed to fetch push tokens for user %d: %v", userID, err)
 		return nil
 	}
-
 	return tokens
 }
 
-// deactivateTokens marks tokens as inactive
+// deactivateTokens flips active=false on the given push tokens, typically in
+// response to Expo reporting them as invalid.
 func (s *NotificationScheduler) deactivateTokens(ctx context.Context, tokens []string) {
 	db := s.getDB()
 	if err := db.WithContext(ctx).Model(&models.PushToken{}).

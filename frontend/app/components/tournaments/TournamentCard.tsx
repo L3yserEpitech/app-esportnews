@@ -1,186 +1,173 @@
 'use client';
 
+import { useState } from 'react';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import { Trophy, ChevronRight } from 'lucide-react';
 import { PandaTournament } from '../../types';
-import { esportBackgrounds } from '../../constants/images';
+import { proxyImageUrl } from '../../lib/imageProxy';
+import { tournamentHref } from '../../lib/gameLinks';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
-  showGameBadge?: boolean; // Afficher le badge du jeu quand on montre tous les jeux
+  showGameBadge?: boolean;
 }
 
-const getTierColor = (tier: string | null | undefined): string => {
-  if (!tier) return 'bg-[var(--color-tier-d)]';
-  switch (tier.toLowerCase()) {
-    case 's': return 'bg-[var(--color-tier-s)]';
-    case 'a': return 'bg-[var(--color-tier-a)]';
-    case 'b': return 'bg-[var(--color-tier-b)]';
-    case 'c': return 'bg-[var(--color-tier-c)]';
-    case 'd': return 'bg-[var(--color-tier-d)]';
-    default: return 'bg-[var(--color-tier-d)]';
-  }
+const tierVar = (tier: string | null | undefined): string => {
+  const t = tier?.toLowerCase();
+  return ['s', 'a', 'b', 'c', 'd'].includes(t || '')
+    ? `var(--color-tier-${t})`
+    : 'var(--color-tier-d)';
 };
 
-const formatDate = (dateString: string) => {
+const formatDateCompact = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'short',
-    year: 'numeric'
   });
 };
 
-const formatPrizepool = (prizepool: string | null | undefined): string | null => {
-  if (!prizepool) return null;
-
-  // Si c'est un nombre, le formater
-  const num = parseFloat(prizepool);
-  if (!isNaN(num)) {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M€`;
-    } else if (num >= 1000) {
-      return `${(num / 1000).toFixed(0)}K€`;
-    }
-    return `${num}€`;
-  }
-
-  return prizepool;
-};
+// Les noms de ligue Liquipedia sont des pagenames ("BLAST_Premier")
+const cleanLeagueName = (name: string) => name.replace(/_/g, ' ');
 
 const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBadge = false }) => {
   const t = useTranslations();
-  // Utiliser l'ID du tournoi pour sélectionner une image de manière déterministe
-  const backgroundImage = esportBackgrounds[tournament.id % esportBackgrounds.length];
+  const [iconError, setIconError] = useState(false);
+  const iconUrl = tournament.icon_dark_url || tournament.icon_url;
+  const leagueUrl = tournament.league?.image_url;
+  const resolvedIcon = iconUrl && !iconError ? proxyImageUrl(iconUrl) : leagueUrl ? proxyImageUrl(leagueUrl) : null;
 
-  const prizepool = formatPrizepool(tournament.prizepool);
+  const now = Date.now();
+  const beginTs = tournament.begin_at ? new Date(tournament.begin_at).getTime() : null;
+  const endTs = tournament.end_at ? new Date(tournament.end_at).getTime() : null;
+
+  const isLive = tournament.status
+    ? tournament.status === 'running'
+    : beginTs !== null && endTs !== null && beginTs <= now && endTs > now;
+  const isFinished = tournament.status === 'finished' || (endTs !== null && endTs <= now);
+
+  // Progression temporelle du tournoi (uniquement quand il est en cours)
+  const progress =
+    isLive && beginTs !== null && endTs !== null && endTs > beginTs
+      ? Math.min(Math.max((now - beginTs) / (endTs - beginTs), 0.03), 1)
+      : null;
+
+  const dateRange = (() => {
+    if (!tournament.begin_at) return null;
+    const start = formatDateCompact(tournament.begin_at);
+    if (!tournament.end_at) return start;
+    const end = formatDateCompact(tournament.end_at);
+    return `${start} — ${end}`;
+  })();
+
+  const tierColor = tierVar(tournament.tier);
 
   return (
     <a
-      href={`/tournois/${tournament.id}`}
-      className="group relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer block"
-      style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        borderWidth: '1px',
-        borderColor: 'var(--color-border-secondary)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-accent)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-border-secondary)';
-      }}
+      href={tournamentHref(tournament)}
+      className={`group relative flex overflow-hidden rounded-xl border border-border-primary/30 bg-[var(--color-bg-secondary)]/40 transition-all duration-300 hover:bg-[var(--color-bg-hover)] hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 ${
+        isFinished ? 'opacity-75 hover:opacity-100' : ''
+      }`}
     >
-      {/* Image de fond avec overlay */}
-      <div className="relative h-48 overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-          style={{ backgroundImage: `url(${backgroundImage})` }}
-        />
-        <div
-          className="absolute inset-0"
+      {/* Liseré tier */}
+      <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: tierColor }} />
+
+      <div className="flex flex-1 min-w-0 items-center pl-4 pr-4 md:pl-5 md:pr-5 py-4 gap-3.5 md:gap-4">
+        {/* Tier badge */}
+        <span
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold uppercase flex-shrink-0 ring-1"
           style={{
-            backgroundImage: 'linear-gradient(to top, var(--color-bg-primary) 0%, rgba(var(--color-primary-800-rgb), 0.6) 50%, transparent 100%)'
+            color: tierColor,
+            backgroundColor: `color-mix(in srgb, ${tierColor} 12%, transparent)`,
+            // ring-1 lit ce var pour la bordure teintée
+            ['--tw-ring-color' as string]: `color-mix(in srgb, ${tierColor} 30%, transparent)`,
           }}
-        />
+        >
+          {tournament.tier ? tournament.tier.toUpperCase() : '?'}
+        </span>
 
-        {/* Badge tier */}
-        <div className="absolute top-4 left-4 flex gap-2">
-          {tournament.tier && (
-            <span className={`px-2 py-1 rounded-full text-xs font-bold text-white uppercase ${getTierColor(tournament.tier)}`}>
-              {t('pages.home.tournaments.tier_label')} {tournament.tier.toUpperCase()}
-            </span>
-          )}
-          {!showGameBadge && tournament.videogame?.slug && (
-            <span className="px-2 py-1 bg-pink-600 text-white text-xs font-bold rounded-full uppercase shadow-lg">
-              {tournament.videogame.slug.toUpperCase()}
-            </span>
-          )}
-          {showGameBadge && tournament.videogame?.slug && (
-            <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded-full uppercase">
-              {tournament.videogame.slug.toUpperCase()}
-            </span>
-          )}
-        </div>
-
-        {/* Badge live si le tournoi est en cours */}
-        {tournament.begin_at && tournament.end_at &&
-         new Date(tournament.begin_at) <= new Date() &&
-         new Date(tournament.end_at) > new Date() && (
-          <div className="absolute top-4 right-4">
-            <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full uppercase animate-pulse">
-              {t('pages.home.tournaments.live_badge')}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Contenu */}
-      <div className="p-4">
-        {/* Titre du tournoi */}
-        <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-2 group-hover:text-accent transition-colors">
-          {tournament.name}
-        </h3>
-
-        {/* Informations de la ligue */}
-        {tournament.league && (
-          <div className="flex items-center mb-2">
-            {tournament.league.image_url && (
-              <img
-                src={tournament.league.image_url}
-                alt={tournament.league.name}
-                className="w-6 h-6 rounded mr-2"
+        {/* Icon */}
+        <div className="flex-shrink-0 hidden sm:block">
+          <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-primary)]/60 border border-border-primary/25 overflow-hidden flex items-center justify-center">
+            {resolvedIcon ? (
+              <Image
+                src={resolvedIcon}
+                alt={tournament.name}
+                width={40}
+                height={40}
+                className="object-contain p-1"
+                unoptimized
+                onError={() => setIconError(true)}
               />
+            ) : (
+              <Trophy className="w-5 h-5 text-text-muted/50" />
             )}
-            <span className="text-text-secondary text-sm">{tournament.league.name}</span>
           </div>
-        )}
+        </div>
 
-        {/* Dates */}
-        <div className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          <div>{t('pages.home.tournaments.begin_label')} {tournament.begin_at ? formatDate(tournament.begin_at) : '-'}</div>
-          {tournament.end_at && (
-            <div>{t('pages.home.tournaments.end_label')} {formatDate(tournament.end_at)}</div>
+        {/* Main info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[15px] md:text-base font-bold text-text-primary truncate transition-colors group-hover:text-accent">
+            {tournament.name}
+          </h3>
+
+          <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
+            {tournament.league?.name && (
+              <span className="truncate max-w-[200px]">{cleanLeagueName(tournament.league.name)}</span>
+            )}
+            {tournament.league?.name && dateRange && (
+              <span className="w-px h-3 bg-border-primary/50 flex-shrink-0" />
+            )}
+            {dateRange && (
+              <span className="text-text-secondary whitespace-nowrap tabular-nums">{dateRange}</span>
+            )}
+            {tournament.type && (
+              <>
+                <span className="hidden md:block w-px h-3 bg-border-primary/50 flex-shrink-0" />
+                <span className="hidden md:inline whitespace-nowrap">{tournament.type}</span>
+              </>
+            )}
+          </div>
+
+          {/* Progression du tournoi en cours */}
+          {progress !== null && (
+            <div className="mt-2 h-[3px] w-full max-w-[220px] rounded-full bg-[var(--color-bg-primary)]/80 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent/70"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            </div>
           )}
         </div>
 
-        {/* Prizepool et équipes */}
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col">
-            {prizepool && (
-              <span className="font-semibold text-sm" style={{ color: 'var(--color-success)' }}>
-                💰 {prizepool}
-              </span>
-            )}
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {tournament.teams?.length || 0} {t('pages.home.tournaments.team_count')}
+        {/* Right side */}
+        <div className="flex items-center gap-2.5 md:gap-3 flex-shrink-0">
+          {showGameBadge && tournament.videogame?.slug && (
+            <span className="hidden md:inline-flex px-2 py-1 rounded-md text-[10px] font-bold text-text-secondary bg-[var(--color-bg-primary)]/50 border border-border-primary/30 uppercase tracking-widest">
+              {tournament.videogame.slug.toUpperCase()}
             </span>
-          </div>
+          )}
 
-          {/* Indicateur de matchs */}
-          <div className="text-xs text-right" style={{ color: 'var(--color-text-secondary)' }}>
-            <div>{tournament.matches?.length || 0} {t('pages.home.tournaments.match_count')}</div>
-            <div style={{ color: 'var(--color-accent)' }}>
-              {tournament.matches?.filter(m => m.status === 'not_started').length || 0} {t('pages.home.tournaments.upcoming_count')}
-            </div>
-          </div>
-        </div>
+          {tournament.prizepool && (
+            <span className="hidden sm:inline-flex text-sm font-black text-accent tabular-nums whitespace-nowrap drop-shadow-[0_0_10px_rgba(242,46,98,0.25)]">
+              {tournament.prizepool}
+            </span>
+          )}
 
-        {/* Region */}
-        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--color-border-secondary)' }}>
-          <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-            {tournament.region}
-          </span>
+          {isLive && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-status-live)]/12 border border-[var(--color-status-live)]/25 rounded-full text-[10px] font-bold text-[var(--color-status-live)] uppercase tracking-wider">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-status-live)] opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-status-live)]" />
+              </span>
+              <span className="hidden sm:inline">{t('pages.home.tournaments.live_badge')}</span>
+            </span>
+          )}
+
+          <ChevronRight className="w-4 h-4 text-text-muted/50 group-hover:text-accent group-hover:translate-x-0.5 transition-all flex-shrink-0" />
         </div>
       </div>
-
-      {/* Hover effect overlay */}
-      <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{
-          backgroundImage: 'linear-gradient(135deg, var(--color-accent), var(--color-primary-600))',
-          opacity: 0,
-        }}
-      />
     </a>
   );
 };

@@ -202,6 +202,15 @@ export default function ProfileScreen() {
               />
               <View style={styles.divider} />
               <ProfileItem
+                icon="shield-outline"
+                title="Mes équipes"
+                subtitle="Rechercher et suivre des équipes"
+                onPress={() => router.push('/teams' as any)}
+                iconBg="rgba(88, 86, 214, 0.15)"
+                color="#5856D6"
+              />
+              <View style={styles.divider} />
+              <ProfileItem
                 icon="person-outline"
                 title="Informations personnelles"
                 subtitle="Modifier votre nom, email et avatar"

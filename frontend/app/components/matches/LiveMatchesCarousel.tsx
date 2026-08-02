@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Carousel,
@@ -8,7 +8,8 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { LiveMatch } from '../../types';
-import LiveMatchCard from './LiveMatchCard';
+import FeaturedMatchCard from './FeaturedMatchCard';
+import { prewarmImages, matchLogoUrls } from '../../lib/imageProxy';
 
 interface LiveMatchesCarouselProps {
   matches: LiveMatch[];
@@ -25,6 +26,11 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
   const matchList = matches ?? [];
   const showNavigation = useMemo(() => matchList.length > 1, [matchList.length]);
 
+  // Warm the image cache in parallel as soon as matches arrive.
+  useEffect(() => {
+    prewarmImages(matchLogoUrls(matches ?? []));
+  }, [matches]);
+
   if (matchList.length === 0) {
     return (
       null
@@ -37,19 +43,17 @@ export default function LiveMatchesCarousel({ matches, isLoading }: LiveMatchesC
         opts={carouselOptions}
         className="w-full max-w-full"
       >
-        <CarouselContent className="-ml-2 md:-ml-4 overflow-visible">
-          {matchList.map((match) => (
-            <CarouselItem key={match.id} className="pl-2 md:pl-4 basis-[320px] md:basis-[350px] lg:basis-[380px] flex-shrink-0">
-              <div className="w-full max-w-full">
-                <LiveMatchCard match={match} showGames={false} />
-              </div>
+        <CarouselContent className="-ml-3 overflow-visible">
+          {matchList.map((match, index) => (
+            <CarouselItem key={match.match2id || `${match.id}-${index}`} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
+              <FeaturedMatchCard match={match} />
             </CarouselItem>
           ))}
         </CarouselContent>
         {showNavigation && (
           <>
-            <CarouselPrevious className="absolute left-0 top-1/2 -translate-y-1/2 bg-bg-secondary border-border-secondary hover:bg-bg-tertiary text-text-primary z-10" />
-            <CarouselNext className="absolute right-0 top-1/2 -translate-y-1/2 bg-bg-secondary border-border-secondary hover:bg-bg-tertiary text-text-primary z-10" />
+            <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 !size-10 bg-[var(--color-bg-primary)]/90 backdrop-blur-sm border border-[var(--color-border-primary)]/60 hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-accent)]/40 text-[var(--color-text-primary)] shadow-lg shadow-black/30 z-10 [&_svg]:!size-5" />
+            <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 !size-10 bg-[var(--color-bg-primary)]/90 backdrop-blur-sm border border-[var(--color-border-primary)]/60 hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-accent)]/40 text-[var(--color-text-primary)] shadow-lg shadow-black/30 z-10 [&_svg]:!size-5" />
           </>
         )}
       </Carousel>

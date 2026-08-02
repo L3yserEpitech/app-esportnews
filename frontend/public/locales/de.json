@@ -100,6 +100,9 @@
       "games": {
         "unselect_game": "Abwählen",
         "select_game": "Auswählen"
+      },
+      "best_matches": {
+        "title": "Top-Matches des Tages"
       }
     },
     "login": {
@@ -290,6 +293,8 @@
     }
   },
   "common": {
+    "data_from_liquipedia": "Liquipedia-Daten",
+    "powered_by_liquipedia": "Esport-Daten bereitgestellt von Liquipedia",
     "plan": "Plan",
     "price": "Preis",
     "loading": "Lädt",
@@ -356,7 +361,15 @@
       "filter_all_games": "Alle Spiele",
       "prev_dates": "Vorherige Daten",
       "next_dates": "Nächste Daten",
-      "today": "Heute"
+      "today": "Heute",
+      "card_status_live": "LIVE",
+      "card_status_finished": "Beendet",
+      "card_status_upcoming": "Bevorstehend",
+      "card_watch": "Ansehen",
+      "card_game_label": "Game {number}",
+      "card_match_singular": "Spiel",
+      "card_match_plural": "Spiele",
+      "search_try_other": "Versuchen Sie andere Suchbegriffe"
     },
     "news": {
       "aucune_actualite": "Keine Nachrichten verfügbar",
@@ -375,8 +388,10 @@
         "start_typing": "Beginnen Sie mit der Eingabe, um zu suchen",
         "search_by": "Suchen Sie nach Titel, Beschreibung, Kategorie, Autor oder Tags",
         "no_results": "Keine Ergebnisse gefunden",
-        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern"
-      }
+        "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern",
+        "searching": "Suche läuft..."
+      },
+      "loading": "Artikel werden geladen..."
     },
     "calendar": {
       "type_affichage": "Anzeigetyp",
@@ -453,6 +468,7 @@
       "status_running": "Laufend",
       "status_upcoming": "Bevorstehend",
       "status_finished": "Beendet",
+      "live_matches_title": "Live-Spiele",
       "all_matches": "Alle Spiele",
       "matches_total_singular": "Spiel insgesamt",
       "matches_total_plural": "Spiele insgesamt",
@@ -463,7 +479,8 @@
       "teams_count_singular": "Team",
       "teams_count_plural": "Teams",
       "players_count_singular": "Spieler",
-      "players_count_plural": "Spieler"
+      "players_count_plural": "Spieler",
+      "no_roster_info": "Keine Teaminformationen verfügbar"
     },
     "match_detail": {
       "loading": "Spiel wird geladen...",
@@ -510,7 +527,121 @@
       "platform_youtube": "YouTube",
       "stream_fallback": "Stream anschauen",
       "stream_status_playing": "Wird abgespielt",
-      "stream_link_text": "Schaue auf"
+      "stream_link_text": "Schaue auf",
+      "tier_label": "Tier",
+      "badge_rescheduled": "Verschoben",
+      "wins": "gewinnt",
+      "info_tournament": "Turnier",
+      "stream_live_now": "Jetzt live",
+      "game_forfeit": "Forfait",
+      "section_match_info": "Informationen",
+      "info_match_id": "Match-ID",
+      "info_match2id": "Bracket-ID",
+      "info_slug": "Slug",
+      "info_match_type": "Typ",
+      "info_scheduled_at": "Geplant am",
+      "info_end_at": "Beendet am",
+      "info_wiki": "Wiki",
+      "info_live_supported": "Live unterstützt",
+      "info_live_opens_at": "Live öffnet",
+      "info_section": "Phase",
+      "info_prizepool": "Preisgeld",
+      "info_original_date": "Ursprüngliches Datum",
+      "rescheduled": "Verschoben",
+      "yes": "Ja",
+      "no": "Nein",
+      "stat_rescheduled": "Verschoben",
+      "section_player_stats": "Spielerstatistiken",
+      "section_draft": "Draft",
+      "section_external_stats": "Detaillierte Statistiken",
+      "draft_picks": "Picks",
+      "draft_bans": "Bans",
+      "info_patch": "Patch",
+      "info_mvp": "MVP",
+      "stat_col": {
+        "player": "Spieler",
+        "champion": "Champion",
+        "agent": "Agent",
+        "hero": "Held",
+        "kda": "K/D/A",
+        "cs": "CS",
+        "gold": "Gold",
+        "damage": "Schaden",
+        "acs": "ACS",
+        "adr": "ADR",
+        "kast": "KAST",
+        "net_worth": "Nettowert",
+        "gpm": "GPM",
+        "xpm": "XPM",
+        "fighter": "Charakter",
+        "stocks": "Stocks",
+        "kp": "KP",
+        "items": "Items",
+        "lhdn": "LH/DN"
+      },
+      "stat_kills": "Kills",
+      "objectives": {
+        "towers": "Türme",
+        "dragons": "Drachen",
+        "barons": "Barone",
+        "heralds": "Herolde",
+        "grubs": "Larven",
+        "atakhans": "Atakhan",
+        "inhibitors": "Inhibitoren",
+        "barracks": "Barracks",
+        "roshans": "Roshan"
+      },
+      "penalties": "Elfmeter",
+      "no_game_details": "Keine detaillierten Informationen für dieses Match verfügbar"
+    },
+    "team_detail": {
+      "loading": "Team wird geladen...",
+      "not_found": "Team nicht gefunden",
+      "not_found_description": "Das gesuchte Team existiert nicht.",
+      "back_to_matches": "Zurück zu den Spielen",
+      "breadcrumb_home": "Startseite",
+      "breadcrumb_matches": "Spiele",
+      "roster": "Roster",
+      "recent_matches": "Letzte Spiele",
+      "upcoming_matches": "Kommende Spiele",
+      "no_matches": "Keine letzten Spiele verfügbar",
+      "no_upcoming_matches": "Keine kommenden Spiele",
+      "created": "Erstellt am",
+      "earnings": "Einnahmen",
+      "region": "Region",
+      "links": "Links",
+      "status_active": "Aktiv",
+      "view_team": "Team ansehen",
+      "placements": "Turnierergebnisse",
+      "see_all_results": "Alle Ergebnisse anzeigen ({count})",
+      "all_results_title": "Alle Turnierergebnisse",
+      "col_place": "Platz",
+      "col_tournament": "Turnier",
+      "col_tier": "Tier",
+      "col_earnings": "Einnahmen",
+      "col_date": "Datum",
+      "total_earnings": "Gesamteinnahmen",
+      "total_tournaments": "Turniere",
+      "see_all_results_short": "Alle Ergebnisse anzeigen",
+      "see_all_short": "Alle"
+    },
+    "player_detail": {
+      "loading": "Spieler wird geladen...",
+      "not_available": "Spieler nicht verfügbar",
+      "years_old": "Jahre",
+      "signature_picks": "Signature-Picks",
+      "upcoming_matches": "Kommende Matches",
+      "recent_matches": "Letzte Matches",
+      "earnings_by_year": "Einnahmen pro Jahr",
+      "total": "insgesamt",
+      "career": "Werdegang",
+      "career_start": "Karrierebeginn"
     }
+  },
+  "toast": {
+    "match_not_available": "Dieses Match ist derzeit nicht verfügbar. Bitte besuchen Sie die offizielle Liquipedia-Website für Match-Details.",
+    "tournament_not_available": "Dieses Turnier ist derzeit nicht verfügbar. Bitte besuchen Sie die offizielle Liquipedia-Website für Turnier-Details.",
+    "team_not_available": "Dieses Team ist derzeit nicht verfügbar. Bitte besuchen Sie die offizielle Liquipedia-Website für Team-Details.",
+    "view_on_liquipedia": "Auf Liquipedia ansehen"
   }
 }

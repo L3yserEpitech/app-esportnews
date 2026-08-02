@@ -1,62 +1,46 @@
-import { Metadata } from 'next';
-import { matchService } from '../../services/matchService';
-import MatchDetailPageClient from './MatchDetailPageClient';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { getApiBaseUrl } from '../../lib/apiConfig';
+import { wikiToSlug, isValidSlug } from '../../lib/gameRegistry';
 
-interface MatchPageProps {
+interface LegacyMatchProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
+// Legacy resolver for old single-segment /match/<id> URLs (pre game-first
+// routing, possibly still indexed). Resolves the match's wiki and 308-redirects
+// to the canonical /[game]/match/<id>. A bare valid game slug goes to the list.
+export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) {
   const { id } = await params;
 
-  try {
-    const match = await matchService.getMatchById(id);
-
-    if (!match) {
-      return {
-        title: 'Match non trouvé',
-        description: 'Le match que vous recherchez n\'existe pas.',
-      };
-    }
-
-    const homeTeam = match.opponents?.[0]?.opponent;
-    const awayTeam = match.opponents?.[1]?.opponent;
-    const title = `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'} | ${match.videogame?.name || 'Esport'}`;
-    const description = `${title} - ${match.league?.name || ''} - ${match.begin_at ? new Date(match.begin_at).toLocaleDateString('fr-FR') : ''}`;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-    const matchUrl = `${siteUrl}/match/${id}`;
-
-    return {
-      title,
-      description,
-      openGraph: {
-        title,
-        description,
-        url: matchUrl,
-        type: 'website',
-        images: homeTeam?.image_url ? [{ url: homeTeam.image_url, width: 200, height: 200 }] : [],
-      },
-      twitter: {
-        card: 'summary',
-        title,
-        description,
-        images: homeTeam?.image_url ? [homeTeam.image_url] : [],
-      },
-      alternates: {
-        canonical: matchUrl,
-      },
-    };
-  } catch (error) {
-    console.error('Error generating metadata for match:', error);
-    return {
-      title: 'Match | EsportNews',
-      description: 'Détails du match en direct',
-    };
+  if (isValidSlug(id)) {
+    permanentRedirect('/match');
   }
-}
 
-export default async function MatchDetailPage({ params }: MatchPageProps) {
-  const { id } = await params;
+  let response: Response | undefined;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}`, {
+      next: { revalidate: 60 },
+    });
+  } catch {
+    notFound();
+  }
 
-  return <MatchDetailPageClient matchId={id} />;
+  if (!response || response.status === 404 || !response.ok) {
+    notFound();
+  }
+
+  let match: { wiki?: string; match2id?: string; id?: number | string } | null = null;
+  try {
+    match = await response.json();
+  } catch {
+    notFound();
+  }
+
+  const slug = match?.wiki ? wikiToSlug(match.wiki) : undefined;
+  if (!slug) {
+    notFound();
+  }
+
+  const canonicalId = match?.match2id || id;
+  permanentRedirect(`/${slug}/match/${canonicalId}`);
 }

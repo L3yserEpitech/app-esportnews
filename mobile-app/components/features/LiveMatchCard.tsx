@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Linking, Alert, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, Pressable, Dimensions, Animated } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text, Surface } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,12 +15,16 @@ const CARD_WIDTH = width * 0.85;
 
 interface LiveMatchCardProps {
   match: PandaMatch;
-  onPress?: () => void;
   fullWidth?: boolean;
 }
 
-export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fullWidth }) => {
+export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, fullWidth }) => {
+  const router = useRouter();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const handleNavigate = () => {
+    router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } });
+  };
 
   // Déterminer le statut basé sur le champ status
   const statusInfo = (() => {
@@ -61,24 +66,9 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
   const team2 = match.opponents?.[1]?.opponent;
   const score1 = match.results?.find(r => r.team_id === team1?.id)?.score;
   const score2 = match.results?.find(r => r.team_id === team2?.id)?.score;
-  const streamLink = match.streams_list?.[0]?.raw_url || match.streams_list?.[0]?.embed_url || match.live?.url;
-
-  const handleStreamPress = async () => {
-    if (!streamLink) {
-      Alert.alert('Stream non disponible', 'Aucun lien de stream disponible pour ce match.');
-      return;
-    }
-    try {
-      if (await Linking.canOpenURL(streamLink)) {
-        await Linking.openURL(streamLink);
-      }
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le stream.');
-    }
-  };
 
   return (
-    <Pressable onPress={onPress || handleStreamPress} style={({ pressed }) => [
+    <Pressable onPress={handleNavigate} style={({ pressed }) => [
       styles.container,
       fullWidth && { marginRight: 0 },
       pressed && styles.pressed

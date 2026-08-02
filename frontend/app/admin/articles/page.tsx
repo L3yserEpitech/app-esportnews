@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { adminService, Article } from "@/lib/adminService";
+import { articleHref } from "@/app/lib/articleUrl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -137,7 +138,7 @@ export default function ArticlesListPage() {
               <TableRow key={article.id} className="border-[#182859] hover:bg-[#182859]/20">
                 <TableCell className="font-medium text-white">
                   <Link
-                    href={`/article/${article.slug}`}
+                    href={articleHref(article)}
                     className="hover:text-[#F22E62] flex items-center gap-2"
                     target="_blank"
                   >

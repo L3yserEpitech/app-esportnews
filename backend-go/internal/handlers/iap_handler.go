@@ -33,9 +33,9 @@ func (h *IAPHandler) RegisterRoutes(g *echo.Group) {
 // ValidatePurchaseRequest is the request body for IAP validation
 type ValidatePurchaseRequest struct {
 	Platform      string `json:"platform"`       // "ios" or "android"
-	TransactionID string `json:"transaction_id"`  // Apple transaction ID or Google order ID
-	ProductID     string `json:"product_id"`      // Product/SKU ID
-	PurchaseToken string `json:"purchase_token"`  // Google Play purchase token
+	TransactionID string `json:"transaction_id"` // Apple transaction ID or Google order ID
+	ProductID     string `json:"product_id"`     // Product/SKU ID
+	PurchaseToken string `json:"purchase_token"` // Google Play purchase token
 }
 
 // ValidatePurchase validates an in-app purchase receipt and updates user premium status

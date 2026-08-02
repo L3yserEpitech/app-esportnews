@@ -28,11 +28,11 @@ type CheckoutSessionResponse struct {
 }
 
 type SubscriptionStatusResponse struct {
-	Premium                       bool       `json:"premium"`
-	SubscriptionID                *string    `json:"subscription_id,omitempty"`
-	CustomerID                    *string    `json:"customer_id,omitempty"`
-	SubscriptionStatus            *string    `json:"subscription_status,omitempty"`
-	SubscriptionCurrentPeriodEnd  *time.Time `json:"subscription_current_period_end,omitempty"`
+	Premium                      bool       `json:"premium"`
+	SubscriptionID               *string    `json:"subscription_id,omitempty"`
+	CustomerID                   *string    `json:"customer_id,omitempty"`
+	SubscriptionStatus           *string    `json:"subscription_status,omitempty"`
+	SubscriptionCurrentPeriodEnd *time.Time `json:"subscription_current_period_end,omitempty"`
 }
 
 type PortalURLResponse struct {
@@ -98,8 +98,8 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create Stripe customer")
 		}
 		h.logger.WithFields(map[string]interface{}{
-			"user_id":             userID,
-			"stripe_customer_id":  stripeCustomerID,
+			"user_id":            userID,
+			"stripe_customer_id": stripeCustomerID,
 		}).Info("Created Stripe customer")
 	}
 
@@ -143,10 +143,10 @@ func (h *SubscriptionHandler) GetSubscriptionStatus(c echo.Context) error {
 	}
 
 	response := SubscriptionStatusResponse{
-		Premium:        user.Premium != nil && *user.Premium,
-		SubscriptionID: user.StripeSubscriptionID,
-		CustomerID:     user.StripeCustomerID,
-		SubscriptionStatus: user.SubscriptionStatus,
+		Premium:                      user.Premium != nil && *user.Premium,
+		SubscriptionID:               user.StripeSubscriptionID,
+		CustomerID:                   user.StripeCustomerID,
+		SubscriptionStatus:           user.SubscriptionStatus,
 		SubscriptionCurrentPeriodEnd: user.SubscriptionCurrentPeriodEnd,
 	}
 
@@ -194,8 +194,8 @@ func (h *SubscriptionHandler) GetCustomerPortalURL(c echo.Context) error {
 	}
 
 	h.logger.WithFields(map[string]interface{}{
-		"user_id":     userID,
-		"portal_url":  portalURL,
+		"user_id":    userID,
+		"portal_url": portalURL,
 	}).Info("Billing portal URL created")
 
 	return c.JSON(http.StatusOK, PortalURLResponse{

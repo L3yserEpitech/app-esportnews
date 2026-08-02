@@ -131,9 +131,8 @@ export default function HomeScreen() {
                 data={liveMatches}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
-                  <LiveMatchCard 
-                    match={item} 
-                    onPress={() => router.push(`/match/${item.id}`)}
+                  <LiveMatchCard
+                    match={item}
                   />
                 )}
                 showsHorizontalScrollIndicator={false}
@@ -189,7 +188,6 @@ export default function HomeScreen() {
                   <TournamentCard
                     key={tournament.id}
                     tournament={tournament}
-                    onPress={() => router.push(`/tournament/${tournament.id}`)}
                   />
                 ))}
               </View>

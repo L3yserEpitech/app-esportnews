@@ -49,7 +49,7 @@ services:
       REDIS_URL: "rediss://default:Ad7HAAIncDEzMzQ5NGJmODY3ZjI0NzFmOGU5NjBjZTE0YzhiNTU0M3AxNTcwMzE@hot-insect-57031.upstash.io:6379"
       JWT_SECRET: "your-secret-key"
       FRONTEND_URL: "http://localhost:3002"
-      PANDASCORE_API_KEY: "rwFHKSceUVggRdOXVYu-fquzUGhb-bH14D785_BuLmD_kmV_ndk"
+      LIQUIPEDIA_API_KEY: ""
     depends_on:
       postgres:
         condition: service_healthy

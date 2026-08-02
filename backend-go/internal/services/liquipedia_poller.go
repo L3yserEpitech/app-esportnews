@@ -1,0 +1,683 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"sort"
+	"sync"
+	"time"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/esportnews/backend/internal/cache"
+	"github.com/esportnews/backend/internal/models"
+)
+
+// Polling intervals — Scenario B (without webhooks, fallback).
+// Budget: 60 req/wiki/hour. Poller uses ~17 req/hour, leaving ~43 for on-demand.
+const (
+	PollIntervalMatchesRunning      = 8 * time.Minute  // ~7.5 req/hr — live data, keep reasonably frequent
+	PollIntervalMatchesUpcoming     = 20 * time.Minute // ~3 req/hr
+	PollIntervalMatchesPast         = 45 * time.Minute // ~1.3 req/hr
+	PollIntervalTournamentsRunning  = 20 * time.Minute // ~3 req/hr
+	PollIntervalTournamentsUpcoming = 30 * time.Minute // ~2 req/hr
+	PollIntervalTournamentsFinished = 90 * time.Minute // ~0.7 req/hr
+
+	// How often the poller checks dirty flags from webhooks
+	DirtyCheckInterval = 2 * time.Minute
+
+	// Webhook-driven refresh floors, set well ABOVE the blind-poll intervals so
+	// webhooks don't multiply the outbound rate on busy wikis. Every namespace-0
+	// edit marks ALL types dirty, and active wikis edit constantly — with short
+	// floors that pushed steady-state to ~360 req/h across all wikis. Our egress
+	// is a single dedicated datacenter IP whose Cloudflare reputation degrades
+	// under sustained volume (it got edge-throttled again 2026-07-27 after ~13h);
+	// keeping steady-state low (~130 req/h) is what keeps it from tripping. Live
+	// freshness stays acceptable: running matches refresh at most every 10 min.
+	DirtyCooldownMatchesRunning  = 10 * time.Minute
+	DirtyCooldownMatchesUpcoming = 25 * time.Minute
+	DirtyCooldownMatchesPast     = 50 * time.Minute
+	DirtyCooldownTournaments     = 40 * time.Minute
+
+	// Warmup: stagger between wikis at startup to avoid burst
+	WarmupStaggerInterval = 20 * time.Second // 10 wikis × 20s = ~3.3min total warmup
+	WarmupIntraDelay      = 2 * time.Second  // delay between API calls within a wiki
+)
+
+// LiqMatchQueryFields / LiqTournamentQueryFields restrict responses to the
+// json tags of models.LiqMatch / models.LiqTournament — everything else was
+// discarded at parse time anyway. Cuts matches_past payloads from ~9MB to a
+// fraction (network, Redis memory, and headroom under maxLiqResponseSize).
+const (
+	LiqMatchQueryFields      = "pageid,pagename,namespace,objectname,match2id,match2bracketid,status,winner,walkover,resulttype,finished,mode,type,section,game,patch,bestof,date,dateexact,vod,tournament,parent,tickername,shortname,series,icon,iconurl,icondark,icondarkurl,liquipediatier,liquipediatiertype,publishertier,match2opponents,match2games,stream,links,extradata,match2bracketdata"
+	LiqTournamentQueryFields = "pageid,pagename,namespace,objectname,name,shortname,tickername,banner,bannerurl,bannerdark,bannerdarkurl,icon,iconurl,icondark,icondarkurl,seriespage,serieslist,previous,previous2,next,next2,game,mode,patch,endpatch,type,organizers,startdate,enddate,sortdate,locations,prizepool,participantsnumber,liquipediatier,liquipediatiertype,publishertier,status,maps,format,sponsors,extradata"
+)
+
+// DirtyFlag tracks which data types have been modified for a given wiki.
+// Set by the WebhookHandler, consumed by the Poller.
+type DirtyFlag struct {
+	MatchesRunning  bool
+	MatchesUpcoming bool
+	MatchesPast     bool
+	Tournaments     bool
+	Teams           bool
+	LastEvent       time.Time
+}
+
+// DirtyTracker manages dirty flags per wiki, thread-safe.
+type DirtyTracker struct {
+	flags map[string]*DirtyFlag
+	mu    sync.Mutex
+}
+
+// NewDirtyTracker creates a new DirtyTracker.
+func NewDirtyTracker() *DirtyTracker {
+	return &DirtyTracker{
+		flags: make(map[string]*DirtyFlag),
+	}
+}
+
+// MarkDirty marks specific data types as dirty for a wiki, based on a webhook event.
+func (dt *DirtyTracker) MarkDirty(event models.LiquipediaWebhookEvent) {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+
+	flag, ok := dt.flags[event.Wiki]
+	if !ok {
+		flag = &DirtyFlag{}
+		dt.flags[event.Wiki] = flag
+	}
+
+	if event.Namespace == -10 {
+		// Teamtemplates namespace → team data changed
+		flag.Teams = true
+	} else {
+		// Namespace 0 = main content. We can't easily distinguish match vs tournament
+		// from the page name alone, so mark all as dirty. The cost is bounded by
+		// debounce intervals (only 1 fetch per type per interval regardless of webhook count).
+		flag.MatchesRunning = true
+		flag.MatchesUpcoming = true
+		flag.MatchesPast = true
+		flag.Tournaments = true
+	}
+	flag.LastEvent = time.Now()
+}
+
+// GetAndResetDirty returns all dirty flags and resets them atomically.
+func (dt *DirtyTracker) GetAndResetDirty() map[string]*DirtyFlag {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+
+	result := dt.flags
+	dt.flags = make(map[string]*DirtyFlag)
+	return result
+}
+
+// HasAnyDirty returns true if any wiki has dirty flags.
+func (dt *DirtyTracker) HasAnyDirty() bool {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+	return len(dt.flags) > 0
+}
+
+// dirtyRefreshGate rate-limits webhook-driven refreshes per wiki+type. Active
+// wikis emit edit/purge webhooks continuously; without a floor the consumer
+// refetched 5 types every 2min (~150 req/h/wiki) — the main quota burner.
+type dirtyRefreshGate struct {
+	mu   sync.Mutex
+	last map[string]time.Time
+}
+
+func newDirtyRefreshGate() *dirtyRefreshGate {
+	return &dirtyRefreshGate{last: make(map[string]time.Time)}
+}
+
+// Allow reports whether (wiki, typ) may refresh now, recording the time when
+// it does. cooldown is the minimum spacing between webhook-driven refreshes.
+func (g *dirtyRefreshGate) Allow(wiki, typ string, cooldown time.Duration, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	key := wiki + ":" + typ
+	if last, ok := g.last[key]; ok && now.Sub(last) < cooldown {
+		return false
+	}
+	g.last[key] = now
+	return true
+}
+
+// wikiSortedOrder returns wiki names in deterministic alphabetical order for warmup staggering.
+var wikiSortedOrder = func() []string {
+	seen := make(map[string]bool)
+	wikis := make([]string, 0, len(models.GameWikiMapping))
+	for _, wiki := range models.GameWikiMapping {
+		if !seen[wiki] {
+			seen[wiki] = true
+			wikis = append(wikis, wiki)
+		}
+	}
+	sort.Strings(wikis)
+	return wikis
+}()
+
+// LiquipediaPoller runs background goroutines that periodically fetch data
+// from Liquipedia and store it in Redis. It supports two modes:
+// 1. Polling (fallback): fetch at fixed intervals regardless of changes
+// 2. Webhook-driven (preferred): only fetch when dirty flags are set
+type LiquipediaPoller struct {
+	service      *LiquipediaService
+	warmer       *ImageWarmer
+	dirtyTracker *DirtyTracker
+	dirtyGate    *dirtyRefreshGate
+	log          *logrus.Logger
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+
+	// webhooksEnabled controls whether to use dirty-flag mode (true) or blind polling (false).
+	// Set to true once webhooks are confirmed working.
+	// Protected by webhooksMu for concurrent access from pollGame goroutines.
+	webhooksEnabled bool
+	webhooksMu      sync.RWMutex
+}
+
+// NewLiquipediaPoller creates a poller. Pass dirtyTracker from the WebhookHandler.
+func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker, warmer *ImageWarmer, logger *logrus.Logger) *LiquipediaPoller {
+	return &LiquipediaPoller{
+		service:         service,
+		warmer:          warmer,
+		dirtyTracker:    dirtyTracker,
+		dirtyGate:       newDirtyRefreshGate(),
+		log:             logger,
+		webhooksEnabled: false, // start with polling, enable webhooks when confirmed
+	}
+}
+
+// warmMatchImages extracts team/league logo URLs from a freshly-fetched match
+// payload and warms them into the shared image cache in the background, so the
+// proxy serves them as instant hits when users load pages — first visit included.
+func (p *LiquipediaPoller) warmMatchImages(ctx context.Context, data []byte, wiki string) {
+	if p.warmer == nil {
+		return
+	}
+	matches := parseAndNormalizeMatches(data, wiki, "")
+	if len(matches) == 0 {
+		return
+	}
+	urls := make([]string, 0, len(matches)*3)
+	for _, m := range matches {
+		for _, o := range m.Opponents {
+			if o.Opponent == nil {
+				continue
+			}
+			if o.Opponent.ImageURL != nil {
+				urls = append(urls, *o.Opponent.ImageURL)
+			}
+			if o.Opponent.DarkImageURL != nil {
+				urls = append(urls, *o.Opponent.DarkImageURL)
+			}
+		}
+		if m.League != nil && m.League.ImageURL != "" {
+			urls = append(urls, m.League.ImageURL)
+		}
+	}
+	p.warmer.WarmURLs(ctx, urls)
+}
+
+// SetWebhooksEnabled toggles webhook-driven mode on/off.
+func (p *LiquipediaPoller) SetWebhooksEnabled(enabled bool) {
+	p.webhooksMu.Lock()
+	defer p.webhooksMu.Unlock()
+	p.webhooksEnabled = enabled
+}
+
+// isWebhooksEnabled returns the current webhooksEnabled state (thread-safe).
+func (p *LiquipediaPoller) isWebhooksEnabled() bool {
+	p.webhooksMu.RLock()
+	defer p.webhooksMu.RUnlock()
+	return p.webhooksEnabled
+}
+
+// Start launches background polling goroutines for all known games.
+func (p *LiquipediaPoller) Start(ctx context.Context) {
+	ctx, p.cancel = context.WithCancel(ctx)
+
+	if p.service.apiKey == "" {
+		p.log.Warn("Liquipedia API key not set — poller disabled")
+		return
+	}
+
+	p.log.Info("Starting Liquipedia poller for all games")
+
+	for acronym, wiki := range models.GameWikiMapping {
+		p.wg.Add(1)
+		go p.pollGame(ctx, acronym, wiki)
+	}
+
+	// Dirty flag consumer (for webhook-driven refreshes)
+	p.wg.Add(1)
+	go p.consumeDirtyFlags(ctx)
+}
+
+// Stop gracefully shuts down all polling goroutines.
+func (p *LiquipediaPoller) Stop() {
+	if p.cancel != nil {
+		p.cancel()
+	}
+	p.wg.Wait()
+	p.log.Info("Liquipedia poller stopped")
+}
+
+// wikiIndex returns the deterministic index of a wiki in the sorted order (for warmup stagger).
+func (p *LiquipediaPoller) wikiIndex(wiki string) int {
+	for i, w := range wikiSortedOrder {
+		if w == wiki {
+			return i
+		}
+	}
+	return 0
+}
+
+// warmupWiki fetches all 6 data types for a single wiki at startup.
+// Uses 6 API calls (6/60 budget) with small delays between calls.
+func (p *LiquipediaPoller) warmupWiki(ctx context.Context, wiki string) {
+	type refreshFunc struct {
+		name string
+		fn   func(context.Context, string)
+	}
+
+	refreshFuncs := []refreshFunc{
+		{"matches_running", p.refreshMatchesRunning},
+		{"matches_upcoming", p.refreshMatchesUpcoming},
+		{"matches_past", p.refreshMatchesPast},
+		{"tournaments_running", p.refreshTournamentsRunning},
+		{"tournaments_upcoming", p.refreshTournamentsUpcoming},
+		{"tournaments_finished", p.refreshTournamentsFinished},
+	}
+
+	for _, rf := range refreshFuncs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		p.log.WithFields(logrus.Fields{
+			"wiki": wiki,
+			"type": rf.name,
+		}).Debug("Warmup: fetching")
+
+		rf.fn(ctx, wiki)
+
+		// Small delay between calls to avoid burst on same wiki
+		select {
+		case <-time.After(WarmupIntraDelay):
+		case <-ctx.Done():
+			return
+		}
+	}
+
+	p.log.WithField("wiki", wiki).Info("Warmup complete for wiki")
+}
+
+// pollGame runs a full cache warmup at startup, then tickers for each endpoint type.
+// Phase 1: Warmup — fetch all 6 data types with inter-wiki stagger (6 req/wiki).
+// Phase 2: Regular polling at reduced intervals (~17 req/wiki/hr).
+func (p *LiquipediaPoller) pollGame(ctx context.Context, acronym, wiki string) {
+	defer p.wg.Done()
+
+	p.log.WithFields(logrus.Fields{"game": acronym, "wiki": wiki}).Info("Poller started for game")
+
+	// Phase 1: Full warmup with inter-wiki stagger
+	wikiIdx := p.wikiIndex(wiki)
+	warmupDelay := time.Duration(wikiIdx) * WarmupStaggerInterval
+
+	p.log.WithFields(logrus.Fields{
+		"game":      acronym,
+		"wiki":      wiki,
+		"warmup_in": warmupDelay.String(),
+		"slot":      wikiIdx,
+	}).Info("Waiting for warmup slot")
+
+	select {
+	case <-time.After(warmupDelay):
+	case <-ctx.Done():
+		return
+	}
+
+	p.warmupWiki(ctx, wiki)
+
+	// Phase 2: Regular polling — create tickers AFTER warmup to avoid immediate re-fetch.
+	// When webhooks are enabled, tickers still fire as a safety net to guarantee
+	// cache is never empty (webhooks may not arrive for all wikis).
+	tickerRunning := time.NewTicker(PollIntervalMatchesRunning)
+	tickerUpcoming := time.NewTicker(PollIntervalMatchesUpcoming)
+	tickerPast := time.NewTicker(PollIntervalMatchesPast)
+	tickerTourRunning := time.NewTicker(PollIntervalTournamentsRunning)
+	tickerTourUpcoming := time.NewTicker(PollIntervalTournamentsUpcoming)
+	tickerTourFinished := time.NewTicker(PollIntervalTournamentsFinished)
+	defer tickerRunning.Stop()
+	defer tickerUpcoming.Stop()
+	defer tickerPast.Stop()
+	defer tickerTourRunning.Stop()
+	defer tickerTourUpcoming.Stop()
+	defer tickerTourFinished.Stop()
+
+	// Track last refresh time per type — when webhooks are enabled, only poll
+	// if the cache is about to expire (safety net, not regular polling).
+	// Credit the warmup that just ran so the first ticker fire in webhook mode
+	// doesn't immediately re-fetch what was fetched seconds ago.
+	warmupDone := time.Now()
+	lastRefresh := map[string]time.Time{
+		"matches_running":      warmupDone,
+		"matches_upcoming":     warmupDone,
+		"matches_past":         warmupDone,
+		"tournaments_running":  warmupDone,
+		"tournaments_upcoming": warmupDone,
+		"tournaments_finished": warmupDone,
+	}
+	safetyMultiplier := time.Duration(3) // poll at 3× normal interval when webhooks active
+
+	shouldRefresh := func(name string, interval time.Duration) bool {
+		if !p.isWebhooksEnabled() {
+			p.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"type": name,
+			}).Info("[POLLER] Tick fired — polling mode, will refresh")
+			return true // normal polling: always refresh on tick
+		}
+		// Safety net: refresh if last refresh was >3× the interval ago
+		last, ok := lastRefresh[name]
+		if !ok {
+			p.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"type": name,
+			}).Info("[POLLER] Tick fired — never refreshed yet, will refresh")
+			return true // never refreshed in this session
+		}
+		elapsed := time.Since(last)
+		threshold := interval * safetyMultiplier
+		if elapsed >= threshold {
+			p.log.WithFields(logrus.Fields{
+				"wiki":      wiki,
+				"type":      name,
+				"elapsed":   elapsed.Round(time.Second).String(),
+				"threshold": threshold.Round(time.Second).String(),
+			}).Info("[POLLER] Tick fired — safety net threshold reached, will refresh")
+			return true
+		}
+		p.log.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"type":      name,
+			"elapsed":   elapsed.Round(time.Second).String(),
+			"threshold": threshold.Round(time.Second).String(),
+			"next_in":   (threshold - elapsed).Round(time.Second).String(),
+		}).Debug("[POLLER] Tick fired — webhooks active, skipping (within safety window)")
+		return false
+	}
+
+	markRefreshed := func(name string) {
+		lastRefresh[name] = time.Now()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-tickerRunning.C:
+			if shouldRefresh("matches_running", PollIntervalMatchesRunning) {
+				p.refreshMatchesRunning(ctx, wiki)
+				markRefreshed("matches_running")
+			}
+
+		case <-tickerUpcoming.C:
+			if shouldRefresh("matches_upcoming", PollIntervalMatchesUpcoming) {
+				p.refreshMatchesUpcoming(ctx, wiki)
+				markRefreshed("matches_upcoming")
+			}
+
+		case <-tickerPast.C:
+			if shouldRefresh("matches_past", PollIntervalMatchesPast) {
+				p.refreshMatchesPast(ctx, wiki)
+				markRefreshed("matches_past")
+			}
+
+		case <-tickerTourRunning.C:
+			if shouldRefresh("tournaments_running", PollIntervalTournamentsRunning) {
+				p.refreshTournamentsRunning(ctx, wiki)
+				markRefreshed("tournaments_running")
+			}
+
+		case <-tickerTourUpcoming.C:
+			if shouldRefresh("tournaments_upcoming", PollIntervalTournamentsUpcoming) {
+				p.refreshTournamentsUpcoming(ctx, wiki)
+				markRefreshed("tournaments_upcoming")
+			}
+
+		case <-tickerTourFinished.C:
+			if shouldRefresh("tournaments_finished", PollIntervalTournamentsFinished) {
+				p.refreshTournamentsFinished(ctx, wiki)
+				markRefreshed("tournaments_finished")
+			}
+		}
+	}
+}
+
+// consumeDirtyFlags checks dirty flags periodically and triggers targeted refreshes.
+// This is the Scenario A (webhook-driven) path.
+func (p *LiquipediaPoller) consumeDirtyFlags(ctx context.Context) {
+	defer p.wg.Done()
+
+	ticker := time.NewTicker(DirtyCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !p.isWebhooksEnabled() {
+				p.log.Debug("[DIRTY] Check skipped — webhooks not enabled")
+				continue
+			}
+			if !p.dirtyTracker.HasAnyDirty() {
+				p.log.Debug("[DIRTY] Check — no dirty flags set")
+				continue
+			}
+
+			dirtyWikis := p.dirtyTracker.GetAndResetDirty()
+			for wiki, flags := range dirtyWikis {
+				p.log.WithFields(logrus.Fields{
+					"wiki":             wiki,
+					"matches_running":  flags.MatchesRunning,
+					"matches_upcoming": flags.MatchesUpcoming,
+					"matches_past":     flags.MatchesPast,
+					"tournaments":      flags.Tournaments,
+					"teams":            flags.Teams,
+					"last_event":       flags.LastEvent.Format("15:04:05"),
+				}).Info("[DIRTY] Consuming dirty flags — triggering targeted refresh")
+
+				now := time.Now()
+				if flags.MatchesRunning && p.dirtyGate.Allow(wiki, "matches_running", DirtyCooldownMatchesRunning, now) {
+					go p.refreshMatchesRunning(ctx, wiki)
+				}
+				if flags.MatchesUpcoming && p.dirtyGate.Allow(wiki, "matches_upcoming", DirtyCooldownMatchesUpcoming, now) {
+					go p.refreshMatchesUpcoming(ctx, wiki)
+				}
+				if flags.MatchesPast && p.dirtyGate.Allow(wiki, "matches_past", DirtyCooldownMatchesPast, now) {
+					go p.refreshMatchesPast(ctx, wiki)
+				}
+				if flags.Tournaments && p.dirtyGate.Allow(wiki, "tournaments", DirtyCooldownTournaments, now) {
+					go p.refreshTournamentsRunning(ctx, wiki)
+					go p.refreshTournamentsUpcoming(ctx, wiki)
+				}
+				if flags.Teams {
+					// Team edits (namespace -10) don't need an API refetch — just
+					// drop the cached searches so the next lookup is fresh.
+					go func(w string) {
+						delCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+						defer cancel()
+						_ = p.service.GetCache().DelPattern(delCtx, fmt.Sprintf("liq:teams:search:%s:*", w))
+					}(wiki)
+				}
+			}
+		}
+	}
+}
+
+// --- Refresh methods ---
+// Each method makes 1 API request that returns ALL items of that type for the wiki.
+// Match conditions use Liquipedia API v3 query syntax.
+
+// gameConditionSuffix scopes the shared `smash` wiki (which hosts 6 titles:
+// melee/ultimate/brawl/wiiu/pm/64) to Smash Ultimate only.
+func gameConditionSuffix(wiki string) string {
+	if wiki == "smash" {
+		return " AND [[game::ultimate]]"
+	}
+	return ""
+}
+
+func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqMatchesRunningKey(wiki)
+	now := time.Now().UTC()
+	cutoff := now.Add(6 * time.Hour).Format("2006-01-02 15:04:05")
+	pastCutoff := now.Add(-24 * time.Hour).Format("2006-01-02 15:04:05")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf(
+		"[[finished::0]] AND [[dateexact::1]] AND [[date::<%s]] AND [[date::>%s]]",
+		cutoff, pastCutoff,
+	)+gameConditionSuffix(wiki))
+	params.Set("order", "date ASC")
+	params.Set("limit", "5000")
+	params.Set("rawstreams", "true")
+	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesRunning)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
+	}
+}
+
+func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqMatchesUpcomingKey(wiki)
+	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf(
+		"[[finished::0]] AND [[dateexact::1]] AND [[date::>%s]]",
+		now,
+	)+gameConditionSuffix(wiki))
+	params.Set("order", "date ASC")
+	params.Set("limit", "5000")
+	params.Set("rawstreams", "true")
+	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesUpcoming)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
+	}
+}
+
+func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqMatchesPastKey(wiki)
+	// Last 8 days — one day past the handler's J-7 by-date lower bound, so the
+	// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
+	// the boundary). Requesting ALL finished matches would time out on their side.
+	cutoff := time.Now().UTC().Add(-8 * 24 * time.Hour).Format("2006-01-02 15:04:05")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf("[[finished::1]] AND [[date::>%s]]", cutoff)+gameConditionSuffix(wiki))
+	params.Set("order", "date DESC")
+	params.Set("limit", "5000")
+	params.Set("rawstreams", "true")
+	params.Set("streamurls", "true")
+	params.Set("query", LiqMatchQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLMatchesPast)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		go p.warmMatchImages(ctx, data, wiki)
+	}
+}
+
+func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqTournamentsRunningKey(wiki)
+	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02")
+	yesterday := time.Now().UTC().Add(-24 * time.Hour).Format("2006-01-02")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf(
+		"[[status::!finished]] AND [[startdate::<%s]] AND [[enddate::>%s]]",
+		tomorrow, yesterday,
+	)+gameConditionSuffix(wiki))
+	params.Set("order", "liquipediatier ASC, startdate ASC")
+	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsRunning)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+	}
+}
+
+func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqTournamentsUpcomingKey(wiki)
+	today := time.Now().UTC().Format("2006-01-02")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf(
+		"[[status::!finished]] AND [[startdate::>%s]]",
+		today,
+	)+gameConditionSuffix(wiki))
+	params.Set("order", "startdate ASC")
+	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsUpcoming)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+	}
+}
+
+func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki string) {
+	cacheKey := cache.LiqTournamentsFinishedKey(wiki)
+	// Last 31 days — one day past the handler's J-30 by-date lower bound, so the
+	// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
+	// the boundary). Requesting ALL finished tournaments risks timeout.
+	cutoff := time.Now().UTC().Add(-31 * 24 * time.Hour).Format("2006-01-02")
+
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff)+gameConditionSuffix(wiki))
+	params.Set("order", "enddate DESC")
+	params.Set("limit", "5000")
+	params.Set("query", LiqTournamentQueryFields)
+
+	p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "key": cacheKey}).Info("[REFRESH] Starting")
+	data, err := p.service.MakeRequest(ctx, wiki, "tournament", params, cacheKey, TTLTournamentsFinished)
+	if err != nil {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished"}).WithError(err).Warn("[REFRESH] Failed")
+	} else {
+		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+	}
+}

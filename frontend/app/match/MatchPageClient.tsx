@@ -1,20 +1,31 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useTranslations } from 'next-intl';
-import { Search, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
+import { Search, X, ChevronLeft, ChevronRight, ArrowUpDown, Check, Calendar, Trophy, Star, Swords } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import { useGame } from '../contexts/GameContext';
+import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { LiveMatch, Advertisement } from '../types';
 import { matchService } from '../services/matchService';
 import { advertisementService } from '../services/advertisementService';
-import LiveMatchCard from '../components/matches/LiveMatchCard';
+import TournamentMatchCard from '../components/tournaments/TournamentMatchCard';
+import FeaturedMatchCard from '../components/matches/FeaturedMatchCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
+import { prewarmImages, matchLogoUrls } from '../lib/imageProxy';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 // Hook pour détecter le nombre de dates visibles selon la taille d'écran
 const useVisibleDatesCount = (): number => {
@@ -53,9 +64,12 @@ const getDayName = (date: Date, locale: string): string => {
   const dayNames: { [key: string]: string[] } = {
     fr: ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'],
     en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+    es: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+    de: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+    it: ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'],
   };
-  const lang = locale.startsWith('fr') ? 'fr' : 'en';
-  return dayNames[lang][date.getDay()];
+  const lang = locale.substring(0, 2);
+  return (dayNames[lang] || dayNames['en'])[date.getDay()];
 };
 
 const getMonthName = (date: Date, locale: string): string => {
@@ -91,28 +105,40 @@ const generateDateRange = (centerDate: Date, offset: number = 0, visibleCount: n
 
 const MatchPage: React.FC = () => {
   const t = useTranslations();
+  const locale = useLocale();
   const { selectedGame, games, isLoadingGames, setSelectedGame, getSelectedGameData } = useGame();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
+
+  // Warm the image cache in parallel as soon as the match set changes.
+  useEffect(() => {
+    prewarmImages(matchLogoUrls(matches));
+  }, [matches]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubscribed] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeOffset, setDateRangeOffset] = useState(0);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Sort
+  const [sortBy, setSortBy] = useState<'-begin_at' | 'begin_at'>('-begin_at');
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   // Nombre de dates visibles selon la taille d'écran
   const visibleDatesCount = useVisibleDatesCount();
 
-  // Mémoriser les données du jeu sélectionné
-  const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
+  const selectedGameData = getSelectedGameData();
 
-  // Mémoriser les données pour éviter les re-rendus inutiles
-  const memoizedMatches = useMemo(() => matches, [matches]);
-  const memoizedAds = useMemo(() => ads, [ads]);
-  const memoizedGames = useMemo(() => games, [games]);
+  // Compteur pour forcer un rechargement (refresh manuel)
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Primitives stables pour les deps du useEffect (pas d'objets/fonctions)
+  const gameAcronym = selectedGameData?.acronym;
+  const selectedDateStr = formatDateToYYYYMMDD(selectedDate);
 
   // Générer la plage de dates (décalage basé sur le nombre de dates visibles)
   const dateRange = useMemo(
@@ -120,56 +146,60 @@ const MatchPage: React.FC = () => {
     [dateRangeOffset, visibleDatesCount]
   );
 
-  // Charger les matchs
-  const loadMatches = useCallback(async () => {
-    if (isLoadingGames || games.length === 0) {
-      console.log('[MatchPage] Games not loaded yet, skipping...');
-      return;
-    }
+  // Compteur de version pour garantir que seul le dernier fetch met à jour l'état
+  const fetchVersionRef = useRef(0);
 
+  // Unique source de chargement des matchs : réagit à date, jeu, refresh
+  useEffect(() => {
+    if (isLoadingGames || games.length === 0) return;
+
+    // Incrémenter la version — seule la dernière version pourra écrire dans le state
+    const version = ++fetchVersionRef.current;
+
+    setMatches([]);
     setLoading(true);
     setError(null);
 
-    try {
-      const gameAcronym = selectedGameData?.acronym;
-      const dateStr = formatDateToYYYYMMDD(selectedDate);
-      console.log('[MatchPage] Loading matches:', {
-        date: dateStr,
-        selectedGame,
-        gameAcronym,
-        gamesCount: games.length,
+    matchService.getMatchesByDate(selectedDateStr, gameAcronym)
+      .then(fetchedMatches => {
+        if (fetchVersionRef.current !== version) return;
+
+        const validMatches = Array.isArray(fetchedMatches)
+          ? fetchedMatches.filter(match => {
+              const hasValidTeams = match.opponents &&
+                match.opponents.length >= 2 &&
+                match.opponents[0]?.opponent?.name &&
+                match.opponents[1]?.opponent?.name;
+
+              const gameName = match.videogame?.name?.toLowerCase() || '';
+              const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
+
+              // Filtrer par date : ne garder que les matchs dont la date locale correspond
+              const matchDateRaw = match.begin_at || match.scheduled_at;
+              if (matchDateRaw) {
+                const matchLocalDate = formatDateToYYYYMMDD(new Date(matchDateRaw));
+                if (matchLocalDate !== selectedDateStr) return false;
+              }
+
+              return hasValidTeams && !isBannedGame;
+            })
+          : [];
+
+        setMatches(validMatches);
+      })
+      .catch(err => {
+        if (fetchVersionRef.current !== version) return;
+        console.error('Error loading matches:', err);
+        setError('Erreur lors du chargement des matchs');
+        setMatches([]);
+      })
+      .finally(() => {
+        if (fetchVersionRef.current === version) {
+          setLoading(false);
+        }
       });
-
-      const fetchedMatches = await matchService.getMatchesByDate(dateStr, gameAcronym);
-      console.log('[MatchPage] Fetched matches:', fetchedMatches.length);
-
-      // Filter matches to only show those with both teams defined AND exclude banned games
-      const validMatches = Array.isArray(fetchedMatches)
-        ? fetchedMatches.filter(match => {
-            // Check if match has at least 2 opponents with defined opponent data
-            const hasValidTeams = match.opponents &&
-                   match.opponents.length >= 2 &&
-                   match.opponents[0]?.opponent?.name &&
-                   match.opponents[1]?.opponent?.name;
-
-            // Exclude banned games (Mobile Legends: Bang Bang, StarCraft 2)
-            const gameName = match.videogame?.name?.toLowerCase() || '';
-            const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
-
-            return hasValidTeams && !isBannedGame;
-          })
-        : [];
-
-      console.log('[MatchPage] Valid matches (with both teams, excluding banned games):', validMatches.length);
-      setMatches(validMatches);
-    } catch (err) {
-      console.error('Error loading matches:', err);
-      setError(t('pages_detail.match.error_loading'));
-      setMatches([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate, selectedGame, selectedGameData, games, isLoadingGames, t]);
+  // Uniquement des primitives dans les deps — pas de t, pas d'objets Date
+  }, [selectedDateStr, gameAcronym, isLoadingGames, games.length, refreshKey]);
 
   // Charger les publicités
   const loadAds = useCallback(async () => {
@@ -183,14 +213,6 @@ const MatchPage: React.FC = () => {
       setIsLoadingAds(false);
     }
   }, []);
-
-  // Charger les matchs au montage du composant et quand les dépendances changent
-  useEffect(() => {
-    if (!isLoadingGames && games.length > 0) {
-      console.log('[MatchPage] Loading matches - selectedGame:', selectedGame, 'selectedDate:', selectedDate);
-      loadMatches();
-    }
-  }, [loadMatches, isLoadingGames, games.length]);
 
   // Charger les publicités au démarrage
   useEffect(() => {
@@ -215,14 +237,48 @@ const MatchPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
 
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtre strict par date sélectionnée (dernière barrière — exécuté à chaque render)
+  const dateFilteredMatches = useMemo(() => {
+    return matches.filter(match => {
+      const raw = match.begin_at || match.scheduled_at;
+      if (!raw) return false;
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return false;
+      return formatDateToYYYYMMDD(d) === selectedDateStr;
+    });
+  }, [matches, selectedDateStr]);
+
+  // Sort matches client-side
+  const sortedMatches = useMemo(() => {
+    const sorted = [...dateFilteredMatches];
+    sorted.sort((a, b) => {
+      const dateA = a.begin_at || a.scheduled_at || '';
+      const dateB = b.begin_at || b.scheduled_at || '';
+      if (sortBy === '-begin_at') return dateB.localeCompare(dateA);
+      return dateA.localeCompare(dateB);
+    });
+    return sorted;
+  }, [dateFilteredMatches, sortBy]);
+
   // Filtrer les matchs selon la recherche
   const filteredMatches = useMemo(() => {
     if (!searchQuery.trim()) {
-      return memoizedMatches;
+      return sortedMatches;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return memoizedMatches.filter((match) => {
+    return sortedMatches.filter((match) => {
       const nameMatch = match.name?.toLowerCase().includes(query);
       const slugMatch = match.slug?.toLowerCase().includes(query);
       const statusMatch = match.status?.toLowerCase().includes(query);
@@ -236,14 +292,16 @@ const MatchPage: React.FC = () => {
 
       return nameMatch || slugMatch || statusMatch || tournamentMatch || leagueMatch || gameMatch || opponentsMatch;
     });
-  }, [memoizedMatches, searchQuery]);
+  }, [sortedMatches, searchQuery]);
 
   // Mémoriser les handlers
   const handleRefresh = useCallback(() => {
-    loadMatches();
-  }, [loadMatches]);
+    setRefreshKey(k => k + 1);
+  }, []);
 
   const handleDateSelect = useCallback((date: Date) => {
+    setMatches([]);
+    setLoading(true);
     setSelectedDate(date);
   }, []);
 
@@ -255,86 +313,162 @@ const MatchPage: React.FC = () => {
     setDateRangeOffset((prev) => prev + 1);
   }, []);
 
-  // Mémoriser les skeletons pour éviter la re-création
-  const loadingSkeletons = useMemo(() =>
-    [...Array(9)].map((_, index) => (
-      <div key={`skeleton-${index}`} className="bg-bg-secondary rounded-xl border border-border-primary overflow-hidden animate-pulse">
-        <div className="h-48 bg-bg-tertiary" />
-        <div className="p-4">
-          <div className="h-4 bg-bg-tertiary rounded mb-2" />
-          <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
-          <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
-          <div className="flex justify-between">
-            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-          </div>
-        </div>
-      </div>
-    )), []);
+  // Grouper les matchs par statut : top tier, live, à venir, terminés
+  const matchesByStatus = useMemo(() => {
+    const tierOrder = ['s', 'a', 'b', 'c', 'd'];
+    const live: LiveMatch[] = [];
+    const upcoming: LiveMatch[] = [];
+    const finished: LiveMatch[] = [];
 
-  // Regrouper les matchs par jeu si aucun jeu n'est sélectionné
-  const matchesByGame = useMemo(() => {
-    if (selectedGame) return null;
-
-    const grouped = new Map<string, LiveMatch[]>();
-
-    memoizedMatches.forEach((match) => {
-      const gameName = match.videogame?.name || 'Autres';
-      const gameSlug = match.videogame?.slug || 'others';
-      const key = `${gameSlug}::${gameName}`;
-
-      if (!grouped.has(key)) {
-        grouped.set(key, []);
+    // Trouver le tier le plus haut disponible parmi les matchs du jour
+    let bestTier: string | null = null;
+    for (const tier of tierOrder) {
+      if (sortedMatches.some(m => m.tournament?.tier?.toLowerCase() === tier)) {
+        bestTier = tier;
+        break;
       }
-      grouped.get(key)!.push(match);
-    });
+    }
 
-    return grouped;
-  }, [memoizedMatches, selectedGame]);
-
-  // Mémoriser la grille des matchs
-  const matchesGrid = useMemo(() => {
-    if (!selectedGame && matchesByGame) {
-      // Mode groupé par jeu
-      return Array.from(matchesByGame.entries()).map(([key, matches]) => {
-        const [slug, gameName] = key.split('::');
-        const game = games.find(g => g.acronym === slug);
-
-        return (
-          <div key={key} className="mb-8">
-            {/* Banderole du jeu */}
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border-primary">
-              <h2 className="text-xl font-bold text-text-primary">
-                {gameName}
-              </h2>
-              <span className="ml-auto text-sm text-text-muted">
-                {matches.length} {matches.length > 1 ? 'matchs' : 'match'}
-              </span>
-            </div>
-
-            {/* Grille des matchs pour ce jeu */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {matches.map((match) => (
-                <LiveMatchCard key={match.id} match={match} showGames={true} />
-              ))}
-            </div>
-          </div>
-        );
+    // Collecter les matchs du meilleur tier
+    const topTier: LiveMatch[] = [];
+    const topTierIds = new Set<number>();
+    if (bestTier) {
+      sortedMatches.forEach((match) => {
+        if (match.tournament?.tier?.toLowerCase() === bestTier) {
+          topTier.push(match);
+          topTierIds.add(match.id);
+        }
       });
     }
 
-    // Mode normal (jeu sélectionné)
-    return memoizedMatches.map((match) => (
-      <LiveMatchCard key={match.id} match={match} showGames={true} />
-    ));
-  }, [memoizedMatches, selectedGame, matchesByGame, games]);
+    sortedMatches.forEach((match) => {
+      if (match.status === 'running') live.push(match);
+      else if (match.status === 'finished') finished.push(match);
+      else upcoming.push(match);
+    });
+
+    return { topTier, topTierLabel: bestTier?.toUpperCase() || null, live, upcoming, finished };
+  }, [sortedMatches]);
+
+  // Mémoriser la liste des matchs groupée par statut (même style de délimiteur que la page tournoi détaillé)
+  const matchesList = useMemo(() => {
+    const { topTier, topTierLabel, live, upcoming, finished } = matchesByStatus;
+    const sections: React.ReactNode[] = [];
+
+    if (topTier.length > 0 && topTierLabel) {
+      sections.push(
+        <div key="top-tier">
+          <div className="flex items-center gap-3 mb-3">
+            <Star className="w-3.5 h-3.5 text-[var(--color-tier-s)]" />
+            <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
+              Meilleurs matchs du jour
+            </span>
+            <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {topTier.length} match{topTier.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="relative">
+            <Carousel opts={{ align: 'start', loop: false }} className="w-full">
+              <CarouselContent className="-ml-3">
+                {topTier.map((match) => (
+                  <CarouselItem key={match.match2id || match.id} className="pl-3 basis-[300px] sm:basis-[360px] flex-shrink-0">
+                    <FeaturedMatchCard match={match} />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {topTier.length > 2 && (
+                <>
+                  <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 !size-10 bg-[var(--color-bg-primary)]/90 backdrop-blur-sm border border-[var(--color-border-primary)]/60 hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-accent)]/40 text-[var(--color-text-primary)] shadow-lg shadow-black/30 z-10 [&_svg]:!size-5" />
+                  <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 !size-10 bg-[var(--color-bg-primary)]/90 backdrop-blur-sm border border-[var(--color-border-primary)]/60 hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-accent)]/40 text-[var(--color-text-primary)] shadow-lg shadow-black/30 z-10 [&_svg]:!size-5" />
+                </>
+              )}
+            </Carousel>
+          </div>
+        </div>
+      );
+    }
+
+    if (live.length > 0) {
+      sections.push(
+        <div key="live">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-status-live)] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--color-status-live)]" />
+            </span>
+            <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
+              {t('pages_detail.match.card_status_live')}
+            </span>
+            <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {live.length} match{live.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {live.map((match) => (
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (upcoming.length > 0) {
+      sections.push(
+        <div key="upcoming">
+          <div className="flex items-center gap-3 mb-2">
+            <Calendar className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+            <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
+              {t('pages_detail.match.card_status_upcoming')}
+            </span>
+            <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {upcoming.length} match{upcoming.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {upcoming.map((match) => (
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (finished.length > 0) {
+      sections.push(
+        <div key="finished">
+          <div className="flex items-center gap-3 mb-2">
+            <Calendar className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+            <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
+              {t('pages_detail.match.card_status_finished')}
+            </span>
+            <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {finished.length} match{finished.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {finished.map((match) => (
+              <TournamentMatchCard key={match.match2id || match.id} match={match} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return sections;
+  }, [matchesByStatus, t]);
+
+  const memoizedAds = useMemo(() => ads, [ads]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      {/* Game Selector - Desktop seulement */}
+      {/* Game Selector - Desktop only */}
       <div className="pt-20 hidden md:block">
         <GameSelector
-          games={memoizedGames}
+          games={games}
           selectedGame={selectedGame}
           onSelectionChange={setSelectedGame}
           isLoading={isLoadingGames}
@@ -343,149 +477,189 @@ const MatchPage: React.FC = () => {
 
       {/* Layout principal avec sidebar publicitaire (desktop) */}
       <div className="pb-8 pt-20 md:pt-0">
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
-          <div className="flex gap-6">
-            {/* Contenu principal */}
-            <div className="flex-1 max-w-none">
-          {/* Titre de la page avec barre de recherche */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-2">
-                {selectedGame
-                  ? `${selectedGameData?.name || ''} - ${t('pages_detail.match.title')}`
-                  : t('pages_detail.match.title')}
-              </h1>
-              <p className="text-text-secondary text-sm">
-                {loading
-                  ? t('pages_detail.match.loading')
-                  : t('pages_detail.match.count', { count: memoizedMatches.length })}
-              </p>
-            </div>
+        <div className="container mx-auto px-4">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
 
-            {/* Barre de recherche */}
-            <button
-              onClick={() => setIsSearchModalOpen(true)}
-              className="w-full sm:w-auto sm:max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50 flex-shrink-0"
-            >
-              <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
-              <span className="text-sm">{t('pages_detail.match.search')}</span>
-              <kbd className="ml-auto hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </button>
-          </div>
+              {/* ── Header ── */}
+              <div className="pt-7 mb-3 space-y-3">
+                {/* Title */}
+                <div className="flex items-baseline gap-2.5">
+                  <h1 className="text-2xl font-bold text-text-primary tracking-tight">
+                    {t('pages_detail.match.title')}
+                  </h1>
+                  <span className="text-xs text-text-muted tabular-nums">
+                    {loading ? '···' : sortedMatches.length}
+                  </span>
+                  <LiquipediaBadge className="ml-auto self-center" />
+                </div>
 
-          {/* Calendrier de dates (responsive) */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2">
-              {/* Flèche précédent */}
-              <button
-                onClick={handlePrevRange}
-                className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
-                aria-label={t('pages_detail.match.prev_dates')}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
+                {/* Actions row: selected date + sort + search + refresh */}
+                <div className="flex items-center justify-between gap-3">
+                  {/* Left: selected date display */}
+                  <div className="flex items-center">
+                    <span className="text-xs text-[#F22E62] font-medium">
+                      {selectedDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
 
-              {/* Grille de dates - responsive */}
-              <div className="flex-1 grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 gap-2">
-                {dateRange.map((date, index) => {
-                  const isSelected =
-                    date.getDate() === selectedDate.getDate() &&
-                    date.getMonth() === selectedDate.getMonth() &&
-                    date.getFullYear() === selectedDate.getFullYear();
-                  const isTodayDate = isToday(date);
+                  {/* Right: Trier + Search + Refresh */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Trier dropdown */}
+                    <div className="relative" ref={sortRef}>
+                      <button
+                        onClick={() => setIsSortOpen(prev => !prev)}
+                        className={`flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                          isSortOpen
+                            ? 'text-[#F22E62] border-[#F22E62]/30 bg-[#F22E62]/5'
+                            : 'text-text-muted border-border-primary/20 bg-bg-secondary/30 hover:border-border-primary/50 hover:text-text-secondary'
+                        }`}
+                      >
+                        <ArrowUpDown className="w-3 h-3" />
+                        <span className="hidden sm:inline">Trier</span>
+                      </button>
 
-                  // Masquer les dates selon la taille d'écran
-                  // Mobile (< sm) : 5 dates (index 0-4)
-                  // Tablet (sm < md) : 7 dates (index 0-6)
-                  // Medium (md < lg) : 9 dates (index 0-8)
-                  // Large (lg+) : 11 dates (index 0-10)
-                  const hiddenClasses = [
-                    index >= 5 && 'hidden sm:flex',
-                    index >= 7 && 'sm:hidden md:flex',
-                    index >= 9 && 'md:hidden lg:flex'
-                  ].filter(Boolean).join(' ');
+                      {isSortOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-primary/95 backdrop-blur-md border border-border-primary/40 rounded-xl py-1.5 shadow-2xl shadow-black/30 min-w-[180px]">
+                          {([
+                            { value: '-begin_at' as const, label: 'Date (récent)' },
+                            { value: 'begin_at' as const, label: 'Date (ancien)' },
+                          ]).map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => { setSortBy(opt.value); setIsSortOpen(false); }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                                sortBy === opt.value
+                                  ? 'text-[#F22E62] bg-[#F22E62]/5'
+                                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/30'
+                              }`}
+                            >
+                              <Check className={`w-3 h-3 flex-shrink-0 ${sortBy === opt.value ? 'opacity-100' : 'opacity-0'}`} />
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  return (
+                    <div className="w-px h-4 bg-border-primary/20 mx-0.5" />
+
+                    {/* Search */}
                     <button
-                      key={index}
-                      onClick={() => handleDateSelect(date)}
-                      className={`
-                        flex flex-col items-center justify-center p-2 rounded-lg border transition-all
-                        ${hiddenClasses}
-                        ${isSelected
-                          ? 'bg-[#F22E62] text-white border-[#F22E62]'
-                          : isTodayDate
-                            ? 'bg-bg-tertiary text-text-primary border-[#F22E62]'
-                            : 'bg-bg-secondary text-text-muted border-border-primary hover:bg-bg-tertiary'
-                        }
-                      `}
+                      onClick={() => setIsSearchModalOpen(true)}
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-text-secondary rounded-lg transition-colors"
+                      title="Rechercher (⌘K)"
                     >
-                      <span className="text-xs uppercase mb-1">
-                        {getDayName(date, 'fr')}
-                      </span>
-                      <span className="text-lg font-bold">
-                        {date.getDate()}
-                      </span>
-                      <span className="text-xs capitalize">
-                        {getMonthName(date, 'fr')}
-                      </span>
+                      <Search className="w-3.5 h-3.5" />
                     </button>
-                  );
-                })}
+
+                    {/* Refresh */}
+                    <button
+                      onClick={handleRefresh}
+                      disabled={loading}
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-[#F22E62] disabled:opacity-30 rounded-lg transition-colors"
+                      title={t('pages_detail.match.refresh')}
+                    >
+                      <svg
+                        className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Flèche suivant */}
-              <button
-                onClick={handleNextRange}
-                className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
-                aria-label={t('pages_detail.match.next_dates')}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+              {/* ── Calendar ── */}
+              <div className="mb-5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevRange}
+                    className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
+                    aria-label={t('pages_detail.match.prev_dates')}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
 
-          {/* Bouton Refresh */}
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="text-sm">{t('pages_detail.match.refresh')}</span>
-            </button>
-          </div>
+                  <div className="flex-1 grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 gap-2">
+                    {dateRange.map((date, index) => {
+                      const isSelected =
+                        date.getDate() === selectedDate.getDate() &&
+                        date.getMonth() === selectedDate.getMonth() &&
+                        date.getFullYear() === selectedDate.getFullYear();
+                      const isTodayDate = isToday(date);
 
-          {/* Message d'erreur */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500">
-              {error}
-            </div>
-          )}
+                      const hiddenClasses = [
+                        index >= 5 && 'hidden sm:flex',
+                        index >= 7 && 'sm:hidden md:flex',
+                        index >= 9 && 'md:hidden lg:flex'
+                      ].filter(Boolean).join(' ');
 
-          {/* Grille des matchs */}
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {loadingSkeletons}
-            </div>
-          ) : memoizedMatches.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-text-muted text-lg">
-                {t('pages_detail.match.no_matches')}
-              </p>
-            </div>
-          ) : selectedGame ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {matchesGrid}
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {matchesGrid}
-            </div>
-          )}
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDateSelect(date)}
+                          className={`
+                            flex flex-col items-center justify-center p-2 rounded-lg border transition-all
+                            ${hiddenClasses}
+                            ${isSelected
+                              ? 'bg-[#F22E62] text-white border-[#F22E62]'
+                              : isTodayDate
+                                ? 'bg-bg-tertiary text-text-primary border-[#F22E62]'
+                                : 'bg-bg-secondary text-text-muted border-border-primary hover:bg-bg-tertiary'
+                            }
+                          `}
+                        >
+                          <span className="text-xs uppercase mb-1">
+                            {getDayName(date, locale)}
+                          </span>
+                          <span className="text-lg font-bold">
+                            {date.getDate()}
+                          </span>
+                          <span className="text-xs capitalize">
+                            {getMonthName(date, locale)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={handleNextRange}
+                    className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
+                    aria-label={t('pages_detail.match.next_dates')}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Message d'erreur */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500">
+                  {error}
+                </div>
+              )}
+
+              {/* Liste des matchs — key force React à détruire/recréer le DOM à chaque changement de date */}
+              <div key={selectedDateStr}>
+                {loading ? (
+                  <ContentLoader label={t('pages_detail.match.loading')} icon={Swords} />
+                ) : sortedMatches.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-text-muted text-lg">
+                      {t('pages_detail.match.no_matches')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {matchesList}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Colonne de publicités - Desktop uniquement */}
@@ -559,16 +733,15 @@ const MatchPage: React.FC = () => {
                 <div className="text-center">
                   <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
                   <p className="text-text-secondary text-lg mb-2">{t('pages_detail.match.search_no_results')}</p>
-                  <p className="text-text-muted text-sm">Essayez avec d'autres mots-clés</p>
+                  <p className="text-text-muted text-sm">{t('pages_detail.match.search_try_other')}</p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6">
+              <div className="space-y-1.5">
                 {filteredMatches.map((match) => (
-                  <LiveMatchCard
-                    key={match.id}
+                  <TournamentMatchCard
+                    key={match.match2id || match.id}
                     match={match}
-                    showGames={true}
                   />
                 ))}
               </div>

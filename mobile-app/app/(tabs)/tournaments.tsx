@@ -1,7 +1,6 @@
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Dimensions, TextInput } from 'react-native';
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import { Text } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { 
@@ -193,7 +192,6 @@ const TournamentsHeader = memo(({
 });
 
 export default function TournamentsScreen() {
-  const router = useRouter();
   const [status, setStatus] = useState<TournamentStatus>('running');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,7 +257,6 @@ export default function TournamentsScreen() {
         renderItem={({ item }) => (
           <TournamentCard
             tournament={item}
-            onPress={() => router.push(`/tournament/${item.id}`)}
           />
         )}
         ListHeaderComponent={<View style={{ height: 100 }} />} // Spacer for sticky header

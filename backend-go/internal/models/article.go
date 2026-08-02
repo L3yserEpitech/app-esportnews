@@ -13,25 +13,25 @@ import (
 type StringArray []string
 
 type Article struct {
-	ID             int64          `json:"id" gorm:"primaryKey"`
-	CreatedAt      time.Time      `json:"created_at" gorm:"autoCreateTime:milli"`
-	Slug           *string        `json:"slug" gorm:"uniqueIndex"`
-	Tags           StringArray    `json:"tags" gorm:"type:text[]"`
-	Title          *string        `json:"title"`
-	Views          int32          `json:"views" gorm:"default:0"`
-	Author         *string        `json:"author"`
-	Content        *string        `json:"content"`
-	Category       *string        `json:"category"`
-	Subtitle       *string        `json:"subtitle"`
-	Description    *string        `json:"description"`
-	ContentBlack   *string        `json:"content_black"`
-	ContentWhite   *string        `json:"content_white"`
-	ArticleContent *string        `json:"article_content" gorm:"column:article_content"` // Contenu HTML brut
-	FeaturedImage  *string        `json:"featuredImage" gorm:"column:featuredImage"`
-	VideoURL       *string        `json:"videoUrl" gorm:"column:videoUrl"`
-	VideoType      *string        `json:"videoType" gorm:"column:videoType"`
-	Credit         *string        `json:"credit"`
-	NotifiedAt     *time.Time     `json:"notified_at,omitempty" gorm:"column:notified_at"`
+	ID             int64       `json:"id" gorm:"primaryKey"`
+	CreatedAt      time.Time   `json:"created_at" gorm:"autoCreateTime:milli"`
+	Slug           *string     `json:"slug" gorm:"uniqueIndex"`
+	Tags           StringArray `json:"tags" gorm:"type:text[]"`
+	Title          *string     `json:"title"`
+	Views          int32       `json:"views" gorm:"default:0"`
+	Author         *string     `json:"author"`
+	Content        *string     `json:"content"`
+	Category       *string     `json:"category"`
+	Subtitle       *string     `json:"subtitle"`
+	Description    *string     `json:"description"`
+	ContentBlack   *string     `json:"content_black"`
+	ContentWhite   *string     `json:"content_white"`
+	ArticleContent *string     `json:"article_content" gorm:"column:article_content"` // Contenu HTML brut
+	FeaturedImage  *string     `json:"featuredImage" gorm:"column:featuredImage"`
+	VideoURL       *string     `json:"videoUrl" gorm:"column:videoUrl"`
+	VideoType      *string     `json:"videoType" gorm:"column:videoType"`
+	Credit         *string     `json:"credit"`
+	NotifiedAt     *time.Time  `json:"notified_at,omitempty" gorm:"column:notified_at"`
 }
 
 // TableName specifies the table name for Article

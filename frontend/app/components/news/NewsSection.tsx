@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { NewsItem } from '../../types';
 import ArticleCard from '../article/ArticleCard';
 import FeaturedArticleCard from '../article/FeaturedArticleCard';
 import Button from '../ui/Button';
-import NewsSkeleton from '../ui/NewsSkeleton';
+import ContentLoader from '../ui/ContentLoader';
+import { Newspaper } from 'lucide-react';
 
 interface NewsSectionProps {
   featuredNews?: NewsItem | null;
@@ -22,6 +24,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({
   className = ''
 }) => {
   const t = useTranslations();
+  const router = useRouter();
   const newsListArray = newsList ?? [];
 
   const formatDate = useCallback((dateString: string) => {
@@ -37,13 +40,9 @@ const NewsSection: React.FC<NewsSectionProps> = ({
     return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
   }, []);
 
-  const handleNewsClick = useCallback((slug: string) => {
-    window.location.href = `/article/${slug}`;
-  }, []);
-
   const handleViewAllClick = useCallback(() => {
-    window.location.href = '/news';
-  }, []);
+    router.push('/news');
+  }, [router]);
 
   // Mémorisation pour éviter les recalculs
   const hasNews = useMemo(() => newsListArray.length > 0 || !!featuredNews, [newsListArray.length, featuredNews]);
@@ -66,29 +65,25 @@ const NewsSection: React.FC<NewsSectionProps> = ({
         </Button>
       </div>
 
-      {/* Article en vedette */}
       {isLoading ? (
-        <NewsSkeleton variant="featured" className="w-full" />
-      ) : memoizedFeaturedNews ? (
-        <FeaturedArticleCard
-          article={memoizedFeaturedNews}
-          onClick={handleNewsClick}
-        />
-      ) : null}
+        <ContentLoader label={t('pages_detail.articles.loading')} icon={Newspaper} />
+      ) : (
+        <>
+          {/* Article en vedette */}
+          {memoizedFeaturedNews && (
+            <FeaturedArticleCard
+              article={memoizedFeaturedNews}
+            />
+          )}
 
-      {/* Liste des actualités */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {isLoading ? (
-          // Afficher 6 skeletons pendant le chargement (2 rangées × 3 colonnes)
-          Array.from({ length: 6 }).map((_, index) => (
-            <NewsSkeleton key={`skeleton-${index}`} variant="list" />
-          ))
-        ) : (
-          memoizedNewsList.map((news) => (
-            <ArticleCard key={news.id} article={news} />
-          ))
-        )}
-      </div>
+          {/* Liste des actualités */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {memoizedNewsList.map((news) => (
+              <ArticleCard key={news.id} article={news} />
+            ))}
+          </div>
+        </>
+      )}
 
       {!isLoading && !hasNews && (
         <div className="text-center py-12">

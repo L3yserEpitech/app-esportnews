@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { Button } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MatchCard } from '@/components/features';
 import { useMatches, useGame } from '@/hooks';
@@ -19,7 +18,6 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function CalendarScreen() {
-  const router = useRouter();
   const { selectedGame } = useGame();
 
   // Date picker state
@@ -44,11 +42,6 @@ export default function CalendarScreen() {
   // Handle date picker dismiss
   const onDismissDate = () => {
     setIsDatePickerOpen(false);
-  };
-
-  // Handle match press
-  const handleMatchPress = (matchId: number) => {
-    router.push(`/match/${matchId}`);
   };
 
   // Render header
@@ -136,7 +129,6 @@ export default function CalendarScreen() {
         renderItem={({ item }) => (
           <MatchCard
             match={item}
-            onPress={() => handleMatchPress(item.id)}
           />
         )}
         ListHeaderComponent={renderHeader}

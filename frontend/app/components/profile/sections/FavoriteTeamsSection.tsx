@@ -5,6 +5,7 @@ import { Search, Loader2, X, Heart } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { teamService, Team } from '@/app/services/teamService';
 import TeamSearchResult from '../TeamSearchResult';
+import ContentLoader from '../../ui/ContentLoader';
 
 export default function FavoriteTeamsSection() {
   const t = useTranslations();
@@ -203,9 +204,7 @@ export default function FavoriteTeamsSection() {
           </h3>
 
           {isLoadingFavorites ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-[#F22E62] animate-spin" />
-            </div>
+            <ContentLoader label={t('common.loading')} icon={Heart} compact />
           ) : favoriteTeams.length > 0 ? (
             <div className="space-y-2">
               {favoriteTeams.map((team) => (

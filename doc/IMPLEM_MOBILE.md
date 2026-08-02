@@ -41,7 +41,7 @@ Ce document détaille la **migration complète** de l'application web **Esport N
 - **Langage** : Go 1.22 + Echo framework
 - **Database** : PostgreSQL 15 (GORM)
 - **Cache** : Redis 7
-- **APIs Externes** : PandaScore (tournois) + SportDevs (live matches)
+- **APIs Externes** : Liquipedia API v3 (matchs, tournois, équipes, live)
 - **Déploiement** : Docker Compose local
 
 ### Périmètre de la Migration
@@ -262,7 +262,7 @@ Ce document détaille la **migration complète** de l'application web **Esport N
   - [ ] Badge "LIVE" animé
   - [ ] Bouton "Watch" → Linking.openURL
 - [ ] **LiveMatchItem** → Variant liste
-- [ ] **PandaMatchCard** → Match PandaScore
+- [ ] **MatchCard** → Match (source Liquipedia)
 
 ### 8.2 Interactions
 - [ ] Liens de stream → Ouvrir navigateur externe (`Linking.openURL`)
@@ -386,7 +386,7 @@ Ce document détaille la **migration complète** de l'application web **Esport N
 
 ### 15.1 Optimisation Images
 - [ ] Installer Expo Image (`expo-image`)
-- [ ] Configurer remote patterns (Cloudflare R2, PandaScore CDN)
+- [ ] Configurer remote patterns (Cloudflare R2, Liquipedia CDN)
 - [ ] Créer composant `OptimizedImage`
   - [ ] Lazy loading
   - [ ] Placeholder blurhash
@@ -1071,8 +1071,8 @@ Certaines phases peuvent être travaillées en parallèle pour gagner du temps :
 ### Caractéristiques Principales
 
 - 🎮 **10 jeux supportés** : Valorant, CS2, LoL, Dota 2, Overwatch, Call of Duty, Rainbow Six, Rocket League, FIFA, Wild Rift
-- 🔴 **Live matches** en temps réel (agrégation SportDevs)
-- 🏆 **Tournois structurés** (PandaScore API)
+- 🔴 **Live matches** en temps réel (agrégation Liquipedia)
+- 🏆 **Tournois structurés** (Liquipedia API v3)
 - 📰 **Actualités & articles** éditoriaux avec vidéos
 - 👤 **Profil utilisateur** avec équipes favorites
 - 🔔 **Notifications push** personnalisables
@@ -1105,8 +1105,8 @@ Certaines phases peuvent être travaillées en parallèle pour gagner du temps :
 │  │  PostgreSQL  │  │    Redis     │  │  External    │      │
 │  │   (GORM)     │  │   (cache)    │  │    APIs      │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
-│       Users            Sessions         PandaScore          │
-│       Articles         Live data        SportDevs           │
+│       Users            Sessions         Liquipedia          │
+│       Articles         Live data        API v3              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1292,8 +1292,8 @@ mobile-app/
 ├── services/                     # API clients (layer service)
 │   ├── authService.ts            # Login, signup, getMe
 │   ├── gameService.ts            # Games CRUD
-│   ├── liveMatchService.ts       # Live matches (SportDevs)
-│   ├── tournamentService.ts      # Tournaments (PandaScore)
+│   ├── liveMatchService.ts       # Live matches (Liquipedia)
+│   ├── tournamentService.ts      # Tournaments (Liquipedia)
 │   ├── matchService.ts           # Matches
 │   ├── articleService.ts         # Articles & news
 │   ├── advertisementService.ts   # Ads
@@ -2747,7 +2747,7 @@ ios: {
       NSAllowsArbitraryLoads: true, // ⚠️ Dev seulement
       // OU whitelist domaines :
       NSExceptionDomains: {
-        'cdn.pandascore.co': {
+        'liquipedia.net': {
           NSExceptionAllowsInsecureHTTPLoads: true,
         },
       },
@@ -2888,8 +2888,7 @@ npm run test:e2e:android
 
 ### Backend & APIs
 - [Backend Go README](../backend-go/README.md)
-- [PandaScore API Docs](https://developers.pandascore.co/)
-- [SportDevs API](https://sportdevs.com/docs)
+- [Liquipedia API v3](https://liquipedia.net/commons/Liquipedia:API_Usage)
 
 ### Design & UI
 - [React Native Paper](https://callstack.github.io/react-native-paper/)

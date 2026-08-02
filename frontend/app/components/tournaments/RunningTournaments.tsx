@@ -1,11 +1,31 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useGame } from '../../contexts/GameContext';
 import { tournamentService } from '../../services/tournamentService';
 import { PandaTournament } from '../../types';
 import TournamentCard from './TournamentCard';
+import ContentLoader from '../ui/ContentLoader';
+import { Trophy } from 'lucide-react';
+
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const TIER_ORDER: Record<string, number> = { s: 0, a: 1, b: 2, c: 3, d: 4 };
+
+const sortByTier = (list: PandaTournament[]): PandaTournament[] =>
+  [...list].sort((a, b) => {
+    const ta = TIER_ORDER[a.tier?.toLowerCase() || ''] ?? 9;
+    const tb = TIER_ORDER[b.tier?.toLowerCase() || ''] ?? 9;
+    if (ta !== tb) return ta - tb;
+    return new Date(a.begin_at || 0).getTime() - new Date(b.begin_at || 0).getTime();
+  });
 
 const RunningTournaments: React.FC = () => {
   const t = useTranslations();
@@ -21,16 +41,16 @@ const RunningTournaments: React.FC = () => {
   const hasMoreTournaments = useMemo(() => tournaments.length > 6, [tournaments.length]);
   const memoizedTournaments = useMemo(() => tournaments, [tournaments]);
 
-  // Fonction pour charger les tournois (d'un jeu spécifique)
-  const loadTournaments = useCallback(async (gameAcronym: string) => {
-    if (!gameAcronym) return;
-
+  // Tournois actifs à la date du jour (by-date, on-demand) — même source que
+  // la page /tournois en mode calendrier, donc cache Redis partagé.
+  const loadTournaments = useCallback(async (gameAcronym?: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      const tournamentsData = await tournamentService.getRunningTournaments(gameAcronym, 'tier');
-      setTournaments(tournamentsData);
+      const today = formatDateToYYYYMMDD(new Date());
+      const tournamentsData = await tournamentService.getTournamentsByDate(today, gameAcronym);
+      setTournaments(sortByTier(Array.isArray(tournamentsData) ? tournamentsData : []));
     } catch (err) {
       console.error('Error loading tournaments:', err);
       setError('Erreur lors du chargement des tournois');
@@ -39,21 +59,7 @@ const RunningTournaments: React.FC = () => {
     }
   }, []);
 
-  // Fonction pour charger tous les tournois (tous jeux confondus)
-  const loadAllTournaments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const tournamentsData = await tournamentService.getAllRunningTournaments('tier');
-      setTournaments(tournamentsData);
-    } catch (err) {
-      console.error('Error loading all tournaments:', err);
-      setError('Erreur lors du chargement des tournois');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadAllTournaments = useCallback(() => loadTournaments(undefined), [loadTournaments]);
 
   // Charger les tournois quand le jeu sélectionné change
   useEffect(() => {
@@ -171,27 +177,11 @@ const RunningTournaments: React.FC = () => {
       )}
 
       {loading ? (
-        // Skeleton loading
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, index) => (
-            <div key={index} className="bg-bg-secondary rounded-xl border border-border-secondary overflow-hidden animate-pulse">
-              <div className="h-48 bg-bg-tertiary" />
-              <div className="p-4">
-                <div className="h-4 bg-bg-tertiary rounded mb-2" />
-                <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
-                <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
-                <div className="flex justify-between">
-                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-                  <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <ContentLoader label={t('pages_detail.calendar.loading_tournaments')} icon={Trophy} />
       ) : memoizedTournaments.length > 0 ? (
         <div>
-          {/* Grille des tournois */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Cards horizontales — 1 colonne, 2 en très large */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {displayedTournaments.map((tournament) => (
               <TournamentCard
                 key={tournament.id}
@@ -204,15 +194,15 @@ const RunningTournaments: React.FC = () => {
           {/* Bouton "Voir tout" - Redirige vers /tournament */}
           {memoizedTournaments.length > 0 && (
             <div className="mt-8 flex justify-end">
-              <button
-                onClick={() => window.location.href = '/tournois'}
+              <Link
+                href="/tournois"
                 className="flex items-center cursor-pointer px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary text-text-secondary hover:text-text-primary rounded-lg transition-colors text-sm font-medium"
               >
                 <span>{t('pages.home.tournaments.view_all_button')}</span>
                 <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </Link>
             </div>
           )}
 

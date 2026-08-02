@@ -14,24 +14,24 @@ import (
 
 // ArticleData represents the JSON structure of articles from Supabase export
 type ArticleData struct {
-	Idx            int64          `json:"idx"`
-	ID             int64          `json:"id"`
-	CreatedAt      string         `json:"created_at"`
-	Slug           *string        `json:"slug"`
-	Tags           []string       `json:"tags"`
-	Title          *string        `json:"title"`
-	Views          int32          `json:"views"`
-	Author         *string        `json:"author"`
-	Content        *string        `json:"content"`
-	Category       *string        `json:"category"`
-	Subtitle       *string        `json:"subtitle"`
-	Description    *string        `json:"description"`
-	ContentBlack   *string        `json:"content_black"`
-	ContentWhite   *string        `json:"content_white"`
-	FeaturedImage  *string        `json:"featuredImage"`
-	VideoURL       *string        `json:"videoUrl"`
-	VideoType      *string        `json:"videoType"`
-	Credit         *string        `json:"credit"`
+	Idx           int64    `json:"idx"`
+	ID            int64    `json:"id"`
+	CreatedAt     string   `json:"created_at"`
+	Slug          *string  `json:"slug"`
+	Tags          []string `json:"tags"`
+	Title         *string  `json:"title"`
+	Views         int32    `json:"views"`
+	Author        *string  `json:"author"`
+	Content       *string  `json:"content"`
+	Category      *string  `json:"category"`
+	Subtitle      *string  `json:"subtitle"`
+	Description   *string  `json:"description"`
+	ContentBlack  *string  `json:"content_black"`
+	ContentWhite  *string  `json:"content_white"`
+	FeaturedImage *string  `json:"featuredImage"`
+	VideoURL      *string  `json:"videoUrl"`
+	VideoType     *string  `json:"videoType"`
+	Credit        *string  `json:"credit"`
 }
 
 // SeedResult contains statistics about the seeding operation
@@ -125,7 +125,7 @@ func SeedArticles(db *gorm.DB, articles []ArticleData) (*SeedResult, error) {
 			}
 		}
 
-			// Build tags array string for PostgreSQL
+		// Build tags array string for PostgreSQL
 		var tagsSQL string
 		if len(articleData.Tags) > 0 {
 			// Convert tags array to PostgreSQL format with proper escaping

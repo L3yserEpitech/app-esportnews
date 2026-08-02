@@ -1,0 +1,1081 @@
+package models
+
+import (
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// LiqMatch represents a match from the Liquipedia API v3 /match endpoint.
+// Fields are mapped directly from the Liquipedia response.
+type LiqMatch struct {
+	PageID             int    `json:"pageid"`
+	PageName           string `json:"pagename"`
+	Namespace          int    `json:"namespace"`
+	ObjectName         string `json:"objectname"`
+	Match2ID           string `json:"match2id"`
+	Match2BracketID    string `json:"match2bracketid"`
+	Status             string `json:"status"`
+	Winner             string `json:"winner"`
+	Walkover           string `json:"walkover"`
+	ResultType         string `json:"resulttype"`
+	Finished           int    `json:"finished"` // 0 or 1 (Liquipedia returns int, not bool)
+	Mode               string `json:"mode"`
+	Type               string `json:"type"`
+	Section            string `json:"section"`
+	Game               string `json:"game"`
+	Patch              string `json:"patch"`
+	BestOf             int    `json:"bestof"`
+	Date               string `json:"date"`
+	DateExact          int    `json:"dateexact"` // 0 or 1 (Liquipedia returns int, not bool)
+	Vod                string `json:"vod"`
+	Tournament         string `json:"tournament"`
+	Parent             string `json:"parent"`
+	TickerName         string `json:"tickername"`
+	ShortName          string `json:"shortname"`
+	Series             string `json:"series"`
+	Icon               string `json:"icon"`
+	IconURL            string `json:"iconurl"`
+	IconDark           string `json:"icondark"`
+	IconDarkURL        string `json:"icondarkurl"`
+	LiquipediaTier     string `json:"liquipediatier"`
+	LiquipediaTierType string `json:"liquipediatiertype"`
+	PublisherTier      string `json:"publishertier"`
+
+	// Nested JSON — pass-through to frontend
+	Match2Opponents   json.RawMessage `json:"match2opponents"`
+	Match2Games       json.RawMessage `json:"match2games"`
+	Stream            json.RawMessage `json:"stream"`
+	Links             json.RawMessage `json:"links"`
+	ExtraData         json.RawMessage `json:"extradata"`
+	Match2BracketData json.RawMessage `json:"match2bracketdata"`
+}
+
+// LiqOpponent represents a single opponent entry inside match2opponents.
+// Used for server-side filtering (checking if 2 named opponents exist).
+type LiqOpponent struct {
+	Name          string          `json:"name"`
+	Template      string          `json:"template"`
+	Score         interface{}     `json:"score"`
+	Status        string          `json:"status"`
+	Type          string          `json:"type"`
+	ID            interface{}     `json:"id"` // int from Liquipedia API (1, 2, ...)
+	Icon          string          `json:"icon"`
+	IconURL       string          `json:"iconurl"`
+	IconDark      string          `json:"icondark"`
+	IconDarkURL   string          `json:"icondarkurl"`
+	Match2Players json.RawMessage `json:"match2players"`
+}
+
+// HasTwoNamedOpponents returns true if the match has at least 2 opponents
+// with non-empty, non-TBD names. Used for filtering incomplete matches.
+func (m *LiqMatch) HasTwoNamedOpponents() bool {
+	if m.Match2Opponents == nil {
+		return false
+	}
+
+	var opponents []LiqOpponent
+	if err := json.Unmarshal(m.Match2Opponents, &opponents); err != nil {
+		return false
+	}
+
+	named := 0
+	for _, opp := range opponents {
+		if opp.Name != "" && opp.Name != "TBD" && opp.Type != "literal" {
+			named++
+		}
+	}
+	return named >= 2
+}
+
+// UniqueKey returns a deduplication key for this match.
+func (m *LiqMatch) UniqueKey() string {
+	return m.ObjectName
+}
+
+// ParsedDate parses the match date string into time.Time.
+// Liquipedia format: "YYYY-MM-DD HH:MM:SS"
+func (m *LiqMatch) ParsedDate() (time.Time, error) {
+	return time.Parse("2006-01-02 15:04:05", m.Date)
+}
+
+// --- Normalized types matching PandaMatch frontend interface ---
+
+// NormalizedMatch is the PandaMatch-shaped struct sent to the frontend.
+// It matches the TypeScript PandaMatch interface exactly.
+type NormalizedMatch struct {
+	ID                  int                     `json:"id"`
+	Name                string                  `json:"name"`
+	Slug                *string                 `json:"slug"`
+	Status              *string                 `json:"status"`
+	BeginAt             *string                 `json:"begin_at"`
+	EndAt               *string                 `json:"end_at"`
+	ScheduledAt         *string                 `json:"scheduled_at"`
+	OriginalScheduledAt *string                 `json:"original_scheduled_at"`
+	MatchType           *string                 `json:"match_type"`
+	NumberOfGames       *int                    `json:"number_of_games"`
+	Tournament          *NormalizedTournament   `json:"tournament"`
+	Opponents           []NormalizedOpponent    `json:"opponents"`
+	Results             []NormalizedMatchResult `json:"results"`
+	League              *NormalizedLeague       `json:"league"`
+	Serie               interface{}             `json:"serie"`
+	StreamsList         []NormalizedStream      `json:"streams_list"`
+	Games               []NormalizedGameEntry   `json:"games"`
+	WinnerID            *int                    `json:"winner_id"`
+	Winner              interface{}             `json:"winner"`
+	Rescheduled         bool                    `json:"rescheduled"`
+	Live                *NormalizedLive         `json:"live"`
+	Videogame           *NormalizedVideogame    `json:"videogame"`
+
+	// Extra Liquipedia fields for match detail navigation
+	Match2ID string `json:"match2id,omitempty"`
+	Wiki     string `json:"wiki,omitempty"`
+
+	// Bracket fields for tournament bracket tree
+	Section         string `json:"section,omitempty"`
+	Match2BracketID string `json:"match2bracketid,omitempty"`
+
+	// Match-level extras (Tier-1+): previously fetched but dropped.
+	Mvp   *string           `json:"mvp,omitempty"`
+	Vod   *string           `json:"vod,omitempty"`
+	Patch *string           `json:"patch,omitempty"`
+	Links map[string]string `json:"links,omitempty"`
+}
+
+// NormalizedOpponent matches the frontend PandaOpponent interface.
+type NormalizedOpponent struct {
+	ID       int                    `json:"id"`
+	Type     string                 `json:"type"`
+	Opponent *NormalizedTeamCompact `json:"opponent"`
+}
+
+// NormalizedMatchResult matches the frontend PandaMatchResult interface.
+type NormalizedMatchResult struct {
+	TeamID int `json:"team_id"`
+	Score  int `json:"score"`
+}
+
+// NormalizedStream matches the frontend PandaStream interface.
+type NormalizedStream struct {
+	Main     bool   `json:"main"`
+	Language string `json:"language"`
+	EmbedURL string `json:"embed_url"`
+	Official bool   `json:"official"`
+	RawURL   string `json:"raw_url"`
+}
+
+// NormalizedGameEntry matches the frontend PandaGame interface.
+type NormalizedGameEntry struct {
+	Complete      bool            `json:"complete"`
+	ID            int             `json:"id"`
+	Position      int             `json:"position"`
+	Status        string          `json:"status"`
+	Length        *int            `json:"length"`
+	Finished      bool            `json:"finished"`
+	BeginAt       *string         `json:"begin_at"`
+	DetailedStats bool            `json:"detailed_stats"`
+	EndAt         *string         `json:"end_at"`
+	Forfeit       bool            `json:"forfeit"`
+	MatchID       int             `json:"match_id"`
+	WinnerType    string          `json:"winner_type"`
+	Winner        json.RawMessage `json:"winner"`
+	Map           string          `json:"map,omitempty"`
+	Scores        []int           `json:"scores,omitempty"`
+
+	Participants []NormalizedParticipant `json:"participants,omitempty"`
+	ExtraData    map[string]interface{}  `json:"extradata,omitempty"`
+}
+
+// NormalizedParticipant is a per-player, per-game stat line. Common fields are
+// normalized; game-specific stats (acs, adr, kast, hs, firstKills…) land in Extra.
+type NormalizedParticipant struct {
+	Player    string                 `json:"player"`
+	Character string                 `json:"character,omitempty"` // champion / agent / hero
+	Role      string                 `json:"role,omitempty"`
+	Team      int                    `json:"team,omitempty"` // 1 or 2, from the "team_slot" key
+	Kills     *int                   `json:"kills,omitempty"`
+	Deaths    *int                   `json:"deaths,omitempty"`
+	Assists   *int                   `json:"assists,omitempty"`
+	Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+// NormalizedLive represents the live status embedded in a match.
+type NormalizedLive struct {
+	Supported bool    `json:"supported"`
+	URL       *string `json:"url"`
+	OpensAt   *string `json:"opens_at"`
+}
+
+// NormalizeLiqMatch converts a raw Liquipedia match to a PandaMatch-compatible struct.
+// wiki is the Liquipedia wiki name (e.g. "valorant").
+// statusHint, if non-empty, forces the match status (e.g. "running", "not_started", "finished").
+func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMatch {
+	status := computeMatchStatus(m, statusHint)
+
+	// Convert date "YYYY-MM-DD HH:MM:SS" → ISO 8601 "YYYY-MM-DDTHH:MM:SSZ"
+	var beginAt *string
+	if m.Date != "" {
+		iso := strings.ReplaceAll(m.Date, " ", "T") + "Z"
+		beginAt = &iso
+	}
+
+	// Best of → number_of_games
+	var numGames *int
+	if m.BestOf > 0 {
+		bo := m.BestOf
+		numGames = &bo
+	}
+
+	slug := pageNameToSlug(m.ObjectName)
+
+	// Name: prefer tickername for display
+	name := m.TickerName
+	if name == "" {
+		name = m.ShortName
+	}
+	if name == "" {
+		name = m.ObjectName
+	}
+
+	// Videogame from wiki
+	var vg *NormalizedVideogame
+	if wiki != "" {
+		vgID := videogameIDMap[wiki]
+		vgName := videogameNameMap[wiki]
+		vgSlug := videogameSlugMap[wiki]
+		if vgName == "" {
+			vgName = wiki
+		}
+		if vgSlug == "" {
+			vgSlug = wiki
+		}
+		vg = &NormalizedVideogame{ID: vgID, Name: vgName, Slug: vgSlug}
+	}
+
+	// Opponents and results
+	opponents, results := normalizeMatchOpponents(m.Match2Opponents, wiki)
+
+	// Streams
+	streams := normalizeMatchStreams(m.Stream)
+
+	// Games (needs opponents for winner mapping)
+	games := normalizeMatchGames(m.Match2Games, m.PageID, opponents)
+
+	// Tournament reference
+	tournament := buildMatchTournament(m, vg)
+
+	// League (derived from series/parent)
+	league := buildMatchLeague(m, wiki)
+
+	// Winner
+	var winnerID *int
+	var winner interface{}
+	if m.Winner != "" && m.Winner != "0" && m.Finished == 1 {
+		idx := 0
+		if m.Winner == "2" {
+			idx = 1
+		}
+		if idx < len(opponents) && opponents[idx].Opponent != nil {
+			wid := opponents[idx].Opponent.ID
+			winnerID = &wid
+			winner = map[string]interface{}{
+				"id":   wid,
+				"type": "team",
+				"name": opponents[idx].Opponent.Name,
+			}
+		}
+	}
+
+	// Live status
+	var live *NormalizedLive
+	if status == "running" {
+		supported := len(streams) > 0
+		var liveURL *string
+		if len(streams) > 0 {
+			liveURL = &streams[0].RawURL
+		}
+		live = &NormalizedLive{
+			Supported: supported,
+			URL:       liveURL,
+		}
+	}
+
+	// Fix #6: EndAt — estimate from game durations for finished matches, else same as beginAt
+	var endAt *string
+	if m.Finished == 1 && beginAt != nil {
+		endAt = estimateEndAt(*beginAt, games)
+	}
+
+	// Fix #7: match_type from BestOf (e.g. "best_of_3")
+	var matchType *string
+	if m.BestOf > 0 {
+		mt := fmt.Sprintf("best_of_%d", m.BestOf)
+		matchType = &mt
+	}
+
+	// Fix #8: Serie from Series/Parent
+	var serie interface{}
+	if m.Series != "" {
+		serie = map[string]interface{}{
+			"id":        hashStringToInt(m.Series),
+			"name":      m.Series,
+			"slug":      pageNameToSlug(m.Series),
+			"full_name": m.Series,
+		}
+	}
+
+	// Match-level extras
+	var vod *string
+	if m.Vod != "" {
+		v := m.Vod
+		vod = &v
+	}
+	var patch *string
+	if m.Patch != "" {
+		p := m.Patch
+		patch = &p
+	}
+	var mvp *string
+	if len(m.ExtraData) > 0 {
+		var ed map[string]interface{}
+		if json.Unmarshal(m.ExtraData, &ed) == nil {
+			if s, ok := ed["mvp"].(string); ok && s != "" {
+				mvp = &s
+			}
+		}
+	}
+	var links map[string]string
+	if len(m.Links) > 0 {
+		var lm map[string]interface{}
+		if json.Unmarshal(m.Links, &lm) == nil && len(lm) > 0 {
+			links = make(map[string]string, len(lm))
+			for k, v := range lm {
+				if s, ok := v.(string); ok && s != "" {
+					links[k] = s
+				}
+			}
+			if len(links) == 0 {
+				links = nil
+			}
+		}
+	}
+
+	return NormalizedMatch{
+		ID:              m.PageID,
+		Name:            name,
+		Slug:            &slug,
+		Status:          &status,
+		BeginAt:         beginAt,
+		EndAt:           endAt,
+		ScheduledAt:     beginAt,
+		MatchType:       matchType,
+		NumberOfGames:   numGames,
+		Tournament:      tournament,
+		Opponents:       opponents,
+		Results:         results,
+		League:          league,
+		Serie:           serie,
+		StreamsList:     streams,
+		Games:           games,
+		WinnerID:        winnerID,
+		Winner:          winner,
+		Live:            live,
+		Videogame:       vg,
+		Match2ID:        m.Match2ID,
+		Wiki:            wiki,
+		Section:         m.Section,
+		Match2BracketID: m.Match2BracketID,
+		Mvp:             mvp,
+		Vod:             vod,
+		Patch:           patch,
+		Links:           links,
+	}
+}
+
+// NormalizeLiqMatches normalizes a slice of LiqMatch with deduplication.
+func NormalizeLiqMatches(matches []LiqMatch, wiki string, statusHint string) []NormalizedMatch {
+	result := make([]NormalizedMatch, 0, len(matches))
+	seen := make(map[string]bool)
+	for _, m := range matches {
+		key := m.UniqueKey()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if !m.HasTwoNamedOpponents() {
+			continue
+		}
+		result = append(result, NormalizeLiqMatch(m, wiki, statusHint))
+	}
+	return result
+}
+
+// computeMatchStatus determines the match status for the frontend.
+func computeMatchStatus(m LiqMatch, hint string) string {
+	if hint != "" {
+		return hint
+	}
+	if m.Finished == 1 {
+		return "finished"
+	}
+	t, err := m.ParsedDate()
+	if err != nil {
+		return "not_started"
+	}
+	if t.Before(time.Now().UTC()) {
+		return "running"
+	}
+	return "not_started"
+}
+
+// --- Opponent normalization ---
+
+// liquipediaFileDirectURL computes the static file URL for a commons filename.
+// Special:FilePath would work too, but it's a MediaWiki PHP redirect (302) —
+// slow and heavier on their infra. The static path is deterministic: MediaWiki
+// shards files by md5 of the underscored filename ({h[0]}/{h[0:2]}/{name}).
+func liquipediaFileDirectURL(filename string) string {
+	name := strings.ReplaceAll(strings.TrimSpace(filename), " ", "_")
+	if name == "" {
+		return ""
+	}
+	sum := md5.Sum([]byte(name))
+	h := hex.EncodeToString(sum[:])
+	return "https://liquipedia.net/commons/images/" + h[:1] + "/" + h[:2] + "/" + url.PathEscape(name)
+}
+
+// liquipediaFileThumbURL returns the MediaWiki thumbnail URL (~20× lighter than
+// the full file for a logo rendered at 44-96px). Only raster formats: SVG/GIF
+// thumbs use a different naming scheme, so those fall back to the full file.
+// The image proxy retries the original URL if a thumb ever 404s.
+func liquipediaFileThumbURL(filename string, width int, wiki string) string {
+	name := strings.ReplaceAll(strings.TrimSpace(filename), " ", "_")
+	lower := strings.ToLower(name)
+	if name == "" || !(strings.HasSuffix(lower, ".png") || strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg")) {
+		return liquipediaFileDirectURL(filename)
+	}
+	sum := md5.Sum([]byte(name))
+	h := hex.EncodeToString(sum[:])
+	u := fmt.Sprintf("https://liquipedia.net/commons/images/thumb/%s/%s/%s/%dpx-%s",
+		h[:1], h[:2], url.PathEscape(name), width, url.PathEscape(name))
+	// Some files live on the game wiki instead of commons; the proxy uses this
+	// hint for its Special:FilePath fallback.
+	if wiki != "" {
+		u += "?w=" + url.QueryEscape(wiki)
+	}
+	return u
+}
+
+// normalizeMatchOpponents parses match2opponents JSON into PandaOpponent[] and PandaMatchResult[].
+func normalizeMatchOpponents(raw json.RawMessage, wiki string) ([]NormalizedOpponent, []NormalizedMatchResult) {
+	if raw == nil {
+		return []NormalizedOpponent{}, []NormalizedMatchResult{}
+	}
+
+	var opponents []LiqOpponent
+	if err := json.Unmarshal(raw, &opponents); err != nil {
+		return []NormalizedOpponent{}, []NormalizedMatchResult{}
+	}
+
+	normalized := make([]NormalizedOpponent, 0, len(opponents))
+	results := make([]NormalizedMatchResult, 0, len(opponents))
+
+	for _, opp := range opponents {
+		teamID := hashStringToInt(opp.Name)
+		if teamID == 0 {
+			teamID = hashStringToInt(opp.Template)
+		}
+
+		var acronym *string
+		if opp.Template != "" {
+			a := strings.ToUpper(opp.Template)
+			acronym = &a
+		}
+
+		// Resolve light and dark image URLs separately.
+		// Liquipedia match opponents often only have an "icon" filename (no icondarkurl).
+		// We derive the dark variant from the naming convention:
+		//   *lightmode.png  → replace with *darkmode.png
+		//   *allmode.png    → same URL works for both themes
+		var imageURL *string
+		var darkImageURL *string
+		if opp.IconURL != "" {
+			imageURL = &opp.IconURL
+		} else if opp.Icon != "" {
+			u := liquipediaFileThumbURL(opp.Icon, 100, wiki)
+			imageURL = &u
+		}
+		if opp.IconDarkURL != "" {
+			darkImageURL = &opp.IconDarkURL
+		} else if opp.IconDark != "" {
+			u := liquipediaFileThumbURL(opp.IconDark, 100, wiki)
+			darkImageURL = &u
+		} else if opp.Icon != "" && strings.Contains(strings.ToLower(opp.Icon), "lightmode") {
+			// Derive dark icon from light icon filename convention
+			darkName := strings.Replace(opp.Icon, "lightmode", "darkmode", 1)
+			darkName = strings.Replace(darkName, "Lightmode", "Darkmode", 1)
+			u := liquipediaFileThumbURL(darkName, 100, wiki)
+			darkImageURL = &u
+		}
+		// If no light URL but dark exists, use dark as fallback
+		if imageURL == nil && darkImageURL != nil {
+			imageURL = darkImageURL
+		}
+
+		team := &NormalizedTeamCompact{
+			ID:           teamID,
+			Name:         opp.Name,
+			Slug:         pageNameToSlug(opp.Name),
+			Acronym:      acronym,
+			ImageURL:     imageURL,
+			DarkImageURL: darkImageURL,
+			Template:     opp.Template,
+		}
+
+		normalized = append(normalized, NormalizedOpponent{
+			ID:       teamID,
+			Type:     opp.Type,
+			Opponent: team,
+		})
+
+		score := parseScore(opp.Score)
+		results = append(results, NormalizedMatchResult{
+			TeamID: teamID,
+			Score:  score,
+		})
+	}
+
+	return normalized, results
+}
+
+// --- Stream normalization ---
+
+// normalizeMatchStreams parses the stream JSON into PandaStream[].
+// With rawstreams=true&streamurls=true, the stream field is a map of platform → URL.
+func normalizeMatchStreams(raw json.RawMessage) []NormalizedStream {
+	if raw == nil || len(raw) == 0 || string(raw) == "null" || string(raw) == "{}" {
+		return []NormalizedStream{}
+	}
+
+	var streamMap map[string]interface{}
+	if err := json.Unmarshal(raw, &streamMap); err != nil {
+		return []NormalizedStream{}
+	}
+
+	// Priority platforms for main stream designation
+	priorityPlatforms := []string{"twitch", "youtube", "twitch2", "twitch3", "afreecatv"}
+	streams := make([]NormalizedStream, 0, len(streamMap))
+	added := make(map[string]bool)
+
+	// Add priority platforms first
+	for _, platform := range priorityPlatforms {
+		if val, ok := streamMap[platform]; ok {
+			s := buildNormalizedStream(platform, val, len(streams) == 0)
+			if s != nil {
+				streams = append(streams, *s)
+				added[platform] = true
+			}
+		}
+	}
+
+	// Add remaining platforms
+	for platform, val := range streamMap {
+		if added[platform] {
+			continue
+		}
+		s := buildNormalizedStream(platform, val, len(streams) == 0)
+		if s != nil {
+			streams = append(streams, *s)
+		}
+	}
+
+	return streams
+}
+
+func buildNormalizedStream(platform string, val interface{}, isMain bool) *NormalizedStream {
+	rawVal := fmt.Sprintf("%v", val)
+	if rawVal == "" || rawVal == "<nil>" {
+		return nil
+	}
+
+	// Build full URL if the value is not already a URL
+	rawURL := rawVal
+	if !strings.HasPrefix(rawVal, "http") {
+		rawURL = buildStreamProviderURL(platform, rawVal)
+	}
+
+	if rawURL == "" {
+		return nil
+	}
+
+	embedURL := buildStreamEmbedURL(platform, rawVal)
+
+	return &NormalizedStream{
+		Main:     isMain,
+		Language: "",
+		EmbedURL: embedURL,
+		Official: true,
+		RawURL:   rawURL,
+	}
+}
+
+// buildStreamProviderURL constructs a full stream URL from platform and channel/ID.
+func buildStreamProviderURL(platform, value string) string {
+	switch strings.ToLower(platform) {
+	case "twitch", "twitch2", "twitch3":
+		return "https://www.twitch.tv/" + value
+	case "youtube":
+		return "https://www.youtube.com/watch?v=" + value
+	case "afreecatv":
+		return "https://play.afreecatv.com/" + value
+	case "facebook":
+		return "https://www.facebook.com/" + value
+	case "bilibili":
+		return "https://live.bilibili.com/" + value
+	case "trovo":
+		return "https://trovo.live/" + value
+	default:
+		return value
+	}
+}
+
+// buildStreamEmbedURL constructs an embed URL for supported platforms.
+func buildStreamEmbedURL(platform, rawVal string) string {
+	switch strings.ToLower(platform) {
+	case "twitch", "twitch2", "twitch3":
+		channel := rawVal
+		if strings.HasPrefix(rawVal, "http") {
+			parts := strings.Split(strings.TrimRight(rawVal, "/"), "/")
+			channel = parts[len(parts)-1]
+		}
+		// Fix #19: Don't hardcode parent — frontend sets it dynamically via window.location.hostname
+		return "https://player.twitch.tv/?channel=" + channel
+	case "youtube":
+		videoID := rawVal
+		if strings.Contains(rawVal, "watch?v=") {
+			parts := strings.Split(rawVal, "watch?v=")
+			if len(parts) > 1 {
+				videoID = strings.Split(parts[1], "&")[0]
+			}
+		} else if strings.Contains(rawVal, "/live/") {
+			parts := strings.Split(rawVal, "/live/")
+			if len(parts) > 1 {
+				videoID = parts[1]
+			}
+		}
+		return "https://www.youtube.com/embed/" + videoID
+	default:
+		return ""
+	}
+}
+
+// --- Game normalization ---
+
+// normalizeMatchGames parses match2games JSON into PandaGame[].
+func normalizeMatchGames(raw json.RawMessage, matchPageID int, opponents []NormalizedOpponent) []NormalizedGameEntry {
+	if raw == nil || len(raw) == 0 || string(raw) == "null" || string(raw) == "[]" {
+		return []NormalizedGameEntry{}
+	}
+
+	var rawGames []json.RawMessage
+	if err := json.Unmarshal(raw, &rawGames); err != nil {
+		return []NormalizedGameEntry{}
+	}
+
+	games := make([]NormalizedGameEntry, 0, len(rawGames))
+	for i, rawGame := range rawGames {
+		var gameData map[string]interface{}
+		if err := json.Unmarshal(rawGame, &gameData); err != nil {
+			continue
+		}
+
+		// Liquipedia sends finished as bool, number or string depending on the wiki.
+		finished := false
+		switch v := gameData["finished"].(type) {
+		case bool:
+			finished = v
+		case float64:
+			finished = v == 1
+		case string:
+			finished = v == "1" || v == "true" || v == "t"
+		}
+
+		// Map winner index ("1"/"2") to team ID via opponents
+		winnerStr := ""
+		if v, ok := gameData["winner"].(string); ok {
+			winnerStr = v
+		}
+
+		// A declared winner means the game was played even when finished is unset.
+		if winnerStr == "1" || winnerStr == "2" {
+			finished = true
+		}
+
+		status := "not_started"
+		if finished {
+			status = "finished"
+		}
+
+		var winnerJSON json.RawMessage
+		if winnerStr == "1" && len(opponents) > 0 && opponents[0].Opponent != nil {
+			winnerJSON = json.RawMessage(fmt.Sprintf(`{"id":%d,"type":"team"}`, opponents[0].Opponent.ID))
+		} else if winnerStr == "2" && len(opponents) > 1 && opponents[1].Opponent != nil {
+			winnerJSON = json.RawMessage(fmt.Sprintf(`{"id":%d,"type":"team"}`, opponents[1].Opponent.ID))
+		} else {
+			winnerJSON = json.RawMessage(`{"id":null,"type":"team"}`)
+		}
+
+		// Extract map name
+		mapName := ""
+		if v, ok := gameData["map"].(string); ok {
+			mapName = v
+		}
+
+		// Extract scores array (Liquipedia sends scores as ["2","1"] or [2,1])
+		var scores []int
+		if rawScores, ok := gameData["scores"].([]interface{}); ok {
+			for _, s := range rawScores {
+				switch sv := s.(type) {
+				case float64:
+					scores = append(scores, int(sv))
+				case string:
+					if n, err := strconv.Atoi(sv); err == nil {
+						scores = append(scores, n)
+					}
+				}
+			}
+		}
+
+		// Extract length (duration in seconds)
+		var length *int
+		if v, ok := gameData["length"].(float64); ok && v > 0 {
+			l := int(v)
+			length = &l
+		} else if v, ok := gameData["length"].(string); ok {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				length = &n
+			}
+		}
+
+		// Per-player participants (KDA + game-specific stats) and the game's
+		// draft/extradata — game-agnostic pass-through (Phase 0).
+		var participants []NormalizedParticipant
+		if praw, ok := gameData["participants"]; ok {
+			participants = normalizeGameParticipants(praw)
+		}
+		// Smash (solo-player wiki) leaves the flat participants map empty and stores
+		// per-player character/stock data under opponents[].players[].
+		if len(participants) == 0 {
+			if oraw, ok := gameData["opponents"]; ok {
+				participants = normalizeGameOpponentPlayers(oraw)
+			}
+		}
+		var gameExtra map[string]interface{}
+		if e, ok := gameData["extradata"].(map[string]interface{}); ok && len(e) > 0 {
+			gameExtra = e
+		}
+
+		games = append(games, NormalizedGameEntry{
+			Complete:     finished,
+			ID:           matchPageID*100 + i + 1,
+			Position:     i + 1,
+			Status:       status,
+			Length:       length,
+			Finished:     finished,
+			MatchID:      matchPageID,
+			WinnerType:   "team",
+			Winner:       winnerJSON,
+			Map:          mapName,
+			Scores:       scores,
+			Participants: participants,
+			ExtraData:    gameExtra,
+		})
+	}
+
+	return games
+}
+
+// --- Tournament/League builders for match context ---
+
+// buildMatchTournament creates a NormalizedTournament from match metadata.
+func buildMatchTournament(m LiqMatch, vg *NormalizedVideogame) *NormalizedTournament {
+	name := m.TickerName
+	if name == "" {
+		name = m.ShortName
+	}
+	if name == "" {
+		name = m.Tournament
+	}
+	if name == "" {
+		name = m.Parent
+	}
+
+	tier := mapLiquipediaTier(m.LiquipediaTier)
+
+	return &NormalizedTournament{
+		ID:             hashStringToInt(m.Tournament),
+		Name:           name,
+		Slug:           pageNameToSlug(m.Tournament),
+		Tier:           tier,
+		Videogame:      vg,
+		Teams:          []NormalizedTeamCompact{},
+		Matches:        []NormalizedMatchCompact{},
+		ExpectedRoster: []interface{}{},
+		IconURL:        m.IconURL,
+		IconDarkURL:    m.IconDarkURL,
+	}
+}
+
+// buildMatchLeague creates a NormalizedLeague from match series/parent data.
+// Fix #11: wiki parameter used to build Liquipedia URL for the league.
+// Fix #12: League ID uses hash of series name, not tournament PageID.
+func buildMatchLeague(m LiqMatch, wiki string) *NormalizedLeague {
+	if m.Series == "" && m.Parent == "" {
+		return nil
+	}
+
+	name := m.Series
+	if name == "" {
+		name = m.Parent
+	}
+
+	var leagueURL *string
+	if wiki != "" {
+		u := "https://liquipedia.net/" + wiki + "/" + strings.ReplaceAll(name, " ", "_")
+		leagueURL = &u
+	}
+
+	return &NormalizedLeague{
+		ID:       hashStringToInt(name),
+		Name:     name,
+		URL:      leagueURL,
+		Slug:     pageNameToSlug(name),
+		ImageURL: m.IconURL,
+	}
+}
+
+// --- Helpers ---
+
+// estimateEndAt computes an end time for a finished match.
+// If games have length data, it sums them and adds to beginAt.
+// Otherwise, falls back to beginAt (at least signals the match ended).
+func estimateEndAt(beginAt string, games []NormalizedGameEntry) *string {
+	t, err := time.Parse(time.RFC3339, beginAt)
+	if err != nil {
+		return &beginAt
+	}
+
+	var totalSeconds int
+	for _, g := range games {
+		if g.Length != nil && *g.Length > 0 {
+			totalSeconds += *g.Length
+		}
+	}
+
+	if totalSeconds > 0 {
+		endTime := t.Add(time.Duration(totalSeconds) * time.Second)
+		iso := endTime.Format(time.RFC3339)
+		return &iso
+	}
+
+	// No duration data — return beginAt as fallback
+	return &beginAt
+}
+
+// parseScore converts a score value (string or number) to int.
+// Liquipedia uses -1 to indicate "no score yet"; we clamp to 0.
+func parseScore(v interface{}) int {
+	var score int
+	switch s := v.(type) {
+	case float64:
+		score = int(s)
+	case string:
+		if n, err := strconv.Atoi(s); err == nil {
+			score = n
+		}
+	case json.Number:
+		if n, err := s.Int64(); err == nil {
+			score = int(n)
+		}
+	}
+	if score < 0 {
+		return 0
+	}
+	return score
+}
+
+// participantStdKeys are the keys consumed into typed NormalizedParticipant
+// fields; everything else on a participant goes into Extra.
+var participantStdKeys = map[string]bool{
+	"player": true, "displayName": true, "displayname": true,
+	"character": true, "agent": true, "champion": true, "hero": true,
+	"role": true, "kills": true, "deaths": true, "assists": true,
+}
+
+// flexInt parses a value Liquipedia may send as string or number into *int.
+func flexInt(v interface{}) *int {
+	switch n := v.(type) {
+	case float64:
+		i := int(n)
+		return &i
+	case string:
+		if i, err := strconv.Atoi(n); err == nil {
+			return &i
+		}
+	case json.Number:
+		if i, err := n.Int64(); err == nil {
+			x := int(i)
+			return &x
+		}
+	}
+	return nil
+}
+
+// firstString returns the first non-empty string value among the given keys.
+func firstString(m map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if s, ok := m[k].(string); ok && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// normalizeGameParticipants turns a match2games[].participants object
+// ({"1_1": {...}, "2_3": {...}}) into normalized stat lines. Empty placeholder
+// entries (live matches) are skipped.
+func normalizeGameParticipants(raw interface{}) []NormalizedParticipant {
+	m, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]NormalizedParticipant, 0, len(m))
+	for key, val := range m {
+		pm, ok := val.(map[string]interface{})
+		if !ok || len(pm) == 0 {
+			continue
+		}
+		p := NormalizedParticipant{}
+		if idx := strings.Index(key, "_"); idx > 0 {
+			if t, err := strconv.Atoi(key[:idx]); err == nil {
+				p.Team = t
+			}
+		}
+		p.Player = firstString(pm, "player", "displayName", "displayname")
+		p.Character = firstString(pm, "character", "agent", "champion", "hero")
+		p.Role = firstString(pm, "role")
+		p.Kills = flexInt(pm["kills"])
+		p.Deaths = flexInt(pm["deaths"])
+		p.Assists = flexInt(pm["assists"])
+
+		extra := map[string]interface{}{}
+		for k, v := range pm {
+			if !participantStdKeys[k] {
+				extra[k] = v
+			}
+		}
+		if len(extra) > 0 {
+			p.Extra = extra
+		}
+
+		// Skip empty placeholders (live matches have keys with no real data).
+		if p.Player == "" && p.Character == "" && p.Kills == nil && p.Deaths == nil && p.Assists == nil && p.Extra == nil {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// statusAlive reports whether a Smash character/stock status means "alive" (1).
+func statusAlive(v interface{}) bool {
+	switch s := v.(type) {
+	case float64:
+		return s == 1
+	case string:
+		return s == "1"
+	case json.Number:
+		n, _ := s.Int64()
+		return n == 1
+	}
+	return false
+}
+
+// statusKnown reports whether a stock status is definitive (alive or lost, not unknown).
+func statusKnown(v interface{}) bool {
+	switch s := v.(type) {
+	case float64:
+		return s == 0 || s == 1
+	case string:
+		return s == "0" || s == "1"
+	case json.Number:
+		n, _ := s.Int64()
+		return n == 0 || n == 1
+	}
+	return false
+}
+
+// normalizeGameOpponentPlayers parses match2games[].opponents[].players[] (the
+// Smash structure) into per-player stat lines: character + remaining stocks.
+// Team is the 1-based opponent index. Used when the flat participants map is empty.
+func normalizeGameOpponentPlayers(raw interface{}) []NormalizedParticipant {
+	opps, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]NormalizedParticipant, 0, len(opps))
+	for oppIdx, o := range opps {
+		om, ok := o.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		players, ok := om["players"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, pl := range players {
+			pm, ok := pl.(map[string]interface{})
+			if !ok || len(pm) == 0 {
+				continue
+			}
+			name := firstString(pm, "player", "displayname", "displayName", "name")
+			chars, _ := pm["characters"].([]interface{})
+			fighter := ""
+			alive, known := 0, 0
+			for _, c := range chars {
+				cm, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if fighter == "" {
+					fighter = firstString(cm, "name")
+				}
+				st := cm["status"]
+				if statusAlive(st) {
+					alive++
+				}
+				if statusKnown(st) {
+					known++
+				}
+			}
+			if name == "" && fighter == "" {
+				continue
+			}
+			p := NormalizedParticipant{
+				Player:    name,
+				Character: fighter,
+				Team:      oppIdx + 1,
+			}
+			if known > 0 {
+				p.Extra = map[string]interface{}{"stocks": alive}
+			}
+			out = append(out, p)
+		}
+	}
+	return out
+}

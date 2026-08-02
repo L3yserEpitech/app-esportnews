@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, Check, Trophy } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import { useGame } from '../contexts/GameContext';
+import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
+import { tournamentService } from '../services/tournamentService';
+import { prewarmFromData } from '../lib/imageProxy';
 import TournamentCard from '../components/tournaments/TournamentCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
@@ -15,75 +19,168 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+// --- Date utilities (from MatchPageClient) ---
+
+const useVisibleDatesCount = (): number => {
+  const [count, setCount] = useState(11);
+
+  useEffect(() => {
+    const getCount = () => {
+      if (typeof window === 'undefined') return 11;
+      const width = window.innerWidth;
+      if (width < 640) return 5;
+      if (width < 768) return 7;
+      if (width < 1024) return 9;
+      return 11;
+    };
+
+    setCount(getCount());
+    const handleResize = () => setCount(getCount());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return count;
+};
+
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDayName = (date: Date, locale: string): string => {
+  const dayNames: { [key: string]: string[] } = {
+    fr: ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'],
+    en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+  };
+  const lang = locale.startsWith('fr') ? 'fr' : 'en';
+  return dayNames[lang][date.getDay()];
+};
+
+const getMonthName = (date: Date, locale: string): string => {
+  return date.toLocaleDateString(locale, { month: 'short' });
+};
+
+const isToday = (date: Date): boolean => {
+  const today = new Date();
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+};
+
+const isSameDay = (a: Date, b: Date): boolean => {
+  return (
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear()
+  );
+};
+
+const generateDateRange = (centerDate: Date, offset: number = 0, visibleCount: number = 11): Date[] => {
+  const dates: Date[] = [];
+  const adjustedCenter = new Date(centerDate);
+  adjustedCenter.setDate(adjustedCenter.getDate() + offset * visibleCount);
+
+  const halfRange = 5;
+  for (let i = -halfRange; i <= halfRange; i++) {
+    const date = new Date(adjustedCenter);
+    date.setDate(date.getDate() + i);
+    dates.push(date);
+  }
+  return dates;
+};
+
+// --- Component ---
+
 const TournamentsPage: React.FC = () => {
   const t = useTranslations();
   const { selectedGame, games, isLoadingGames: gamesLoading, setSelectedGame, getSelectedGameData } = useGame();
   const [tournaments, setTournaments] = useState<PandaTournament[]>([]);
+
+  // Warm all tournament/team logos in parallel as the list changes.
+  useEffect(() => {
+    prewarmFromData(tournaments);
+  }, [tournaments]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
+  const [isSubscribed] = useState(false);
+
+  // Status tabs (active when no date is selected)
   const [status, setStatus] = useState<'running' | 'upcoming' | 'finished'>('running');
+
+  // Sort
+  const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
+
+  // Date calendar
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [dateRangeOffset, setDateRangeOffset] = useState(0);
+  const visibleDatesCount = useVisibleDatesCount();
+
+  // Tier filters
+  const [tierFilters, setTierFilters] = useState<{ tiers: string[] }>({ tiers: [] });
+
+  // Search
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const TOURNAMENTS_PER_PAGE = 12;
 
-  // Mémoriser les données du jeu sélectionné
+  // Dropdown state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   const selectedGameData = useMemo(() => getSelectedGameData(), [getSelectedGameData]);
-
-  // Mémoriser les données pour éviter les re-rendus inutiles
-  const memoizedTournaments = useMemo(() => tournaments, [tournaments]);
-  const memoizedAds = useMemo(() => ads, [ads]);
   const memoizedGames = useMemo(() => games, [games]);
+  const memoizedAds = useMemo(() => ads, [ads]);
 
-  // Charger les tournois avec pagination via l'API
-  const loadTournaments = useCallback(async (page: number = 0) => {
+  // Date range for calendar
+  const dateRange = useMemo(
+    () => generateDateRange(new Date(), dateRangeOffset, visibleDatesCount),
+    [dateRangeOffset, visibleDatesCount]
+  );
+
+  // Fetch tournaments
+  const loadTournaments = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const offset = page * TOURNAMENTS_PER_PAGE;
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      let data: PandaTournament[];
 
-      // Déterminer l'endpoint en fonction du statut
-      let endpoint = '/api/tournaments';
-      if (status === 'upcoming') {
-        endpoint = '/api/tournaments/upcoming';
-      } else if (status === 'finished') {
-        endpoint = '/api/tournaments/finished';
+      if (selectedDate) {
+        // Date mode: fetch tournaments active on that date
+        const dateStr = formatDateToYYYYMMDD(selectedDate);
+        const gameAcronym = selectedGameData?.acronym;
+        data = await tournamentService.getTournamentsByDate(dateStr, gameAcronym);
+      } else {
+        // Status mode: fetch by status (running/upcoming/finished)
+        let endpoint = '/api/tournaments';
+        if (status === 'upcoming') endpoint = '/api/tournaments/upcoming';
+        else if (status === 'finished') endpoint = '/api/tournaments/finished';
+
+        const params = new URLSearchParams();
+        params.append('sort', sortBy);
+        if (selectedGame && selectedGameData?.acronym) {
+          params.append('game', selectedGameData.acronym);
+        }
+
+        const response = await fetch(`${baseUrl}${endpoint}?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch tournaments');
+        data = await response.json();
       }
 
-      // Construire l'URL avec les paramètres
-      const params = new URLSearchParams();
-      params.append('limit', TOURNAMENTS_PER_PAGE.toString());
-      params.append('offset', offset.toString());
-      params.append('sort', sortBy);
-
-      // Ajouter le filtre par jeu si un jeu est sélectionné
-      if (selectedGame && selectedGameData?.acronym) {
-        params.append('game', selectedGameData.acronym);
-      }
-
-      const url = `${baseUrl}${endpoint}?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tournaments');
-      }
-
-      const tournamentsData = await response.json();
-      console.log('[TournamentsPageClient] 📊 Tournois récupérés:', tournamentsData);
-      setTournaments(Array.isArray(tournamentsData) ? tournamentsData : []);
-      setCurrentPage(page);
+      setTournaments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading tournaments:', err);
       setError(t('pages_detail.tournaments.error_loading'));
@@ -91,9 +188,9 @@ const TournamentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [t, TOURNAMENTS_PER_PAGE, sortBy, status, selectedGame, selectedGameData]);
+  }, [status, sortBy, selectedGame, selectedGameData, selectedDate, t]);
 
-  // Charger les publicités
+  // Load ads
   const loadAds = useCallback(async () => {
     try {
       setIsLoadingAds(true);
@@ -106,108 +203,115 @@ const TournamentsPage: React.FC = () => {
     }
   }, []);
 
-  // Recharger au démarrage (page 0) et quand selectedGame ou status change
+  // Reload on dependency change
   useEffect(() => {
-    setCurrentPage(0);
-    loadTournaments(0);
-  }, [loadTournaments, selectedGame, status]);
+    loadTournaments();
+  }, [loadTournaments]);
 
-  // Charger les publicités au démarrage
   useEffect(() => {
     loadAds();
   }, [loadAds]);
 
-  // Raccourci clavier pour ouvrir la modale de recherche (⌘K ou Ctrl+K)
+  // Keyboard shortcut for search modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchModalOpen(true);
       }
-      // Fermer avec Escape
       if (e.key === 'Escape' && isSearchModalOpen) {
         setIsSearchModalOpen(false);
         setSearchQuery('');
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
 
-  // Filtrer les tournois selon la recherche
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Client-side tier filtering
   const filteredTournaments = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return memoizedTournaments;
+    let result = tournaments;
+    if (tierFilters.tiers.length > 0) {
+      result = result.filter(t => tierFilters.tiers.includes(t.tier?.toLowerCase() || ''));
     }
+    return result;
+  }, [tournaments, tierFilters]);
 
+  // Search filtering (on already tier-filtered results)
+  const searchedTournaments = useMemo(() => {
+    if (!searchQuery.trim()) return filteredTournaments;
     const query = searchQuery.toLowerCase().trim();
-    return memoizedTournaments.filter((tournament) => {
-      const nameMatch = tournament.name?.toLowerCase().includes(query);
-      const slugMatch = tournament.slug?.toLowerCase().includes(query);
-      const tierMatch = tournament.tier?.toLowerCase().includes(query);
-      const regionMatch = tournament.region?.toLowerCase().includes(query);
-      const leagueMatch = tournament.league?.name?.toLowerCase().includes(query);
-      const gameMatch = tournament.videogame?.name?.toLowerCase().includes(query);
-      const statusMatch = tournament.status?.toLowerCase().includes(query);
-
-      return nameMatch || slugMatch || tierMatch || regionMatch || leagueMatch || gameMatch || statusMatch;
+    return filteredTournaments.filter((tournament) => {
+      return (
+        tournament.name?.toLowerCase().includes(query) ||
+        tournament.slug?.toLowerCase().includes(query) ||
+        tournament.tier?.toLowerCase().includes(query) ||
+        tournament.region?.toLowerCase().includes(query) ||
+        tournament.league?.name?.toLowerCase().includes(query) ||
+        tournament.videogame?.name?.toLowerCase().includes(query) ||
+        tournament.status?.toLowerCase().includes(query)
+      );
     });
-  }, [memoizedTournaments, searchQuery]);
+  }, [filteredTournaments, searchQuery]);
 
-
-  // Mémoriser les handlers
+  // Handlers
   const handleRefresh = useCallback(() => {
-    setCurrentPage(0);
-    loadTournaments(0);
+    loadTournaments();
   }, [loadTournaments]);
 
-  const handlePreviousPage = useCallback(() => {
-    if (currentPage > 0) {
-      const newPage = currentPage - 1;
-      setCurrentPage(newPage);
-      loadTournaments(newPage);
-    }
-  }, [currentPage, loadTournaments]);
+  const handleStatusChange = useCallback((newStatus: 'running' | 'upcoming' | 'finished') => {
+    setSelectedDate(null); // deselect date → switch to status mode
+    setStatus(newStatus);
+  }, []);
 
-  const handleNextPage = useCallback(() => {
-    const newPage = currentPage + 1;
-    setCurrentPage(newPage);
-    loadTournaments(newPage);
-  }, [currentPage, loadTournaments]);
+  const handleDateSelect = useCallback((date: Date) => {
+    // Toggle: click same date = deselect
+    setSelectedDate(prev => (prev && isSameDay(prev, date) ? null : date));
+  }, []);
 
-  // Mémoriser les propriétés de rendu pour éviter les re-créations
+  const handlePrevRange = useCallback(() => {
+    setDateRangeOffset(prev => prev - 1);
+  }, []);
 
-  // Mémoriser les skeletons pour éviter la re-création
-  const loadingSkeletons = useMemo(() =>
-    [...Array(9)].map((_, index) => (
-      <div key={`skeleton-${index}`} className="bg-bg-secondary rounded-xl border border-border-primary overflow-hidden animate-pulse">
-        <div className="h-48 bg-bg-tertiary" />
-        <div className="p-4">
-          <div className="h-4 bg-bg-tertiary rounded mb-2" />
-          <div className="h-3 bg-bg-tertiary rounded mb-2 w-3/4" />
-          <div className="h-3 bg-bg-tertiary rounded mb-3 w-1/2" />
-          <div className="flex justify-between">
-            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-            <div className="h-3 bg-bg-tertiary rounded w-1/4" />
-          </div>
-        </div>
-      </div>
-    )), []);
+  const handleNextRange = useCallback(() => {
+    setDateRangeOffset(prev => prev + 1);
+  }, []);
 
-  // Mémoriser la grille des tournois
+  const handleTierToggle = useCallback((tier: string) => {
+    setTierFilters(prev => ({
+      tiers: prev.tiers.includes(tier)
+        ? prev.tiers.filter(t => t !== tier)
+        : [...prev.tiers, tier]
+    }));
+  }, []);
+
+  // Tournaments grid
   const tournamentsGrid = useMemo(() =>
-    memoizedTournaments.map((tournament) => (
+    filteredTournaments.map((tournament) => (
       <TournamentCard
         key={tournament.id}
         tournament={tournament}
         showGameBadge={!selectedGameData}
       />
-    )), [memoizedTournaments, selectedGameData]);
+    )), [filteredTournaments, selectedGameData]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      {/* Sélecteur de jeux tout en haut - masqué sur mobile */}
+      {/* Game Selector - Desktop only */}
       <div className="pt-20 hidden md:block">
         <GameSelector
           games={memoizedGames}
@@ -217,104 +321,164 @@ const TournamentsPage: React.FC = () => {
         />
       </div>
 
-      {/* Contenu principal */}
+      {/* Main content */}
       <div className="pb-8 pt-20 md:pt-0">
         <div className="container mx-auto px-4">
           <div className="flex gap-8">
-            {/* Contenu principal */}
-            <div className="flex-1 max-w-none">
-              {/* Titre de la page avec barre de recherche */}
-              <div className="mb-6 pt-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold text-text-primary mb-2">Tous les tournois</h1>
-                  <p className="text-text-secondary text-sm">
-                    Page {currentPage + 1} • {memoizedTournaments.length} tournois
-                  </p>
+            <div className="flex-1 min-w-0">
+              {/* ── Header ── */}
+              <div className="pt-7 mb-3 space-y-3">
+                {/* Title */}
+                <div className="flex items-baseline gap-2.5">
+                  <h1 className="text-2xl font-bold text-text-primary tracking-tight">Tournois</h1>
+                  <span className="text-xs text-text-muted tabular-nums">
+                    {loading ? '···' : filteredTournaments.length}
+                  </span>
+                  <LiquipediaBadge className="ml-auto self-center" />
                 </div>
 
-                {/* Barre de recherche */}
-                <button
-                  onClick={() => setIsSearchModalOpen(true)}
-                  className="w-full sm:w-auto sm:max-w-sm flex items-center justify-center gap-3 px-4 py-3 bg-bg-secondary/50 border border-border-primary/50 rounded-xl text-left text-text-secondary hover:border-border-primary hover:bg-bg-secondary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50 flex-shrink-0"
-                >
-                  <Search className="w-5 h-5 text-text-muted flex-shrink-0" />
-                  <span className="text-sm">{t('pages_detail.tournaments.search.placeholder')}</span>
-                  <kbd className="ml-auto hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary border border-border-primary/50 rounded">
-                    <span className="text-xs">⌘</span>K
-                  </kbd>
-                </button>
-              </div>
-
-              {/* Filtres et options */}
-              <div className="mb-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  {/* Filtres de statut */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => {
-                        setStatus('running');
-                        setCurrentPage(0);
-                      }}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        status === 'running'
-                          ? 'bg-accent text-text-inverse'
-                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
-                      }`}
-                    >
-                      {t('pages_detail.tournaments.status_running')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setStatus('upcoming');
-                        setCurrentPage(0);
-                      }}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        status === 'upcoming'
-                          ? 'bg-accent text-text-inverse'
-                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
-                      }`}
-                    >
-                      {t('pages_detail.tournaments.status_upcoming')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setStatus('finished');
-                        setCurrentPage(0);
-                      }}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        status === 'finished'
-                          ? 'bg-accent text-text-inverse'
-                          : 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-primary'
-                      }`}
-                    >
-                      {t('pages_detail.tournaments.status_finished')}
-                    </button>
+                {/* Status tabs + Actions */}
+                <div className="flex items-center justify-between gap-3">
+                  {/* Left: Status tabs with underline */}
+                  <div className="flex items-center">
+                    {(['running', 'upcoming', 'finished'] as const).map((s) => {
+                      const isActive = !selectedDate && status === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => handleStatusChange(s)}
+                          className={`relative px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            isActive ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
+                          }`}
+                        >
+                          {t(`pages_detail.tournaments.status_${s}`)}
+                          {isActive && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-[#F22E62] rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {selectedDate && (
+                      <span className="ml-2 text-xs text-[#F22E62] font-medium">
+                        {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Options de tri et actualiser */}
-                  <div className="flex items-center gap-3">
-                    {/* Sort dropdown */}
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as 'tier' | '-tier' | 'begin_at' | '-begin_at')}
-                      className="px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg border border-border-primary transition-colors cursor-pointer text-sm"
-                      title="Trier les tournois"
-                    >
-                      <option value="tier">Tier (S → D)</option>
-                      <option value="-tier">Tier (D → S)</option>
-                      <option value="begin_at">Date (anciens → récents)</option>
-                      <option value="-begin_at">Date (récents → anciens)</option>
-                    </select>
+                  {/* Right: Filtrer + Trier + Search + Refresh */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Filtrer dropdown */}
+                    <div className="relative" ref={filterRef}>
+                      <button
+                        onClick={() => { setIsFilterOpen(prev => !prev); setIsSortOpen(false); }}
+                        className={`flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                          isFilterOpen || tierFilters.tiers.length > 0
+                            ? 'text-[#F22E62] border-[#F22E62]/30 bg-[#F22E62]/5'
+                            : 'text-text-muted border-border-primary/20 bg-bg-secondary/30 hover:border-border-primary/50 hover:text-text-secondary'
+                        }`}
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span className="hidden sm:inline">Filtrer</span>
+                        {tierFilters.tiers.length > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-[#F22E62] text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                            {tierFilters.tiers.length}
+                          </span>
+                        )}
+                      </button>
 
-                    {/* Bouton actualiser */}
+                      {isFilterOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-primary/95 backdrop-blur-md border border-border-primary/40 rounded-xl p-3 shadow-2xl shadow-black/30 min-w-[220px]">
+                          <p className="text-[10px] uppercase tracking-widest text-text-muted font-semibold mb-2.5 px-0.5">Tier</p>
+                          <div className="flex gap-1.5">
+                            {(['s', 'a', 'b', 'c', 'd'] as const).map((tier) => {
+                              const isActive = tierFilters.tiers.includes(tier);
+                              return (
+                                <button
+                                  key={tier}
+                                  onClick={() => handleTierToggle(tier)}
+                                  className={`w-9 h-9 rounded-lg text-xs font-extrabold uppercase transition-all ${
+                                    isActive
+                                      ? 'text-white ring-1 ring-white/10 shadow-md'
+                                      : 'text-text-muted bg-bg-tertiary/30 border border-border-primary/20 hover:bg-bg-tertiary/60'
+                                  }`}
+                                  style={isActive ? { backgroundColor: `var(--color-tier-${tier})` } : undefined}
+                                >
+                                  {tier.toUpperCase()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {tierFilters.tiers.length > 0 && (
+                            <button
+                              onClick={() => setTierFilters({ tiers: [] })}
+                              className="mt-2.5 text-[10px] text-text-muted hover:text-[#F22E62] transition-colors w-full text-left px-0.5"
+                            >
+                              Réinitialiser les filtres
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Trier dropdown */}
+                    <div className="relative" ref={sortRef}>
+                      <button
+                        onClick={() => { setIsSortOpen(prev => !prev); setIsFilterOpen(false); }}
+                        className={`flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                          isSortOpen
+                            ? 'text-[#F22E62] border-[#F22E62]/30 bg-[#F22E62]/5'
+                            : 'text-text-muted border-border-primary/20 bg-bg-secondary/30 hover:border-border-primary/50 hover:text-text-secondary'
+                        }`}
+                      >
+                        <ArrowUpDown className="w-3 h-3" />
+                        <span className="hidden sm:inline">Trier</span>
+                      </button>
+
+                      {isSortOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-primary/95 backdrop-blur-md border border-border-primary/40 rounded-xl py-1.5 shadow-2xl shadow-black/30 min-w-[180px]">
+                          {([
+                            { value: 'tier' as const, label: 'Tier (S → D)' },
+                            { value: '-tier' as const, label: 'Tier (D → S)' },
+                            { value: '-begin_at' as const, label: 'Date (récent)' },
+                            { value: 'begin_at' as const, label: 'Date (ancien)' },
+                          ]).map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => { setSortBy(opt.value); setIsSortOpen(false); }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                                sortBy === opt.value
+                                  ? 'text-[#F22E62] bg-[#F22E62]/5'
+                                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/30'
+                              }`}
+                            >
+                              <Check className={`w-3 h-3 flex-shrink-0 ${sortBy === opt.value ? 'opacity-100' : 'opacity-0'}`} />
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-px h-4 bg-border-primary/20 mx-0.5" />
+
+                    {/* Search */}
+                    <button
+                      onClick={() => setIsSearchModalOpen(true)}
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-text-secondary rounded-lg transition-colors"
+                      title="Rechercher (⌘K)"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Refresh */}
                     <button
                       onClick={handleRefresh}
                       disabled={loading}
-                      className="p-2 bg-accent hover:bg-accent/80 disabled:bg-border-muted text-text-inverse rounded-lg transition-colors"
+                      className="flex items-center justify-center w-7 h-7 text-text-muted hover:text-[#F22E62] disabled:opacity-30 rounded-lg transition-colors"
                       title={loading ? t('pages_detail.tournaments.loading_button') : t('pages_detail.tournaments.refresh_button')}
                     >
                       <svg
-                        className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                        className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -326,75 +490,111 @@ const TournamentsPage: React.FC = () => {
                 </div>
               </div>
 
-            {/* Contenu des tournois */}
-            {error && (
-              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                  </svg>
-                  <p className="text-red-600">{error}</p>
+              {/* ── Calendar ── */}
+              <div className="mb-5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevRange}
+                    className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex-1 grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11 gap-2">
+                    {dateRange.map((date, index) => {
+                      const isSelected = selectedDate !== null && isSameDay(date, selectedDate);
+                      const isTodayDate = isToday(date);
+
+                      const hiddenClasses = [
+                        index >= 5 && 'hidden sm:flex',
+                        index >= 7 && 'sm:hidden md:flex',
+                        index >= 9 && 'md:hidden lg:flex'
+                      ].filter(Boolean).join(' ');
+
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDateSelect(date)}
+                          className={`
+                            flex flex-col items-center justify-center p-2 rounded-lg border transition-all
+                            ${hiddenClasses}
+                            ${isSelected
+                              ? 'bg-[#F22E62] text-white border-[#F22E62]'
+                              : isTodayDate
+                                ? 'bg-bg-tertiary text-text-primary border-[#F22E62]'
+                                : 'bg-bg-secondary text-text-muted border-border-primary hover:bg-bg-tertiary'
+                            }
+                          `}
+                        >
+                          <span className="text-xs uppercase mb-1">
+                            {getDayName(date, 'fr')}
+                          </span>
+                          <span className="text-lg font-bold">
+                            {date.getDate()}
+                          </span>
+                          <span className="text-xs capitalize">
+                            {getMonthName(date, 'fr')}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={handleNextRange}
+                    className="flex-shrink-0 p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-primary transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-            )}
 
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {loadingSkeletons}
-              </div>
-            ) : memoizedTournaments.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Tournament content */}
+              {error && (
+                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                    <p className="text-red-600">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {loading ? (
+                <ContentLoader label={t('pages_detail.calendar.loading_tournaments')} icon={Trophy} />
+              ) : filteredTournaments.length > 0 ? (
+                <div className="flex flex-col gap-3">
                   {tournamentsGrid}
                 </div>
-
-                {/* Pagination */}
-                <div className="mt-12 flex items-center justify-center gap-4">
-                  <button
-                    onClick={handlePreviousPage}
-                    disabled={currentPage === 0 || loading}
-                    className="px-6 py-2 bg-bg-secondary hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed text-text-primary rounded-lg font-medium transition-colors border border-border-primary"
-                  >
-                    ← Précédent
-                  </button>
-
-                  <span className="text-text-secondary font-medium">
-                    Page {currentPage + 1}
-                  </span>
-
-                  <button
-                    onClick={handleNextPage}
-                    disabled={memoizedTournaments.length < TOURNAMENTS_PER_PAGE || loading}
-                    className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse rounded-lg font-medium transition-colors"
-                  >
-                    Suivant →
-                  </button>
+              ) : (
+                <div className="bg-bg-secondary rounded-lg border border-border-primary p-12 text-center">
+                  <div className="text-text-secondary mb-4">
+                    <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-text-primary mb-2">
+                    {t('pages_detail.tournaments.no_tournaments')}
+                  </h3>
+                  <p className="text-text-secondary mb-4">
+                    {tierFilters.tiers.length > 0
+                      ? 'Aucun tournoi ne correspond aux filtres sélectionnés.'
+                      : 'Aucun tournoi trouvé.'}
+                  </p>
+                  {tierFilters.tiers.length > 0 && (
+                    <button
+                      onClick={() => setTierFilters({ tiers: [] })}
+                      className="px-4 py-2 bg-accent hover:bg-accent/80 text-text-inverse rounded-lg font-medium transition-colors"
+                    >
+                      {t('pages_detail.tournaments.reset_button')}
+                    </button>
+                  )}
                 </div>
-              </>
-            ) : (
-              <div className="bg-bg-secondary rounded-lg border border-border-primary p-12 text-center">
-                <div className="text-text-secondary mb-4">
-                  <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-text-primary mb-2">
-                  {t('pages_detail.tournaments.no_tournaments')}
-                </h3>
-                <p className="text-text-secondary mb-4">
-                  Aucun tournoi trouvé pour cette page.
-                </p>
-                <button
-                  onClick={handleRefresh}
-                  className="px-4 py-2 bg-accent hover:bg-accent/80 text-text-inverse rounded-lg font-medium transition-colors"
-                >
-                  {t('pages_detail.tournaments.refresh_button')}
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-            {/* Colonne publicitaire (desktop uniquement) */}
+            {/* Ad column (desktop only) */}
             <AdColumn className="mt-8"
               ads={memoizedAds}
               isSubscribed={isSubscribed}
@@ -404,11 +604,10 @@ const TournamentsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Modale de recherche plein écran */}
+      {/* Search modal */}
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
         <DialogContent overlayVariant="default" className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 bg-background border-border-primary/50 flex flex-col [&>button]:hidden">
           <DialogTitle className="sr-only">{t('pages_detail.tournaments.search.placeholder')}</DialogTitle>
-          {/* Header de la modale avec barre de recherche */}
           <div className="p-6 border-b border-border-primary/50 bg-background">
             <div className="flex items-center gap-4">
               <div className="flex-1 relative">
@@ -442,12 +641,11 @@ const TournamentsPage: React.FC = () => {
             </div>
             {searchQuery && (
               <p className="mt-3 text-sm text-text-muted">
-                {filteredTournaments.length} {filteredTournaments.length === 1 ? t('pages_detail.tournaments.search.result_singular') : t('pages_detail.tournaments.search.result_plural')}
+                {searchedTournaments.length} {searchedTournaments.length === 1 ? t('pages_detail.tournaments.search.result_singular') : t('pages_detail.tournaments.search.result_plural')}
               </p>
             )}
           </div>
 
-          {/* Contenu scrollable avec résultats */}
           <div className="flex-1 overflow-y-auto p-6 bg-background">
             {!searchQuery ? (
               <div className="flex items-center justify-center h-full">
@@ -457,7 +655,7 @@ const TournamentsPage: React.FC = () => {
                   <p className="text-text-muted text-sm">{t('pages_detail.tournaments.search.search_by')}</p>
                 </div>
               </div>
-            ) : filteredTournaments.length === 0 ? (
+            ) : searchedTournaments.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Search className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
@@ -466,8 +664,8 @@ const TournamentsPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTournaments.map((tournament) => (
+              <div className="flex flex-col gap-3">
+                {searchedTournaments.map((tournament) => (
                   <TournamentCard
                     key={tournament.id}
                     tournament={tournament}

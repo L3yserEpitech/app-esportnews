@@ -3,6 +3,18 @@ import { AppState, AppStateStatus } from 'react-native';
 import { liveMatchService } from '@/services';
 import { PandaMatch } from '@/types';
 
+// /api/live can return the same match twice; dedupe by stable key so lists keyed
+// on match id don't trip React's unique-key check (and don't show duplicate cards).
+function dedupeMatches(list: PandaMatch[]): PandaMatch[] {
+  const seen = new Set<string>();
+  return list.filter((m) => {
+    const key = m.match2id || String(m.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 interface UseLiveMatchesOptions {
   gameAcronym?: string;
   pollingInterval?: number; // en millisecondes (défaut: 30000 = 30s)
@@ -42,7 +54,7 @@ export const useLiveMatches = (
       const data = await liveMatchService.getLiveMatches(gameAcronym);
 
       if (isMountedRef.current) {
-        setLiveMatches(data);
+        setLiveMatches(dedupeMatches(data));
         setIsLoading(false);
       }
     } catch (err) {

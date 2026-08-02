@@ -11,12 +11,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'cdn.pandascore.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
         hostname: 'olybccviffjiqjmnsysn.supabase.co',
         port: '',
         pathname: '/**',
@@ -32,6 +26,12 @@ const nextConfig: NextConfig = {
         hostname: 'i.postimg.cc',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '4000',
+        pathname: '/api/proxy/**',
       },
     ],
   },

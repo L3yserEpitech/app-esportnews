@@ -1,9 +1,14 @@
 'use client';
 
 import React from 'react';
+import { matchHref } from '../../lib/gameLinks';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Play, Calendar, Trophy, Zap } from 'lucide-react';
 import { LiveMatch } from '../../types';
+import { proxyImageUrl } from '../../lib/imageProxy';
+import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 
 interface LiveMatchCardProps {
   match: LiveMatch;
@@ -11,6 +16,9 @@ interface LiveMatchCardProps {
 }
 
 export default function LiveMatchCard({ match, showGames = true }: LiveMatchCardProps) {
+  const t = useTranslations('pages_detail.match');
+  const router = useRouter();
+  const isDark = useIsDarkTheme();
   // Get teams from opponents array
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -46,7 +54,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
   const hasStream = mainStream?.raw_url && isLive;
 
   return (
-    <Link href={`/match/${match.id}`}>
+    <Link href={matchHref(match)}>
       <div className="group relative h-full cursor-pointer">
         {/* Background glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#F44576]/15 via-transparent to-[#182859]/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -68,9 +76,9 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
               isFinished ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30' :
               'bg-blue-500/20 text-blue-300 border border-blue-500/30'
             }`}>
-              {isLive && <><Zap className="w-3 h-3 inline mr-1" />LIVE</> }
-              {isFinished && 'Terminé'}
-              {isUpcoming && 'À venir'}
+              {isLive && <><Zap className="w-3 h-3 inline mr-1" />{t('card_status_live')}</> }
+              {isFinished && t('card_status_finished')}
+              {isUpcoming && t('card_status_upcoming')}
             </div>
           </div>
         </div>
@@ -80,12 +88,15 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
           {/* Teams and Score */}
           <div className="flex items-center justify-between gap-2">
             {/* Home Team */}
-            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+            <div
+              className="flex-1 flex flex-col items-center gap-2 min-w-0 cursor-pointer"
+              onClick={(e) => { if (homeTeam?.template && match.wiki) { e.preventDefault(); e.stopPropagation(); const params = new URLSearchParams({ wiki: match.wiki }); if (homeTeam.name) params.set('name', homeTeam.name); if (homeTeam.acronym) params.set('acronym', homeTeam.acronym); if (homeTeam.image_url) params.set('logo', homeTeam.image_url); router.push(`/equipe/${encodeURIComponent(homeTeam.template)}?${params.toString()}`); } }}
+            >
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {homeTeam?.image_url ? (
+                {pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url) ? (
                   <img
-                    src={homeTeam.image_url}
-                    alt={homeTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url)!)}
+                    alt={homeTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />
@@ -94,7 +105,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-text-primary truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight hover:text-[#F44576] transition-colors">
                   {homeTeam?.acronym || homeTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{homeTeam?.name?.slice(0, 12) || '-'}</p>
@@ -124,12 +135,15 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
             </div>
 
             {/* Away Team */}
-            <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+            <div
+              className="flex-1 flex flex-col items-center gap-2 min-w-0 cursor-pointer"
+              onClick={(e) => { if (awayTeam?.template && match.wiki) { e.preventDefault(); e.stopPropagation(); const params = new URLSearchParams({ wiki: match.wiki }); if (awayTeam.name) params.set('name', awayTeam.name); if (awayTeam.acronym) params.set('acronym', awayTeam.acronym); if (awayTeam.image_url) params.set('logo', awayTeam.image_url); router.push(`/equipe/${encodeURIComponent(awayTeam.template)}?${params.toString()}`); } }}
+            >
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#182859]/50 to-[#060B13]/50 border border-[#182859]/30 flex items-center justify-center overflow-hidden group/logo hover:border-[#F44576]/40 transition-colors">
-                {awayTeam?.image_url ? (
+                {pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url) ? (
                   <img
-                    src={awayTeam.image_url}
-                    alt={awayTeam.name}
+                    src={proxyImageUrl(pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url)!)}
+                    alt={awayTeam?.name || ''}
                     className="w-10 h-10 object-contain"
                     loading="lazy"
                   />
@@ -138,7 +152,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 )}
               </div>
               <div className="text-center min-w-0 w-full">
-                <p className="text-xs font-bold text-primary truncate leading-tight">
+                <p className="text-xs font-bold text-text-primary truncate leading-tight hover:text-[#F44576] transition-colors">
                   {awayTeam?.acronym || awayTeam?.name?.slice(0, 3).toUpperCase() || 'TBD'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{awayTeam?.name?.slice(0, 12) || '-'}</p>
@@ -171,7 +185,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-[#F44576] to-[#F44576] hover:from-[#F44576]/90 hover:to-[#F44576]/80 text-white rounded-lg font-semibold transition-all duration-200 text-sm shadow-lg shadow-[#F44576]/20 hover:shadow-[#F44576]/40"
             >
               <Play className="w-4 h-4 fill-current" />
-              Regarder
+              {t('card_watch')}
             </button>
           )}
 
@@ -180,7 +194,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
             <div className="space-y-1 pt-2 border-t border-[#182859]/20">
               {match.games.slice(0, 3).map((game, idx) => (
                 <div key={game.id} className="flex items-center justify-between text-xs px-2 py-1 bg-[#182859]/10 rounded">
-                  <span className="text-gray-500">Game {idx + 1}</span>
+                  <span className="text-gray-500">{t('card_game_label', { number: idx + 1 })}</span>
                   <span className={`font-medium ${
                     game.status === 'finished' ? 'text-green-400' :
                     game.status === 'running' ? 'text-[#F44576]' :
@@ -202,7 +216,7 @@ export default function LiveMatchCard({ match, showGames = true }: LiveMatchCard
                 {match.league.image_url && (
                   <div className="w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border border-[#182859]/30">
                     <img
-                      src={match.league.image_url}
+                      src={proxyImageUrl(match.league.image_url)}
                       alt={match.league.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
