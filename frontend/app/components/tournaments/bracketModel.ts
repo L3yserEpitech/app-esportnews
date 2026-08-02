@@ -37,7 +37,7 @@ export interface BracketColumn {
   key: string;
   label: ColumnLabel;
   cells: PositionedCell[];
-  /** First column of a new stage: render a divider in the gap before it. */
+  /** Nothing feeds this column from the left: render a divider before it. */
   startsStage: boolean;
 }
 
@@ -97,21 +97,37 @@ function push<T>(map: Map<string, T[]>, key: string, value: T) {
   else map.set(key, [value]);
 }
 
+/** Opponent ids are hashes of the team name, so they are stable across matches. */
+function participantIds(m: PandaMatch): number[] {
+  return (m.opponents ?? [])
+    .map(o => o.opponent?.id)
+    .filter((v): v is number => typeof v === 'number');
+}
+
+/** Lowest Liquipedia bracket_index in a group — the page's own left-to-right order. */
+function sortKey(group: PandaMatch[], fallback: () => number): number {
+  const indexes = group
+    .map(m => m.bracket_data?.bracket_index)
+    .filter((v): v is number => typeof v === 'number');
+  return indexes.length ? Math.min(...indexes) : fallback();
+}
+
 /**
- * Round name derived from the distance to the final, which is stable whatever
- * the column's match count (a stray third-place match won't rename a round).
+ * Round name from the distance to the end of its connected chain. Derived from
+ * the chain rather than `coordinates.round_count`, because a bracket authored as
+ * one mini-bracket per round reports round_count = 1 on every single match.
  * Double-elimination columns mix upper and lower rounds, so they stay numeric.
  */
-function treeColumnLabel(roundIndex: number, roundCount: number, sectionCount: number): ColumnLabel {
-  if (sectionCount > 1) return { kind: 'i18n', key: 'bracket_round', round: roundIndex + 1 };
-  switch (roundCount - 1 - roundIndex) {
+function treeColumnLabel(fromEnd: number, indexInChain: number, doubleElim: boolean): ColumnLabel {
+  if (doubleElim) return { kind: 'i18n', key: 'bracket_round', round: indexInChain + 1 };
+  switch (fromEnd) {
     case 0: return { kind: 'i18n', key: 'bracket_final' };
     case 1: return { kind: 'i18n', key: 'bracket_semifinals' };
     case 2: return { kind: 'i18n', key: 'bracket_quarterfinals' };
     case 3: return { kind: 'i18n', key: 'bracket_round_of_16' };
     case 4: return { kind: 'i18n', key: 'bracket_round_of_32' };
     case 5: return { kind: 'i18n', key: 'bracket_round_of_64' };
-    default: return { kind: 'i18n', key: 'bracket_round', round: roundIndex + 1 };
+    default: return { kind: 'i18n', key: 'bracket_round', round: indexInChain + 1 };
   }
 }
 
@@ -140,9 +156,14 @@ function settle(resolved: (number | null)[]): number[] {
 
 // ─── Layout builder ──────────────────────────────────────────────────
 
-interface Stage {
-  order: number;
-  columns: BracketColumn[];
+interface RawColumn {
+  key: string;
+  tree: boolean;
+  section: string | null;
+  doubleElim: boolean;
+  /** First column of a Liquipedia stage, before we know what actually feeds it. */
+  stageFirst: boolean;
+  cells: PandaMatch[];
 }
 
 /**
@@ -152,6 +173,73 @@ interface Stage {
  * Rounds that are not trees (Swiss, groups) get columns but never connectors.
  */
 export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
+  const columns = buildColumns(matches);
+  if (columns.length === 0) return { columns: [], edges: [], width: 0, height: 0 };
+
+  const parents = linkColumns(columns);
+  reorderForPlanarity(columns, parents);
+
+  const yById = new Map<string, number>();
+  const positioned: PositionedCell[][] = columns.map(col => {
+    const centers = settle(
+      col.cells.map(m => {
+        const known = (parents.get(matchKey(m)) ?? []).filter(id => yById.has(id));
+        return known.length ? known.reduce((sum, id) => sum + yById.get(id)!, 0) / known.length : null;
+      }),
+    );
+    col.cells.forEach((m, i) => yById.set(matchKey(m), centers[i]));
+    return col.cells.map((match, i) => ({
+      match,
+      centerY: centers[i],
+      side: col.doubleElim ? match.bracket_data?.bracket_section ?? null : null,
+    }));
+  });
+
+  const placement = new Map<string, { column: number; centerY: number }>();
+  positioned.forEach((cells, index) => {
+    for (const cell of cells) placement.set(matchKey(cell.match), { column: index, centerY: cell.centerY });
+  });
+
+  const edges: BracketEdge[] = [];
+  const fed = new Set<number>();
+  positioned.forEach((cells, index) => {
+    for (const cell of cells) {
+      for (const id of parents.get(matchKey(cell.match)) ?? []) {
+        const parent = placement.get(id);
+        if (!parent || parent.column >= index) continue;
+        fed.add(index);
+        edges.push({
+          fromX: columnX(parent.column) + CELL_W,
+          fromY: parent.centerY,
+          toX: columnX(index),
+          toY: cell.centerY,
+        });
+      }
+    }
+  });
+
+  const labels = columnLabels(columns, fed);
+  const height = positioned.reduce(
+    (max, cells) => cells.reduce((m, c) => Math.max(m, c.centerY + CELL_H / 2), max),
+    SLOT,
+  );
+
+  return {
+    columns: columns.map((col, i) => ({
+      key: col.key,
+      label: labels[i],
+      cells: positioned[i],
+      // A stage that turned out to be fed by the previous column is not a new stage.
+      startsStage: i > 0 && col.stageFirst && !fed.has(i),
+    })),
+    edges,
+    width: columnX(columns.length - 1) + CELL_W,
+    height,
+  };
+}
+
+/** Group matches into ordered columns: non-tree sections first, then each tree. */
+function buildColumns(matches: PandaMatch[]): RawColumn[] {
   const seen = new Set<string>();
   const deduped: PandaMatch[] = [];
   for (const m of matches) {
@@ -168,10 +256,8 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
     else if (m.section) push(lists, m.section, m);
   }
 
-  const stages: Stage[] = [];
-  const yById = new Map<string, number>();
+  const stages: { order: number; columns: RawColumn[] }[] = [];
 
-  // ── Non-tree rounds: one column per Liquipedia section, no connectors ──
   if (lists.size > 0) {
     const columns = [...lists.entries()]
       .map(([section, group]) => ({
@@ -180,118 +266,141 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
         order: sortKey(group, () => 1000 + getSectionOrder(section)),
       }))
       .sort((a, b) => a.order - b.order)
-      .map(({ section, group }): BracketColumn => {
-        const sorted = [...group].sort(
+      .map(({ section, group }): RawColumn => ({
+        key: `list:${section}`,
+        tree: false,
+        section,
+        doubleElim: false,
+        stageFirst: false,
+        cells: [...group].sort(
           (a, b) =>
             (a.bracket_data?.bracket_index ?? 0) - (b.bracket_data?.bracket_index ?? 0) ||
             (a.bracket_data?.match_index ?? 0) - (b.bracket_data?.match_index ?? 0) ||
             String(a.begin_at ?? '').localeCompare(String(b.begin_at ?? '')),
-        );
-        return {
-          key: `list:${section}`,
-          label: { kind: 'raw', text: section },
-          cells: sorted.map((match, i) => ({
-            match,
-            centerY: (i + 0.5) * SLOT,
-            side: null,
-          })),
-          startsStage: false,
-        };
-      });
-
-    stages.push({
-      order: sortKey([...lists.values()].flat(), () => 1000),
-      columns,
-    });
+        ),
+      }));
+    stages.push({ order: sortKey([...lists.values()].flat(), () => 1000), columns });
   }
 
-  // ── Real elimination trees ──
   for (const [bracketId, group] of trees) {
+    const doubleElim = Math.max(...group.map(m => m.bracket_data!.coordinates!.section_count), 1) > 1;
     const roundIndexes = [...new Set(group.map(m => m.bracket_data!.coordinates!.round_index))].sort(
       (a, b) => a - b,
     );
-    const roundCount = Math.max(...group.map(m => m.bracket_data!.coordinates!.round_count), roundIndexes.length);
-    const sectionCount = Math.max(...group.map(m => m.bracket_data!.coordinates!.section_count), 1);
 
-    const columns: BracketColumn[] = [];
-
-    for (const roundIndex of roundIndexes) {
-      const cellMatches = group
-        .filter(m => m.bracket_data!.coordinates!.round_index === roundIndex)
-        .sort(
-          (a, b) =>
-            a.bracket_data!.coordinates!.match_index_in_round -
-            b.bracket_data!.coordinates!.match_index_in_round,
-        );
-
-      const centers = settle(
-        cellMatches.map(m => {
-          const known = (m.bracket_data!.lower_match_ids ?? []).filter(id => yById.has(id));
-          return known.length ? known.reduce((sum, id) => sum + yById.get(id)!, 0) / known.length : null;
-        }),
-      );
-      cellMatches.forEach((m, i) => yById.set(matchKey(m), centers[i]));
-
-      columns.push({
+    stages.push({
+      order: sortKey(group, () => 2000),
+      columns: roundIndexes.map(roundIndex => ({
         key: `${bracketId}:${roundIndex}`,
-        label: treeColumnLabel(roundIndex, roundCount, sectionCount),
-        cells: cellMatches.map((match, i) => ({
-          match,
-          centerY: centers[i],
-          side: sectionCount > 1 ? match.bracket_data!.bracket_section ?? null : null,
-        })),
-        startsStage: false,
-      });
-    }
-
-    stages.push({ order: sortKey(group, () => 2000), columns });
+        tree: true,
+        section: null,
+        doubleElim,
+        stageFirst: roundIndex === roundIndexes[0],
+        cells: group
+          .filter(m => m.bracket_data!.coordinates!.round_index === roundIndex)
+          .sort(
+            (a, b) =>
+              a.bracket_data!.coordinates!.match_index_in_round -
+              b.bracket_data!.coordinates!.match_index_in_round,
+          ),
+      })),
+    });
   }
 
   stages.sort((a, b) => a.order - b.order);
+  return stages.flatMap(s => s.columns);
+}
 
-  const columns: BracketColumn[] = [];
-  stages.forEach((stage, si) => {
-    stage.columns.forEach((col, ci) => {
-      columns.push({ ...col, startsStage: si > 0 && ci === 0 });
-    });
-  });
+/**
+ * Resolve which matches feed which. `lower_match_ids` is authoritative when the
+ * bracket is authored as a single template, but a bracket split into one
+ * mini-bracket per round — common on BLAST and IEM pages — declares nothing at
+ * all. There, fall back to the winners themselves: a match is fed by the previous
+ * column's matches whose winner plays in it.
+ *
+ * Never infer from position. Real brackets pair across the column (quarterfinal 1
+ * and 3 meet in semifinal 1), so `2j / 2j+1` index arithmetic would silently
+ * invent the wrong tree — which is the bug this whole model exists to kill.
+ */
+function linkColumns(columns: RawColumn[]): Map<string, string[]> {
+  const parents = new Map<string, string[]>();
+  const columnOf = new Map<string, number>();
+  columns.forEach((col, i) => col.cells.forEach(m => columnOf.set(matchKey(m), i)));
 
-  // Edges need every column's final index, so they are resolved once the stages
-  // are flattened — a parent may sit more than one column to the left.
-  const placement = new Map<string, { column: number; centerY: number }>();
-  columns.forEach((col, index) => {
-    for (const cell of col.cells) placement.set(matchKey(cell.match), { column: index, centerY: cell.centerY });
-  });
+  columns.forEach((col, i) => {
+    if (!col.tree || i === 0) return;
 
-  const edges: BracketEdge[] = [];
-  columns.forEach((col, index) => {
-    for (const cell of col.cells) {
-      for (const id of cell.match.bracket_data?.lower_match_ids ?? []) {
-        const parent = placement.get(id);
-        if (!parent || parent.column >= index) continue;
-        edges.push({
-          fromX: columnX(parent.column) + CELL_W,
-          fromY: parent.centerY,
-          toX: columnX(index),
-          toY: cell.centerY,
-        });
+    let declaredAny = false;
+    for (const m of col.cells) {
+      const declared = (m.bracket_data?.lower_match_ids ?? []).filter(id => {
+        const at = columnOf.get(id);
+        return at !== undefined && at < i;
+      });
+      if (declared.length) {
+        parents.set(matchKey(m), declared);
+        declaredAny = true;
       }
+    }
+    if (declaredAny) return;
+
+    const previous = columns[i - 1];
+    if (!previous.tree) return;
+
+    const winnerToMatch = new Map<number, string>();
+    for (const m of previous.cells) {
+      if (typeof m.winner_id === 'number') winnerToMatch.set(m.winner_id, matchKey(m));
+    }
+
+    for (const m of col.cells) {
+      const derived = participantIds(m)
+        .map(id => winnerToMatch.get(id))
+        .filter((v): v is string => v !== undefined);
+      if (derived.length) parents.set(matchKey(m), derived);
     }
   });
 
-  const height = columns.reduce(
-    (max, col) => col.cells.reduce((m, c) => Math.max(m, c.centerY + CELL_H / 2), max),
-    SLOT,
-  );
-  const width = columns.length === 0 ? 0 : columnX(columns.length - 1) + CELL_W;
-
-  return { columns, edges, width, height };
+  return parents;
 }
 
-/** Lowest Liquipedia bracket_index in a group — the page's own left-to-right order. */
-function sortKey(group: PandaMatch[], fallback: () => number): number {
-  const indexes = group
-    .map(m => m.bracket_data?.bracket_index)
-    .filter((v): v is number => typeof v === 'number');
-  return indexes.length ? Math.min(...indexes) : fallback();
+/**
+ * Reorder a column so its cells sit next to the child they feed, keeping the
+ * connectors from crossing. Only applied when every cell in the column has a
+ * known child: mid-tournament half the links are still missing, and reshuffling
+ * on every result would make the bracket jump around between refreshes.
+ */
+function reorderForPlanarity(columns: RawColumn[], parents: Map<string, string[]>) {
+  for (let i = columns.length - 2; i >= 0; i--) {
+    const col = columns[i];
+    if (!col.tree || !columns[i + 1].tree) continue;
+
+    const childIndex = new Map<string, number>();
+    columns[i + 1].cells.forEach((child, j) => {
+      for (const id of parents.get(matchKey(child)) ?? []) childIndex.set(id, j);
+    });
+    if (col.cells.some(m => !childIndex.has(matchKey(m)))) continue;
+
+    const original = new Map(col.cells.map((m, idx) => [matchKey(m), idx]));
+    col.cells.sort(
+      (a, b) =>
+        childIndex.get(matchKey(a))! - childIndex.get(matchKey(b))! ||
+        original.get(matchKey(a))! - original.get(matchKey(b))!,
+    );
+  }
+}
+
+/** Name tree columns from their position in the chain of columns that feed each other. */
+function columnLabels(columns: RawColumn[], fed: Set<number>): ColumnLabel[] {
+  const chainEnd: number[] = [];
+  for (let i = columns.length - 1; i >= 0; i--) {
+    chainEnd[i] = columns[i].tree && i + 1 < columns.length && columns[i + 1].tree && fed.has(i + 1)
+      ? chainEnd[i + 1]
+      : i;
+  }
+
+  return columns.map((col, i) => {
+    if (!col.tree) return { kind: 'raw', text: col.section ?? '' };
+    let start = i;
+    while (start > 0 && columns[start - 1].tree && fed.has(start)) start--;
+    return treeColumnLabel(chainEnd[i] - i, i - start, col.doubleElim);
+  });
 }

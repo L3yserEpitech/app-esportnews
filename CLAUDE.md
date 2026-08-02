@@ -1238,9 +1238,20 @@ Champs qui portent l'info :
 | `coordinates.round_index` | Colonne (0-based). Partagée entre upper et lower bracket. |
 | `coordinates.match_index_in_round` | **Ordre vertical** dans la colonne, numéroté à travers les deux sections (upper d'abord, puis lower). |
 | `coordinates.round_count` / `section_count` | `section_count > 1` = double élimination. |
-| `lower_match_ids` | Les matchs qui **alimentent réellement** celui-ci (1 ou 2). C'est la seule source des traits. |
+| `lower_match_ids` | Les matchs qui **alimentent réellement** celui-ci (1 ou 2). Source primaire des traits — mais **souvent vide**, voir ci-dessous. |
 | `bracketsection` | `upper` / `lower` → badge UB/LB sur la carte. |
 | `bracketindex` | Ordre gauche→droite des *stages* sur la page Liquipedia. |
+
+**⚠️ Deux façons d'écrire un bracket sur Liquipedia — il faut gérer les deux :**
+
+1. **Un seul template** (ex. `CCT/2026/Europe/Series_5`, `Bracket/16`) : un `match2bracketid` unique, `round_index` 0→3, `round_count` correct, et `lowerMatchIds` **rempli**. Tout vient de l'API.
+2. **Un mini-bracket par round** (ex. `BLAST/Bounty/2026/Summer`, aussi fréquent sur IEM) : un `match2bracketid` **différent par round**, chacun avec `round_index = 0`, `round_count = 1` et `lowerMatchIds` **vide**. L'API ne déclare alors **aucune** topologie.
+
+Dans le cas 2, la seule source fiable est **l'identité du vainqueur** : un match est alimenté par les matchs du round précédent dont le vainqueur y rejoue (`opponent.id` = `hashStringToInt(nom d'équipe)` côté Go, donc **stable entre matchs**). `linkColumns()` fait exactement ça en fallback.
+
+**Ne JAMAIS inférer les liens par position** (`2j / 2j+1`). Vérifié sur BLAST Bounty 2026 Summer : la vraie paire est **QF0 + QF2 → SF0** (Spirit + FaZe) et QF1 + QF3 → SF1. L'arithmétique d'indices reconstruirait un arbre faux — c'est précisément le bug d'origine. Quand les liens sont dérivés, `reorderForPlanarity()` réordonne la colonne pour que les traits ne se croisent pas (et s'abstient tant qu'un match du round n'a pas de vainqueur, sinon le bracket sauterait à chaque résultat).
+
+Conséquences dans le modèle : les libellés de round viennent de la **position dans la chaîne connectée**, pas de `round_count` (qui vaut 1 partout dans le cas 2 → sinon trois colonnes « Finale »), et un stage qui se révèle alimenté par le précédent perd son séparateur.
 
 Règles à ne pas casser :
 * **Ne jamais ordonner un round par date** — l'ordre chronologique n'a aucun rapport avec l'ordre du bracket (vérifié : le 1ᵉʳ tour des playoffs CCT sort en M002, M008, M003, M006… en `date ASC`). C'était le bug d'origine : les colonnes étaient triées par date et les connecteurs dessinés par arithmétique d'indices (`prev 2j, 2j+1 → next j`), donc le vainqueur n'était jamais reporté en face du trait.

@@ -170,6 +170,90 @@ describe('buildBracketLayout — double elimination', () => {
   });
 });
 
+describe('buildBracketLayout — bracket split into one mini-bracket per round', () => {
+  // Verbatim topology of BLAST/Bounty/2026/Summer: three separate bracket ids,
+  // each reporting round_index 0 / round_count 1 and an empty lowerMatchIds.
+  // The real pairing crosses the column — QF0 + QF2 feed SF0 — so anything based
+  // on 2j / 2j+1 index arithmetic would build the wrong tree.
+  const SPIRIT = 1, LIQUID = 2, MOUZ = 3, DMAX = 4, MONGOLZ = 5, FAZE = 6, ASTRALIS = 7, PAIN = 8;
+
+  function played(id: string, bracketId: string, index: number, a: number, b: number, winner: number): PandaMatch {
+    return {
+      id: 0,
+      match2id: id,
+      match2bracketid: bracketId,
+      section: 'Results',
+      status: 'finished',
+      winner_id: winner,
+      opponents: [{ id: a, type: 'team', opponent: { id: a, name: `T${a}` } },
+                  { id: b, type: 'team', opponent: { id: b, name: `T${b}` } }],
+      bracket_data: {
+        type: 'bracket',
+        bracket_index: bracketId === 'QF' ? 0 : bracketId === 'SF' ? 1 : 2,
+        bracket_section: 'upper',
+        lower_match_ids: [],
+        coordinates: {
+          round_index: 0, match_index_in_round: index,
+          round_count: 1, section_index: 0, section_count: 1,
+        },
+      },
+    } as unknown as PandaMatch;
+  }
+
+  const blast = [
+    played('QF-M001', 'QF', 0, SPIRIT, LIQUID, SPIRIT),
+    played('QF-M002', 'QF', 1, MOUZ, DMAX, MOUZ),
+    played('QF-M003', 'QF', 2, MONGOLZ, FAZE, FAZE),
+    played('QF-M004', 'QF', 3, ASTRALIS, PAIN, ASTRALIS),
+    played('SF-M001', 'SF', 0, SPIRIT, FAZE, SPIRIT),
+    played('SF-M002', 'SF', 1, MOUZ, ASTRALIS, MOUZ),
+    played('F-M001', 'F', 0, SPIRIT, MOUZ, MOUZ),
+  ];
+  const layout = buildBracketLayout(blast);
+
+  it('derives the links from the winners when Liquipedia declares none', () => {
+    expect([0, 1, 2].map(i => edgesInto(layout, i).length)).toEqual([0, 4, 2]);
+  });
+
+  it('links across the column, not by 2j / 2j+1', () => {
+    const qf = layout.columns[0].cells.map(c => c.match.match2id);
+    const sf0 = layout.columns[1].cells[0];
+    const feeders = edgesInto(layout, 1)
+      .filter(e => e.toY === sf0.centerY)
+      .map(e => qf[layout.columns[0].cells.findIndex(c => c.centerY === e.fromY)]);
+    expect(new Set(feeders)).toEqual(new Set(['QF-M001', 'QF-M003']));
+  });
+
+  it('reorders the quarterfinals so the connectors do not cross', () => {
+    expect(layout.columns[0].cells.map(c => c.match.match2id)).toEqual([
+      'QF-M001', 'QF-M003', 'QF-M002', 'QF-M004',
+    ]);
+  });
+
+  it('merges the three mini-brackets into one chain: no dividers, real round names', () => {
+    expect(layout.columns.map(c => c.startsStage)).toEqual([false, false, false]);
+    expect(layout.columns.map(c => c.label)).toEqual([
+      { kind: 'i18n', key: 'bracket_quarterfinals' },
+      { kind: 'i18n', key: 'bracket_semifinals' },
+      { kind: 'i18n', key: 'bracket_final' },
+    ]);
+  });
+
+  it('centres each child between the two matches that fed it', () => {
+    const [qf, sf, f] = layout.columns;
+    expect(sf.cells[0].centerY).toBe((qf.cells[0].centerY + qf.cells[1].centerY) / 2);
+    expect(sf.cells[1].centerY).toBe((qf.cells[2].centerY + qf.cells[3].centerY) / 2);
+    expect(f.cells[0].centerY).toBe((sf.cells[0].centerY + sf.cells[1].centerY) / 2);
+  });
+
+  it('draws nothing when the previous round has not been played yet', () => {
+    const unplayed = blast.map(m =>
+      m.match2id?.startsWith('QF') ? ({ ...m, status: 'upcoming', winner_id: null } as PandaMatch) : m,
+    );
+    expect(edgesInto(buildBracketLayout(unplayed), 1)).toHaveLength(0);
+  });
+});
+
 describe('buildBracketLayout — non-tree rounds', () => {
   // Round 3 of the CCT Swiss stage: three separate matchlists (High/Mid/Low).
   const swiss = [
