@@ -1312,15 +1312,24 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 
 ### Chaîne complète
 
-1. `mobile-app/utils/notifications.ts` → `registerForPushNotificationsAsync()` : demande la permission, récupère le token Expo (`getExpoPushTokenAsync({ projectId })`), crée le canal Android `match-alerts` (importance HIGH).
+1. `mobile-app/utils/notifications.ts` → `registerForPushNotificationsAsync()` : demande la permission, récupère le token Expo (`getExpoPushTokenAsync({ projectId })`), crée les canaux Android `match-alerts` (importance HIGH) et `content-updates` (DEFAULT).
 2. `mobile-app/contexts/AuthContext.tsx` : appelle l'enregistrement **après login** → `POST /api/push-tokens` (`pushTokenService`).
 3. Backend `internal/handlers/subscription_match_handler.go` : upsert dans la table **`push_token`** (`token` unique, `user_id`, `platform`, `active`).
-4. Backend `internal/services/notification_scheduler.go` (tick **60 s**) : détecte les matchs suivis qui passent `running` → envoie via `internal/services/expo_push.go`.
+4. Backend `internal/services/notification_scheduler.go` (tick **60 s**) → matchs ; `internal/services/content_notification_service.go` (à la création d'un article) → contenus. Envoi via `internal/services/expo_push.go`.
 
-### Règles importantes
+### Les 2 types de notif (il n'en existe pas d'autres)
 
-* **Un seul type de notif existe** : « Match en direct » (match-start), pour un match **suivi** qui passe live, conditionné par `user.notifi_push && user.notif_matchs`. **Aucune notif articles/news** n'est implémentée malgré les colonnes `notif_articles`/`notif_news` (= dev à faire si besoin).
-* Le message backend envoie `Priority: "high"` (APNs 10 / FCM high) + `ChannelId: "match-alerts"` (Android uniquement, iOS l'ignore) → bannière heads-up.
+| Type (`data.type`) | Titre | Déclencheur | Ciblage | Canal Android | Deep link |
+|---|---|---|---|---|---|
+| `match_start` | « Match en direct » | `begin_at <= now` (primaire, indépendant de Redis) **ou** match présent dans le cache `running` (filet) — flag partagé `notified_start`, jamais de doublon | tokens actifs de l'utilisateur **abonné au match** | `match-alerts` (+ `Priority: high` → APNs 10 / FCM high, bannière heads-up) | `/match/[id]` avec `m2` + `wiki` |
+| `new_article` / `new_news` | « Nouvel article » / « Nouvelle news » (selon `article.category == "Actus"`) | création d'un article (`POST /api/admin/articles`, goroutine fire-and-forget, idempotent via `articles.notified_at`) | **broadcast à tous les `push_token` actifs** | `content-updates` | `/article/[slug]` |
+
+* **Aucun gating par préférences** : les colonnes `notifi_push` / `notif_articles` / `notif_news` / `notif_matchs` ne conditionnent plus rien (désactivé explicitement dans les deux services), et l'écran de réglages n'existe plus (`services/notificationService.ts` est exporté mais appelé par aucun écran).
+* **Pas de rappel avant match, pas de notif de reschedule** (la colonne `match_subscription.notified_schedule` n'est ni lue ni écrite), **pas de notif tournoi** (les `tournament_subscription` ne servent qu'à auto-créer des `match_subscription`), **pas de notif locale** côté app.
+* **Garde-fou anti-rafale** : au-delà de `maxStartNotifLateness` (3 h après `begin_at`), l'abonnement passe `notified_start=true` **sans envoi** — sinon un redémarrage du scheduler pousserait d'un coup des « ça commence ! » sur des matchs finis.
+* **Le payload doit porter `m2` + `wiki`** : `GET /api/matches/:id` ne résout à la demande que le `match2id` alphanumérique ; un id numérique ne tombe juste que tant que le match est dans un cache poller. D'où la colonne `match_subscription.match2id` (remplie à l'abonnement, à l'hydratation tournoi, et rattrapée depuis le cache).
+* **Redirection au tap** : `hooks/useNotificationDeepLink.ts` (monté dans `app/_layout.tsx`). Utiliser `useLastNotificationResponse` et **pas** seulement `addNotificationResponseReceivedListener`, qui ne capte rien au **démarrage à froid**. La cible est mise en attente tant que `useNavigationContainerRef().isReady()` est faux : au boot, les effets du conteneur de navigation tournent **après** ceux du layout racine, donc un `router.push` immédiat est perdu sans erreur. Un interstitiel AdMob ne peut pas avaler la redirection (écran natif superposé à une navigation déjà faite). **Ne pas utiliser `useRootNavigationState()`** ici : il passe par `useNavigation()` et exige un contexte de navigateur.
+* `game_acronym` stocké côté abonnement vient de `videogame.slug` (donc `cs2`, pas `csgo`) → toute résolution de wiki passe par `models.ResolveWiki` (acronyme | slug | wiki), jamais par `GameWikiMapping` seul.
 
 ### ⚠️ Config Expo — source unique = `app.config.js`
 
