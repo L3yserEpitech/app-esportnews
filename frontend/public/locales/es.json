@@ -29,6 +29,9 @@
       "cookies": "Cookies",
       "kit_media": "Kit Multimedia",
       "telecharger_kit_media": "Descargar el Kit Multimedia",
+      "telecharger_app": "Descargar la aplicación",
+      "telecharger_sur": "Descárgalo en",
+      "disponible_sur": "Disponible en",
       "copyright": "Todos los derechos reservados."
     },
     "settings_modal": {

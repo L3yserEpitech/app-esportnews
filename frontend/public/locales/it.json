@@ -30,6 +30,9 @@
       "cookies": "Cookies",
       "kit_media": "Kit Media",
       "telecharger_kit_media": "Scarica il Kit Media",
+      "telecharger_app": "Scarica l'app",
+      "telecharger_sur": "Scarica su",
+      "disponible_sur": "Disponibile su",
       "copyright": "Tutti i diritti riservati."
     },
     "settings_modal": {
