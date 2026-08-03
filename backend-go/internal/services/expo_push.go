@@ -29,7 +29,15 @@ type ExpoPushMessage struct {
 	Badge    *int                   `json:"badge,omitempty"`
 	// ChannelId routes the notification to a specific Android notification channel
 	// (created client-side via setNotificationChannelAsync). Android-only — iOS ignores it.
-	ChannelId string `json:"channelId,omitempty"`
+	ChannelId   string           `json:"channelId,omitempty"`
+	RichContent *ExpoRichContent `json:"richContent,omitempty"`
+}
+
+// ExpoRichContent attaches media to a notification. Android renders the image
+// out of the box; iOS needs a Notification Service Extension target, which the
+// app does not ship — the notification degrades to text there.
+type ExpoRichContent struct {
+	Image string `json:"image,omitempty"`
 }
 
 // ExpoPushTicket represents the response for a single push notification

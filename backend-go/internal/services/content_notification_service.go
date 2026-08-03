@@ -2,6 +2,9 @@ package services
 
 import (
 	"context"
+	"html"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -11,40 +14,103 @@ import (
 	"github.com/esportnews/backend/internal/models"
 )
 
-const newsCategory = "Actus"
+const (
+	newsCategory = "Actus"
+	// Both OSes collapse the body to ~2 lines; the caps only keep the payload
+	// from carrying a whole article.
+	excerptMaxWords = 25
+	excerptMaxChars = 160
+)
 
 // contentNotification holds the resolved push content for a published article/news.
 type contentNotification struct {
-	title    string // notification title shown to the user
-	prefCol  string // user preference column that gates this notif
+	title    string // the article title, rendered bold by both OSes
+	body     string // the opening words of the article
+	image    string // thumbnail displayed next to the text
 	dataType string // data.type sent to the mobile app for deep-linking
 }
 
-// buildContentNotification resolves the title, preference column and data.type
-// for a freshly published article based on its category. Returns ok=false when
-// the article has no usable title.
-func buildContentNotification(article *models.Article) (notif contentNotification, body string, ok bool) {
+// buildContentNotification resolves what to display for a freshly published
+// article. Returns ok=false when the article has no usable title.
+func buildContentNotification(article *models.Article) (contentNotification, bool) {
 	if article == nil || article.Title == nil {
-		return contentNotification{}, "", false
+		return contentNotification{}, false
 	}
-	body = *article.Title
-	if body == "" {
-		return contentNotification{}, "", false
+	title := strings.TrimSpace(*article.Title)
+	if title == "" {
+		return contentNotification{}, false
 	}
 
-	isNews := article.Category != nil && *article.Category == newsCategory
-	if isNews {
-		return contentNotification{
-			title:    "Nouvelle news",
-			prefCol:  "notif_news",
-			dataType: "new_news",
-		}, body, true
+	dataType := "new_article"
+	if article.Category != nil && *article.Category == newsCategory {
+		dataType = "new_news"
 	}
+
+	image := strings.TrimSpace(derefString(article.FeaturedImage))
+	if !strings.HasPrefix(image, "http") {
+		image = ""
+	}
+
 	return contentNotification{
-		title:    "Nouvel article",
-		prefCol:  "notif_articles",
-		dataType: "new_article",
-	}, body, true
+		title:    title,
+		body:     articleExcerpt(article),
+		image:    image,
+		dataType: dataType,
+	}, true
+}
+
+// articleExcerpt returns the opening words of an article, preferring the
+// hand-written summary over the raw body.
+func articleExcerpt(article *models.Article) string {
+	for _, candidate := range []*string{article.Description, article.Subtitle, article.ArticleContent, article.Content} {
+		if excerpt := truncateWords(stripMarkup(derefString(candidate))); excerpt != "" {
+			return excerpt
+		}
+	}
+	return ""
+}
+
+var (
+	htmlTagPattern  = regexp.MustCompile(`<[^>]*>`)
+	markdownNoise   = strings.NewReplacer("#", "", "*", "", "_", "", "`", "", ">", "")
+	blockTagPattern = regexp.MustCompile(`(?i)</(p|div|h[1-6]|li|br)>`)
+)
+
+// stripMarkup flattens HTML or markdown article bodies into plain text.
+func stripMarkup(s string) string {
+	if s == "" {
+		return ""
+	}
+	// Close block-level tags with a space first, otherwise "<p>a</p><p>b</p>"
+	// would collapse into "ab".
+	s = blockTagPattern.ReplaceAllString(s, " ")
+	s = htmlTagPattern.ReplaceAllString(s, " ")
+	s = html.UnescapeString(s)
+	return markdownNoise.Replace(s)
+}
+
+// truncateWords keeps the first excerptMaxWords words, capped at
+// excerptMaxChars runes, and appends an ellipsis when it cut something.
+func truncateWords(text string) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return ""
+	}
+
+	cut := len(words) > excerptMaxWords
+	if cut {
+		words = words[:excerptMaxWords]
+	}
+
+	excerpt := strings.Join(words, " ")
+	if runes := []rune(excerpt); len(runes) > excerptMaxChars {
+		excerpt = strings.TrimSpace(string(runes[:excerptMaxChars]))
+		cut = true
+	}
+	if cut {
+		excerpt += "…"
+	}
+	return excerpt
 }
 
 // ContentNotificationService broadcasts a push notification to every opted-in
@@ -95,7 +161,7 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 		return
 	}
 
-	notif, body, ok := buildContentNotification(article)
+	notif, ok := buildContentNotification(article)
 	if !ok {
 		s.logger.Warnf("[ContentNotif] Article %d has no usable title, skipping", article.ID)
 		return
@@ -126,16 +192,22 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 		slug = *article.Slug
 	}
 
+	var richContent *ExpoRichContent
+	if notif.image != "" {
+		richContent = &ExpoRichContent{Image: notif.image}
+	}
+
 	// One message per token keeps the Expo ticket<->message mapping 1:1, so the
 	// DeviceNotRegistered cleanup inside SendBatch stays precise.
 	messages := make([]ExpoPushMessage, 0, len(tokens))
 	for _, t := range tokens {
 		messages = append(messages, ExpoPushMessage{
-			To:        []string{t},
-			Title:     notif.title,
-			Body:      body,
-			Sound:     "default",
-			ChannelId: "content-updates", // Android-only; iOS ignores it
+			To:          []string{t},
+			Title:       notif.title,
+			Body:        notif.body,
+			Sound:       "default",
+			ChannelId:   "content-updates", // Android-only; iOS ignores it
+			RichContent: richContent,
 			Data: map[string]interface{}{
 				"type": notif.dataType,
 				"slug": slug,
