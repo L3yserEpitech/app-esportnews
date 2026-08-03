@@ -140,6 +140,7 @@ export default function MatchDetailScreen() {
           id={Number(id)}
           meta={{
             match_name: match.name || `${team1?.acronym || team1?.name || 'TBD'} vs ${team2?.acronym || team2?.name || 'TBD'}`,
+            match2id: match.match2id || undefined,
             tournament_name: match.tournament?.name || '',
             game_acronym: match.videogame?.slug || '',
             begin_at: match.begin_at || undefined,

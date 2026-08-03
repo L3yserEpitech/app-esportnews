@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
+import { useNotificationDeepLink } from '@/hooks';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { GameProvider } from '@/contexts/GameContext';
 import { LocaleProvider } from '@/contexts/LocaleContext';
@@ -16,8 +16,6 @@ import { Platform } from 'react-native';
 import '@/utils/i18n'; // Initialize i18n
 
 export default function RootLayout() {
-  const router = useRouter();
-
   // Request ATT on iOS, then initialize AdMob
   useEffect(() => {
     const initAds = async () => {
@@ -35,18 +33,8 @@ export default function RootLayout() {
     initAds();
   }, []);
 
-  // Handle notification tap — deep link to match detail
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data?.type === 'match_start' && data?.match_id) {
-        router.push(`/match/${data.match_id}` as any);
-      } else if ((data?.type === 'new_article' || data?.type === 'new_news') && data?.slug) {
-        router.push(`/article/${data.slug}` as any);
-      }
-    });
-    return () => subscription.remove();
-  }, [router]);
+  // Notification tap → match / article, cold start included
+  useNotificationDeepLink();
 
   return (
     <SafeAreaProvider>
