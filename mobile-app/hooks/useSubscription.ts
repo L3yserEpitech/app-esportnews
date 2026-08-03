@@ -19,6 +19,8 @@ import { useSubscriptionMock } from './useSubscriptionMock';
 import { subscriptionService } from '@/services';
 import { useAuth } from '@/hooks/useAuth';
 
+const STORE_NAME = Platform.OS === 'ios' ? 'Apple' : 'Google Play';
+
 // Clé AsyncStorage pour persister l'intention d'achat à travers un force-kill.
 // Si l'user clique "S'abonner", confirme Face ID, mais kill l'app avant que
 // finishTransaction ne passe, Apple rejouera l'event au prochain démarrage.
@@ -68,11 +70,27 @@ async function readRecentPurchaseIntent(): Promise<boolean> {
 // ⚠️ DÉSACTIVER en production (mettre false)
 const USE_MOCK_SUBSCRIPTION = __DEV__ && Platform.OS === 'android' && false;
 
-// Product IDs par plateforme
+// Product IDs par plateforme.
+// ⚠️ L'ID Android doit correspondre EXACTEMENT au produit de la Play Console
+// (Monétiser → Abonnements) : sinon Play renvoie une liste vide et l'écran
+// d'abonnement n'a rien à vendre.
 const SUBSCRIPTION_SKUS = Platform.select({
   ios: ['13801972972'],
   android: ['premium_monthly'],
 }) ?? [];
+
+// Play Billing refuse de lancer l'achat d'un abonnement sans l'offerToken du
+// forfait de base ; l'App Store, lui, se contente du SKU. Le token n'est
+// connu qu'après fetchProducts et change à chaque requête, d'où la lecture
+// depuis le produit au moment de l'achat.
+function androidOfferToken(product?: ProductSubscription): string | undefined {
+  if (!product || product.platform !== 'android') return undefined;
+  return (
+    product.subscriptionOffers?.[0]?.offerTokenAndroid ??
+    product.subscriptionOfferDetailsAndroid?.[0]?.offerToken ??
+    undefined
+  );
+}
 
 export interface SubscriptionState {
   products: ProductSubscription[];
@@ -228,11 +246,11 @@ export function useSubscription() {
           [{ text: 'OK' }]
         );
       } else {
-        // Paiement OK côté Apple mais serveur injoignable. On NE ment PAS à
+        // Paiement OK côté store mais serveur injoignable. On NE ment PAS à
         // l'user : il doit synchroniser via "Restaurer mes achats" plus tard.
         Alert.alert(
           'Achat effectué',
-          "Votre paiement a bien été reçu par Apple, mais la synchronisation avec notre serveur a échoué. Reconnectez-vous à Internet puis utilisez « Restaurer mes achats » pour activer votre Premium.",
+          `Votre paiement a bien été reçu par ${STORE_NAME}, mais la synchronisation avec notre serveur a échoué. Reconnectez-vous à Internet puis utilisez « Restaurer mes achats » pour activer votre Premium.`,
           [{ text: 'OK' }]
         );
       }
@@ -280,13 +298,17 @@ export function useSubscription() {
     // Persister l'intention pour survivre à un force-kill pendant Face ID.
     await writePurchaseIntent(sku);
 
+    const offerToken = androidOfferToken(products.find((p) => p.id === sku));
+
     try {
       // Nouvelle API v14 : requestPurchase avec type 'subs'
       await requestPurchase({
         type: 'subs',
         request: {
           apple: { sku },
-          google: { skus: [sku] },
+          google: offerToken
+            ? { skus: [sku], subscriptionOffers: [{ sku, offerToken }] }
+            : { skus: [sku] },
         },
       });
     } catch (err) {
