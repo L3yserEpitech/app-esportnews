@@ -19,21 +19,18 @@ func TestBuildContentNotification(t *testing.T) {
 		wantTitle string
 		wantType  string
 		wantBody  string
-		wantImage string
 	}{
 		{
 			name: "news category Actus",
 			article: &models.Article{
-				Title:         cnStr("Karmine Corp recrute"),
-				Category:      cnStr("Actus"),
-				Description:   cnStr("Le club français annonce son nouveau roster."),
-				FeaturedImage: cnStr("https://pub-x.r2.dev/articles/kc.png"),
+				Title:       cnStr("Karmine Corp recrute"),
+				Category:    cnStr("Actus"),
+				Description: cnStr("Le club français annonce son nouveau roster."),
 			},
 			wantOK:    true,
 			wantTitle: "Karmine Corp recrute",
 			wantType:  "new_news",
 			wantBody:  "Le club français annonce son nouveau roster.",
-			wantImage: "https://pub-x.r2.dev/articles/kc.png",
 		},
 		{
 			name:      "regular article",
@@ -60,13 +57,6 @@ func TestBuildContentNotification(t *testing.T) {
 			wantTitle: "Major Cologne",
 			wantType:  "new_article",
 			wantBody:  "Vitality s'impose en finale",
-		},
-		{
-			name:      "relative image is dropped",
-			article:   &models.Article{Title: cnStr("Sans image"), FeaturedImage: cnStr("/uploads/cover.png")},
-			wantOK:    true,
-			wantTitle: "Sans image",
-			wantType:  "new_article",
 		},
 		{
 			name:    "nil title -> not ok",
@@ -97,9 +87,6 @@ func TestBuildContentNotification(t *testing.T) {
 			}
 			if notif.body != tt.wantBody {
 				t.Errorf("body = %q, want %q", notif.body, tt.wantBody)
-			}
-			if notif.image != tt.wantImage {
-				t.Errorf("image = %q, want %q", notif.image, tt.wantImage)
 			}
 		})
 	}

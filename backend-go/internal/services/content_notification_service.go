@@ -26,7 +26,6 @@ const (
 type contentNotification struct {
 	title    string // the article title, rendered bold by both OSes
 	body     string // the opening words of the article
-	image    string // thumbnail displayed next to the text
 	dataType string // data.type sent to the mobile app for deep-linking
 }
 
@@ -46,15 +45,9 @@ func buildContentNotification(article *models.Article) (contentNotification, boo
 		dataType = "new_news"
 	}
 
-	image := strings.TrimSpace(derefString(article.FeaturedImage))
-	if !strings.HasPrefix(image, "http") {
-		image = ""
-	}
-
 	return contentNotification{
 		title:    title,
 		body:     articleExcerpt(article),
-		image:    image,
 		dataType: dataType,
 	}, true
 }
@@ -192,22 +185,16 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 		slug = *article.Slug
 	}
 
-	var richContent *ExpoRichContent
-	if notif.image != "" {
-		richContent = &ExpoRichContent{Image: notif.image}
-	}
-
 	// One message per token keeps the Expo ticket<->message mapping 1:1, so the
 	// DeviceNotRegistered cleanup inside SendBatch stays precise.
 	messages := make([]ExpoPushMessage, 0, len(tokens))
 	for _, t := range tokens {
 		messages = append(messages, ExpoPushMessage{
-			To:          []string{t},
-			Title:       notif.title,
-			Body:        notif.body,
-			Sound:       "default",
-			ChannelId:   "content-updates", // Android-only; iOS ignores it
-			RichContent: richContent,
+			To:        []string{t},
+			Title:     notif.title,
+			Body:      notif.body,
+			Sound:     "default",
+			ChannelId: "content-updates", // Android-only; iOS ignores it
 			Data: map[string]interface{}{
 				"type": notif.dataType,
 				"slug": slug,
