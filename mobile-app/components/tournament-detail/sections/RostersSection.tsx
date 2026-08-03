@@ -27,18 +27,24 @@ function TeamBlock({
   if (!team) return null;
   const logo = imageUrl(team.image_url);
   const teamId = typeof team.id === 'number' ? team.id : null;
+  // L'id vient d'un opponent : c'est un hash du nom, pas un pageid. La page
+  // d'équipe résout par template, d'où son passage en paramètre.
+  const teamTemplate = team.template ?? '';
+  // Sans template, aucune page d'équipe n'est atteignable : on ne rend pas le
+  // bloc cliquable plutôt que d'ouvrir un écran qui finira en erreur.
+  const canOpenTeam = teamId != null && teamTemplate.length > 0;
   const goToTeam = () => {
-    if (teamId == null) return;
+    if (!canOpenTeam) return;
     router.push({
       pathname: '/team/[id]',
-      params: { id: String(teamId), wiki: wiki ?? '' },
+      params: { id: String(teamId), wiki: wiki ?? '', template: teamTemplate },
     });
   };
   return (
     <Pressable
       style={styles.block}
       onPress={goToTeam}
-      disabled={teamId == null}
+      disabled={!canOpenTeam}
     >
       <View style={styles.teamRow}>
         <View style={styles.logoBox}>

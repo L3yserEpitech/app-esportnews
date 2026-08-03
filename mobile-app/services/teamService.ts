@@ -6,6 +6,10 @@ import type {
   TeamPlacementsResponse,
 } from '@/types';
 
+// Les templates Liquipedia traînent souvent un suffixe de date ("furia 2025",
+// "heroic sep 2024") qui ne résout pas ; on retente sur la base.
+const TEMPLATE_DATE_SUFFIX = /\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)?\s*\d{4}$/i;
+
 class TeamService {
   /**
    * Rechercher des équipes par nom (parallèle sur les 10 wikis).
@@ -54,6 +58,36 @@ class TeamService {
     } catch (error: any) {
       console.error('Error fetching team detail:', error);
       return null;
+    }
+  }
+
+  /**
+   * Détail d'une équipe depuis son template Liquipedia, en un seul appel.
+   * GET /api/teams/by-template?template=<t>&wiki=<w>&detail=1
+   *
+   * C'est la seule voie exploitable depuis un match ou un tournoi : leurs
+   * opponents ne portent pas de pageid, seulement un `id` synthétique
+   * (hash du nom d'équipe) que /teams/:id/detail ne peut pas résoudre.
+   */
+  async getTeamDetailByTemplate(template: string, wiki: string): Promise<TeamDetail | null> {
+    const fetchOne = async (tpl: string) => {
+      const response = await apiClient.get<TeamDetail>('/api/teams/by-template', {
+        params: { template: tpl, wiki, detail: 1 },
+      });
+      return response.data;
+    };
+
+    try {
+      return await fetchOne(template);
+    } catch {
+      const base = template.replace(TEMPLATE_DATE_SUFFIX, '').trim();
+      if (!base || base === template) return null;
+      try {
+        return await fetchOne(base);
+      } catch (error: any) {
+        console.error('Error fetching team detail by template:', error);
+        return null;
+      }
     }
   }
 

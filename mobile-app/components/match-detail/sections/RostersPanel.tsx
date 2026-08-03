@@ -22,11 +22,17 @@ export default function RostersPanel({ match }: MatchSectionProps) {
         {teams.map((team, idx) => {
           const isWinner = match.winner_id != null && team!.id === match.winner_id;
           const teamId = typeof team!.id === 'number' ? team!.id : null;
+          // L'id d'un opponent est un hash du nom, pas un pageid : la page
+          // d'équipe résout par template, d'où son passage en paramètre.
+          const teamTemplate = team!.template ?? '';
+          // Sans template (opponents "solo" des jeux 1v1), aucune page d'équipe
+          // n'est atteignable : mieux vaut ne pas rendre la carte cliquable.
+          const canOpenTeam = teamId != null && teamTemplate.length > 0;
           const goToTeam = () => {
-            if (teamId == null) return;
+            if (!canOpenTeam) return;
             router.push({
               pathname: '/team/[id]',
-              params: { id: String(teamId), wiki: match.wiki ?? '' },
+              params: { id: String(teamId), wiki: match.wiki ?? '', template: teamTemplate },
             });
           };
           return (
@@ -37,7 +43,7 @@ export default function RostersPanel({ match }: MatchSectionProps) {
             >
               <Pressable
                 onPress={goToTeam}
-                disabled={teamId == null}
+                disabled={!canOpenTeam}
                 style={styles.cardPressable}
               >
                 <TeamLogo team={team} size="md" highlight={isWinner} />

@@ -939,6 +939,8 @@ components/tournament-detail/{tournamentSections.ts, sections/…}
 * `GET /api/teams/search` = params `query`+`page_size`. Favoris (`/api/users/favorite-teams`) **plafonnés à 3** (400 au 4ᵉ).
 * `GET /api/players/:pagename` exige `?wiki=` (pas de fan-out).
 * Les résultats de recherche (`NormalizedTeam`) **ne portent pas** `wiki` — seul `TeamDetail` l'a. Mobile mappe `current_videogame.slug` (slug interne cs2/codmw…) → wiki via `utils/gameRegistry.ts` (miroir de `videogameSlugMap`) comme hint ; l'écran résout le wiki faisant autorité depuis `detail.wiki`.
+* **⚠️ L'`id` d'une équipe dans un match ou un tournoi est un `hashStringToInt(nom)`, PAS un pageid** (`normalizeOpponents`, `liquipedia_match.go`). `GET /api/teams/:id/detail` ne résout que des pageids : sur un id hashé il balaie les 10 wikis puis rend 404 (**mesuré : 13,8 s**). Depuis un match/tournoi, il faut passer par `GET /api/teams/by-template?template=&wiki=&detail=1` (**3 s**, détail enrichi en un appel) — c'est ce que fait le web via `teamHref()`. Seuls la recherche et les favoris portent de vrais pageids.
+* Les templates traînent souvent un **suffixe de date** (`wopa esport 2026`, `heroic sep 2024`) qui ne résout pas : repli obligatoire sur la base (`wopa esport`), côté web comme mobile.
 
 ### Doc spécifique
 `mobile-app/docs/PROGRESS.md` (peut être obsolète sur la partie data sources).
