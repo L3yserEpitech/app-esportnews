@@ -10,6 +10,7 @@ type MatchSubscription struct {
 	CreatedAt        time.Time  `json:"created_at" gorm:"autoCreateTime"`
 	UserID           int64      `json:"user_id" gorm:"uniqueIndex:idx_user_match;not null;index"`
 	MatchID          int64      `json:"match_id" gorm:"uniqueIndex:idx_user_match;not null"`
+	Match2ID         string     `json:"match2id"` // alphanumeric Liquipedia id — the only one the detail endpoint resolves on-demand
 	GameAcronym      string     `json:"game_acronym"`
 	MatchName        string     `json:"match_name"`
 	TournamentName   string     `json:"tournament_name"`

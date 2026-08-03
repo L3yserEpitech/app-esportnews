@@ -20,6 +20,10 @@ const (
 	hydrationTickInterval  = 10 * time.Minute
 	maxSubsPerTick         = 500
 	staleFinishedThreshold = 7 * 24 * time.Hour
+	// Past this lateness, a due subscription is marked as notified without
+	// sending: a scheduler restart or a backfill must never fire a burst of
+	// "starts now" pushes for matches that began hours ago.
+	maxStartNotifLateness = 3 * time.Hour
 )
 
 // NotificationScheduler dispatches push notifications when subscribed matches
@@ -90,10 +94,10 @@ func (s *NotificationScheduler) Start(ctx context.Context) {
 	}
 }
 
-// processMatchNotifications walks active match subscriptions, detects which
-// ones just went live in the Liquipedia running cache, and dispatches a push
-// notification to the subscribing user. Reschedules (begin_at drift) are
-// persisted back to the subscription row.
+// processMatchNotifications walks active match subscriptions and dispatches a
+// "match starts now" push, either when the scheduled kick-off time is reached
+// or when the match shows up live in the Liquipedia running cache — whichever
+// comes first. Reschedules (begin_at drift) are persisted back to the row.
 func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	db := s.getDB()
 
@@ -110,16 +114,48 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 		return
 	}
 
-	// Batch Redis lookups by game so we only build the running map once per game.
-	subsByGame := make(map[string][]models.MatchSubscription, len(subs))
-	for _, sub := range subs {
-		subsByGame[sub.GameAcronym] = append(subsByGame[sub.GameAcronym], sub)
-	}
-
+	now := time.Now()
 	var (
 		messages     []ExpoPushMessage
 		subsToUpdate []subUpdate
+		waiting      []models.MatchSubscription
 	)
+
+	// Primary trigger: the scheduled kick-off time is reached. Purely time-based
+	// so the push lands on time instead of waiting for the poller to flip the
+	// match to running in Redis (up to 8 min later).
+	for _, sub := range subs {
+		if sub.BeginAt == nil || sub.BeginAt.After(now) {
+			waiting = append(waiting, sub)
+			continue
+		}
+
+		if now.Sub(*sub.BeginAt) <= maxStartNotifLateness {
+			if msg, ok := s.buildStartNotification(ctx, sub, matchLabelFromName(sub.MatchName), sub.Match2ID); ok {
+				messages = append(messages, msg)
+			}
+		}
+		subsToUpdate = append(subsToUpdate, subUpdate{
+			id: sub.ID,
+			fields: map[string]interface{}{
+				"notified_start": true,
+				"status":         "running",
+			},
+		})
+	}
+
+	if len(waiting) == 0 {
+		s.dispatch(ctx, messages, subsToUpdate)
+		return
+	}
+
+	// Safety net: matches already live ahead of their announced time, or without
+	// a known begin_at. Also the only place begin_at drift gets persisted.
+	// Batch Redis lookups by game so we only build the running map once per game.
+	subsByGame := make(map[string][]models.MatchSubscription, len(waiting))
+	for _, sub := range waiting {
+		subsByGame[sub.GameAcronym] = append(subsByGame[sub.GameAcronym], sub)
+	}
 
 	for gameAcronym, gameSubs := range subsByGame {
 		runningMap, err := s.runningMatchesByID(ctx, gameAcronym)
@@ -135,29 +171,33 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 				continue
 			}
 
-			if !sub.NotifiedStart {
-				msg, ok := s.buildStartNotification(ctx, sub, match)
-				if ok {
-					messages = append(messages, msg)
-				}
-				subsToUpdate = append(subsToUpdate, subUpdate{
-					id: sub.ID,
-					fields: map[string]interface{}{
-						"notified_start": true,
-						"status":         "running",
-					},
-				})
+			fields := map[string]interface{}{
+				"notified_start": true,
+				"status":         "running",
+			}
+			// Backfill the deep-link id on rows created before we stored it, and
+			// on tournament auto-subscriptions which only carry the numeric id.
+			match2ID := sub.Match2ID
+			if match2ID == "" && match.Match2ID != "" {
+				match2ID = match.Match2ID
+				fields["match2id"] = match2ID
+			}
+			if newBeginAt := matchBeginsAt(match); newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
+				fields["begin_at"] = newBeginAt
 			}
 
-			if newBeginAt := matchBeginsAt(match); newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
-				subsToUpdate = append(subsToUpdate, subUpdate{
-					id:     sub.ID,
-					fields: map[string]interface{}{"begin_at": newBeginAt},
-				})
+			if msg, ok := s.buildStartNotification(ctx, sub, matchLabel(match, sub.MatchName), match2ID); ok {
+				messages = append(messages, msg)
 			}
+			subsToUpdate = append(subsToUpdate, subUpdate{id: sub.ID, fields: fields})
 		}
 	}
 
+	s.dispatch(ctx, messages, subsToUpdate)
+}
+
+// dispatch sends the batch and persists the subscription updates.
+func (s *NotificationScheduler) dispatch(ctx context.Context, messages []ExpoPushMessage, subsToUpdate []subUpdate) {
 	if len(messages) > 0 {
 		invalidTokens, err := s.pushService.SendBatch(ctx, messages)
 		if err != nil {
@@ -169,6 +209,7 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 		s.logger.Infof("[NotifScheduler] Sent %d notifications", len(messages))
 	}
 
+	db := s.getDB()
 	for _, upd := range subsToUpdate {
 		if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
 			Where("id = ?", upd.id).
@@ -200,20 +241,24 @@ func (s *NotificationScheduler) runningMatchesByID(ctx context.Context, gameAcro
 }
 
 // buildStartNotification returns the ExpoPushMessage to send for a match that
-// just went live. The second return value is false when the user has no
-// active push token. Preference gating is intentionally disabled: any
-// subscriber with a token gets the match-start notification.
-func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub models.MatchSubscription, match models.NormalizedMatch) (ExpoPushMessage, bool) {
+// is starting. The second return value is false when the user has no active
+// push token. Preference gating is intentionally disabled: any subscriber with
+// a token gets the match-start notification.
+func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub models.MatchSubscription, label, match2ID string) (ExpoPushMessage, bool) {
 	tokens := s.getUserPushTokens(ctx, sub.UserID)
 	if len(tokens) == 0 {
 		return ExpoPushMessage{}, false
 	}
 
-	label := matchLabel(match, sub.MatchName)
 	body := "Le match commence maintenant !"
 	if label != "" {
 		body = fmt.Sprintf("%s commence maintenant !", label)
 	}
+
+	// wiki + match2id let the app open the exact match page: the detail endpoint
+	// only resolves an alphanumeric match2id on-demand, a numeric id falls back
+	// to a 10-wiki cache scan and 404s once the match leaves the poller caches.
+	wiki, _ := models.ResolveWiki(sub.GameAcronym)
 
 	return ExpoPushMessage{
 		To:        tokens,
@@ -225,6 +270,8 @@ func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub 
 		Data: map[string]interface{}{
 			"type":         "match_start",
 			"match_id":     sub.MatchID,
+			"m2":           match2ID,
+			"wiki":         wiki,
 			"game_acronym": sub.GameAcronym,
 		},
 	}, true
@@ -232,7 +279,7 @@ func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub 
 
 // matchLabel builds a concise "Équipe A contre Équipe B" label.
 // Prefers the two opponent team names from the live match; falls back to the
-// stored match name (normalizing Liquipedia's " vs " to " contre ").
+// stored match name.
 func matchLabel(m models.NormalizedMatch, fallback string) string {
 	var names []string
 	for _, o := range m.Opponents {
@@ -246,10 +293,16 @@ func matchLabel(m models.NormalizedMatch, fallback string) string {
 		return fmt.Sprintf("%s contre %s", names[0], names[1])
 	}
 
-	label := strings.TrimSpace(fallback)
-	if label == "" {
-		label = strings.TrimSpace(m.Name)
+	if strings.TrimSpace(fallback) == "" {
+		return matchLabelFromName(m.Name)
 	}
+	return matchLabelFromName(fallback)
+}
+
+// matchLabelFromName normalizes a stored match name ("A vs B") into the label
+// used in notification bodies.
+func matchLabelFromName(name string) string {
+	label := strings.TrimSpace(name)
 	label = strings.ReplaceAll(label, " vs ", " contre ")
 	label = strings.ReplaceAll(label, " VS ", " contre ")
 	return label
@@ -337,6 +390,7 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 			matchSub := models.MatchSubscription{
 				UserID:         ts.UserID,
 				MatchID:        matchID,
+				Match2ID:       match.Match2ID,
 				GameAcronym:    ts.GameAcronym,
 				MatchName:      match.Name,
 				TournamentName: ts.TournamentName,

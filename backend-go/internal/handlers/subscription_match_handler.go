@@ -202,6 +202,7 @@ func (h *MatchSubHandler) SubscribeToMatch(c echo.Context) error {
 
 	var input struct {
 		MatchName      string  `json:"match_name"`
+		Match2ID       string  `json:"match2id"`
 		TournamentName string  `json:"tournament_name"`
 		GameAcronym    string  `json:"game_acronym"`
 		BeginAt        *string `json:"begin_at"`
@@ -222,6 +223,7 @@ func (h *MatchSubHandler) SubscribeToMatch(c echo.Context) error {
 	sub := models.MatchSubscription{
 		UserID:         userID,
 		MatchID:        matchID,
+		Match2ID:       input.Match2ID,
 		GameAcronym:    input.GameAcronym,
 		MatchName:      input.MatchName,
 		TournamentName: input.TournamentName,
@@ -235,6 +237,15 @@ func (h *MatchSubHandler) SubscribeToMatch(c echo.Context) error {
 		FirstOrCreate(&sub)
 	if result.Error != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to subscribe to match")
+	}
+
+	// Existing row (auto-created by a tournament subscription, or predating the
+	// column) — fill in the deep-link id the notification payload needs.
+	if sub.Match2ID == "" && input.Match2ID != "" {
+		sub.Match2ID = input.Match2ID
+		h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}).
+			Where("id = ?", sub.ID).
+			Update("match2id", input.Match2ID)
 	}
 
 	return c.JSON(http.StatusCreated, sub)
