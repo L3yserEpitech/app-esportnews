@@ -44,3 +44,22 @@ var WikiToAcronym = func() map[string]string {
 	}
 	return m
 }()
+
+// ResolveWiki maps any game identifier a client may send us to a wiki: an
+// internal acronym (csgo), a videogame slug (cs2) or a raw wiki name.
+// The mobile app stores match_subscription.game_acronym from videogame.slug,
+// which differs from the acronym for counterstrike (cs2) and easportsfc.
+func ResolveWiki(id string) (string, bool) {
+	if wiki, ok := GameWikiMapping[id]; ok {
+		return wiki, true
+	}
+	if _, ok := WikiToAcronym[id]; ok {
+		return id, true
+	}
+	for wiki, slug := range videogameSlugMap {
+		if slug == id {
+			return wiki, true
+		}
+	}
+	return "", false
+}

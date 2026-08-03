@@ -95,7 +95,7 @@ func (s *LiquipediaService) TournamentMatches(ctx context.Context, gameAcronym s
 // the Liquipedia wiki name used in API requests. Returns ErrUnknownGame if
 // the acronym is not registered in models.GameWikiMapping.
 func (s *LiquipediaService) wikiForAcronym(gameAcronym string) (string, error) {
-	wiki, ok := models.GameWikiMapping[gameAcronym]
+	wiki, ok := models.ResolveWiki(gameAcronym)
 	if !ok {
 		return "", fmt.Errorf("%w: %q", ErrUnknownGame, gameAcronym)
 	}
