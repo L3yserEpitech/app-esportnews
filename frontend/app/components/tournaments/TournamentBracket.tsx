@@ -40,17 +40,18 @@ function BracketMatchCell({ match, side }: { match: PandaMatch; side: string | n
   const awayWon = isFinished && match.winner_id === away?.id;
 
   return (
-    <Link href={matchHref(match)}>
+    <Link href={matchHref(match)} className="relative block">
+      {/* Sits in the gap above the cell: inside it would land on the home score. */}
+      {side && (
+        <span className="absolute -top-2 right-2 z-10 px-1 rounded-sm border border-[var(--color-border-primary)]/60 bg-[var(--color-bg-primary)] text-[7px] font-bold leading-[11px] tracking-wider text-[var(--color-text-muted)]">
+          {side === 'lower' ? 'LB' : 'UB'}
+        </span>
+      )}
       <div
-        className="group relative rounded-md border border-[var(--color-border-primary)]/60 bg-[var(--color-bg-secondary)] overflow-hidden hover:border-[#F22E62]/50 transition-all duration-200 cursor-pointer hover:shadow-[0_0_12px_rgba(242,46,98,0.15)]"
+        className="group rounded-md border border-[var(--color-border-primary)]/60 bg-[var(--color-bg-secondary)] overflow-hidden hover:border-[#F22E62]/50 transition-all duration-200 cursor-pointer hover:shadow-[0_0_12px_rgba(242,46,98,0.15)]"
         style={{ width: CELL_W, height: CELL_H }}
       >
         {isLive && <div className="h-0.5 bg-[var(--color-status-live)] w-full" />}
-        {side && (
-          <span className="absolute top-0.5 right-0.5 z-10 px-1 rounded-sm bg-[var(--color-bg-primary)]/80 text-[7px] font-bold tracking-wider text-[var(--color-text-muted)]">
-            {side === 'lower' ? 'LB' : 'UB'}
-          </span>
-        )}
         {/* Team 1 */}
         <div className={`flex items-center gap-2 px-2.5 py-1 border-b border-[var(--color-border-primary)]/30 ${homeWon ? 'bg-[#F22E62]/8' : ''}`}>
           <div className="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0 bg-[var(--color-bg-primary)]/40">

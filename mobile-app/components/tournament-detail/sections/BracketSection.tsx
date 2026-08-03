@@ -64,20 +64,23 @@ function BracketCell({ match, side }: { match: PandaMatch; side: string | null }
   const isFinished = match.status === 'finished';
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
-      onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } })}
-    >
-      {isLive && <View style={styles.liveBar} />}
+    <View style={styles.cellWrap}>
+      {/* Sits in the gap above the cell: inside it would land on the home score. */}
       {side && (
         <View style={styles.sideBadge}>
           <Text style={styles.sideBadgeText}>{side === 'lower' ? 'LB' : 'UB'}</Text>
         </View>
       )}
-      <TeamRow team={home} score={homeScore} won={isFinished && match.winner_id === home?.id} live={isLive} />
-      <View style={styles.cellDivider} />
-      <TeamRow team={away} score={awayScore} won={isFinished && match.winner_id === away?.id} live={isLive} />
-    </Pressable>
+      <Pressable
+        style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
+        onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } })}
+      >
+        {isLive && <View style={styles.liveBar} />}
+        <TeamRow team={home} score={homeScore} won={isFinished && match.winner_id === home?.id} live={isLive} />
+        <View style={styles.cellDivider} />
+        <TeamRow team={away} score={awayScore} won={isFinished && match.winner_id === away?.id} live={isLive} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -257,16 +260,21 @@ const styles = StyleSheet.create({
   },
   cellPressed: { borderColor: COLORS.primary, opacity: 0.9 },
   liveBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: COLORS.primary },
+  // overflow stays visible here so the badge can hang above the cell (Android
+  // clips absolutely-positioned children of an overflow:'hidden' parent).
+  cellWrap: { width: CELL_W, height: CELL_H, overflow: 'visible' },
   sideBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
+    top: -8,
+    right: 8,
     zIndex: 1,
     paddingHorizontal: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(6,11,19,0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: COLORS.background,
   },
-  sideBadgeText: { fontSize: 7, fontWeight: '700', letterSpacing: 0.5, color: COLORS.textSecondary },
+  sideBadgeText: { fontSize: 7, lineHeight: 11, fontWeight: '700', letterSpacing: 0.5, color: COLORS.textSecondary },
   cellDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)' },
   teamRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
   teamRowWon: { backgroundColor: 'rgba(242,46,98,0.08)' },
