@@ -11,6 +11,7 @@ import (
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
+	"github.com/esportnews/backend/internal/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -216,8 +217,9 @@ func TestUpdateProfile(t *testing.T) {
 	assert.Equal(t, "Updated Name", updatedUser.Name)
 }
 
-// TestRefreshAccessToken tests token refresh functionality
-func TestRefreshAccessToken(t *testing.T) {
+// TestRefreshSession covers the rotation that keeps a mobile session alive:
+// refreshing must mint a new pair and retire the token that was presented.
+func TestRefreshSession(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -228,7 +230,7 @@ func TestRefreshAccessToken(t *testing.T) {
 		Email:    "refresh@example.com",
 		Password: "SecurePass123",
 	}
-	createdUser, err := authService.Signup(context.Background(), signupInput)
+	_, err := authService.Signup(context.Background(), signupInput)
 	require.NoError(t, err)
 
 	loginInput := &models.LoginInput{
@@ -238,10 +240,22 @@ func TestRefreshAccessToken(t *testing.T) {
 	authResponse, err := authService.Login(context.Background(), loginInput)
 	require.NoError(t, err)
 
-	newAccessToken, err := authService.RefreshAccessToken(context.Background(), createdUser.ID, authResponse.RefreshToken)
+	refreshed, err := authService.RefreshSession(context.Background(), authResponse.RefreshToken)
+	require.NoError(t, err)
+	assert.NotEmpty(t, refreshed.AccessToken)
+	assert.NotEmpty(t, refreshed.RefreshToken)
+	assert.NotEqual(t, authResponse.RefreshToken, refreshed.RefreshToken)
 
-	assert.NoError(t, err)
-	assert.NotEmpty(t, newAccessToken)
+	// The old refresh token is no longer the stored one → refused.
+	_, err = authService.RefreshSession(context.Background(), authResponse.RefreshToken)
+	assert.Error(t, err)
+
+	// Logging out drops the stored refresh token → no more revival.
+	claims, err := authService.VerifyToken(refreshed.AccessToken)
+	require.NoError(t, err)
+	require.NoError(t, authService.Logout(context.Background(), claims.ID, claims.UserID))
+	_, err = authService.RefreshSession(context.Background(), refreshed.RefreshToken)
+	assert.Error(t, err)
 }
 
 // Helper function to setup test database
@@ -290,4 +304,29 @@ func createTestTables(t *testing.T, db *pgxpool.Pool) {
 	if _, err := db.Exec(context.Background(), "DELETE FROM public.users;"); err != nil {
 		t.Logf("Could not clean test tables: %v", err)
 	}
+}
+
+// TestRefreshSessionRejectsUnknownTokens covers the branches that guard the
+// endpoint before it ever touches the database, so they run without one.
+func TestRefreshSessionRejectsUnknownTokens(t *testing.T) {
+	redisCache := newAuthTestCache(t)
+	authService := NewAuthService(nil, redisCache, "test-secret")
+
+	token, _, err := utils.GenerateJWT(7, "user@example.com", false, "test-secret", time.Hour)
+	require.NoError(t, err)
+
+	// Nothing stored for this user → the session was logged out or expired.
+	_, err = authService.RefreshSession(context.Background(), token)
+	assert.Error(t, err)
+
+	// A different token is stored → the presented one has been rotated out.
+	require.NoError(t, redisCache.Set(context.Background(), cache.RefreshTokenKey(7), "another-token", time.Hour))
+	_, err = authService.RefreshSession(context.Background(), token)
+	assert.Error(t, err)
+
+	// Signed with the wrong secret → rejected before any lookup.
+	forged, _, err := utils.GenerateJWT(7, "user@example.com", false, "other-secret", time.Hour)
+	require.NoError(t, err)
+	_, err = authService.RefreshSession(context.Background(), forged)
+	assert.Error(t, err)
 }

@@ -42,10 +42,11 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/api/auth/signup', data);
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
 
-      // Store token in AsyncStorage
-      await tokenManager.setToken(access_token);
+      // Les deux tokens : sans le refresh, la session meurt à l'expiration de
+      // l'access token (7 jours) sans aucun moyen de la renouveler.
+      await tokenManager.setTokens(access_token, refresh_token);
 
       return {
         authToken: access_token,
@@ -63,10 +64,11 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/api/auth/login', data);
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
 
-      // Store token in AsyncStorage
-      await tokenManager.setToken(access_token);
+      // Les deux tokens : sans le refresh, la session meurt à l'expiration de
+      // l'access token (7 jours) sans aucun moyen de la renouveler.
+      await tokenManager.setTokens(access_token, refresh_token);
 
       return {
         authToken: access_token,
@@ -101,7 +103,7 @@ class AuthService {
    * Suppression du token
    */
   async removeToken(): Promise<void> {
-    await tokenManager.removeToken();
+    await tokenManager.clearTokens();
   }
 
   /**

@@ -280,7 +280,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	if err := h.authService.Logout(ctx, claims.ID); err != nil {
+	if err := h.authService.Logout(ctx, claims.ID, claims.UserID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to logout")
 	}
 
@@ -295,21 +295,18 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 		RefreshToken string `json:"refresh_token"`
 	}
 
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	if err := c.Bind(&req); err != nil || req.RefreshToken == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "refresh_token is required")
 	}
 
-	userID, err := h.extractUserID(c)
+	// Deliberately no Authorization check: this route exists to renew a session
+	// whose access token has already expired.
+	resp, err := h.authService.RefreshSession(ctx, req.RefreshToken)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid refresh token")
 	}
 
-	newAccessToken, err := h.authService.RefreshAccessToken(ctx, userID, req.RefreshToken)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"access_token": newAccessToken})
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (h *AuthHandler) DeleteAccount(c echo.Context) error {
@@ -336,7 +333,7 @@ func (h *AuthHandler) DeleteAccount(c echo.Context) error {
 	}
 
 	// Blacklist the access token before deleting the user (prevents race window)
-	if err := h.authService.Logout(ctx, claims.ID); err != nil {
+	if err := h.authService.Logout(ctx, claims.ID, claims.UserID); err != nil {
 		c.Logger().Warnf("Failed to blacklist JWT for user %d during account deletion: %v", claims.UserID, err)
 	}
 
