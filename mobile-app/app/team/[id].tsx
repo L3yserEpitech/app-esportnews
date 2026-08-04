@@ -138,9 +138,15 @@ function PlacementRow({ p }: { p: NormalizedPlacement }) {
 }
 
 export default function TeamDetailScreen() {
-  const { id, wiki, template } = useLocalSearchParams<{ id: string; wiki?: string; template?: string }>();
+  const { id, wiki, template, name } = useLocalSearchParams<{
+    id: string;
+    wiki?: string;
+    template?: string;
+    name?: string;
+  }>();
   const wikiParam = typeof wiki === 'string' && wiki.length > 0 ? wiki : undefined;
   const templateParam = typeof template === 'string' && template.length > 0 ? template : undefined;
+  const nameParam = typeof name === 'string' && name.length > 0 ? name : undefined;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
@@ -165,7 +171,7 @@ export default function TeamDetailScreen() {
       // pageid : /teams/:id/detail balaie alors les 10 wikis avant de rendre
       // 404 (~20 s d'attente). Le template est le seul identifiant résoluble.
       const detail = templateParam && wikiParam
-        ? await teamService.getTeamDetailByTemplate(templateParam, wikiParam)
+        ? await teamService.getTeamDetailByTemplate(templateParam, wikiParam, nameParam)
         : await teamService.getTeamDetail(Number(id), wikiParam);
       if (!detail) {
         setError('Équipe introuvable');
@@ -192,7 +198,7 @@ export default function TeamDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id, wikiParam, templateParam]);
+  }, [id, wikiParam, templateParam, nameParam]);
 
   useEffect(() => {
     load();

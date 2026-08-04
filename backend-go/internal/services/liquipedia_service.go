@@ -778,27 +778,51 @@ func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, 
 // The template param is the team's shortname (e.g. "genone"), which maps to the `template` field
 // in Liquipedia's team cargo table — NOT to pagename (e.g. "Gen.ONE").
 // Returns the team with its active roster (from /squadplayer).
-func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string) (*models.NormalizedTeam, error) {
-	cacheKey := cache.LiqTeamKey(wiki, template)
-	params := url.Values{}
-	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[template::%s]]", template))
-	params.Set("limit", "1")
+// fetchTeamRecord resolves a team on a wiki from its template, falling back to
+// its display name. Match and tournament opponents carry the template that was
+// in use back then ("brion 2023"), which stops matching the team record once a
+// team is renamed — its name still does.
+func (s *LiquipediaService) fetchTeamRecord(ctx context.Context, wiki, template, name string) (*models.LiqTeam, error) {
+	type attempt struct{ cacheKey, condition string }
 
-	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	attempts := make([]attempt, 0, 2)
+	if template != "" {
+		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, template), fmt.Sprintf("[[template::%s]]", template)})
+	}
+	if name != "" && !strings.EqualFold(name, template) {
+		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, "name:"+name), fmt.Sprintf("[[name::%s]]", name)})
+	}
+
+	for _, a := range attempts {
+		params := url.Values{}
+		params.Set("wiki", wiki)
+		params.Set("conditions", a.condition)
+		params.Set("limit", "1")
+
+		data, err := s.MakeRequest(ctx, wiki, "team", params, a.cacheKey, TTLTeam)
+		if err != nil {
+			continue
+		}
+		resp, err := ParseResponse(data)
+		if err != nil || len(resp.Result) == 0 {
+			continue
+		}
+		var team models.LiqTeam
+		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+			continue
+		}
+		return &team, nil
+	}
+
+	return nil, fmt.Errorf("team %q (name %q) not found in wiki %s", template, name, wiki)
+}
+
+func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string, name string) (*models.NormalizedTeam, error) {
+	record, err := s.fetchTeamRecord(ctx, wiki, template, name)
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := ParseResponse(data)
-	if err != nil || len(resp.Result) == 0 {
-		return nil, fmt.Errorf("team %q not found in wiki %s", template, wiki)
-	}
-
-	var team models.LiqTeam
-	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
-		return nil, fmt.Errorf("failed to parse team %q from wiki %s: %w", template, wiki, err)
-	}
+	team := *record
 
 	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
 	normalized := models.NormalizeLiqTeam(team, wiki, players)
@@ -810,27 +834,12 @@ func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, 
 // squad, sharing the same cache key), only with the richer normalizer — so a
 // caller that needs the full detail no longer pays a separate by-template→detail
 // round trip (which used a different cache key = a second team fetch when cold).
-func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki string, template string) (*models.EnrichedTeamDetail, error) {
-	cacheKey := cache.LiqTeamKey(wiki, template)
-	params := url.Values{}
-	params.Set("wiki", wiki)
-	params.Set("conditions", fmt.Sprintf("[[template::%s]]", template))
-	params.Set("limit", "1")
-
-	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki string, template string, name string) (*models.EnrichedTeamDetail, error) {
+	record, err := s.fetchTeamRecord(ctx, wiki, template, name)
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := ParseResponse(data)
-	if err != nil || len(resp.Result) == 0 {
-		return nil, fmt.Errorf("team %q not found in wiki %s", template, wiki)
-	}
-
-	var team models.LiqTeam
-	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
-		return nil, fmt.Errorf("failed to parse team %q from wiki %s: %w", template, wiki, err)
-	}
+	team := *record
 
 	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
 	detail := models.NormalizeLiqTeamDetail(team, wiki, players)

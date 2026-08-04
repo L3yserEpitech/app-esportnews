@@ -13,6 +13,7 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { imageUrl } from '@/utils/imageUrl';
 import type { PandaTeam, PandaPlayer } from '@/types';
 import { SectionHeader, type TournamentSectionProps } from './shared';
+import { teamRoute } from '@/utils/teamLink';
 
 function TeamBlock({
   team,
@@ -26,25 +27,15 @@ function TeamBlock({
   const router = useRouter();
   if (!team) return null;
   const logo = imageUrl(team.image_url);
-  const teamId = typeof team.id === 'number' ? team.id : null;
-  // L'id vient d'un opponent : c'est un hash du nom, pas un pageid. La page
-  // d'équipe résout par template, d'où son passage en paramètre.
-  const teamTemplate = team.template ?? '';
-  // Sans template, aucune page d'équipe n'est atteignable : on ne rend pas le
-  // bloc cliquable plutôt que d'ouvrir un écran qui finira en erreur.
-  const canOpenTeam = teamId != null && teamTemplate.length > 0;
+  const route = teamRoute(team, wiki);
   const goToTeam = () => {
-    if (!canOpenTeam) return;
-    router.push({
-      pathname: '/team/[id]',
-      params: { id: String(teamId), wiki: wiki ?? '', template: teamTemplate },
-    });
+    if (route) router.push(route);
   };
   return (
     <Pressable
       style={styles.block}
       onPress={goToTeam}
-      disabled={!canOpenTeam}
+      disabled={!route}
     >
       <View style={styles.teamRow}>
         <View style={styles.logoBox}>

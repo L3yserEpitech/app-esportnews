@@ -69,11 +69,17 @@ class TeamService {
    * opponents ne portent pas de pageid, seulement un `id` synthétique
    * (hash du nom d'équipe) que /teams/:id/detail ne peut pas résoudre.
    */
-  async getTeamDetailByTemplate(template: string, wiki: string): Promise<TeamDetail | null> {
+  async getTeamDetailByTemplate(
+    template: string,
+    wiki: string,
+    name?: string
+  ): Promise<TeamDetail | null> {
     const fetchOne = async (tpl: string) => {
-      const response = await apiClient.get<TeamDetail>('/api/teams/by-template', {
-        params: { template: tpl, wiki, detail: 1 },
-      });
+      const params: Record<string, string | number> = { template: tpl, wiki, detail: 1 };
+      // Repli serveur pour les équipes renommées : le template d'un match passé
+      // ("brion 2023") ne correspond plus à la fiche, le nom si.
+      if (name) params.name = name;
+      const response = await apiClient.get<TeamDetail>('/api/teams/by-template', { params });
       return response.data;
     };
 

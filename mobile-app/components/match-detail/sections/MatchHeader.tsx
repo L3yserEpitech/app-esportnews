@@ -1,12 +1,15 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+import { teamRoute } from '@/utils/teamLink';
 import { TeamLogo, formatDate, formatTime, type MatchSectionProps } from './shared';
 
 export default function MatchHeader({ match, isLive }: MatchSectionProps) {
+  const router = useRouter();
   const homeTeam = match.opponents?.[0]?.opponent || match.opponents?.[0]?.team;
   const awayTeam = match.opponents?.[1]?.opponent || match.opponents?.[1]?.team;
   const homeScore = match.results?.find(r => r.team_id === homeTeam?.id)?.score ?? match.results?.[0]?.score;
@@ -15,6 +18,9 @@ export default function MatchHeader({ match, isLive }: MatchSectionProps) {
   const isFinished = match.status === 'finished';
   const isHomeWinner = hasScores && homeScore! > awayScore!;
   const isAwayWinner = hasScores && awayScore! > homeScore!;
+
+  const homeRoute = teamRoute(homeTeam, match.wiki);
+  const awayRoute = teamRoute(awayTeam, match.wiki);
 
   const statusLabel = isLive ? 'EN DIRECT' : isFinished ? 'TERMINÉ' : 'À VENIR';
   const statusColor = isLive ? COLORS.live : isFinished ? COLORS.textMuted : COLORS.primary;
@@ -57,7 +63,11 @@ export default function MatchHeader({ match, isLive }: MatchSectionProps) {
 
       {/* Scoreboard */}
       <View style={styles.scoreboard}>
-        <View style={styles.teamCol}>
+        <Pressable
+          style={({ pressed }) => [styles.teamCol, pressed && homeRoute && styles.teamColPressed]}
+          onPress={() => homeRoute && router.push(homeRoute)}
+          disabled={!homeRoute}
+        >
           <TeamLogo team={homeTeam} highlight={isHomeWinner} />
           <Text style={[styles.teamName, isFinished && !isHomeWinner && styles.teamNameLoser]} numberOfLines={1}>
             {homeTeam?.name || '-'}
@@ -65,7 +75,7 @@ export default function MatchHeader({ match, isLive }: MatchSectionProps) {
           {homeTeam?.acronym && homeTeam.acronym.toUpperCase() !== (homeTeam.name || '').toUpperCase() ? (
             <Text style={styles.acronym}>{homeTeam.acronym}</Text>
           ) : null}
-        </View>
+        </Pressable>
 
         <View style={styles.center}>
           {hasScores ? (
@@ -85,7 +95,11 @@ export default function MatchHeader({ match, isLive }: MatchSectionProps) {
           ) : null}
         </View>
 
-        <View style={styles.teamCol}>
+        <Pressable
+          style={({ pressed }) => [styles.teamCol, pressed && awayRoute && styles.teamColPressed]}
+          onPress={() => awayRoute && router.push(awayRoute)}
+          disabled={!awayRoute}
+        >
           <TeamLogo team={awayTeam} highlight={isAwayWinner} />
           <Text style={[styles.teamName, isFinished && !isAwayWinner && styles.teamNameLoser]} numberOfLines={1}>
             {awayTeam?.name || '-'}
@@ -93,7 +107,7 @@ export default function MatchHeader({ match, isLive }: MatchSectionProps) {
           {awayTeam?.acronym && awayTeam.acronym.toUpperCase() !== (awayTeam.name || '').toUpperCase() ? (
             <Text style={styles.acronym}>{awayTeam.acronym}</Text>
           ) : null}
-        </View>
+        </Pressable>
       </View>
 
       {/* Context info */}
@@ -172,6 +186,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  teamColPressed: {
+    opacity: 0.6,
   },
   teamName: {
     color: COLORS.text,
