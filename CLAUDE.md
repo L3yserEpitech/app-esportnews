@@ -204,7 +204,9 @@ Toutes lues dans `backend-go/internal/config/config.go` via `LoadConfig()`. Sour
 |----------|------|--------|------|----------|
 | `JWT_SECRET` | string | `your-secret-key` | Clé de signature HS256 des access tokens | **Doit être unique et secret en prod**, sinon JWT forgeables |
 
-JWT expiration hardcodée : **7 jours**.
+Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh token 90 jours**.
+
+**Renouvellement de session** : `POST /api/auth/refresh` prend `{refresh_token}` **sans header Authorization** — exiger un access token valide pour en renouveler un expiré rendrait la route inutile (c'était le bug historique). `RefreshSession` compare le token présenté à celui stocké dans `auth:refresh:<user_id>` (`crypto/subtle`), puis **fait tourner la paire** : le refresh token consommé est aussitôt invalidé et la fenêtre de 90 jours repart de zéro. Une app ouverte au moins une fois par trimestre ne déconnecte donc jamais. Le logout supprime les deux clés Redis. Côté mobile, `apiClient` échange automatiquement au premier 401 (un seul échange en vol, requête rejouée ensuite) et ne déconnecte que si l'échange échoue.
 
 ### Liquipedia
 | Variable | Type | Défaut | Rôle | Pourquoi |
@@ -602,7 +604,7 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `cache:teams:<id>` | – | (cache rapide id-only) | – |
 | `cache:user:favorites:<id>` | – | – | – |
 | `auth:jwt:<token_id>` | 7j (JWT exp) | `AuthService` | Logout |
-| `auth:refresh:<user_id>` | 30j | `AuthService` | Logout/refresh |
+| `auth:refresh:<user_id>` | 90j | `AuthService` | Logout / rotation au refresh |
 | `ratelimit:<ip>` | sliding window | `RateLimitMiddleware` | – |
 
 ### Clés Liquipedia (préfixe `liq:`)
