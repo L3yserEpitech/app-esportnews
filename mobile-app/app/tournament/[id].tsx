@@ -9,7 +9,6 @@ import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { tournamentService } from '@/services/tournamentService';
-import { matchService } from '@/services/matchService';
 import type { PandaTournament, PandaMatch } from '@/types';
 import { useAdPopup, useSubscription } from '@/hooks';
 import { resolveSections, type SectionId } from '@/components/tournament-detail/tournamentSections';
@@ -41,7 +40,6 @@ export default function TournamentDetailScreen() {
 
   const [tournament, setTournament] = useState<PandaTournament | null>(null);
   const [matches, setMatches] = useState<PandaMatch[]>([]);
-  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,23 +57,11 @@ export default function TournamentDetailScreen() {
         return;
       }
       setTournament(data);
+      // Le détail embarque déjà chaque match complet (opponents, scores,
+      // bracket_data, streams) : le backend les récupère en un appel. Les
+      // ré-interroger un par un ajoutait autant de requêtes que de matchs —
+      // 143 sur un LCK — avant même que l'écran ne s'affiche.
       setMatches(dedupeMatches(data.matches ?? []));
-
-      // Enrich matches (base list often lacks opponents/scores) via detail fetch.
-      if (data.matches && data.matches.length > 0) {
-        setIsLoadingMatches(true);
-        // Dedupe ids up front — the tournament match list can repeat entries,
-        // which otherwise duplicates cells + trips React's unique-key check.
-        const matchIds = [...new Set(data.matches.map((m) => m.match2id || String(m.id)))];
-        try {
-          const enriched = await matchService.getMatchesByIds(matchIds, wikiParam);
-          if (enriched.length > 0) setMatches(dedupeMatches(enriched));
-        } catch (matchError) {
-          console.error('[Tournament Detail] Error loading match details:', matchError);
-        } finally {
-          setIsLoadingMatches(false);
-        }
-      }
     } catch {
       setError('Erreur lors du chargement du tournoi');
     } finally {
@@ -110,7 +96,7 @@ export default function TournamentDetailScreen() {
     );
   }
 
-  const sectionProps: TournamentSectionProps = { tournament, matches, isLoadingMatches };
+  const sectionProps: TournamentSectionProps = { tournament, matches };
   const sections = resolveSections(tournament.wiki ?? wikiParam ?? undefined);
 
   const renderSection = (sectionId: SectionId) => {

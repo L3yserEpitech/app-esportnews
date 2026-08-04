@@ -14,7 +14,6 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 export interface TournamentSectionProps {
   tournament: PandaTournament;
   matches: PandaMatch[];
-  isLoadingMatches?: boolean;
 }
 
 export interface MatchDateGroup {

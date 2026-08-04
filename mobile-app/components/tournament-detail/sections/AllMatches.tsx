@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MatchCard } from '@/components/features';
@@ -7,20 +7,8 @@ import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { SectionHeader, groupMatchesByDate, type TournamentSectionProps } from './shared';
 
-export default function AllMatches({ matches, isLoadingMatches }: TournamentSectionProps) {
-  if (matches.length === 0) {
-    if (isLoadingMatches) {
-      return (
-        <View style={styles.container}>
-          <SectionHeader icon="gamepad-variant" title="Tous les matchs" />
-          <View style={styles.loading}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          </View>
-        </View>
-      );
-    }
-    return null;
-  }
+export default function AllMatches({ matches }: TournamentSectionProps) {
+  if (matches.length === 0) return null;
 
   // Most recent first, mirroring the web ordering.
   const sorted = [...matches].sort((a, b) => {
@@ -64,10 +52,6 @@ const styles = StyleSheet.create({
   },
   groups: {
     gap: spacing.lg,
-  },
-  loading: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
   },
   total: {
     color: COLORS.textMuted,
