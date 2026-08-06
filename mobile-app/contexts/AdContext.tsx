@@ -21,7 +21,10 @@ const getInterstitialAdUnitId = (): string => {
     return TestIds.INTERSTITIAL;
   }
 
-  const configuredId = Constants.expoConfig?.extra?.admobInterstitialId;
+  const extra = Constants.expoConfig?.extra;
+  const configuredId = Platform.OS === 'ios'
+    ? extra?.admobIosInterstitialId
+    : extra?.admobAndroidInterstitialId;
   return configuredId || TestIds.INTERSTITIAL;
 };
 
