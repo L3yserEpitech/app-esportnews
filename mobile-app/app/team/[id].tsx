@@ -12,7 +12,7 @@ import { teamService } from '@/services/teamService';
 import { imageUrl } from '@/utils/imageUrl';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdPopup, useSubscription } from '@/hooks';
-import { MatchCard } from '@/components/features/MatchCard';
+import { LiveMatchCard } from '@/components/features';
 import { SectionHeader } from '@/components/tournament-detail/sections/shared';
 import type {
   TeamDetail,
@@ -356,7 +356,7 @@ export default function TeamDetailScreen() {
             <View>
               <SectionHeader icon="calendar-clock" title="À venir" />
               {matches.upcoming.map((m) => (
-                <MatchCard key={m.match2id || m.id} match={m} />
+                <LiveMatchCard key={m.match2id || m.id} match={m} fullWidth />
               ))}
             </View>
           ) : null}
@@ -364,7 +364,7 @@ export default function TeamDetailScreen() {
             <View>
               <SectionHeader icon="history" title="Récents" />
               {matches.recent.map((m) => (
-                <MatchCard key={m.match2id || m.id} match={m} />
+                <LiveMatchCard key={m.match2id || m.id} match={m} fullWidth />
               ))}
             </View>
           ) : null}

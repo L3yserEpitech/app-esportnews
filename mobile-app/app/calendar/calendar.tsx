@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { MatchCard } from '@/components/features';
+import { LiveMatchCard } from '@/components/features';
 import { useMatches, useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { format } from 'date-fns';
@@ -127,8 +127,9 @@ export default function CalendarScreen() {
         data={matches}
         keyExtractor={(item) => item.match2id || item.id.toString()}
         renderItem={({ item }) => (
-          <MatchCard
+          <LiveMatchCard
             match={item}
+            fullWidth
           />
         )}
         ListHeaderComponent={renderHeader}
