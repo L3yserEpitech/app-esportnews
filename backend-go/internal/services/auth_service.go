@@ -314,7 +314,7 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (t
 // fresh session so the user lands logged in rather than back on a login form.
 func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) (*models.AuthResponse, error) {
 	if len(newPassword) < 8 {
-		return nil, fmt.Errorf("password must be at least 8 characters")
+		return nil, fmt.Errorf("le mot de passe doit faire au moins 8 caractères")
 	}
 	if token == "" {
 		return nil, fmt.Errorf("invalid or expired reset link")

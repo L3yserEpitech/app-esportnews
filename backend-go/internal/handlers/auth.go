@@ -431,7 +431,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 
 	response, err := h.authService.ResetPassword(ctx, input.Token, input.Password)
 	if err != nil {
-		if strings.Contains(err.Error(), "at least 8 characters") {
+		if strings.Contains(err.Error(), "8 caractères") {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusBadRequest, "Ce lien de réinitialisation est invalide ou a expiré.")

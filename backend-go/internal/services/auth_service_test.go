@@ -363,7 +363,7 @@ func TestPasswordResetGuards(t *testing.T) {
 	_, err = svc.ResetPassword(ctx, "not-a-real-token", "SecurePass123")
 	assert.Error(t, err)
 	_, err = svc.ResetPassword(ctx, "not-a-real-token", "short")
-	assert.ErrorContains(t, err, "at least 8 characters")
+	assert.ErrorContains(t, err, "8 caractères")
 }
 
 func TestPasswordResetKeysAreHashed(t *testing.T) {
