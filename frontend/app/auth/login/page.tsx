@@ -207,17 +207,9 @@ export default function LoginPage() {
 
               {/* Mot de passe */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label htmlFor="password" className="block text-sm font-medium text-text-secondary">
-                    {t('pages.login.mot_de_passe')}
-                  </label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="text-sm text-[#F22E62] hover:text-[#F22E62]/80 transition-colors"
-                  >
-                    {t('pages.login.mot_de_passe_oublie')}
-                  </Link>
-                </div>
+                <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
+                  {t('pages.login.mot_de_passe')}
+                </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-text-muted" />
@@ -241,6 +233,14 @@ export default function LoginPage() {
                     <span>{errors.password}</span>
                   </p>
                 )}
+                <div className="mt-2 flex justify-end">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm text-[#F22E62] hover:text-[#F22E62]/80 transition-colors"
+                  >
+                    {t('pages.login.mot_de_passe_oublie')}
+                  </Link>
+                </div>
               </div>
 
               {/* Bouton de soumission */}
