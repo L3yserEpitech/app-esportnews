@@ -99,7 +99,7 @@ export default function AllMatches({ matches }: TournamentSectionProps) {
   if (matches.length === 0) return null;
 
   return (
-    <View style={styles.container}>
+    <View>
       <SectionHeader
         icon="gamepad-variant"
         title="Tous les matchs"
@@ -120,9 +120,6 @@ export default function AllMatches({ matches }: TournamentSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-  },
   groups: {
     gap: spacing.sm,
   },

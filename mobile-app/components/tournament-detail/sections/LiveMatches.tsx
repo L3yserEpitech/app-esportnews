@@ -11,7 +11,7 @@ export default function LiveMatches({ matches }: TournamentSectionProps) {
   if (liveMatches.length === 0) return null;
 
   return (
-    <View style={styles.container}>
+    <View>
       <SectionHeader
         icon="access-point"
         title="En direct"
@@ -31,9 +31,6 @@ export default function LiveMatches({ matches }: TournamentSectionProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-  },
   list: {
     gap: spacing.sm,
   },
