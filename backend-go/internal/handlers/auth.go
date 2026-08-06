@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
@@ -22,6 +24,7 @@ type AuthHandler struct {
 	storageService *services.StorageService
 	emailService   *services.EmailService
 	frontendURL    string
+	log            *logrus.Logger
 	JWTSecret      string
 }
 
@@ -394,7 +397,7 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 
 	token, user, err := h.authService.RequestPasswordReset(ctx, input.Email)
 	if err != nil {
-		c.Logger().Errorf("Password reset request failed: %v", err)
+		h.logError("[RESET] failed to mint reset token", err)
 		return c.JSON(http.StatusOK, ok)
 	}
 	if token == "" || user == nil {
@@ -402,14 +405,18 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 	}
 
 	if h.emailService == nil {
-		c.Logger().Error("Password reset requested but no email service is configured")
+		h.logError("[RESET] no email service configured", nil)
 		return c.JSON(http.StatusOK, ok)
 	}
 
 	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s",
 		strings.TrimRight(h.frontendURL, "/"), url.QueryEscape(token))
 	if err := h.emailService.SendPasswordReset(ctx, user.Email, resetURL); err != nil {
-		c.Logger().Errorf("Failed to send password reset email: %v", err)
+		// Silencieux pour l'appelant (on ne révèle rien), mais surtout pas pour
+		// nous : une clé Resend invalide ne doit pas passer inaperçue.
+		h.logError("[RESET] failed to send password reset email", err)
+	} else {
+		h.logInfo("[RESET] password reset email sent")
 	}
 
 	return c.JSON(http.StatusOK, ok)
@@ -438,4 +445,27 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response)
+}
+
+// logError / logInfo écrivent via le logger applicatif quand il est câblé, et
+// retombent sur la sortie standard sinon : ces messages doivent survivre à un
+// handler construit par un chemin qui ne passe pas de logger.
+func (h *AuthHandler) logError(msg string, err error) {
+	if h.log == nil {
+		log.Printf("%s: %v", msg, err)
+		return
+	}
+	if err != nil {
+		h.log.WithError(err).Error(msg)
+		return
+	}
+	h.log.Error(msg)
+}
+
+func (h *AuthHandler) logInfo(msg string) {
+	if h.log == nil {
+		log.Print(msg)
+		return
+	}
+	h.log.Info(msg)
 }
