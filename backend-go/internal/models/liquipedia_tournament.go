@@ -425,6 +425,9 @@ type NormalizedRosterTeam struct {
 	ImageURL     *string `json:"image_url"`
 	DarkImageURL *string `json:"dark_image_url,omitempty"`
 	Location     *string `json:"location,omitempty"`
+	// Le template est le seul identifiant avec lequel on sait résoudre une
+	// équipe : l'id porté ici est un hash du nom, pas un pageid.
+	Template string `json:"template,omitempty"`
 }
 
 // NormalizedRosterPlayer matches the frontend PandaPlayer for roster display.
@@ -484,6 +487,7 @@ func ExtractTeamsAndRostersFromMatches(matches []NormalizedMatch) ([]NormalizedT
 				Acronym:      opp.Opponent.Acronym,
 				ImageURL:     opp.Opponent.ImageURL,
 				DarkImageURL: opp.Opponent.DarkImageURL,
+				Template:     opp.Opponent.Template,
 			}
 			rosters = append(rosters, NormalizedRosterEntry{
 				Team:    rosterTeam,
