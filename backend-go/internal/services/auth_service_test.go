@@ -330,3 +330,55 @@ func TestRefreshSessionRejectsUnknownTokens(t *testing.T) {
 	_, err = authService.RefreshSession(context.Background(), forged)
 	assert.Error(t, err)
 }
+
+// TestPasswordResetGuards covers the branches that answer before touching the
+// database, so they run without one.
+func TestPasswordResetGuards(t *testing.T) {
+	redisCache := newAuthTestCache(t)
+	svc := NewAuthService(nil, redisCache, "test-secret")
+	ctx := context.Background()
+
+	// Empty address: nothing minted, no lookup.
+	token, user, err := svc.RequestPasswordReset(ctx, "   ")
+	require.NoError(t, err)
+	assert.Empty(t, token)
+	assert.Nil(t, user)
+
+	// Throttled address: a second request within the minute is a silent no-op,
+	// so the form can't be used to flood someone's inbox.
+	email := "user@example.com"
+	require.NoError(t, redisCache.Set(ctx, cache.PasswordResetThrottleKey(sha256Hex(email)), "1", time.Minute))
+	token, user, err = svc.RequestPasswordReset(ctx, email)
+	require.NoError(t, err)
+	assert.Empty(t, token)
+	assert.Nil(t, user)
+
+	// Casing and spacing must hit the same throttle entry as the stored one.
+	token, _, err = svc.RequestPasswordReset(ctx, "  User@Example.com  ")
+	require.NoError(t, err)
+	assert.Empty(t, token)
+
+	// A token that was never issued is refused, and a short password is caught
+	// before the token is even looked up.
+	_, err = svc.ResetPassword(ctx, "not-a-real-token", "SecurePass123")
+	assert.Error(t, err)
+	_, err = svc.ResetPassword(ctx, "not-a-real-token", "short")
+	assert.ErrorContains(t, err, "at least 8 characters")
+}
+
+func TestPasswordResetKeysAreHashed(t *testing.T) {
+	redisCache := newAuthTestCache(t)
+	ctx := context.Background()
+
+	// The Redis key is the hash of the token, never the token: a dump of the
+	// cache must not hand out working links.
+	raw := "sample-token"
+	require.NoError(t, redisCache.Set(ctx, cache.PasswordResetKey(sha256Hex(raw)), "42", time.Minute))
+
+	stored, err := redisCache.Get(ctx, cache.PasswordResetKey(sha256Hex(raw)))
+	require.NoError(t, err)
+	assert.Equal(t, "42", stored)
+
+	direct, _ := redisCache.Get(ctx, "auth:reset:"+raw)
+	assert.Empty(t, direct)
+}

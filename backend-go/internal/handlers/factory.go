@@ -64,10 +64,12 @@ func NewAdHandler(db *pgxpool.Pool, redisCache *cache.RedisCache) *AdHandler {
 }
 
 // NewAuthHandler creates a new auth handler with AuthService
-func NewAuthHandler(authService *services.AuthService, storageService *services.StorageService) *AuthHandler {
+func NewAuthHandler(authService *services.AuthService, storageService *services.StorageService, emailService *services.EmailService, frontendURL string) *AuthHandler {
 	return &AuthHandler{
 		authService:    authService,
 		storageService: storageService,
+		emailService:   emailService,
+		frontendURL:    frontendURL,
 		JWTSecret:      authService.JWTSecret,
 	}
 }

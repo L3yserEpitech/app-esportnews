@@ -156,3 +156,61 @@ func (e *EmailService) SendSubscriptionCancelled(ctx context.Context, userEmail,
 
 	return nil
 }
+
+// SendPasswordReset sends the reset link. The URL is built by the caller so the
+// service stays unaware of the frontend's routing.
+func (e *EmailService) SendPasswordReset(ctx context.Context, userEmail, resetURL string) error {
+	subject := "Réinitialisation de votre mot de passe esportnews"
+
+	html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+		.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+		.header { background-color: #F22E62; color: white; padding: 20px; border-radius: 5px; }
+		.content { padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin-top: 10px; }
+		.cta { display: inline-block; background-color: #F22E62; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+		.fallback { margin-top: 20px; font-size: 12px; color: #666; word-break: break-all; }
+		.footer { margin-top: 20px; font-size: 12px; color: #666; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>Réinitialisation de mot de passe</h1>
+		</div>
+		<div class="content">
+			<p>Bonjour,</p>
+			<p>Vous avez demandé à réinitialiser le mot de passe de votre compte esportnews. Cliquez sur le bouton ci-dessous pour en choisir un nouveau :</p>
+			<a href="%s" class="cta">Choisir un nouveau mot de passe</a>
+			<p class="fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>%s</p>
+			<p><strong>Ce lien est valable 1 heure</strong> et ne peut servir qu'une seule fois.</p>
+			<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe restera inchangé.</p>
+		</div>
+		<div class="footer">
+			<p>© esportnews. Tous droits réservés.</p>
+		</div>
+	</div>
+</body>
+</html>
+	`, resetURL, resetURL)
+
+	request := &resend.SendEmailRequest{
+		From:    e.emailFrom,
+		To:      []string{userEmail},
+		Subject: subject,
+		Html:    html,
+	}
+
+	sent, err := e.client.Emails.Send(request)
+	if err != nil {
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
+	if sent.Id == "" {
+		return fmt.Errorf("password reset email sent but no ID returned")
+	}
+	return nil
+}

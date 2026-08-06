@@ -112,6 +112,43 @@ class AuthService {
   }
 
   /**
+   * Demande d'un lien de réinitialisation.
+   * La réponse est identique que l'adresse ait un compte ou non — le backend
+   * ne le dit pas, sinon la route servirait d'annuaire de comptes.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Impossible d'envoyer l'e-mail de réinitialisation");
+    }
+  }
+
+  /**
+   * Consommation du lien : enregistre le nouveau mot de passe et ouvre une
+   * session, l'utilisateur repart connecté.
+   */
+  async resetPassword(token: string, password: string): Promise<{ authToken: string; user: UserData }> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Ce lien de réinitialisation est invalide ou a expiré.');
+    }
+
+    const result: AuthResponse = await response.json();
+    return { authToken: result.access_token, user: result.user };
+  }
+
+  /**
    * Stockage du token dans le localStorage
    */
   setToken(token: string): void {

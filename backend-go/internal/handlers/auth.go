@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -18,6 +20,8 @@ type AuthHandler struct {
 	BaseHandler
 	authService    *services.AuthService
 	storageService *services.StorageService
+	emailService   *services.EmailService
+	frontendURL    string
 	JWTSecret      string
 }
 
@@ -32,6 +36,8 @@ func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
 	g.POST("/auth/change-password", h.ChangePassword) // Change password
 	g.POST("/auth/logout", h.Logout)
 	g.POST("/auth/refresh", h.RefreshToken)
+	g.POST("/auth/forgot-password", h.ForgotPassword)
+	g.POST("/auth/reset-password", h.ResetPassword)
 	g.DELETE("/auth/account", h.DeleteAccount)
 }
 
@@ -368,4 +374,68 @@ func extractToken(c echo.Context) string {
 		return auth[7:]
 	}
 	return ""
+}
+
+// ForgotPassword mails a reset link. It always answers 200, whatever the
+// address: telling the caller whether an account exists would turn this route
+// into an account directory.
+func (h *AuthHandler) ForgotPassword(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var input struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	ok := map[string]string{"message": "Si un compte existe pour cette adresse, un e-mail vient d'être envoyé."}
+
+	token, user, err := h.authService.RequestPasswordReset(ctx, input.Email)
+	if err != nil {
+		c.Logger().Errorf("Password reset request failed: %v", err)
+		return c.JSON(http.StatusOK, ok)
+	}
+	if token == "" || user == nil {
+		return c.JSON(http.StatusOK, ok)
+	}
+
+	if h.emailService == nil {
+		c.Logger().Error("Password reset requested but no email service is configured")
+		return c.JSON(http.StatusOK, ok)
+	}
+
+	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s",
+		strings.TrimRight(h.frontendURL, "/"), url.QueryEscape(token))
+	if err := h.emailService.SendPasswordReset(ctx, user.Email, resetURL); err != nil {
+		c.Logger().Errorf("Failed to send password reset email: %v", err)
+	}
+
+	return c.JSON(http.StatusOK, ok)
+}
+
+// ResetPassword consumes the token and returns a full session, so the user is
+// logged in straight away instead of being sent back to the login form.
+func (h *AuthHandler) ResetPassword(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var input struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	response, err := h.authService.ResetPassword(ctx, input.Token, input.Password)
+	if err != nil {
+		if strings.Contains(err.Error(), "at least 8 characters") {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "Ce lien de réinitialisation est invalide ou a expiré.")
+	}
+
+	return c.JSON(http.StatusOK, response)
 }

@@ -190,6 +190,33 @@
       "price_per_month": "€0.99/mois",
       "subscribe_magazine": "S'abonner au magazine",
       "magazine_description": "Restez informé avec notre magazine esport news"
+    },
+    "forgot_password": {
+      "title": "Mot de passe oublié",
+      "subtitle": "Saisissez votre adresse e-mail : nous vous enverrons un lien pour en choisir un nouveau.",
+      "email_label": "Adresse e-mail",
+      "email_placeholder": "vous@exemple.com",
+      "submit": "Envoyer le lien",
+      "sending": "Envoi en cours...",
+      "sent_title": "Vérifiez votre boîte mail",
+      "sent_body": "Si un compte existe pour cette adresse, un e-mail vient de partir. Le lien est valable 1 heure.",
+      "back_to_login": "Retour à la connexion",
+      "email_required": "L'adresse e-mail est requise",
+      "email_invalid": "Adresse e-mail invalide",
+      "error": "Une erreur est survenue. Réessayez dans un instant."
+    },
+    "reset_password": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Choisissez un mot de passe d'au moins 8 caractères.",
+      "password_label": "Nouveau mot de passe",
+      "confirm_label": "Confirmer le mot de passe",
+      "submit": "Enregistrer et me connecter",
+      "saving": "Enregistrement...",
+      "min_length": "8 caractères minimum",
+      "mismatch": "Les deux mots de passe ne correspondent pas",
+      "invalid_link": "Ce lien de réinitialisation est invalide ou a expiré.",
+      "request_new": "Demander un nouveau lien",
+      "success": "Mot de passe modifié, vous êtes connecté."
     }
   },
   "profile": {

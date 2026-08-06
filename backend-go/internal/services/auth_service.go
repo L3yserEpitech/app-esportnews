@@ -2,9 +2,14 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +24,13 @@ import (
 )
 
 const (
+	// Assez long pour relever ses mails, assez court pour qu'un lien qui traîne
+	// dans une boîte compromise ne soit plus exploitable.
+	passwordResetTTL = time.Hour
+	// Une demande par minute et par adresse : empêche d'inonder la boîte d'un
+	// tiers en spammant le formulaire.
+	passwordResetThrottle = time.Minute
+
 	accessTokenTTL = 7 * 24 * time.Hour
 	// Fenêtre glissante : chaque refresh en émet un nouveau et repart de zéro,
 	// donc une app ouverte au moins une fois par trimestre ne déconnecte jamais.
@@ -244,6 +256,123 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	}
 
 	return s.issueSession(user)
+}
+
+// sha256Hex is used to key reset tokens and throttle entries without ever
+// storing the raw value.
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// RequestPasswordReset mints a single-use reset token for the given address.
+// It returns an empty token when the address has no account or has already
+// asked in the last minute — the caller answers 200 either way, so the endpoint
+// can't be used to probe which addresses are registered.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (token string, user *models.User, err error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", nil, nil
+	}
+
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	throttleKey := cache.PasswordResetThrottleKey(sha256Hex(email))
+	if v, err := s.Cache.Get(cacheCtx, throttleKey); err == nil && v != "" {
+		return "", nil, nil
+	}
+
+	user, err = s.GetUserByEmail(ctx, email)
+	if err != nil || user == nil {
+		return "", nil, nil
+	}
+
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", nil, fmt.Errorf("failed to generate reset token: %w", err)
+	}
+	token = base64.RawURLEncoding.EncodeToString(raw)
+	tokenHash := sha256Hex(token)
+
+	// Retire the previous link: a user who asks twice should not end up with
+	// two working tokens.
+	if previous, err := s.Cache.Get(cacheCtx, cache.PasswordResetUserKey(user.ID)); err == nil && previous != "" {
+		s.Cache.Del(cacheCtx, cache.PasswordResetKey(previous))
+	}
+
+	if err := s.Cache.Set(cacheCtx, cache.PasswordResetKey(tokenHash), fmt.Sprintf("%d", user.ID), passwordResetTTL); err != nil {
+		return "", nil, fmt.Errorf("failed to store reset token: %w", err)
+	}
+	s.Cache.Set(cacheCtx, cache.PasswordResetUserKey(user.ID), tokenHash, passwordResetTTL)
+	s.Cache.Set(cacheCtx, throttleKey, "1", passwordResetThrottle)
+
+	return token, user, nil
+}
+
+// ResetPassword consumes a reset token, writes the new password and opens a
+// fresh session so the user lands logged in rather than back on a login form.
+func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) (*models.AuthResponse, error) {
+	if len(newPassword) < 8 {
+		return nil, fmt.Errorf("password must be at least 8 characters")
+	}
+	if token == "" {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	tokenHash := sha256Hex(token)
+	stored, err := s.Cache.Get(cacheCtx, cache.PasswordResetKey(tokenHash))
+	if err != nil || stored == "" {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	userID, err := strconv.ParseInt(stored, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.updatePassword(ctx, userID, hashedPassword); err != nil {
+		return nil, err
+	}
+
+	// Single use, and the old session dies with the password.
+	s.Cache.Del(cacheCtx, cache.PasswordResetKey(tokenHash))
+	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))
+	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+
+	return s.issueSession(user)
+}
+
+// updatePassword writes a bcrypt hash for a user, through whichever DB handle
+// this service was built with.
+func (s *AuthService) updatePassword(ctx context.Context, userID int64, hashedPassword string) error {
+	if s.gormDB != nil {
+		if err := s.gormDB.WithContext(ctx).
+			Model(&models.User{}).
+			Where("id = ?", userID).
+			Update("password", hashedPassword).Error; err != nil {
+			return fmt.Errorf("failed to update password: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := s.db.Exec(ctx, `UPDATE public.users SET password = $1 WHERE id = $2`, hashedPassword, userID); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+	return nil
 }
 
 // Logout drops the access token and the stored refresh token, so the session

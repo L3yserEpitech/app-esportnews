@@ -48,6 +48,11 @@ const (
 	// Auth
 	AuthJWT     = "auth:jwt:%s"
 	AuthRefresh = "auth:refresh:%d"
+	// Password reset — keyed by the SHA-256 of the token, never the token
+	// itself: a Redis dump must not hand out working reset links.
+	AuthPasswordReset         = "auth:reset:%s"          // %s = sha256(token)
+	AuthPasswordResetUser     = "auth:reset:user:%d"     // %d = user id, holds the current hash
+	AuthPasswordResetThrottle = "auth:reset:throttle:%s" // %s = sha256(email)
 
 	// Rate limiting
 	RateLimit = "ratelimit:%s"
@@ -109,6 +114,18 @@ func RefreshTokenKey(userID int64) string {
 
 func RateLimitKey(ip string) string {
 	return fmt.Sprintf(RateLimit, ip)
+}
+
+func PasswordResetKey(tokenHash string) string {
+	return fmt.Sprintf(AuthPasswordReset, tokenHash)
+}
+
+func PasswordResetUserKey(userID int64) string {
+	return fmt.Sprintf(AuthPasswordResetUser, userID)
+}
+
+func PasswordResetThrottleKey(emailHash string) string {
+	return fmt.Sprintf(AuthPasswordResetThrottle, emailHash)
 }
 
 // --- Liquipedia key builders ---

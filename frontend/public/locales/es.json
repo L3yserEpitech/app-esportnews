@@ -189,6 +189,33 @@
       "price_per_month": "€0.99/mes",
       "subscribe_magazine": "Suscribirse a la revista",
       "magazine_description": "Mantente informado con nuestra revista de noticias esport"
+    },
+    "forgot_password": {
+      "title": "Contraseña olvidada",
+      "subtitle": "Introduce tu correo electrónico: te enviaremos un enlace para elegir una nueva contraseña.",
+      "email_label": "Correo electrónico",
+      "email_placeholder": "tu@ejemplo.com",
+      "submit": "Enviar el enlace",
+      "sending": "Enviando...",
+      "sent_title": "Revisa tu correo",
+      "sent_body": "Si existe una cuenta para esta dirección, acabamos de enviar un correo. El enlace es válido 1 hora.",
+      "back_to_login": "Volver a iniciar sesión",
+      "email_required": "El correo electrónico es obligatorio",
+      "email_invalid": "Correo electrónico inválido",
+      "error": "Se ha producido un error. Inténtalo de nuevo."
+    },
+    "reset_password": {
+      "title": "Nueva contraseña",
+      "subtitle": "Elige una contraseña de al menos 8 caracteres.",
+      "password_label": "Nueva contraseña",
+      "confirm_label": "Confirmar contraseña",
+      "submit": "Guardar e iniciar sesión",
+      "saving": "Guardando...",
+      "min_length": "8 caracteres mínimo",
+      "mismatch": "Las dos contraseñas no coinciden",
+      "invalid_link": "Este enlace de restablecimiento no es válido o ha caducado.",
+      "request_new": "Pedir un nuevo enlace",
+      "success": "Contraseña cambiada, has iniciado sesión."
     }
   },
   "profile": {

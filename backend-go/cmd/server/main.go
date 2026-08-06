@@ -193,7 +193,7 @@ func main() {
 	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService, contentNotifier)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
-	authHandler := handlers.NewAuthHandler(authService, storageService)
+	authHandler := handlers.NewAuthHandler(authService, storageService, emailService, cfg.FrontendURL)
 	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB, redisClient, logger)
 	playerHandler := handlers.NewPlayerHandler(liquipediaService, logger)
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)

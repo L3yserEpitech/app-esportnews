@@ -191,6 +191,33 @@
       "price_per_month": "€0.99/Monat",
       "subscribe_magazine": "Zeitschrift abonnieren",
       "magazine_description": "Bleiben Sie mit unserem esport news Magazin informiert"
+    },
+    "forgot_password": {
+      "title": "Passwort vergessen",
+      "subtitle": "Gib deine E-Mail-Adresse ein — wir senden dir einen Link, um ein neues Passwort zu wählen.",
+      "email_label": "E-Mail-Adresse",
+      "email_placeholder": "du@beispiel.com",
+      "submit": "Link senden",
+      "sending": "Wird gesendet...",
+      "sent_title": "Prüfe dein Postfach",
+      "sent_body": "Falls ein Konto zu dieser Adresse existiert, wurde soeben eine E-Mail verschickt. Der Link gilt 1 Stunde.",
+      "back_to_login": "Zurück zur Anmeldung",
+      "email_required": "E-Mail-Adresse erforderlich",
+      "email_invalid": "Ungültige E-Mail-Adresse",
+      "error": "Es ist ein Fehler aufgetreten. Bitte erneut versuchen."
+    },
+    "reset_password": {
+      "title": "Neues Passwort",
+      "subtitle": "Wähle ein Passwort mit mindestens 8 Zeichen.",
+      "password_label": "Neues Passwort",
+      "confirm_label": "Passwort bestätigen",
+      "submit": "Speichern und anmelden",
+      "saving": "Wird gespeichert...",
+      "min_length": "Mindestens 8 Zeichen",
+      "mismatch": "Die beiden Passwörter stimmen nicht überein",
+      "invalid_link": "Dieser Link ist ungültig oder abgelaufen.",
+      "request_new": "Neuen Link anfordern",
+      "success": "Passwort geändert, du bist angemeldet."
     }
   },
   "profile": {

@@ -181,6 +181,13 @@ export default function LoginScreen() {
                 />
               </View>
 
+              <TouchableOpacity
+                onPress={() => router.push('/auth/forgot-password')}
+                style={styles.forgotWrapper}
+              >
+                <Text style={styles.forgotLink}>Mot de passe oublié ?</Text>
+              </TouchableOpacity>
+
               <Animated.View layout={Layout.springify()}>
                 {error ? (
                   <View style={styles.errorContainer}>
@@ -304,6 +311,16 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     height: 56,
     fontSize: 16,
+  },
+  forgotWrapper: {
+    alignSelf: 'flex-end',
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  forgotLink: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   errorContainer: {
     flexDirection: 'row',
