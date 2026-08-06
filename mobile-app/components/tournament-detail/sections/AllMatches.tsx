@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { MatchCard } from '@/components/features';
+import { LiveMatchCard } from '@/components/features';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { SectionHeader, groupMatchesByDate, type TournamentSectionProps } from './shared';
@@ -73,7 +73,7 @@ function DayGroup({
           style={styles.dayBody}
         >
           {group.matches.map(match => (
-            <MatchCard key={match.match2id || match.id} match={match} />
+            <LiveMatchCard key={match.match2id || match.id} match={match} fullWidth />
           ))}
         </Animated.View>
       ) : null}
