@@ -23,3 +23,22 @@ export function videogameSlugToWiki(slug?: string | null): string | undefined {
   if (!slug) return undefined;
   return VIDEOGAME_SLUG_TO_WIKI[slug] ?? slug;
 }
+
+// Covers verticales du sélecteur de jeux, bundlées (miroir de frontend/public/games/covers).
+// Clés = `games.acronym` de l'API. Metro exige des require() littéraux, d'où la table en dur.
+const GAME_COVERS: Record<string, number> = {
+  valorant: require('../assets/games/covers/valorant.jpg'),
+  lol: require('../assets/games/covers/lol.jpg'),
+  csgo: require('../assets/games/covers/cs.jpg'),
+  dota2: require('../assets/games/covers/dota2.jpg'),
+  rl: require('../assets/games/covers/rl.jpg'),
+  codmw: require('../assets/games/covers/cod.jpg'),
+  r6siege: require('../assets/games/covers/r6.jpg'),
+  ow: require('../assets/games/covers/ow.jpg'),
+  fifa: require('../assets/games/covers/eafc.jpg'),
+  smash: require('../assets/games/covers/smash.jpg'),
+};
+
+export function gameCoverByAcronym(acronym?: string | null): number | undefined {
+  return acronym ? GAME_COVERS[acronym] : undefined;
+}

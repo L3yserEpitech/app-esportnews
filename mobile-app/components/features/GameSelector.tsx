@@ -12,6 +12,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useGame } from '@/hooks';
+import { gameCoverByAcronym } from '@/utils/gameRegistry';
 import { Game } from '@/types';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
@@ -132,6 +133,7 @@ const GameCard = ({ game, isSelected, onPress }: GameCardProps) => {
     ]).start();
   }, [isSelected, scaleAnim, borderAnim]);
 
+  const cover = gameCoverByAcronym(game.acronym);
   const imageUrl = isSelected ? game.selected_image : game.unselected_image;
 
   return (
@@ -161,10 +163,12 @@ const GameCard = ({ game, isSelected, onPress }: GameCardProps) => {
 
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: imageUrl }}
+            source={cover ?? { uri: imageUrl }}
             style={[
               styles.gameImage,
-              !isSelected && { opacity: 0.85, saturation: 0.75 } as any
+              // Une seule cover par jeu : l'état inactif se joue à l'opacité (RN n'a
+              // pas de filtre de saturation), plus le voile sombre de l'overlay.
+              !isSelected && { opacity: 0.6 },
             ]}
             contentFit="cover"
             transition={300}

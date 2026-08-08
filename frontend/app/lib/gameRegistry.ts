@@ -23,6 +23,7 @@ export const GAMES: readonly GameEntry[] = [
 
 const BY_SLUG = new Map<string, GameEntry>(GAMES.map((g) => [g.slug, g]));
 const BY_WIKI = new Map<string, GameEntry>(GAMES.map((g) => [g.wiki, g]));
+const BY_ACRONYM = new Map<string, GameEntry>(GAMES.map((g) => [g.acronym, g]));
 
 export function gameBySlug(slug: string): GameEntry | undefined {
   return BY_SLUG.get(slug);
@@ -46,4 +47,12 @@ export function gameIconByWiki(wiki?: string | null): string | undefined {
   if (!wiki) return undefined;
   const slug = BY_WIKI.get(wiki)?.slug;
   return slug ? `/games/${slug}.svg` : undefined;
+}
+
+// Cover verticale 400x600 du sélecteur de jeux, self-hostée. Une seule variante :
+// l'état non sélectionné est désaturé en CSS, pas par un second fichier.
+export function gameCoverByAcronym(acronym?: string | null): string | undefined {
+  if (!acronym) return undefined;
+  const slug = BY_ACRONYM.get(acronym)?.slug;
+  return slug ? `/games/covers/${slug}.jpg` : undefined;
 }
