@@ -49,9 +49,11 @@
 | `r6siege`        | `rainbowsix`    | Rainbow Six Siege |
 | `ow`             | `overwatch`     | Overwatch |
 | `fifa`           | `easportsfc`    | EA Sports FC (anciennement FIFA) |
-| `lol-wild-rift`  | `wildrift`      | Wild Rift |
+| `mlbb`           | `mobilelegends` | Mobile Legends: Bang Bang |
 
 > Source de vérité : `backend-go/internal/models/liquipedia.go` (`GameWikiMapping`).
+>
+> Le 10e slot a fait Wild Rift → Smash Ultimate (juin 2026) → **Mobile Legends** (août 2026). **Ne pas revenir à Smash** : Liquipedia référence ses tournois mais ne remplit jamais `match2` pour eux — aucun match ne porte `game::ultimate`, et même sans aucun filtre le wiki `smash` renvoie 0 match sur 30 jours et 0 à venir (mesuré contre l'API le 2026-08-08). `mobilelegends` : 627 matchs / 30 j, wiki mono-titre (donc aucun filtre de condition à ajouter), opponents `type::team` en 5v5.
 
 ### Palette de couleurs
 `#060B13` (background principal) · `#091626` (fond secondaire) · `#182859` (accent navy) · `#F22E62` (rose primary — calendrier, CTA actifs)
@@ -360,7 +362,7 @@ Wrapper autour de l'API Expo Push (`https://exp.host/--/api/v2/push/send`). Mét
 | Service | Rôle | DB | Cache |
 |---------|------|----|----|
 | `AuthService` | Signup, login, JWT, refresh tokens, change password, delete account | GORM `users` | `auth:jwt:*`, `auth:refresh:*` |
-| `GameService` | Liste statique des 10 jeux | GORM `games` | `cache:games` |
+| `GameService` | Liste statique des 10 jeux | GORM `games` | `cache:games` (écrit par le handler, pas le service) |
 | `ArticleService` | CRUD articles, recherche full-text, similaires | GORM `articles` | `cache:articles:*` |
 | `AdService` | CRUD bannières publicitaires | GORM `ads` | `cache:ads` |
 | `StorageService` | Upload R2 (S3-compatible) | – | – |
@@ -595,8 +597,8 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 
 | Clé | TTL | Source | Invalidation |
 |-----|-----|--------|--------------|
-| `cache:games` | – | `GameService` | Sur reload manuel |
-| `cache:games:<id>` | – | `GameService` | – |
+| `cache:games` | **24h** | `GameHandler.ListGames` | `DELETE /api/admin/games/cache` |
+| `cache:games:<id>` | – | (jamais écrit — `GetGameByID` lit `cache:games:0` pour tous les ids et retombe toujours en base) | – |
 | `cache:articles:<slug>` | – | `ArticleService.GetBySlug` | CREATE/UPDATE/DELETE article |
 | `cache:articles:similar:<slug>` | – | `ArticleService.GetSimilar` | idem |
 | `cache:articles:search:<sha1(query)>:<category>:<bool>:<limit>` | – | `ArticleService.Search` | wildcard `cache:articles:search:*` purgé sur CUD |
@@ -925,7 +927,7 @@ components/match-detail/{matchSections.ts registre, sections/…}
 components/tournament-detail/{tournamentSections.ts, sections/…}
 ```
 * **Registre de sections** porté verbatim (pur TS) : `resolveSections(wiki, isLive)` → presets par wiki, `stream` promu en tête si live. Shell = fetch (avec `wiki`) + **polling 45s si running** + rendu des sections dans une `ScrollView`. Chaque section rend `null` si sa data manque.
-* **Game cards per-game (les 10 jeux)** dans `sections/<jeu>/<Jeu>GameCards.tsx`, branchées via `switch (match.wiki)` dans `GameResults.tsx`. Tier 1 riches (Valo map-hero+draft+scoreboard ACS ; LoL duel de champions+objectifs+scoreboard op.gg+items ; Dota duel de héros+vetophase+scoreboard Dotabuff) ; Tier 2 FPS (CS mi-temps CT/T, R6 bans+ATK/DEF, OW mode+bans) ; Tier 2/3 légers (CoD, RL OT, EAFC t.a.b., Smash via section générique `PlayerStatsTable`).
+* **Game cards per-game (les 10 jeux)** dans `sections/<jeu>/<Jeu>GameCards.tsx`, branchées via `switch (match.wiki)` dans `GameResults.tsx`. Tier 1 riches (Valo map-hero+draft+scoreboard ACS ; LoL duel de champions+objectifs+scoreboard op.gg+items ; Dota duel de héros+vetophase+scoreboard Dotabuff) ; Tier 2 FPS (CS mi-temps CT/T, R6 bans+ATK/DEF, OW mode+bans) ; Tier 2/3 légers (CoD, RL OT, EAFC t.a.b.). MLBB n'a aucune stat joueur (`participants` existe en 10 slots mais reste vide) → preset `default`.
 * **Asset mappers** (`sections/<jeu>/<jeu>Assets.ts`) portés quasi verbatim du web (fonctions pures nom→URL CDN ; certains `fetch` lazy ddragon/dota → OK en RN). `Scoreboard.tsx` = tableau réutilisable (colonnes via `statColumns.ts`, tri, icône perso), `draft.ts` = parse picks/bans.
 * **Déviations RN** (vs web) : Tailwind→`StyleSheet`+`constants/{colors,theme}` ; iframe stream→bouton `Linking` ; grayscale→dim par opacité ; cartes par map en **pile verticale** ; tables scoreboard en `View` scroll horizontal.
 
@@ -955,8 +957,10 @@ components/tournament-detail/{tournamentSections.ts, sections/…}
 
 | Projet | Frontend | Backend | DB | Redis | Domain |
 |--------|----------|---------|----|----|--------|
-| **Prod** | Vercel (esportnews.fr) | Railway prod | Supabase (partagée) | Railway prod | `https://www.esportnews.fr` |
-| **Preview R&D** | (pas de frontend dédié) | Railway preview | **Supabase (même qu'en prod)** | Railway preview | `https://www.blitchapp.online` (custom domain en cours) + `https://app-esportnews-preview-production.up.railway.app` |
+| **Prod** | Vercel (esportnews.fr) | Railway prod | Supabase (partagée) | **Upstash (partagé)** | `https://www.esportnews.fr` |
+| **Preview R&D** | (pas de frontend dédié) | Railway preview | **Supabase (même qu'en prod)** | **Upstash (même qu'en prod)** | `https://www.blitchapp.online` (custom domain en cours) + `https://app-esportnews-preview-production.up.railway.app` |
+
+> **DB et Redis sont partagés entre prod et preview** (`hot-insect-57031.upstash.io`). Toute écriture en base ou toute purge de cache touche la prod immédiatement — vérifié le 2026-08-08.
 
 ### Variables d'environnement clés par env
 
@@ -1047,12 +1051,28 @@ Idempotent (`ON CONFLICT (slug) DO NOTHING`).
 4. Si 404 → route pas enregistrée (`webhookHandler.RegisterRoutes(apiGroup)` dans `main.go`)
 5. Si timeout → backend offline ou nginx route pas vers le backend
 
-### Vider le cache Liquipedia (purge complète)
+### Vider un cache Redis
 ```bash
-# Via redis-cli (depuis le conteneur Redis Railway)
-redis-cli -u <REDIS_URL> KEYS 'liq:*' | xargs redis-cli -u <REDIS_URL> DEL
+# La liste des jeux (après toute modif de la table `games`)
+curl -X DELETE -H "Authorization: Bearer <jwt_admin>" https://<domain>/api/admin/games/cache
+
+# Le cache Liquipedia (purge complète) — redis-cli local + variables distantes
+railway run --service app-esportnews-preview sh -c \
+  'redis-cli -u "$REDIS_URL" --no-auth-warning KEYS "liq:*" | xargs redis-cli -u "$REDIS_URL" --no-auth-warning DEL'
 ```
-**Attention** : redémarre le warmup au prochain boot (~3.3 min total pour 10 wikis).
+**Attention** : la purge `liq:*` redémarre le warmup au prochain boot (~3.3 min pour 10 wikis).
+
+Utiliser `railway run` (exécute en local avec les variables distantes) et **pas** `railway ssh` : l'image du conteneur n'embarque ni `redis-cli` ni `curl`.
+
+### Interroger l'API Liquipedia quand notre IP est bannie
+Le poste de dev prend des **429 Cloudflare** sur `api.liquipedia.net` comme sur `liquipedia.net`. Le conteneur Railway, lui, n'est pas bloqué :
+```bash
+railway ssh --service app-esportnews-preview \
+  'wget -qO- --header="Authorization: Apikey $LIQUIPEDIA_API_KEY" \
+   --header="User-Agent: EsportNews/1.0 (contact@esportnews.fr)" \
+   "https://api.liquipedia.net/api/v3/match?wiki=<wiki>&limit=3"'
+```
+`wget` uniquement (pas de `curl` dans l'image). Indispensable pour trancher « bug chez nous » vs « donnée absente chez Liquipedia » — c'est ce qui a permis d'établir que Smash n'avait aucun match.
 
 ### Monitorer le budget API
 ```bash
@@ -1214,7 +1234,7 @@ Les images de **joueurs pros** n'existent dans aucune de ces APIs (Liquipedia le
 
 ### 18.4 Page détail tournoi — architecture modulaire par jeu
 
-Même pattern que les matchs, en plus simple (**la data tournoi Liquipedia est game-agnostic** — vérifié empiriquement 2026-07 sur 8 wikis : même schéma partout, extradata par jeu marginale : `maps` (map pool) sur CS, `dpcpoints`/`leagueid` sur Dota, `gamechangers` sur Valo, `mode` sur RL ; **Smash est la vraie exception** : events solo, `doubles_prizepool`/`doubles_participantsnumber`, circuits, `winner`/`runnerup` + `winnerheads` intégrés au record).
+Même pattern que les matchs, en plus simple (**la data tournoi Liquipedia est game-agnostic** — vérifié empiriquement 2026-07 sur 8 wikis : même schéma partout, extradata par jeu marginale : `maps` (map pool) sur CS, `dpcpoints`/`leagueid` sur Dota, `gamechangers` sur Valo, `mode` sur RL).
 
 **Fichiers** : `frontend/app/tournois/_components/`
 ```
@@ -1226,7 +1246,7 @@ sections/
 │   AllMatches.tsx, RostersSection.tsx, RelatedNews.tsx
 ```
 
-* **Presets** : `default` = header/liveMatches/bracket/allMatches/rosters/relatedNews ; `solo` (smash, easportsfc) = sans rosters (jeux 1v1, pas d'équipes).
+* **Presets** : `default` = header/liveMatches/bracket/allMatches/rosters/relatedNews ; `solo` (easportsfc) = sans rosters (jeux 1v1, pas d'équipes).
 * **URLs game-first** : `/<slug>/tournois/<id>` (`app/[game]/tournois/[id]/page.tsx`, SSR + metadata + vrai 404). La route legacy `/tournois/[id]` reste servie, son canonical + og:url pointent vers l'URL game-first quand `tournament.wiki` est connu. `tournamentHref()` (`lib/gameLinks.ts`) génère les liens partout (TournamentCard, page jeux, sitemap).
 * **Backend** : `GET /api/tournaments/:id?wiki=<wiki|acronyme>` — chemin scoped cache-first puis 1 fetch on-demand (pas de scan 10 wikis) ; 404 seulement si Liquipedia répond vide, **503 si échec transitoire** (429/budget) pour ne pas dé-indexer un tournoi valide (même politique que les matchs).
 * La section « Équipes & Rosters » réutilise le `PlayerCard` global et le `SectionHeader` du design system match.
