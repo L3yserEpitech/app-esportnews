@@ -39,3 +39,11 @@ export function slugToWiki(slug: string): string | undefined {
 export function wikiToSlug(wiki: string): string | undefined {
   return BY_WIKI.get(wiki)?.slug;
 }
+
+// Icône du jeu, self-hostée sous public/games/<slug>.svg. Pas de hotlink : les
+// images Liquipedia sont rate-limitées et aucun CDN d'icônes ne couvre les 10 jeux.
+export function gameIconByWiki(wiki?: string | null): string | undefined {
+  if (!wiki) return undefined;
+  const slug = BY_WIKI.get(wiki)?.slug;
+  return slug ? `/games/${slug}.svg` : undefined;
+}

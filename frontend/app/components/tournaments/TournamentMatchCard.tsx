@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { matchHref } from '../../lib/gameLinks';
+import { gameByWiki, gameIconByWiki } from '../../lib/gameRegistry';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trophy } from 'lucide-react';
@@ -64,6 +65,9 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
     ? (match.tournament?.icon_dark_url || match.league?.image_url || match.tournament?.icon_url)
     : (match.tournament?.icon_url || match.league?.image_url);
 
+  const gameIcon = gameIconByWiki(match.wiki);
+  const gameName = match.wiki ? gameByWiki(match.wiki)?.name : undefined;
+
   const homeLogo = pickThemeLogo(isDark, homeTeam?.image_url, homeTeam?.dark_image_url);
   const awayLogo = pickThemeLogo(isDark, awayTeam?.image_url, awayTeam?.dark_image_url);
 
@@ -73,6 +77,16 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
         {/* Live wash — subtle tinted glow instead of a hard accent bar */}
         {isLive && (
           <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[var(--color-status-live)]/12 to-transparent" />
+        )}
+
+        {/* Game icon — hors de la grille pour ne pas décaler le score du centre */}
+        {gameIcon && (
+          <div
+            title={gameName}
+            className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[var(--color-bg-primary)] ring-1 ring-[var(--color-border-primary)]/50 flex items-center justify-center flex-shrink-0"
+          >
+            <img src={gameIcon} alt={gameName || ''} className="w-4 h-4 sm:w-[18px] sm:h-[18px] object-contain" loading="lazy" />
+          </div>
         )}
 
         {/* Grid: 1fr [score] 1fr → score always dead center */}
@@ -156,11 +170,6 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
 
             {/* Tournament info */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              {match.number_of_games && (
-                <span className="hidden md:inline text-[11px] text-[var(--color-text-muted)] font-semibold bg-[var(--color-bg-primary)]/60 px-2.5 py-1 rounded-full">
-                  BO{match.number_of_games}
-                </span>
-              )}
               <span className="hidden md:block text-xs text-[var(--color-text-secondary)] font-medium truncate max-w-36">
                 {match.league?.name || match.tournament?.name || match.name}
               </span>
