@@ -24,6 +24,26 @@ func (h *GameHandler) RegisterRoutes(g RouterGroup) {
 	g.GET("/games/acronym/:acronym", h.GetGameByAcronym)
 }
 
+// RegisterAdminRoutes registers admin-protected routes
+func (h *GameHandler) RegisterAdminRoutes(g RouterGroup) {
+	g.DELETE("/admin/games/cache", h.InvalidateGamesCache)
+}
+
+// InvalidateGamesCache purge cache:games. La table `games` n'est modifiable
+// qu'en base (pas de CRUD côté API), donc rien ne peut invalider ce cache de
+// 24h automatiquement : sans cette route, un changement de jeu reste invisible
+// jusqu'à expiration, y compris après un redémarrage du backend.
+func (h *GameHandler) InvalidateGamesCache(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.gameService.Cache.Del(ctx, cache.CacheGames); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to invalidate games cache")
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok", "invalidated": cache.CacheGames})
+}
+
 func (h *GameHandler) ListGames(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

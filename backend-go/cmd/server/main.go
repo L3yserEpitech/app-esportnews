@@ -233,6 +233,7 @@ func main() {
 	articleHandler.RegisterAdminRoutes(adminGroup)
 	adHandler.RegisterAdminRoutes(adminGroup)
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
+	gameHandler.RegisterAdminRoutes(adminGroup)
 
 	// Notification scheduler — disabled on preview/staging environments that
 	// share the prod database, to avoid two backends racing on match_subscriptions
