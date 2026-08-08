@@ -14,7 +14,6 @@ const PRESETS: Record<'default' | 'solo', SectionId[]> = {
 };
 
 const PRESET_BY_WIKI: Record<string, keyof typeof PRESETS> = {
-  smash: 'solo',
   easportsfc: 'solo',
 };
 

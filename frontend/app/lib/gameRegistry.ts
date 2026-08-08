@@ -18,7 +18,7 @@ export const GAMES: readonly GameEntry[] = [
   { slug: 'r6', wiki: 'rainbowsix', acronym: 'r6siege', name: 'Rainbow Six Siege' },
   { slug: 'ow', wiki: 'overwatch', acronym: 'ow', name: 'Overwatch' },
   { slug: 'eafc', wiki: 'easportsfc', acronym: 'fifa', name: 'EA Sports FC' },
-  { slug: 'smash', wiki: 'smash', acronym: 'smash', name: 'Super Smash Bros. Ultimate' },
+  { slug: 'mlbb', wiki: 'mobilelegends', acronym: 'mlbb', name: 'Mobile Legends' },
 ] as const;
 
 const BY_SLUG = new Map<string, GameEntry>(GAMES.map((g) => [g.slug, g]));

@@ -39,10 +39,6 @@ const COLUMNS: Record<string, StatColumn[]> = {
     { key: 'gpm', label: 'gpm', fmt: p => plain(ex(p, 'gpm')) },
     { key: 'xpm', label: 'xpm', fmt: p => plain(ex(p, 'xpm')) },
   ],
-  smash: [
-    { key: 'character', label: 'fighter', fmt: p => plain(p.character) },
-    { key: 'stocks', label: 'stocks', fmt: p => plain(ex(p, 'stocks')) },
-  ],
 };
 
 export function getStatColumns(wiki: string): StatColumn[] {

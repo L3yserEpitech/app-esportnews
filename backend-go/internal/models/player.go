@@ -90,16 +90,8 @@ var signaturePickKeys = map[string][]string{
 	"valorant":  {"agent1", "agent2", "agent3"},
 	"dota2":     {"hero1", "hero2", "hero3"},
 	"overwatch": {"signatureHero1", "signatureHero2", "signatureHero3"},
-}
-
-// smashMainKeys map extradata keys to the Smash game label they belong to.
-var smashMainKeys = []struct{ Key, Label string }{
-	{"mainultimate", "Ultimate"},
-	{"mainmelee", "Melee"},
-	{"mainbrawl", "Brawl"},
-	{"mainwiiu", "Wii U"},
-	{"mainpm", "Project M"},
-	{"main64", "64"},
+	// MLBB en expose jusqu'à 5 (vérifié sur le endpoint player du wiki).
+	"mobilelegends": {"signatureHero1", "signatureHero2", "signatureHero3", "signatureHero4", "signatureHero5"},
 }
 
 // NormalizeLiqPlayer converts a raw Liquipedia player to the frontend shape.
@@ -196,19 +188,6 @@ func NormalizeLiqPlayer(p LiqPlayer, wiki string, transfers []NormalizedTransfer
 			for _, k := range keys {
 				if v := str(k); v != "" {
 					out.SignaturePicks = append(out.SignaturePicks, v)
-				}
-			}
-		}
-		if wiki == "smash" {
-			// Mains per Smash game, labeled ("pyra,joker" for Ultimate, etc.).
-			mainGame := str("maingame")
-			for _, mk := range smashMainKeys {
-				if v := str(mk.Key); v != "" {
-					label := mk.Label
-					if strings.EqualFold(mainGame, strings.ToLower(strings.ReplaceAll(mk.Label, " ", ""))) {
-						label += " ★"
-					}
-					out.SignaturePicks = append(out.SignaturePicks, label+": "+v)
 				}
 			}
 		}

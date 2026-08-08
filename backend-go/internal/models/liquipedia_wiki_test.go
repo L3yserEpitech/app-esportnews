@@ -17,7 +17,8 @@ func TestResolveWiki(t *testing.T) {
 		{"valorant", "valorant", true},
 		{"fifa", "easportsfc", true},
 		{"easportsfc", "easportsfc", true},
-		{"smash", "smash", true},
+		{"mlbb", "mobilelegends", true},
+		{"mobilelegends", "mobilelegends", true},
 		{"", "", false},
 		{"pandascore", "", false},
 	}

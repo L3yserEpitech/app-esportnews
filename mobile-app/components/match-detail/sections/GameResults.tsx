@@ -105,7 +105,7 @@ export default function GameResults(props: MatchSectionProps) {
           }
         }
 
-        // INLINE tier (callofduty / rocketleague / easportsfc / smash / default).
+        // INLINE tier (callofduty / rocketleague / easportsfc / default).
         switch (match.wiki) {
           case 'callofduty':
             return <CodGameCards {...props} />;

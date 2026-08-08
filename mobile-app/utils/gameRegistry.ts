@@ -16,7 +16,7 @@ const VIDEOGAME_SLUG_TO_WIKI: Record<string, string> = {
   ow: 'overwatch',
   fifa: 'easportsfc',
   easportsfc: 'easportsfc',
-  smash: 'smash',
+  mlbb: 'mobilelegends',
 };
 
 export function videogameSlugToWiki(slug?: string | null): string | undefined {
@@ -36,7 +36,7 @@ const GAME_COVERS: Record<string, number> = {
   r6siege: require('../assets/games/covers/r6.jpg'),
   ow: require('../assets/games/covers/ow.jpg'),
   fifa: require('../assets/games/covers/eafc.jpg'),
-  smash: require('../assets/games/covers/smash.jpg'),
+  mlbb: require('../assets/games/covers/mlbb.jpg'),
 };
 
 export function gameCoverByAcronym(acronym?: string | null): number | undefined {

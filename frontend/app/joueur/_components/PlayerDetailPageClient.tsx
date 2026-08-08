@@ -136,9 +136,9 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagename, wiki]);
 
-  // Équipe actuelle (logo + lien) puis matchs. Jeux solo (smash, easportsfc) :
+  // Équipe actuelle (logo + lien) puis matchs. Jeux solo (easportsfc) :
   // l'opponent Liquipedia est le pseudo du joueur, pas un template d'équipe.
-  const isSoloWiki = wiki === 'smash' || wiki === 'easportsfc';
+  const isSoloWiki = wiki === 'easportsfc';
   useEffect(() => {
     if (!player) return;
     let cancelled = false;
@@ -316,7 +316,7 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
             </div>
 
             {/* Signature picks */}
-            {(player.signature_picks || []).length > 0 && wiki !== 'smash' && (
+            {(player.signature_picks || []).length > 0 && (
               <div className="hidden lg:flex flex-col items-end gap-2 flex-shrink-0">
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-muted">{t('signature_picks')}</span>
                 <div className="flex gap-3">
@@ -335,25 +335,15 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 space-y-10">
 
-            {/* Signature picks (mobile / smash text chips) */}
+            {/* Signature picks (mobile) */}
             {(player.signature_picks || []).length > 0 && (
-              <section className={wiki === 'smash' ? '' : 'lg:hidden'}>
+              <section className="lg:hidden">
                 <SectionHeader icon={Gamepad2} title={t('signature_picks')} />
-                {wiki === 'smash' ? (
-                  <div className="flex flex-wrap gap-2">
-                    {player.signature_picks!.map(pick => (
-                      <span key={pick} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text-secondary bg-[var(--color-bg-secondary)]/60 border border-[var(--color-border-primary)]/30">
-                        {pick}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex gap-4 flex-wrap">
-                    {player.signature_picks!.map(pick => (
-                      <SignaturePickTile key={pick} pick={pick} wiki={wiki} dotaMaps={dotaMaps} />
-                    ))}
-                  </div>
-                )}
+                <div className="flex gap-4 flex-wrap">
+                  {player.signature_picks!.map(pick => (
+                    <SignaturePickTile key={pick} pick={pick} wiki={wiki} dotaMaps={dotaMaps} />
+                  ))}
+                </div>
               </section>
             )}
 

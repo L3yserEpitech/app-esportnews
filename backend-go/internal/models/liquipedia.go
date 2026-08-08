@@ -33,7 +33,7 @@ var GameWikiMapping = map[string]string{
 	"r6siege":  "rainbowsix",
 	"ow":       "overwatch",
 	"fifa":     "easportsfc",
-	"smash":    "smash",
+	"mlbb":     "mobilelegends",
 }
 
 // WikiToAcronym is the reverse mapping: Liquipedia wiki → internal acronym.

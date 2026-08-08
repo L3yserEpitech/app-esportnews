@@ -180,7 +180,7 @@ var videogameIDMap = map[string]int{
 	"rainbowsix":      20,
 	"overwatch":       14,
 	"fifa":            22,
-	"smash":           35,
+	"mobilelegends":   35,
 }
 
 // videogameNameMap maps wiki names to display names.
@@ -194,7 +194,7 @@ var videogameNameMap = map[string]string{
 	"rainbowsix":      "Rainbow Six Siege",
 	"overwatch":       "Overwatch",
 	"fifa":            "EA FC",
-	"smash":           "Super Smash Bros. Ultimate",
+	"mobilelegends":   "Mobile Legends",
 }
 
 // videogameSlugMap maps wiki names to slug names (matching frontend).
@@ -208,7 +208,7 @@ var videogameSlugMap = map[string]string{
 	"rainbowsix":      "r6siege",
 	"overwatch":       "ow",
 	"fifa":            "fifa",
-	"smash":           "smash",
+	"mobilelegends":   "mlbb",
 }
 
 // mapLiquipediaTier converts Liquipedia numeric tier (1-5, -1) to letter tier (s, a, b, c, d).
