@@ -74,10 +74,12 @@ func (s *NotificationScheduler) Start(ctx context.Context) {
 	mainTicker := time.NewTicker(schedulerTickInterval)
 	cleanupTicker := time.NewTicker(cleanupTickInterval)
 	hydrationTicker := time.NewTicker(hydrationTickInterval)
+	favTeamTicker := time.NewTicker(hydrationTickInterval)
 
 	defer mainTicker.Stop()
 	defer cleanupTicker.Stop()
 	defer hydrationTicker.Stop()
+	defer favTeamTicker.Stop()
 
 	for {
 		select {
@@ -90,6 +92,8 @@ func (s *NotificationScheduler) Start(ctx context.Context) {
 			s.cleanupStaleSubscriptions(ctx)
 		case <-hydrationTicker.C:
 			s.hydrateTournamentMatches(ctx)
+		case <-favTeamTicker.C:
+			s.hydrateFavoriteTeamMatches(ctx)
 		}
 	}
 }

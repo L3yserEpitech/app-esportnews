@@ -304,6 +304,14 @@ export default function TeamDetailScreen() {
               <Text style={styles.acronym}>{team.acronym}</Text>
             ) : null}
           </View>
+          {isFavorite && !isSubscribed ? (
+            <Pressable onPress={() => router.push('/profile/subscription' as any)} style={styles.premiumHint}>
+              <MaterialCommunityIcons name="bell-outline" size={13} color={COLORS.primary} />
+              <Text style={styles.premiumHintText}>
+                Les notifications de match demandent Premium
+              </Text>
+            </Pressable>
+          ) : null}
           <View style={styles.metaRow}>
             {location ? (
               <View style={styles.metaItem}>
@@ -458,6 +466,22 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
+  },
+  premiumHintText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  premiumHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(242, 46, 98, 0.12)',
   },
   metaRow: {
     flexDirection: 'row',

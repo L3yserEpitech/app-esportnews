@@ -46,7 +46,14 @@ func (s *LiquipediaService) MatchesByStatus(ctx context.Context, gameAcronym str
 
 	data, err := s.cache.Get(ctx, key)
 	if err != nil || data == "" {
-		return []models.NormalizedMatch{}, nil
+		// Le TTL du cache poller expire avant son refresh réel quand les webhooks
+		// sont actifs (filet de sécurité à 3× l'intervalle). Sans ce repli, un wiki
+		// sans trafic webhook rendrait une liste vide des dizaines de minutes par
+		// heure — et les abonnements en dépendent.
+		data, err = s.cache.Get(ctx, cache.StaleKey(key))
+		if err != nil || data == "" {
+			return []models.NormalizedMatch{}, nil
+		}
 	}
 
 	return parseAndNormalizeMatches([]byte(data), wiki, statusHint), nil

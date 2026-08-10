@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -490,6 +491,15 @@ func (h *TeamHandler) RemoveFavoriteTeam(c echo.Context) error {
 
 	if err := h.getDB().WithContext(ctx).Model(&user).Update("favorite_teams", newFavorites).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to remove favorite team: "+err.Error())
+	}
+
+	// Couper les notifications encore en attente pour cette équipe. Les lignes
+	// déjà notifiées restent (c'est l'historique), et celles d'une autre origine
+	// aussi : un match couvert par un abonnement tournoi porte from_tournament.
+	if err := h.getDB().WithContext(ctx).
+		Where("user_id = ? AND from_team = ? AND notified_start = ?", userID, teamID, false).
+		Delete(&models.MatchSubscription{}).Error; err != nil {
+		log.Printf("[FAV] failed to drop pending subscriptions for user %d team %d: %v", userID, teamID, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"favorite_teams": newFavorites})

@@ -19,6 +19,7 @@ type MatchSubscription struct {
 	NotifiedStart    bool       `json:"notified_start" gorm:"default:false"`
 	NotifiedSchedule bool       `json:"notified_schedule" gorm:"default:false"`
 	FromTournament   *int64     `json:"from_tournament,omitempty"` // non-null if auto-created by tournament subscription
+	FromTeam         *int64     `json:"from_team,omitempty"`       // non-null if auto-created by a favorite team (holds its pageid)
 }
 
 func (MatchSubscription) TableName() string { return "match_subscription" }
