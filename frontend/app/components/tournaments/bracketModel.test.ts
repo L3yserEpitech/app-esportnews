@@ -40,13 +40,19 @@ function treeNode(
   });
 }
 
-function listNode(id: string, section: string, bracketIndex: number, matchIndex: number): PandaMatch {
+function listNode(
+  id: string,
+  section: string,
+  bracketIndex: number,
+  matchIndex: number,
+  beginAt?: string,
+): PandaMatch {
   const m = match(id, `list-${bracketIndex}`, {
     type: 'matchlist',
     bracket_index: bracketIndex,
     match_index: matchIndex,
   });
-  return { ...m, section } as PandaMatch;
+  return { ...m, section, begin_at: beginAt } as PandaMatch;
 }
 
 /** 8 → 4 → 2 → 1, exactly the CCT playoff shape. */
@@ -272,6 +278,32 @@ describe('buildBracketLayout — everything that is not a declared tree', () => 
     expect(columns.map(c => c.label)).toEqual(['Round 3', 'Round 4']);
     expect(columns[0].matches.map(m => m.match2id)).toEqual([
       'C1Fqjy4lmv_0001', 'C1Fqjy4lmv_0002', 'wCFxgw4ieC_0001',
+    ]);
+  });
+
+  // LCK/2026 : la saison est déclarée en deux stages, donc bracket_index repart à 0
+  // à la reprise. Trier dessus seul sortait les colonnes en Week 1, 10, 2, 11.
+  it('ordonne les stages par date quand bracket_index repart à zéro', () => {
+    const season = [
+      listNode('W1', 'Week 1', 0, 1, '2026-04-01T09:00:00Z'),
+      listNode('W2', 'Week 2', 1, 1, '2026-04-08T09:00:00Z'),
+      listNode('W9', 'Week 9', 8, 1, '2026-05-27T09:00:00Z'),
+      listNode('W10', 'Week 10', 0, 1, '2026-07-29T09:00:00Z'),
+      listNode('W11', 'Week 11', 1, 1, '2026-08-05T09:00:00Z'),
+    ];
+    expect(buildGroupColumns([...season].reverse()).map(c => c.label)).toEqual([
+      'Week 1', 'Week 2', 'Week 9', 'Week 10', 'Week 11',
+    ]);
+  });
+
+  it('garde l\'ordre déclaré entre groupes joués en parallèle', () => {
+    const groups = [
+      listNode('GA', 'Group A', 0, 1, '2026-04-01T09:00:00Z'),
+      listNode('GB', 'Group B', 1, 1, '2026-04-01T09:00:00Z'),
+      listNode('GC', 'Group C', 2, 1, '2026-04-01T09:00:00Z'),
+    ];
+    expect(buildGroupColumns([groups[2], groups[0], groups[1]]).map(c => c.label)).toEqual([
+      'Group A', 'Group B', 'Group C',
     ]);
   });
 

@@ -216,9 +216,9 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
 }
 
 /**
- * The non-tree rounds, one column per Liquipedia section, in the page's own
- * order. No positioning and no edges: nothing advances into a fixed slot here,
- * so anything drawn between these columns would be a lie.
+ * The non-tree rounds, one column per Liquipedia section, chronologically then in
+ * the page's own order. No positioning and no edges: nothing advances into a fixed
+ * slot here, so anything drawn between these columns would be a lie.
  */
 export function buildGroupColumns(matches: PandaMatch[]): GroupColumn[] {
   const seen = new Set<string>();
@@ -234,6 +234,18 @@ export function buildGroupColumns(matches: PandaMatch[]): GroupColumn[] {
     .map(([section, group]) => ({
       key: `group:${section}`,
       label: section,
+      // bracket_index repart à 0 à chaque stage déclaré sur la page : sur LCK/2026
+      // les semaines 1-9 sont indexées 0-8 puis les semaines 10-13 repartent à 0-3,
+      // ce qui sortait les colonnes en 1, 10, 2, 11. La date du premier match sépare
+      // les stages ; bracket_index garde l'ordre déclaré à l'intérieur d'un stage,
+      // donc les groupes joués en parallèle (Group A/B/C, mêmes dates) restent dans
+      // l'ordre de la page. Réservé aux matchlists : dans l'arbre, la chronologie n'a
+      // aucun rapport avec la position dans le bracket.
+      start:
+        group.reduce((min, m) => {
+          const d = String(m.begin_at ?? '');
+          return d && (!min || d < min) ? d : min;
+        }, '') || '\uffff',
       order: Math.min(...group.map(m => m.bracket_data!.bracket_index)),
       matches: [...group].sort(
         (a, b) =>
@@ -242,7 +254,7 @@ export function buildGroupColumns(matches: PandaMatch[]): GroupColumn[] {
           String(a.begin_at ?? '').localeCompare(String(b.begin_at ?? '')),
       ),
     }))
-    .sort((a, b) => a.order - b.order)
+    .sort((a, b) => a.start.localeCompare(b.start) || a.order - b.order)
     .map(({ key, label, matches: cells }) => ({ key, label, matches: cells }));
 }
 

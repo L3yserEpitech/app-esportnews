@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { resolveSections, SECTION_IDS } from './matchSections';
 
 describe('resolveSections', () => {
-  it('gives LoL the tier-1 sections including draft + playerStats', () => {
+  // LoL, Valorant et Dota rendent draft et stats à l'intérieur de gameResults,
+  // par map : pas de sections séparées, contrairement au preset tier1.
+  it('gives LoL its own preset — draft and stats live inside gameResults', () => {
     const s = resolveSections('leagueoflegends', false);
-    expect(s).toContain('draft');
-    expect(s).toContain('playerStats');
     expect(s).toContain('header');
+    expect(s).toContain('gameResults');
+    expect(s).not.toContain('draft');
+    expect(s).not.toContain('playerStats');
   });
 
   it('falls back to default (no draft/playerStats) for an unmapped wiki', () => {
