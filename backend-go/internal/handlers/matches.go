@@ -554,7 +554,15 @@ func (h *MatchHandler) readAndNormalizeMatches(ctx context.Context, keyFunc func
 			key := keyFunc(w)
 			data, err := h.redisCache.Get(ctx, key)
 			if err != nil || data == "" {
-				return
+				// Le TTL du cache poller est plus court que son intervalle de refresh
+				// réel quand les webhooks sont actifs (le filet de sécurité ne se
+				// déclenche qu'à 3× l'intervalle). Sans ce repli, un wiki sans
+				// webhook servait une liste vide pendant des dizaines de minutes par
+				// heure, alors que la copie stale — 6h de TTL — était juste à côté.
+				data, err = h.redisCache.Get(ctx, cache.StaleKey(key))
+				if err != nil || data == "" {
+					return
+				}
 			}
 
 			parsed, err := parseAndFilterMatches([]byte(data), nil)
