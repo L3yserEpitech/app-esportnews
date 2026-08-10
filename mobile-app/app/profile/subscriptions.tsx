@@ -124,11 +124,20 @@ export default function SubscriptionsScreen() {
     </TouchableOpacity>
   );
 
+  // Même contrainte que pour les matchs : sans `wiki`, le détail tournoi part en
+  // scan des 10 wikis puis rend 404. L'abonnement ne stocke que game_acronym.
+  const tournamentHref = (item: TournamentSubscriptionData) => {
+    const params: Record<string, string> = { id: String(item.tournament_id) };
+    const wiki = videogameSlugToWiki(item.game_acronym);
+    if (wiki) params.wiki = wiki;
+    return { pathname: '/tournament/[id]', params } as any;
+  };
+
   const renderTournamentItem = ({ item }: { item: TournamentSubscriptionData }) => (
     <TouchableOpacity
       style={styles.subCard}
       activeOpacity={0.7}
-      onPress={() => router.push(`/tournament/${item.tournament_id}`)}
+      onPress={() => router.push(tournamentHref(item))}
     >
       <View style={styles.subCardContent}>
         <View style={styles.subCardHeader}>

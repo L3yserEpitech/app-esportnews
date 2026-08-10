@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -243,9 +244,11 @@ func (h *MatchSubHandler) SubscribeToMatch(c echo.Context) error {
 	// column) — fill in the deep-link id the notification payload needs.
 	if sub.Match2ID == "" && input.Match2ID != "" {
 		sub.Match2ID = input.Match2ID
-		h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}).
+		if err := h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}).
 			Where("id = ?", sub.ID).
-			Update("match2id", input.Match2ID)
+			Update("match2_id", input.Match2ID).Error; err != nil {
+			log.Printf("[SUB] failed to backfill match2_id on subscription %d: %v", sub.ID, err)
+		}
 	}
 
 	return c.JSON(http.StatusCreated, sub)

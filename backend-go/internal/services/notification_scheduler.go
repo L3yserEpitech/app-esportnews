@@ -180,7 +180,7 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 			match2ID := sub.Match2ID
 			if match2ID == "" && match.Match2ID != "" {
 				match2ID = match.Match2ID
-				fields["match2id"] = match2ID
+				fields["match2_id"] = match2ID
 			}
 			if newBeginAt := matchBeginsAt(match); newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
 				fields["begin_at"] = newBeginAt
