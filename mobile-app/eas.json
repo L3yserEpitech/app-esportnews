@@ -29,7 +29,8 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_ENVIRONMENT": "production",
-        "EXPO_PUBLIC_API_URL": "https://app-esportnews-production.up.railway.app"
+        "_comment": "Backend staging (branche liquipedia) et non la prod : l'app est portée sur Liquipedia et a besoin de `wiki`/`match2id`, que la prod (branche main, encore PandaScore) ne renvoie pas. À repointer sur app-esportnews-production dès que liquipedia sera mergée sur main.",
+        "EXPO_PUBLIC_API_URL": "https://www.blitchapp.online"
       }
     }
   },
