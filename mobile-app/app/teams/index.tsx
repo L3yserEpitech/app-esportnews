@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+import { LiquipediaBadge } from '@/components/ui';
 import { teamService } from '@/services/teamService';
 import { imageUrl } from '@/utils/imageUrl';
 import { useAuth } from '@/hooks/useAuth';
@@ -237,6 +238,7 @@ export default function TeamsScreen() {
         renderItem={({ item }) => <TeamRow team={item} onPress={() => goToTeam(item)} />}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={<LiquipediaBadge />}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

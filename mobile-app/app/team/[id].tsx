@@ -13,6 +13,7 @@ import { imageUrl } from '@/utils/imageUrl';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdPopup, useSubscription } from '@/hooks';
 import { LiveMatchCard } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { SectionHeader } from '@/components/tournament-detail/sections/shared';
 import type {
   TeamDetail,
@@ -381,6 +382,7 @@ export default function TeamDetailScreen() {
             </View>
           ) : null}
         </View>
+        <LiquipediaBadge />
       </ScrollView>
     </View>
   );

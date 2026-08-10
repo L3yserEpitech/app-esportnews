@@ -19,7 +19,7 @@ import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { useTournaments, useGame } from '@/hooks';
 import { TournamentCard } from '@/components/features/TournamentCard';
-import { Badge } from '@/components/ui';
+import { Badge, LiquipediaBadge } from '@/components/ui';
 
 type TournamentStatus = 'running' | 'upcoming' | 'finished';
 
@@ -240,14 +240,17 @@ export default function TournamentsScreen() {
     />
   ), [isSearchVisible, searchQuery, status, toggleSearch]);
 
-  const renderFooter = () => {
-    if (!hasMore || isLoading) return <View style={{ height: spacing.xxl }} />;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
-      </View>
-    );
-  };
+  const renderFooter = () => (
+    <>
+      {hasMore && !isLoading ? (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      ) : null}
+      <LiquipediaBadge />
+      <View style={{ height: spacing.xxl }} />
+    </>
+  );
 
   return (
     <View style={styles.container}>

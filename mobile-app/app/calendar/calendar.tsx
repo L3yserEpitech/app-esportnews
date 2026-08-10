@@ -12,6 +12,7 @@ import { DatePickerModal } from 'react-native-paper-dates';
 import { Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LiveMatchCard } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { useMatches, useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { format } from 'date-fns';
@@ -134,6 +135,7 @@ export default function CalendarScreen() {
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={<LiquipediaBadge />}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl

@@ -6,3 +6,5 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 
 export { Chip } from './Chip';
+
+export { LiquipediaBadge } from './LiquipediaBadge';

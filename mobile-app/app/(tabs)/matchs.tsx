@@ -7,6 +7,7 @@ import Animated, {
   FadeInUp
 } from 'react-native-reanimated';
 import { LiveMatchCard } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
@@ -246,6 +247,7 @@ export default function MatchsScreen() {
             selectedGame={selectedGame}
           />
         }
+        ListFooterComponent={<LiquipediaBadge />}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl

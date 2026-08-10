@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SubscribeButton } from '@/components/features/SubscribeButton';
+import { LiquipediaBadge } from '@/components/ui';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { matchService } from '@/services';
@@ -158,6 +159,7 @@ export default function MatchDetailScreen() {
         <View style={styles.body}>
           {bodyIds.map(renderSection)}
         </View>
+        <LiquipediaBadge />
       </ScrollView>
     </View>
   );

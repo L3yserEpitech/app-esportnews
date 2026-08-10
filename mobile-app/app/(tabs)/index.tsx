@@ -10,6 +10,7 @@ import {
   TournamentCard,
   LoginPromptModal,
 } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { useGame, useLiveMatches, useHomeData, useAuth, useAdPopup, useSubscription } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
@@ -194,6 +195,8 @@ export default function HomeScreen() {
             )}
           </View>
         )}
+
+        <LiquipediaBadge />
 
         {/* Bottom Spacing for TabBar */}
         <View style={{ height: 100 }} />

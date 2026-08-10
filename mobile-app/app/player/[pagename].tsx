@@ -10,6 +10,7 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { playerService } from '@/services/playerService';
 import { useAdPopup, useSubscription } from '@/hooks';
 import { SectionHeader } from '@/components/tournament-detail/sections/shared';
+import { LiquipediaBadge } from '@/components/ui';
 import type { PlayerDetail, PlayerTransfer } from '@/types';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -319,6 +320,7 @@ export default function PlayerDetailScreen() {
             </View>
           ) : null}
         </View>
+        <LiquipediaBadge />
       </ScrollView>
     </View>
   );

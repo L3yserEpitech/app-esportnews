@@ -10,6 +10,7 @@ import { spacing } from '@/constants/theme';
 import { matchService } from '@/services';
 import type { PandaMatch, PandaGame } from '@/types';
 import { useAdPopup, useSubscription } from '@/hooks';
+import { LiquipediaBadge } from '@/components/ui';
 import { ValorantGameBlock } from '@/components/match-detail/sections/valorant/ValorantGameCards';
 import { LolGameBlock } from '@/components/match-detail/sections/leagueoflegends/LolGameCards';
 import { DotaGameBlock } from '@/components/match-detail/sections/dota2/DotaGameCards';
@@ -150,6 +151,7 @@ export default function GameDetailScreen() {
         <View style={styles.body}>
           <GameDetailBlock match={match} game={game} />
         </View>
+        <LiquipediaBadge />
       </ScrollView>
     </View>
   );
