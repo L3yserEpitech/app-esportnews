@@ -36,7 +36,7 @@ const RunningTournaments: React.FC = () => {
 
   const selectedGameData = getSelectedGameData();
 
-  // Mémorisation pour éviter les recalculs - 3 tournois par colonne x 2 colonnes = 6 max
+  // Mémorisation pour éviter les recalculs - 6 max, 1 par ligne
   const displayedTournaments = useMemo(() => tournaments.slice(0, 6), [tournaments]);
   const hasMoreTournaments = useMemo(() => tournaments.length > 6, [tournaments.length]);
   const memoizedTournaments = useMemo(() => tournaments, [tournaments]);
@@ -180,8 +180,8 @@ const RunningTournaments: React.FC = () => {
         <ContentLoader label={t('pages_detail.calendar.loading_tournaments')} icon={Trophy} />
       ) : memoizedTournaments.length > 0 ? (
         <div>
-          {/* Cards horizontales — 1 colonne, 2 en très large */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {/* Cards horizontales — toujours 1 par ligne */}
+          <div className="grid grid-cols-1 gap-3">
             {displayedTournaments.map((tournament) => (
               <TournamentCard
                 key={tournament.id}
