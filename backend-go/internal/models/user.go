@@ -63,8 +63,18 @@ func (a *Int64Array) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Value écrit un littéral de tableau PostgreSQL — {1,2,3}. json.Marshal
+// produisait [1,2,3], que Postgres rejette sur une colonne int[] :
+// « malformed array literal ». Toute écriture de favoris échouait donc en 500.
 func (a Int64Array) Value() (driver.Value, error) {
-	return json.Marshal(a)
+	if len(a) == 0 {
+		return "{}", nil
+	}
+	parts := make([]string, len(a))
+	for i, v := range a {
+		parts[i] = strconv.FormatInt(v, 10)
+	}
+	return "{" + strings.Join(parts, ",") + "}", nil
 }
 
 func (a *Int64Array) Scan(value interface{}) error {
