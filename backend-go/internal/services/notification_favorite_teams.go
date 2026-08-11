@@ -75,7 +75,9 @@ func (s *NotificationScheduler) hydrateFavoriteTeamMatches(ctx context.Context) 
 	}
 
 	resolved := make(map[int64]favoriteTeam, len(pageIDs))
+	returned := make(map[int64]bool, len(pageIDs))
 	for _, t := range s.liqService.GetTeamsByPageIDs(ctx, pageIDs) {
+		returned[int64(t.ID)] = true
 		slug := ""
 		if t.CurrentVideogame != nil {
 			slug = t.CurrentVideogame.Slug
@@ -93,6 +95,19 @@ func (s *NotificationScheduler) hydrateFavoriteTeamMatches(ctx context.Context) 
 			Name:   normalizeTeamName(t.Name),
 		}
 	}
+	// Un pageid que Liquipedia ne renvoie pas est inexploitable : c'est le cas des
+	// favoris hérités de PandaScore, dont les ids n'ont aucun sens ici. Sans ce log
+	// ils disparaissaient sans laisser de trace.
+	var unresolved []int64
+	for _, id := range pageIDs {
+		if !returned[id] {
+			unresolved = append(unresolved, id)
+		}
+	}
+	if len(unresolved) > 0 {
+		s.logger.Warnf("[FavTeams] %d favorite pageids returned nothing from Liquipedia: %v", len(unresolved), unresolved)
+	}
+
 	if len(resolved) == 0 {
 		return
 	}
