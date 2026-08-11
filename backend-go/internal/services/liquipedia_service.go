@@ -849,7 +849,10 @@ func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki st
 // GetTeamsByPageIDs fetches multiple teams by their Liquipedia pageids.
 // Uses parallel goroutines for efficiency.
 func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int64) []models.NormalizedTeam {
-	var results []models.NormalizedTeam
+	// Slice initialisée : une slice nil se sérialise en `null`, que les clients
+	// reçoivent là où ils attendent un tableau. Arrive dès qu'aucun pageid ne se
+	// résout — le cas des favoris hérités de PandaScore.
+	results := make([]models.NormalizedTeam, 0, len(pageIDs))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 

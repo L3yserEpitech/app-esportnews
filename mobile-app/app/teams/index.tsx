@@ -119,7 +119,7 @@ export default function TeamsScreen() {
     }
     setFavLoading(true);
     const teams = await teamService.getFavoriteTeams();
-    setFavorites(teams);
+    setFavorites(teams ?? []);
     setFavLoading(false);
   }, [isAuthenticated]);
 
