@@ -138,6 +138,15 @@ func (h *MatchSubHandler) UnregisterPushToken(c echo.Context) error {
 
 // --- Match Subscriptions ---
 
+// liquipediaOnly écarte les abonnements hérités de PandaScore. Ils restent en
+// base — l'app publiée tourne encore sur l'ancien backend et en crée toujours —
+// mais ils n'ont aucun sens ici : leur match_id est un identifiant PandaScore,
+// qui ne résout rien côté Liquipedia. Le match2id est le discriminant : le
+// backend PandaScore ne l'a jamais écrit, tous nos chemins le renseignent.
+func liquipediaOnly(q *gorm.DB) *gorm.DB {
+	return q.Where("match2_id IS NOT NULL AND match2_id <> ''")
+}
+
 func (h *MatchSubHandler) GetMatchSubscriptions(c echo.Context) error {
 	userID, err := h.extractUserID(c)
 	if err != nil {
@@ -148,7 +157,7 @@ func (h *MatchSubHandler) GetMatchSubscriptions(c echo.Context) error {
 	defer cancel()
 
 	var subs []models.MatchSubscription
-	if err := h.getDB().WithContext(ctx).
+	if err := liquipediaOnly(h.getDB().WithContext(ctx)).
 		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Find(&subs).Error; err != nil {
@@ -168,8 +177,8 @@ func (h *MatchSubHandler) GetMatchSubscriptionIDs(c echo.Context) error {
 	defer cancel()
 
 	var ids []int64
-	if err := h.getDB().WithContext(ctx).
-		Model(&models.MatchSubscription{}).
+	if err := liquipediaOnly(h.getDB().WithContext(ctx).
+		Model(&models.MatchSubscription{})).
 		Where("user_id = ?", userID).
 		Pluck("match_id", &ids).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch match subscription IDs")
@@ -296,7 +305,16 @@ func (h *MatchSubHandler) GetTournamentSubscriptions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournament subscriptions")
 	}
 
-	return c.JSON(http.StatusOK, subs)
+	// Pas de match2id ici : l'acronyme est le seul discriminant. Ceux hérités de
+	// PandaScore (cod-mw, dota-2, league-of-legends) ne résolvent aucun wiki.
+	kept := make([]models.TournamentSubscription, 0, len(subs))
+	for _, sub := range subs {
+		if _, ok := models.ResolveWiki(sub.GameAcronym); ok {
+			kept = append(kept, sub)
+		}
+	}
+
+	return c.JSON(http.StatusOK, kept)
 }
 
 func (h *MatchSubHandler) GetTournamentSubscriptionIDs(c echo.Context) error {
@@ -308,12 +326,18 @@ func (h *MatchSubHandler) GetTournamentSubscriptionIDs(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var ids []int64
+	var rows []models.TournamentSubscription
 	if err := h.getDB().WithContext(ctx).
-		Model(&models.TournamentSubscription{}).
 		Where("user_id = ?", userID).
-		Pluck("tournament_id", &ids).Error; err != nil {
+		Find(&rows).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournament subscription IDs")
+	}
+
+	var ids []int64
+	for _, sub := range rows {
+		if _, ok := models.ResolveWiki(sub.GameAcronym); ok {
+			ids = append(ids, sub.TournamentID)
+		}
 	}
 
 	if ids == nil {
