@@ -206,15 +206,20 @@ export default function TeamDetailScreen() {
     return () => { showAd(); };
   }, [load, showAd]);
 
+  // Le pageid réel : l'id de route est un hashStringToInt du nom quand on arrive
+  // depuis un match ou un roster. Un favori doit porter le pageid, sinon il ne se
+  // relit jamais — et un hash dépasse largement l'int4 de la colonne en base.
+  const favoriteId = team?.id ?? Number(id);
+
   // Determine initial favorite state (logged-in users only).
   useEffect(() => {
-    if (!isAuthenticated || !id) return;
+    if (!isAuthenticated || !favoriteId) return;
     let active = true;
     teamService.getFavoriteTeamIds().then((ids) => {
-      if (active) setIsFavorite(ids.includes(Number(id)));
+      if (active) setIsFavorite(ids.includes(favoriteId));
     });
     return () => { active = false; };
-  }, [isAuthenticated, id]);
+  }, [isAuthenticated, favoriteId]);
 
   const toggleFavorite = useCallback(async () => {
     if (!isAuthenticated) {
@@ -223,7 +228,7 @@ export default function TeamDetailScreen() {
     }
     if (favBusy) return;
     setFavBusy(true);
-    const teamId = Number(id);
+    const teamId = favoriteId;
     const next = !isFavorite;
     setIsFavorite(next); // optimistic
     const result = next
@@ -234,12 +239,12 @@ export default function TeamDetailScreen() {
       Alert.alert(
         'Impossible',
         next
-          ? "Impossible d'ajouter ce favori (maximum 3 équipes)."
+          ? "Impossible d'ajouter ce favori. Vérifie que tu n'as pas déjà 3 équipes suivies."
           : 'Impossible de retirer ce favori.'
       );
     }
     setFavBusy(false);
-  }, [isAuthenticated, favBusy, id, isFavorite]);
+  }, [isAuthenticated, favBusy, favoriteId, isFavorite]);
 
   if (loading) {
     return (
