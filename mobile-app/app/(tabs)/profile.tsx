@@ -231,12 +231,12 @@ export default function ProfileScreen() {
 
             <Section title="Préférences">
               <ProfileItem
-                icon="language-outline"
-                title="Langue"
-                subtitle="Français"
-                onPress={() => router.push('/profile/language' as any)}
-                iconBg="rgba(0, 122, 255, 0.15)"
-                color="#007AFF"
+                icon="notifications-outline"
+                title="Notifications"
+                subtitle="Alertes de match"
+                onPress={() => router.push('/profile/notifications' as any)}
+                iconBg="rgba(242, 46, 98, 0.15)"
+                color="#F22E62"
               />
             </Section>
           </>
