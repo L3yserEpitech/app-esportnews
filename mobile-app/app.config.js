@@ -13,11 +13,6 @@ module.exports = {
     userInterfaceStyle: "light",
     scheme: "esportnews",
     newArchEnabled: true,
-    splash: {
-      image: "./assets/splash-icon.png",
-      resizeMode: "contain",
-      backgroundColor: "#060B13"
-    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.esportnews-app.mobile",
@@ -113,7 +108,18 @@ module.exports = {
         }
       ],
       "react-native-iap",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        // Pas d'`image` : l'écran de lancement natif est un aplat noir sans logo.
+        // iOS et Android en imposent un, il ne peut pas être supprimé — mais vidé
+        // de son logo il devient invisible, puisque SplashAnimation joue sur le
+        // même noir pur. Le seul saut de couleur restant est le cross-fade final
+        // vers #060B13, déjà géré par le composant.
+        "expo-splash-screen",
+        {
+          backgroundColor: "#000000"
+        }
+      ]
     ],
     extra: {
       router: {},
