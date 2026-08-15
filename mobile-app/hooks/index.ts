@@ -8,5 +8,6 @@ export { useArticles } from './useArticles';
 export { useSubscription } from './useSubscription';
 export { useAdPopup } from './useAdPopup';
 export { useMatchSubscriptions } from './useMatchSubscriptions';
+export { useNotificationDeepLink } from './useNotificationDeepLink';
 export { useAd } from '@/contexts/AdContext';
 export { useLocale } from '@/contexts/LocaleContext';

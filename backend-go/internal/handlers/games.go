@@ -24,6 +24,26 @@ func (h *GameHandler) RegisterRoutes(g RouterGroup) {
 	g.GET("/games/acronym/:acronym", h.GetGameByAcronym)
 }
 
+// RegisterAdminRoutes registers admin-protected routes
+func (h *GameHandler) RegisterAdminRoutes(g RouterGroup) {
+	g.DELETE("/admin/games/cache", h.InvalidateGamesCache)
+}
+
+// InvalidateGamesCache purge cache:games. La table `games` n'est modifiable
+// qu'en base (pas de CRUD côté API), donc rien ne peut invalider ce cache de
+// 24h automatiquement : sans cette route, un changement de jeu reste invisible
+// jusqu'à expiration, y compris après un redémarrage du backend.
+func (h *GameHandler) InvalidateGamesCache(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.gameService.Cache.Del(ctx, cache.CacheGames); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to invalidate games cache")
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok", "invalidated": cache.CacheGames})
+}
+
 func (h *GameHandler) ListGames(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -33,6 +53,7 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 	if err == nil {
 		var games []*models.Game
 		if err := json.Unmarshal([]byte(cached), &games); err == nil {
+			setPublicCache(c, 3600, 0)
 			return c.JSON(http.StatusOK, games)
 		}
 	}
@@ -48,6 +69,7 @@ func (h *GameHandler) ListGames(c echo.Context) error {
 		h.gameService.Cache.Set(ctx, cache.CacheGames, string(data), 24*time.Hour)
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, games)
 }
 
@@ -63,6 +85,7 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 	if err == nil {
 		var game models.Game
 		if err := json.Unmarshal([]byte(cached), &game); err == nil {
+			setPublicCache(c, 3600, 0)
 			return c.JSON(http.StatusOK, game)
 		}
 	}
@@ -73,6 +96,7 @@ func (h *GameHandler) GetGameByID(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, game)
 }
 
@@ -88,5 +112,6 @@ func (h *GameHandler) GetGameByAcronym(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 	}
 
+	setPublicCache(c, 3600, 0)
 	return c.JSON(http.StatusOK, game)
 }

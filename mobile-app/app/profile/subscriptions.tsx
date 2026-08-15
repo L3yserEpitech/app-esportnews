@@ -15,6 +15,7 @@ import { useMatchSubscriptions } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
 import { MatchSubscriptionData, TournamentSubscriptionData } from '@/services/matchSubscriptionService';
+import { videogameSlugToWiki } from '@/utils/gameRegistry';
 
 type TabValue = 'matches' | 'tournaments';
 
@@ -68,11 +69,21 @@ export default function SubscriptionsScreen() {
     }
   };
 
+  // The detail endpoint only resolves the alphanumeric match2id on-demand: the
+  // numeric id alone hits only while the match sits in a poller cache.
+  const matchHref = (item: MatchSubscriptionData) => {
+    const params: Record<string, string> = { id: String(item.match_id) };
+    if (item.match2id) params.m2 = item.match2id;
+    const wiki = videogameSlugToWiki(item.game_acronym);
+    if (wiki) params.wiki = wiki;
+    return { pathname: '/match/[id]', params } as any;
+  };
+
   const renderMatchItem = ({ item }: { item: MatchSubscriptionData }) => (
     <TouchableOpacity
       style={styles.subCard}
       activeOpacity={0.7}
-      onPress={() => router.push(`/match/${item.match_id}`)}
+      onPress={() => router.push(matchHref(item))}
     >
       <View style={styles.subCardContent}>
         <View style={styles.subCardHeader}>
@@ -113,11 +124,20 @@ export default function SubscriptionsScreen() {
     </TouchableOpacity>
   );
 
+  // Même contrainte que pour les matchs : sans `wiki`, le détail tournoi part en
+  // scan des 10 wikis puis rend 404. L'abonnement ne stocke que game_acronym.
+  const tournamentHref = (item: TournamentSubscriptionData) => {
+    const params: Record<string, string> = { id: String(item.tournament_id) };
+    const wiki = videogameSlugToWiki(item.game_acronym);
+    if (wiki) params.wiki = wiki;
+    return { pathname: '/tournament/[id]', params } as any;
+  };
+
   const renderTournamentItem = ({ item }: { item: TournamentSubscriptionData }) => (
     <TouchableOpacity
       style={styles.subCard}
       activeOpacity={0.7}
-      onPress={() => router.push(`/tournament/${item.tournament_id}`)}
+      onPress={() => router.push(tournamentHref(item))}
     >
       <View style={styles.subCardContent}>
         <View style={styles.subCardHeader}>

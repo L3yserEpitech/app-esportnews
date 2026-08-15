@@ -34,8 +34,12 @@ type Config struct {
 	FrontendURL string
 	CORSOrigins string
 
-	// PandaScore API
-	PandaScoreAPIKey string
+	// Liquipedia API
+	LiquipediaAPIKey          string
+	LiquipediaBudgetPerWiki   int    // requests per wiki per hour (rate limit ceiling)
+	LiquipediaWebhooksEnabled bool   // true → poller refreshes on dirty flags from webhooks
+	LiquipediaWebhookSecret   string // shared secret expected in X-Webhook-Secret header (empty = no check)
+	LiquipediaPollerEnabled   bool   // false → skip warmup+tickers (dev only: warmup burst trips per-IP throttle)
 
 	// Stripe
 	StripeSecretKey     string
@@ -49,13 +53,16 @@ type Config struct {
 	// App
 	MaxConnections int
 
+	// Background services
+	NotificationSchedulerEnabled bool // disable on preview/staging to avoid duplicate pushes against shared prod DB
+
 	// Apple IAP (In-App Purchase)
 	AppleIAPKeyPath     string
 	AppleIAPKeyContent  string // PEM of the .p8 key, inline (preferred on hosts that can't mount files, e.g. Railway)
 	AppleIAPKeyID       string
 	AppleIAPIssuerID    string
 	AppleIAPBundleID    string
-	AppleIAPEnvironment string
+	AppleIAPEnvironment string // "sandbox" or "production"
 
 	// Google IAP (In-App Purchase)
 	GoogleIAPKeyPath   string
@@ -80,20 +87,27 @@ func LoadConfig() *Config {
 	_ = godotenv.Load() // fallback: local .env if it exists
 
 	cfg := &Config{
-		Port:                getEnv("PORT", "4000"),
-		Env:                 getEnv("ENV", "development"),
-		DatabaseURL:         getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
-		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379"),
-		JWTSecret:           getEnv("JWT_SECRET", "your-secret-key"),
-		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
-		CORSOrigins:         getEnv("CORS_ORIGINS", ""),
-		PandaScoreAPIKey:    getEnv("PANDASCORE_API_KEY", ""),
-		StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
-		StripePriceID:       getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
-		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		ResendAPIKey:        getEnv("RESEND_API_KEY", ""),
-		EmailFrom:           getEnv("EMAIL_FROM", "noreply@resend.dev"),
-		MaxConnections:      25,
+		Port:                      getEnv("PORT", "4000"),
+		Env:                       getEnv("ENV", "development"),
+		DatabaseURL:               getEnv("DATABASE_URL", "postgres://esportnews:secret@localhost:5432/esportnews"),
+		RedisURL:                  getEnv("REDIS_URL", "redis://localhost:6379"),
+		JWTSecret:                 getEnv("JWT_SECRET", "your-secret-key"),
+		FrontendURL:               getEnv("FRONTEND_URL", "http://localhost:3000"),
+		CORSOrigins:               getEnv("CORS_ORIGINS", ""),
+		LiquipediaAPIKey:          getEnv("LIQUIPEDIA_API_KEY", ""),
+		LiquipediaBudgetPerWiki:   getEnvInt("LIQUIPEDIA_BUDGET_PER_WIKI", 1000),
+		LiquipediaWebhooksEnabled: getEnvBool("LIQUIPEDIA_WEBHOOKS_ENABLED", false),
+		LiquipediaWebhookSecret:   getEnv("LIQUIPEDIA_WEBHOOK_SECRET", ""),
+		LiquipediaPollerEnabled:   getEnvBool("LIQUIPEDIA_POLLER_ENABLED", true),
+		StripeSecretKey:           getEnv("STRIPE_SECRET_KEY", ""),
+		StripePriceID:             getEnv("STRIPE_PRICE_ID", "price_1SZoti3MOTiy12q9vCQLg1wG"),
+		StripeWebhookSecret:       getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		ResendAPIKey:              getEnv("RESEND_API_KEY", ""),
+		EmailFrom:                 getEnv("EMAIL_FROM", "noreply@resend.dev"),
+		MaxConnections:            25,
+
+		// Background services
+		NotificationSchedulerEnabled: getEnvBool("NOTIFICATION_SCHEDULER_ENABLED", true),
 
 		// Apple IAP
 		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),
@@ -187,6 +201,19 @@ func getEnvInt64(key string, defaultVal int64) int64 {
 		if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
 			return intVal
 		}
+	}
+	return defaultVal
+}
+
+// getEnvBool accepts the common truthy spellings (true/1/yes/on, case-insensitive).
+// Any other value — or an unset variable — yields defaultVal.
+func getEnvBool(key string, defaultVal bool) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultVal
+	}
+	if b, err := strconv.ParseBool(value); err == nil {
+		return b
 	}
 	return defaultVal
 }

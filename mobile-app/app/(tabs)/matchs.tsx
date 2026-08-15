@@ -1,13 +1,13 @@
 import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useState, useMemo, useEffect } from 'react';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeInUp
 } from 'react-native-reanimated';
 import { LiveMatchCard } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { useGame } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
@@ -96,7 +96,6 @@ const EmptyState = ({ isLoading, error, selectedGame }: any) => {
 };
 
 export default function MatchsScreen() {
-  const router = useRouter();
   const { selectedGame } = useGame();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeOffset, setDateRangeOffset] = useState(0);
@@ -166,7 +165,6 @@ export default function MatchsScreen() {
     <View style={styles.cardWrapper}>
       <LiveMatchCard
         match={item}
-        onPress={() => router.push(`/match/${item.id}`)}
         fullWidth={true}
       />
     </View>
@@ -240,7 +238,7 @@ export default function MatchsScreen() {
       {/* Matches List */}
       <FlatList
         data={matches}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.match2id || item.id.toString()}
         renderItem={renderItem}
         ListEmptyComponent={
           <EmptyState
@@ -249,6 +247,7 @@ export default function MatchsScreen() {
             selectedGame={selectedGame}
           />
         }
+        ListFooterComponent={<LiquipediaBadge />}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl

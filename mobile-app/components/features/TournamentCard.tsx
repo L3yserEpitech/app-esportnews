@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,10 +11,14 @@ import { PandaTournament } from '@/types';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
-  onPress: () => void;
 }
 
-export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPress }) => {
+export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament }) => {
+  const router = useRouter();
+  const handlePress = () => {
+    router.push({ pathname: '/tournament/[id]', params: { id: String(tournament.id), wiki: tournament.wiki ?? '' } });
+  };
+
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -68,7 +73,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, onPr
   const prizepool = formatPrizePool(tournament.prizepool);
 
   return (
-    <Pressable onPress={onPress} style={styles.pressable}>
+    <Pressable onPress={handlePress} style={styles.pressable}>
       {({ pressed }) => (
         <View style={[styles.container, pressed && styles.pressed]}>
           {/* Barre tier à gauche */}

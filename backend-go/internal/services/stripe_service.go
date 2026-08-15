@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v72"
+	portalsession "github.com/stripe/stripe-go/v72/billingportal/session"
 	checkoutsession "github.com/stripe/stripe-go/v72/checkout/session"
 	customerapi "github.com/stripe/stripe-go/v72/customer"
-	portalsession "github.com/stripe/stripe-go/v72/billingportal/session"
 	"gorm.io/gorm"
 
 	"github.com/esportnews/backend/internal/database"
@@ -16,10 +16,10 @@ import (
 )
 
 type StripeService struct {
-	db            *gorm.DB
+	db              *gorm.DB
 	stripeSecretKey string
 	stripePriceID   string
-	frontendURL   string
+	frontendURL     string
 }
 
 func NewStripeServiceWithGORM(gormDB *database.Database, stripeSecretKey string, stripePriceID string, frontendURL string) *StripeService {
@@ -125,8 +125,8 @@ func (s *StripeService) GetUserByStripeSubscriptionID(ctx context.Context, strip
 // BuildSubscriptionUpdateMap builds a map of fields to update from a Stripe subscription
 func (s *StripeService) BuildSubscriptionUpdateMap(stripeSubscription *stripe.Subscription) map[string]interface{} {
 	updateMap := map[string]interface{}{
-		"stripe_subscription_id": stripeSubscription.ID,
-		"subscription_status":    string(stripeSubscription.Status),
+		"stripe_subscription_id":  stripeSubscription.ID,
+		"subscription_status":     string(stripeSubscription.Status),
 		"subscription_updated_at": time.Now(),
 	}
 

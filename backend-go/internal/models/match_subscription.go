@@ -10,6 +10,7 @@ type MatchSubscription struct {
 	CreatedAt        time.Time  `json:"created_at" gorm:"autoCreateTime"`
 	UserID           int64      `json:"user_id" gorm:"uniqueIndex:idx_user_match;not null;index"`
 	MatchID          int64      `json:"match_id" gorm:"uniqueIndex:idx_user_match;not null"`
+	Match2ID         string     `json:"match2id"` // alphanumeric Liquipedia id — the only one the detail endpoint resolves on-demand
 	GameAcronym      string     `json:"game_acronym"`
 	MatchName        string     `json:"match_name"`
 	TournamentName   string     `json:"tournament_name"`
@@ -18,6 +19,7 @@ type MatchSubscription struct {
 	NotifiedStart    bool       `json:"notified_start" gorm:"default:false"`
 	NotifiedSchedule bool       `json:"notified_schedule" gorm:"default:false"`
 	FromTournament   *int64     `json:"from_tournament,omitempty"` // non-null if auto-created by tournament subscription
+	FromTeam         *int64     `json:"from_team,omitempty"`       // non-null if auto-created by a favorite team (holds its pageid)
 }
 
 func (MatchSubscription) TableName() string { return "match_subscription" }

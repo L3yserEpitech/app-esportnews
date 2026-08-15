@@ -6,21 +6,52 @@ import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import RunningTournaments from './components/tournaments/RunningTournaments';
+import { useTranslations } from 'next-intl';
+import { Star, Swords } from 'lucide-react';
+import ContentLoader from './components/ui/ContentLoader';
 import { Match, NewsItem, Advertisement, LiveMatch } from './types';
-import { liveMatchService } from './services/liveMatchService';
+import { matchService } from './services/matchService';
 import { advertisementService } from './services/advertisementService';
 import { articleService } from './services/articleService';
 import { useGame } from './contexts/GameContext';
 
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-const mockMatches: Match[] = [];
+// Meilleurs matchs du jour : parmi les matchs de la date courante, on garde
+// ceux du meilleur tier disponible (même logique que la page /match).
+function pickBestMatchesOfDay(matches: LiveMatch[]): LiveMatch[] {
+  const tierOrder = ['s', 'a', 'b', 'c', 'd'];
+  let bestTier: string | null = null;
+  for (const tier of tierOrder) {
+    if (matches.some(m => m.tournament?.tier?.toLowerCase() === tier)) {
+      bestTier = tier;
+      break;
+    }
+  }
+  if (!bestTier) return [];
+
+  const statusRank = (s?: string | null) => (s === 'running' ? 0 : s === 'finished' ? 2 : 1);
+  return matches
+    .filter(m => m.tournament?.tier?.toLowerCase() === bestTier)
+    .sort((a, b) => {
+      const rank = statusRank(a.status) - statusRank(b.status);
+      if (rank !== 0) return rank;
+      return new Date(a.begin_at || 0).getTime() - new Date(b.begin_at || 0).getTime();
+    });
+}
 
 
 
 export default function HomePageClient() {
+  const t = useTranslations();
   const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
+  const [bestMatches, setBestMatches] = useState<LiveMatch[]>([]);
   const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(null);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -28,70 +59,47 @@ export default function HomePageClient() {
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
 
-  // Charger les matchs en direct depuis l'API backend
-  const loadLiveMatches = useCallback(async () => {
+  // Charger les meilleurs matchs du jour (top tier de la date courante)
+  const loadBestMatches = useCallback(async () => {
     // Ne pas charger si les jeux ne sont pas encore chargés
     if (isLoadingGames || games.length === 0) {
-      console.log('[HomePage] Games not loaded yet, skipping...');
       return;
     }
 
     try {
       setIsLoadingMatches(true);
-      // Récupérer l'acronym du jeu sélectionné si disponible
-      const selectedGameData = selectedGame 
-        ? games.find(g => {
-            const gameIdStr = String(g.id);
-            const selectedGameStr = String(selectedGame);
-            return gameIdStr === selectedGameStr;
-          })
+      const selectedGameData = selectedGame
+        ? games.find(g => String(g.id) === String(selectedGame))
         : null;
       const gameAcronym = selectedGameData?.acronym;
-      console.log('[HomePage] Loading live matches:', { 
-        selectedGame, 
-        selectedGameData: selectedGameData?.name,
-        gameAcronym,
-        gamesCount: games.length
-      });
-      // Utiliser directement l'acronym sans mapping
-      const fetchedMatches = await liveMatchService.getLiveMatches(gameAcronym);
-      console.log('[HomePage] Fetched matches:', fetchedMatches.length);
 
-      // Filter out banned games (Mobile Legends: Bang Bang, StarCraft 2)
-      const validMatches = Array.isArray(fetchedMatches)
-        ? fetchedMatches.filter(match => {
-            const gameName = match.videogame?.name?.toLowerCase() || '';
-            const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
-            return !isBannedGame;
-          })
-        : [];
+      const today = formatDateToYYYYMMDD(new Date());
+      const fetchedMatches = await matchService.getMatchesByDate(today, gameAcronym);
 
-      console.log('[HomePage] Valid matches (excluding banned games):', validMatches.length);
-      setLiveMatches(validMatches);
+      const validMatches = (Array.isArray(fetchedMatches) ? fetchedMatches : []).filter(match => {
+        const hasValidTeams = match.opponents &&
+          match.opponents.length >= 2 &&
+          match.opponents[0]?.opponent?.name &&
+          match.opponents[1]?.opponent?.name;
+        return hasValidTeams;
+      }) as LiveMatch[];
+
+      setBestMatches(pickBestMatchesOfDay(validMatches));
     } catch (error) {
-      console.error('[HomePage] Erreur lors du chargement des matchs en direct:', error);
+      console.error('[HomePage] Erreur lors du chargement des meilleurs matchs:', error);
     } finally {
       setIsLoadingMatches(false);
     }
   }, [selectedGame, games, isLoadingGames]);
 
-  // Recharger les matchs quand selectedGame change
+  // Charger les matchs quand les jeux finissent de charger ou quand selectedGame change
+  // (games volontairement hors des deps pour éviter un refetch à chaque nouvelle référence)
   useEffect(() => {
     if (!isLoadingGames && games.length > 0) {
-      console.log('[HomePage] selectedGame changed, triggering loadLiveMatches - selectedGame:', selectedGame, 'gamesCount:', games.length);
-      loadLiveMatches();
+      loadBestMatches();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGame]); // Se déclencher UNIQUEMENT quand selectedGame change
-  
-  // Charger les matchs quand les jeux sont chargés pour la première fois
-  useEffect(() => {
-    if (!isLoadingGames && games.length > 0) {
-      console.log('[HomePage] Games loaded for the first time, loading all matches');
-      loadLiveMatches();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingGames]); // Se déclencher quand isLoadingGames passe de true à false
+  }, [selectedGame, isLoadingGames]);
 
   // Charger les publicités depuis l'API
   const loadAds = useCallback(async () => {
@@ -110,11 +118,11 @@ export default function HomePageClient() {
     loadAds();
   }, [loadAds]);
 
-  // Charger tous les articles depuis l'API
+  // Charger les 7 articles les plus récents depuis l'API (1 vedette + 6 en liste)
   const loadAllNews = useCallback(async () => {
     try {
       setIsLoadingNews(true);
-      const allArticles = await articleService.getAllArticles();
+      const allArticles = await articleService.getAllArticles({ limit: 7 });
 
       if (allArticles.length > 0) {
         // Article en vedette : le plus récent
@@ -134,8 +142,8 @@ export default function HomePageClient() {
   }, [loadAllNews]);
 
   // Charger les données selon le jeu sélectionné
-  const loadGameData = useCallback((gameId: string) => {
-    // Ici on appellerait les vraies APIs SportDevs et PandaScore
+  const loadGameData = useCallback((_gameId: string) => {
+    // Placeholder — per-game data is fetched by child components on demand.
   }, []);
 
   useEffect(() => {
@@ -145,7 +153,7 @@ export default function HomePageClient() {
   }, [selectedGame, loadGameData]);
 
   // Mémorisation des données pour éviter les re-rendus inutiles
-  const memoizedLiveMatches = useMemo(() => liveMatches, [liveMatches]);
+  const memoizedBestMatches = useMemo(() => bestMatches, [bestMatches]);
   const memoizedAds = useMemo(() => ads, [ads]);
   const memoizedFeaturedNews = useMemo(() => featuredNews, [featuredNews]);
   const memoizedNewsList = useMemo(() => newsList, [newsList]);
@@ -167,13 +175,31 @@ export default function HomePageClient() {
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
-            {/* Section Matchs en Direct */}
-            <section aria-labelledby="live-matches">
-              <LiveMatchesCarousel
-                matches={memoizedLiveMatches}
-                isLoading={isLoadingMatches}
-              />
-            </section>
+            {/* Section Meilleurs matchs du jour */}
+            {(isLoadingMatches || memoizedBestMatches.length > 0) && (
+              <section aria-labelledby="best-matches">
+                <div className="flex items-center gap-3 mb-3">
+                  <Star className="w-3.5 h-3.5 text-[var(--color-tier-s)]" />
+                  <span id="best-matches" className="text-sm font-semibold text-[var(--color-text-secondary)]">
+                    {t('pages.home.best_matches.title')}
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--color-border-primary)]/40" />
+                  {!isLoadingMatches && (
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      {memoizedBestMatches.length} match{memoizedBestMatches.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {isLoadingMatches ? (
+                  <ContentLoader label={t('pages_detail.match.loading')} icon={Swords} compact />
+                ) : (
+                  <LiveMatchesCarousel
+                    matches={memoizedBestMatches}
+                    isLoading={isLoadingMatches}
+                  />
+                )}
+              </section>
+            )}
 
             {/* Section News */}
             <NewsSection

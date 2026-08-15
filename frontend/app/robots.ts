@@ -24,6 +24,7 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       `${baseUrl}/sitemap.xml`,
+      `${baseUrl}/sitemap-news.xml`,
       `${baseUrl}/sitemap-articles.xml`,
       `${baseUrl}/sitemap-tournaments.xml`,
       `${baseUrl}/sitemap-matches.xml`,

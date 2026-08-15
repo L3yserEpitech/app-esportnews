@@ -202,6 +202,15 @@ export default function ProfileScreen() {
               />
               <View style={styles.divider} />
               <ProfileItem
+                icon="shield-outline"
+                title="Mes équipes"
+                subtitle="Rechercher et suivre des équipes"
+                onPress={() => router.push('/teams' as any)}
+                iconBg="rgba(88, 86, 214, 0.15)"
+                color="#5856D6"
+              />
+              <View style={styles.divider} />
+              <ProfileItem
                 icon="person-outline"
                 title="Informations personnelles"
                 subtitle="Modifier votre nom, email et avatar"
@@ -222,12 +231,12 @@ export default function ProfileScreen() {
 
             <Section title="Préférences">
               <ProfileItem
-                icon="language-outline"
-                title="Langue"
-                subtitle="Français"
-                onPress={() => router.push('/profile/language' as any)}
-                iconBg="rgba(0, 122, 255, 0.15)"
-                color="#007AFF"
+                icon="notifications-outline"
+                title="Notifications"
+                subtitle="Alertes de match"
+                onPress={() => router.push('/profile/notifications' as any)}
+                iconBg="rgba(242, 46, 98, 0.15)"
+                color="#F22E62"
               />
             </Section>
           </>

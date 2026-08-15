@@ -269,4 +269,3 @@ func decideStatusFromNotification(nt appstore.NotificationTypeV2, revoked bool) 
 		return true, false
 	}
 }
-

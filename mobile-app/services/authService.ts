@@ -42,10 +42,11 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/api/auth/signup', data);
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
 
-      // Store token in AsyncStorage
-      await tokenManager.setToken(access_token);
+      // Les deux tokens : sans le refresh, la session meurt à l'expiration de
+      // l'access token (7 jours) sans aucun moyen de la renouveler.
+      await tokenManager.setTokens(access_token, refresh_token);
 
       return {
         authToken: access_token,
@@ -63,10 +64,11 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/api/auth/login', data);
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
 
-      // Store token in AsyncStorage
-      await tokenManager.setToken(access_token);
+      // Les deux tokens : sans le refresh, la session meurt à l'expiration de
+      // l'access token (7 jours) sans aucun moyen de la renouveler.
+      await tokenManager.setTokens(access_token, refresh_token);
 
       return {
         authToken: access_token,
@@ -91,6 +93,19 @@ class AuthService {
   }
 
   /**
+   * Demande d'un lien de réinitialisation. La réinitialisation elle-même se
+   * fait sur le site : le lien reçu par mail ouvre une page web, pas l'app.
+   * La réponse ne dit jamais si l'adresse a un compte.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      await apiClient.post('/api/auth/forgot-password', { email });
+    } catch (error: any) {
+      throw toAuthError(error, "Impossible d'envoyer l'e-mail de réinitialisation");
+    }
+  }
+
+  /**
    * Récupération du token depuis AsyncStorage
    */
   async getToken(): Promise<string | null> {
@@ -101,7 +116,7 @@ class AuthService {
    * Suppression du token
    */
   async removeToken(): Promise<void> {
-    await tokenManager.removeToken();
+    await tokenManager.clearTokens();
   }
 
   /**

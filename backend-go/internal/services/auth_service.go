@@ -2,8 +2,14 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +21,20 @@ import (
 	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/utils"
+)
+
+const (
+	// Assez long pour relever ses mails, assez court pour qu'un lien qui traîne
+	// dans une boîte compromise ne soit plus exploitable.
+	passwordResetTTL = time.Hour
+	// Une demande par minute et par adresse : empêche d'inonder la boîte d'un
+	// tiers en spammant le formulaire.
+	passwordResetThrottle = time.Minute
+
+	accessTokenTTL = 7 * 24 * time.Hour
+	// Fenêtre glissante : chaque refresh en émet un nouveau et repart de zéro,
+	// donc une app ouverte au moins une fois par trimestre ne déconnecte jamais.
+	refreshTokenTTL = 90 * 24 * time.Hour
 )
 
 // ErrEmailAlreadyRegistered is returned when signup hits the users.email UNIQUE constraint.
@@ -151,33 +171,35 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 	return &user, nil
 }
 
-// LoginAfterSignup generates tokens for a newly created user (used after signup)
-func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (*models.AuthResponse, error) {
-	// Generate JWT access token (7 days)
-	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 7*24*time.Hour)
+// issueSession mints an access + refresh token pair for a user and records both
+// in Redis. The stored refresh token is the only one accepted afterwards, so
+// rotating it here invalidates the previous one.
+func (s *AuthService) issueSession(user *models.User) (*models.AuthResponse, error) {
+	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, accessTokenTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	// Store token in Redis for blacklist (7 days)
-	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
-
-	// Generate refresh token (14 days)
-	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 14*24*time.Hour)
+	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, refreshTokenTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Store refresh token in Redis (14 days)
-	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID), refreshToken, 14*24*time.Hour)
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", accessTokenTTL)
+	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID), refreshToken, refreshTokenTTL)
 
 	return &models.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User:         user,
 	}, nil
+}
+
+// LoginAfterSignup generates tokens for a newly created user (used after signup)
+func (s *AuthService) LoginAfterSignup(ctx context.Context, user *models.User) (*models.AuthResponse, error) {
+	return s.issueSession(user)
 }
 
 // Login authenticates a user and returns tokens
@@ -196,31 +218,7 @@ func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*mod
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
-	// Generate JWT access token (7 days)
-	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 7*24*time.Hour)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	// Store token in Redis for blacklist (7 days)
-	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
-
-	// Generate refresh token (14 days)
-	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, 14*24*time.Hour)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
-	}
-
-	// Store refresh token in Redis (14 days)
-	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID), refreshToken, 14*24*time.Hour)
-
-	return &models.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         user,
-	}, nil
+	return s.issueSession(user)
 }
 
 // VerifyToken validates JWT and returns claims
@@ -228,37 +226,162 @@ func (s *AuthService) VerifyToken(tokenString string) (*utils.JWTClaims, error) 
 	return utils.VerifyJWT(tokenString, s.JWTSecret)
 }
 
-// RefreshAccessToken generates a new access token from refresh token
-func (s *AuthService) RefreshAccessToken(ctx context.Context, userID int64, refreshToken string) (string, error) {
-	// Verify refresh token
+// RefreshSession exchanges a refresh token for a brand new token pair. It takes
+// the identity from the refresh token itself — requiring a valid access token
+// here would make the endpoint useless, since renewing an expired session is
+// precisely what it exists for. The presented token must still be the one held
+// in Redis, so logging out or refreshing again revokes it.
+func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (*models.AuthResponse, error) {
 	claims, err := s.VerifyToken(refreshToken)
 	if err != nil {
-		return "", fmt.Errorf("invalid refresh token")
+		return nil, fmt.Errorf("invalid refresh token")
 	}
 
-	if claims.UserID != userID {
-		return "", fmt.Errorf("token user mismatch")
-	}
-
-	// Generate new access token
-	newAccessToken, tokenID, err := utils.GenerateJWT(userID, claims.Email, claims.Admin, s.JWTSecret, 7*24*time.Hour)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate new token: %w", err)
-	}
-
-	// Store in Redis
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", 7*24*time.Hour)
 
-	return newAccessToken, nil
+	stored, err := s.Cache.Get(cacheCtx, cache.RefreshTokenKey(claims.UserID))
+	if err != nil || stored == "" {
+		return nil, fmt.Errorf("refresh token revoked")
+	}
+	if subtle.ConstantTimeCompare([]byte(stored), []byte(refreshToken)) != 1 {
+		return nil, fmt.Errorf("refresh token superseded")
+	}
+
+	// Re-read the user so the new token and the response carry current claims
+	// (admin flag, premium status…) rather than a 3-month-old snapshot.
+	user, err := s.GetUser(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	return s.issueSession(user)
 }
 
-// Logout blacklists the JWT token
-func (s *AuthService) Logout(ctx context.Context, tokenID string) error {
+// sha256Hex is used to key reset tokens and throttle entries without ever
+// storing the raw value.
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// RequestPasswordReset mints a single-use reset token for the given address.
+// It returns an empty token when the address has no account or has already
+// asked in the last minute — the caller answers 200 either way, so the endpoint
+// can't be used to probe which addresses are registered.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (token string, user *models.User, err error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", nil, nil
+	}
+
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
+	throttleKey := cache.PasswordResetThrottleKey(sha256Hex(email))
+	if v, err := s.Cache.Get(cacheCtx, throttleKey); err == nil && v != "" {
+		return "", nil, nil
+	}
+
+	user, err = s.GetUserByEmail(ctx, email)
+	if err != nil || user == nil {
+		return "", nil, nil
+	}
+
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", nil, fmt.Errorf("failed to generate reset token: %w", err)
+	}
+	token = base64.RawURLEncoding.EncodeToString(raw)
+	tokenHash := sha256Hex(token)
+
+	// Retire the previous link: a user who asks twice should not end up with
+	// two working tokens.
+	if previous, err := s.Cache.Get(cacheCtx, cache.PasswordResetUserKey(user.ID)); err == nil && previous != "" {
+		s.Cache.Del(cacheCtx, cache.PasswordResetKey(previous))
+	}
+
+	if err := s.Cache.Set(cacheCtx, cache.PasswordResetKey(tokenHash), fmt.Sprintf("%d", user.ID), passwordResetTTL); err != nil {
+		return "", nil, fmt.Errorf("failed to store reset token: %w", err)
+	}
+	s.Cache.Set(cacheCtx, cache.PasswordResetUserKey(user.ID), tokenHash, passwordResetTTL)
+	s.Cache.Set(cacheCtx, throttleKey, "1", passwordResetThrottle)
+
+	return token, user, nil
+}
+
+// ResetPassword consumes a reset token, writes the new password and opens a
+// fresh session so the user lands logged in rather than back on a login form.
+func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) (*models.AuthResponse, error) {
+	if len(newPassword) < 8 {
+		return nil, fmt.Errorf("le mot de passe doit faire au moins 8 caractères")
+	}
+	if token == "" {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	tokenHash := sha256Hex(token)
+	stored, err := s.Cache.Get(cacheCtx, cache.PasswordResetKey(tokenHash))
+	if err != nil || stored == "" {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	userID, err := strconv.ParseInt(stored, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.updatePassword(ctx, userID, hashedPassword); err != nil {
+		return nil, err
+	}
+
+	// Single use, and the old session dies with the password.
+	s.Cache.Del(cacheCtx, cache.PasswordResetKey(tokenHash))
+	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))
+	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+
+	return s.issueSession(user)
+}
+
+// updatePassword writes a bcrypt hash for a user, through whichever DB handle
+// this service was built with.
+func (s *AuthService) updatePassword(ctx context.Context, userID int64, hashedPassword string) error {
+	if s.gormDB != nil {
+		if err := s.gormDB.WithContext(ctx).
+			Model(&models.User{}).
+			Where("id = ?", userID).
+			Update("password", hashedPassword).Error; err != nil {
+			return fmt.Errorf("failed to update password: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := s.db.Exec(ctx, `UPDATE public.users SET password = $1 WHERE id = $2`, hashedPassword, userID); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+	return nil
+}
+
+// Logout drops the access token and the stored refresh token, so the session
+// can't be revived through /auth/refresh.
+func (s *AuthService) Logout(ctx context.Context, tokenID string, userID int64) error {
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
 	return s.Cache.Del(cacheCtx, cache.JWTKey(tokenID))
 }
 

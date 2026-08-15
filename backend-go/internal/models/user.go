@@ -14,20 +14,20 @@ import (
 type Int64Array []int64
 
 type User struct {
-	ID            int64         `json:"id" gorm:"primaryKey"`
-	CreatedAt     time.Time     `json:"created_at" gorm:"autoCreateTime:milli"`
-	Name          string        `json:"name"`
-	Email         string        `json:"email" gorm:"uniqueIndex"`
-	Password      string        `json:"-"` // Never expose password
-	Avatar        *string       `json:"avatar"`
-	Admin         bool          `json:"admin" gorm:"default:false"`
-	Age           *int          `json:"age"`
-	FavoriteTeams Int64Array    `json:"favorite_teams" gorm:"type:integer[]"`
-	NotifiPush    *bool         `json:"notifi_push" gorm:"column:notifi_push"`
-	NotifArticles *bool         `json:"notif_articles" gorm:"column:notif_articles"`
-	NotifNews     *bool         `json:"notif_news" gorm:"column:notif_news"`
-	NotifMatches  *bool         `json:"notif_matchs" gorm:"column:notif_matchs"`
-	Premium                         *bool      `json:"premium" gorm:"default:false"`
+	ID                             int64      `json:"id" gorm:"primaryKey"`
+	CreatedAt                      time.Time  `json:"created_at" gorm:"autoCreateTime:milli"`
+	Name                           string     `json:"name"`
+	Email                          string     `json:"email" gorm:"uniqueIndex"`
+	Password                       string     `json:"-"` // Never expose password
+	Avatar                         *string    `json:"avatar"`
+	Admin                          bool       `json:"admin" gorm:"default:false"`
+	Age                            *int       `json:"age"`
+	FavoriteTeams                  Int64Array `json:"favorite_teams" gorm:"type:integer[]"`
+	NotifiPush                     *bool      `json:"notifi_push" gorm:"column:notifi_push"`
+	NotifArticles                  *bool      `json:"notif_articles" gorm:"column:notif_articles"`
+	NotifNews                      *bool      `json:"notif_news" gorm:"column:notif_news"`
+	NotifMatches                   *bool      `json:"notif_matchs" gorm:"column:notif_matchs"`
+	Premium                        *bool      `json:"premium" gorm:"default:false"`
 	StripeCustomerID               *string    `json:"stripe_customer_id" gorm:"uniqueIndex"`
 	StripeSubscriptionID           *string    `json:"stripe_subscription_id" gorm:"uniqueIndex"`
 	SubscriptionStatus             *string    `json:"subscription_status"`
@@ -63,8 +63,18 @@ func (a *Int64Array) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Value écrit un littéral de tableau PostgreSQL — {1,2,3}. json.Marshal
+// produisait [1,2,3], que Postgres rejette sur une colonne int[] :
+// « malformed array literal ». Toute écriture de favoris échouait donc en 500.
 func (a Int64Array) Value() (driver.Value, error) {
-	return json.Marshal(a)
+	if len(a) == 0 {
+		return "{}", nil
+	}
+	parts := make([]string, len(a))
+	for i, v := range a {
+		parts[i] = strconv.FormatInt(v, 10)
+	}
+	return "{" + strings.Join(parts, ",") + "}", nil
 }
 
 func (a *Int64Array) Scan(value interface{}) error {

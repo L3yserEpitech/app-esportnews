@@ -3,6 +3,7 @@ import apiClient from './apiClient';
 export interface MatchSubscriptionData {
   id: number;
   match_id: number;
+  match2id: string;
   match_name: string;
   tournament_name: string;
   game_acronym: string;
@@ -25,6 +26,10 @@ export interface TournamentSubscriptionData {
 
 export interface SubscribeMatchMeta {
   match_name: string;
+  // Alphanumeric Liquipedia id: the push payload carries it so tapping the
+  // notification opens the exact match page (a numeric id 404s once the match
+  // leaves the poller caches).
+  match2id?: string;
   tournament_name: string;
   game_acronym: string;
   begin_at?: string;

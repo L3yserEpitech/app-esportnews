@@ -52,3 +52,6 @@ dist/
 build/
 .env.prod
 frontend/tsconfig.tsbuildinfo
+
+# Superpowers brainstorming companion (local mockups)
+.superpowers/

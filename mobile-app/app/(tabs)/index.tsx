@@ -10,6 +10,7 @@ import {
   TournamentCard,
   LoginPromptModal,
 } from '@/components/features';
+import { LiquipediaBadge } from '@/components/ui';
 import { useGame, useLiveMatches, useHomeData, useAuth, useAdPopup, useSubscription } from '@/hooks';
 import { COLORS } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
@@ -129,11 +130,10 @@ export default function HomeScreen() {
               <FlatList
                 horizontal
                 data={liveMatches}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => item.match2id || item.id.toString()}
                 renderItem={({ item }) => (
-                  <LiveMatchCard 
-                    match={item} 
-                    onPress={() => router.push(`/match/${item.id}`)}
+                  <LiveMatchCard
+                    match={item}
                   />
                 )}
                 showsHorizontalScrollIndicator={false}
@@ -189,13 +189,14 @@ export default function HomeScreen() {
                   <TournamentCard
                     key={tournament.id}
                     tournament={tournament}
-                    onPress={() => router.push(`/tournament/${tournament.id}`)}
                   />
                 ))}
               </View>
             )}
           </View>
         )}
+
+        <LiquipediaBadge />
 
         {/* Bottom Spacing for TabBar */}
         <View style={{ height: 100 }} />

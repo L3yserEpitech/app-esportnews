@@ -19,12 +19,11 @@ const getInterstitialAdUnitId = (): string => {
     return TestIds.INTERSTITIAL;
   }
 
-  // En production : l'unité dépend de la plateforme (une unité = une seule app AdMob)
+  // En production, utiliser l'ID configuré (par plateforme) ou fallback sur test
   const extra = Constants.expoConfig?.extra;
-  const configuredId =
-    Platform.OS === 'ios'
-      ? extra?.admobInterstitialIdIos
-      : extra?.admobInterstitialIdAndroid;
+  const configuredId = Platform.OS === 'ios'
+    ? extra?.admobIosInterstitialId
+    : extra?.admobAndroidInterstitialId;
   return configuredId || TestIds.INTERSTITIAL;
 };
 

@@ -7,7 +7,7 @@ module.exports = {
   expo: {
     name: "Esport News",
     slug: "esportnews",
-    version: "1.0.1",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -122,9 +122,9 @@ module.exports = {
       },
       // Environment variables - accessible via expo-constants
       environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development",
-      // AdMob interstitial Ad Unit IDs — PER PLATFORM (a unit belongs to a single AdMob app)
-      admobInterstitialIdIos: process.env.ADMOB_IOS_INTERSTITIAL_ID || "ca-app-pub-4019532498018851/1689083231",
-      admobInterstitialIdAndroid: process.env.ADMOB_ANDROID_INTERSTITIAL_ID || "ca-app-pub-4019532498018851/4650288493"
+      // AdMob Ad Unit IDs
+      admobIosInterstitialId: process.env.ADMOB_IOS_INTERSTITIAL_ID || "ca-app-pub-4019532498018851/1689083231",
+      admobAndroidInterstitialId: process.env.ADMOB_ANDROID_INTERSTITIAL_ID || "ca-app-pub-4019532498018851/4650288493"
     }
   }
 };

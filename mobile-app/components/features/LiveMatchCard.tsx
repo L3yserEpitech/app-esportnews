@@ -1,12 +1,15 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Linking, Alert, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, Pressable, Dimensions, Animated } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text, Surface } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Badge } from '@/components/ui';
 import { SubscribeButton } from '@/components/features/SubscribeButton';
 import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/theme';
+import { imageUrl } from '@/utils/imageUrl';
 import { PandaMatch } from '@/types';
 
 const { width } = Dimensions.get('window');
@@ -14,12 +17,16 @@ const CARD_WIDTH = width * 0.85;
 
 interface LiveMatchCardProps {
   match: PandaMatch;
-  onPress?: () => void;
   fullWidth?: boolean;
 }
 
-export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fullWidth }) => {
+export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, fullWidth }) => {
+  const router = useRouter();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const handleNavigate = () => {
+    router.push({ pathname: '/match/[id]', params: { id: String(match.id), m2: match.match2id ?? '', wiki: match.wiki ?? '' } });
+  };
 
   // Déterminer le statut basé sur le champ status
   const statusInfo = (() => {
@@ -61,24 +68,11 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
   const team2 = match.opponents?.[1]?.opponent;
   const score1 = match.results?.find(r => r.team_id === team1?.id)?.score;
   const score2 = match.results?.find(r => r.team_id === team2?.id)?.score;
-  const streamLink = match.streams_list?.[0]?.raw_url || match.streams_list?.[0]?.embed_url || match.live?.url;
-
-  const handleStreamPress = async () => {
-    if (!streamLink) {
-      Alert.alert('Stream non disponible', 'Aucun lien de stream disponible pour ce match.');
-      return;
-    }
-    try {
-      if (await Linking.canOpenURL(streamLink)) {
-        await Linking.openURL(streamLink);
-      }
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le stream.');
-    }
-  };
+  // Le tournoi porte son icône ; la ligue sert de repli quand elle manque.
+  const tournamentLogo = imageUrl(match.tournament?.icon_url ?? match.league?.image_url);
 
   return (
-    <Pressable onPress={onPress || handleStreamPress} style={({ pressed }) => [
+    <Pressable onPress={handleNavigate} style={({ pressed }) => [
       styles.container,
       fullWidth && { marginRight: 0 },
       pressed && styles.pressed
@@ -101,6 +95,7 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
               id={match.id}
               meta={{
                 match_name: match.name || `${team1?.name || 'TBD'} vs ${team2?.name || 'TBD'}`,
+                match2id: match.match2id || undefined,
                 tournament_name: match.tournament?.name || '',
                 game_acronym: match.videogame?.slug || '',
                 begin_at: match.begin_at || undefined,
@@ -132,9 +127,6 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
               <Text variant="titleMedium" style={styles.vsText}>-</Text>
               <Text variant="displaySmall" style={styles.scoreText}>{score2 ?? 0}</Text>
             </View>
-            <Text variant="labelSmall" style={styles.tournament} numberOfLines={1}>
-              {match.tournament?.name}
-            </Text>
           </View>
 
           <View style={styles.team}>
@@ -144,6 +136,19 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onPress, fu
             </Text>
           </View>
         </View>
+
+        {match.tournament?.name ? (
+          <View style={styles.tournamentRow}>
+            {tournamentLogo ? (
+              <Image source={{ uri: tournamentLogo }} style={styles.tournamentLogo} contentFit="contain" />
+            ) : (
+              <MaterialCommunityIcons name="trophy-outline" size={11} color={COLORS.textMuted} />
+            )}
+            <Text variant="labelSmall" style={styles.tournament} numberOfLines={1}>
+              {match.tournament.name}
+            </Text>
+          </View>
+        ) : null}
       </Surface>
     </Pressable>
   );
@@ -233,10 +238,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     opacity: 0.6,
   },
+  tournamentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  tournamentLogo: {
+    width: 14,
+    height: 14,
+  },
   tournament: {
     color: COLORS.textSecondary,
     fontSize: 10,
-    marginTop: 4,
-    textAlign: 'center',
+    flexShrink: 1,
   },
 });

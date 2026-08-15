@@ -30,6 +30,9 @@
       "cookies": "Cookies",
       "kit_media": "Kit Media",
       "telecharger_kit_media": "Scarica il Kit Media",
+      "telecharger_app": "Scarica l'app",
+      "telecharger_sur": "Scarica su",
+      "disponible_sur": "Disponibile su",
       "copyright": "Tutti i diritti riservati."
     },
     "settings_modal": {
@@ -100,6 +103,9 @@
       "games": {
         "unselect_game": "Deseleziona",
         "select_game": "Seleziona"
+      },
+      "best_matches": {
+        "title": "Migliori partite del giorno"
       }
     },
     "login": {
@@ -185,6 +191,33 @@
       "price_per_month": "€0.99/mese",
       "subscribe_magazine": "Abbonati alla rivista",
       "magazine_description": "Rimani informato con il nostro magazine esport news"
+    },
+    "forgot_password": {
+      "title": "Password dimenticata",
+      "subtitle": "Inserisci il tuo indirizzo e-mail: ti invieremo un link per sceglierne una nuova.",
+      "email_label": "Indirizzo e-mail",
+      "email_placeholder": "tu@esempio.com",
+      "submit": "Invia il link",
+      "sending": "Invio in corso...",
+      "sent_title": "Controlla la tua casella",
+      "sent_body": "Se esiste un account per questo indirizzo, abbiamo appena inviato un'e-mail. Il link è valido 1 ora.",
+      "back_to_login": "Torna all'accesso",
+      "email_required": "L'indirizzo e-mail è obbligatorio",
+      "email_invalid": "Indirizzo e-mail non valido",
+      "error": "Si è verificato un errore. Riprova."
+    },
+    "reset_password": {
+      "title": "Nuova password",
+      "subtitle": "Scegli una password di almeno 8 caratteri.",
+      "password_label": "Nuova password",
+      "confirm_label": "Conferma password",
+      "submit": "Salva e accedi",
+      "saving": "Salvataggio...",
+      "min_length": "Minimo 8 caratteri",
+      "mismatch": "Le due password non coincidono",
+      "invalid_link": "Questo link di reimpostazione non è valido o è scaduto.",
+      "request_new": "Richiedi un nuovo link",
+      "success": "Password modificata, hai effettuato l'accesso."
     }
   },
   "profile": {
@@ -290,6 +323,8 @@
     }
   },
   "common": {
+    "data_from_liquipedia": "Dati Liquipedia",
+    "powered_by_liquipedia": "Dati esport forniti da Liquipedia",
     "plan": "Piano",
     "price": "Prezzo",
     "loading": "Caricamento",
@@ -356,7 +391,15 @@
       "filter_all_games": "Tutti i giochi",
       "prev_dates": "Date precedenti",
       "next_dates": "Date successive",
-      "today": "Oggi"
+      "today": "Oggi",
+      "card_status_live": "LIVE",
+      "card_status_finished": "Conclusa",
+      "card_status_upcoming": "Prossima",
+      "card_watch": "Guarda",
+      "card_game_label": "Game {number}",
+      "card_match_singular": "partita",
+      "card_match_plural": "partite",
+      "search_try_other": "Prova con altre parole chiave"
     },
     "news": {
       "aucune_actualite": "Nessuna notizia disponibile",
@@ -375,8 +418,10 @@
         "start_typing": "Inizia a digitare per cercare",
         "search_by": "Cerca per titolo, descrizione, categoria, autore o tag",
         "no_results": "Nessun risultato trovato",
-        "try_other_keywords": "Prova con altre parole chiave"
-      }
+        "try_other_keywords": "Prova con altre parole chiave",
+        "searching": "Ricerca in corso..."
+      },
+      "loading": "Caricamento articoli..."
     },
     "calendar": {
       "type_affichage": "Tipo di visualizzazione",
@@ -453,6 +498,7 @@
       "status_running": "In Corso",
       "status_upcoming": "Prossimi",
       "status_finished": "Terminato",
+      "live_matches_title": "Partite in diretta",
       "all_matches": "Tutte le Partite",
       "matches_total_singular": "partita in totale",
       "matches_total_plural": "partite in totale",
@@ -463,7 +509,18 @@
       "teams_count_singular": "squadra",
       "teams_count_plural": "squadre",
       "players_count_singular": "giocatore",
-      "players_count_plural": "giocatori"
+      "players_count_plural": "giocatori",
+      "no_roster_info": "Nessuna informazione sulle squadre disponibile",
+      "bracket_title": "Tabellone",
+      "bracket_final": "Finale",
+      "bracket_semifinals": "Semifinali",
+      "bracket_quarterfinals": "Quarti di finale",
+      "bracket_round_of_16": "Ottavi di finale",
+      "bracket_round_of_32": "Sedicesimi di finale",
+      "bracket_round_of_64": "Trentaduesimi di finale",
+      "bracket_round": "Turno {round}",
+      "bracket_group_stage": "Fase a gironi",
+      "bracket_playoffs": "Fase finale"
     },
     "match_detail": {
       "loading": "Caricamento della partita...",
@@ -510,7 +567,121 @@
       "platform_youtube": "YouTube",
       "stream_fallback": "Guarda lo Stream",
       "stream_status_playing": "In Riproduzione",
-      "stream_link_text": "Guarda su"
+      "stream_link_text": "Guarda su",
+      "tier_label": "Tier",
+      "badge_rescheduled": "Riprogrammato",
+      "wins": "vince",
+      "info_tournament": "Torneo",
+      "stream_live_now": "In diretta",
+      "game_forfeit": "Forfait",
+      "section_match_info": "Informazioni",
+      "info_match_id": "ID partita",
+      "info_match2id": "ID Bracket",
+      "info_slug": "Slug",
+      "info_match_type": "Tipo",
+      "info_scheduled_at": "Programmato",
+      "info_end_at": "Terminato",
+      "info_wiki": "Wiki",
+      "info_live_supported": "Live supportato",
+      "info_live_opens_at": "Apertura live",
+      "info_section": "Fase",
+      "info_prizepool": "Montepremi",
+      "info_original_date": "Data originale",
+      "rescheduled": "Riprogrammato",
+      "yes": "Sì",
+      "no": "No",
+      "stat_rescheduled": "Riprogrammato",
+      "section_player_stats": "Statistiche giocatori",
+      "section_draft": "Draft",
+      "section_external_stats": "Statistiche dettagliate",
+      "draft_picks": "Picks",
+      "draft_bans": "Bans",
+      "info_patch": "Patch",
+      "info_mvp": "MVP",
+      "stat_col": {
+        "player": "Giocatore",
+        "champion": "Campione",
+        "agent": "Agente",
+        "hero": "Eroe",
+        "kda": "K/D/A",
+        "cs": "CS",
+        "gold": "Oro",
+        "damage": "Danni",
+        "acs": "ACS",
+        "adr": "ADR",
+        "kast": "KAST",
+        "net_worth": "Patrimonio",
+        "gpm": "GPM",
+        "xpm": "XPM",
+        "fighter": "Personaggio",
+        "stocks": "Stocks",
+        "kp": "KP",
+        "items": "Oggetti",
+        "lhdn": "LH/DN"
+      },
+      "stat_kills": "Kills",
+      "objectives": {
+        "towers": "Torri",
+        "dragons": "Draghi",
+        "barons": "Baroni",
+        "heralds": "Araldi",
+        "grubs": "Larve",
+        "atakhans": "Atakhan",
+        "inhibitors": "Inibitori",
+        "barracks": "Barracks",
+        "roshans": "Roshan"
+      },
+      "penalties": "Rigori",
+      "no_game_details": "Nessuna informazione dettagliata disponibile per questa partita"
+    },
+    "team_detail": {
+      "loading": "Caricamento squadra...",
+      "not_found": "Squadra non trovata",
+      "not_found_description": "La squadra che stai cercando non esiste.",
+      "back_to_matches": "Torna alle partite",
+      "breadcrumb_home": "Home",
+      "breadcrumb_matches": "Partite",
+      "roster": "Roster",
+      "recent_matches": "Partite recenti",
+      "upcoming_matches": "Prossime partite",
+      "no_matches": "Nessuna partita recente disponibile",
+      "no_upcoming_matches": "Nessuna partita in programma",
+      "created": "Creata il",
+      "earnings": "Guadagni",
+      "region": "Regione",
+      "links": "Link",
+      "status_active": "Attivo",
+      "view_team": "Vedi squadra",
+      "placements": "Risultati nei tornei",
+      "see_all_results": "Vedi tutti i risultati ({count})",
+      "all_results_title": "Tutti i risultati nei tornei",
+      "col_place": "Posizione",
+      "col_tournament": "Torneo",
+      "col_tier": "Tier",
+      "col_earnings": "Guadagni",
+      "col_date": "Data",
+      "total_earnings": "Guadagni totali",
+      "total_tournaments": "Tornei",
+      "see_all_results_short": "Vedi tutti i risultati",
+      "see_all_short": "Vedi tutto"
+    },
+    "player_detail": {
+      "loading": "Caricamento giocatore...",
+      "not_available": "Giocatore non disponibile",
+      "years_old": "anni",
+      "signature_picks": "Pick distintivi",
+      "upcoming_matches": "Prossime partite",
+      "recent_matches": "Partite recenti",
+      "earnings_by_year": "Guadagni per anno",
+      "total": "in totale",
+      "career": "Carriera",
+      "career_start": "Inizio carriera"
     }
+  },
+  "toast": {
+    "match_not_available": "Questo match non è al momento disponibile. Si prega di consultare il sito ufficiale di Liquipedia per i dettagli del match.",
+    "tournament_not_available": "Questo torneo non è al momento disponibile. Si prega di consultare il sito ufficiale di Liquipedia per i dettagli del torneo.",
+    "team_not_available": "Questa squadra non è al momento disponibile. Si prega di consultare il sito ufficiale di Liquipedia per i dettagli della squadra.",
+    "view_on_liquipedia": "Vedi su Liquipedia"
   }
 }

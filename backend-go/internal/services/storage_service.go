@@ -105,6 +105,33 @@ func (s *StorageService) Upload(ctx context.Context, opts UploadOptions) (string
 	return publicURL, nil
 }
 
+// Enabled reports whether R2 is actually configured (empty config = no-op tier).
+func (s *StorageService) Enabled() bool {
+	return s != nil && s.bucket != "" && s.publicURL != ""
+}
+
+// Download fetches an object's content-type and bytes. Quiet: callers use it as
+// a cache tier, a miss is the normal path.
+func (s *StorageService) Download(ctx context.Context, key string) (string, []byte, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	defer out.Body.Close()
+	data, err := io.ReadAll(out.Body)
+	if err != nil {
+		return "", nil, err
+	}
+	contentType := ""
+	if out.ContentType != nil {
+		contentType = *out.ContentType
+	}
+	return contentType, data, nil
+}
+
 // Delete deletes a file from R2 by its public URL
 func (s *StorageService) Delete(ctx context.Context, url string) error {
 	// Extract key from public URL

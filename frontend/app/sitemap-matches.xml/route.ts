@@ -1,3 +1,5 @@
+import { matchHref } from '../lib/gameLinks';
+
 export const revalidate = 1800;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
@@ -35,7 +37,7 @@ export async function GET() {
     .map(
       (m) => `
   <url>
-    <loc>${BASE_URL}/match/${m.id}</loc>
+    <loc>${BASE_URL}${matchHref(m)}</loc>
     <lastmod>${new Date(m.end_at || m.begin_at || Date.now()).toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>

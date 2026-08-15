@@ -1,7 +1,6 @@
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Dimensions, TextInput } from 'react-native';
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import { Text } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { 
@@ -20,7 +19,7 @@ import { COLORS } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { useTournaments, useGame } from '@/hooks';
 import { TournamentCard } from '@/components/features/TournamentCard';
-import { Badge } from '@/components/ui';
+import { Badge, LiquipediaBadge } from '@/components/ui';
 
 type TournamentStatus = 'running' | 'upcoming' | 'finished';
 
@@ -193,7 +192,6 @@ const TournamentsHeader = memo(({
 });
 
 export default function TournamentsScreen() {
-  const router = useRouter();
   const [status, setStatus] = useState<TournamentStatus>('running');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -242,24 +240,26 @@ export default function TournamentsScreen() {
     />
   ), [isSearchVisible, searchQuery, status, toggleSearch]);
 
-  const renderFooter = () => {
-    if (!hasMore || isLoading) return <View style={{ height: spacing.xxl }} />;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
-      </View>
-    );
-  };
+  const renderFooter = () => (
+    <>
+      {hasMore && !isLoading ? (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      ) : null}
+      <LiquipediaBadge />
+      <View style={{ height: spacing.xxl }} />
+    </>
+  );
 
   return (
     <View style={styles.container}>
       <FlatList
         data={filteredTournaments}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.slug || item.id.toString()}
         renderItem={({ item }) => (
           <TournamentCard
             tournament={item}
-            onPress={() => router.push(`/tournament/${item.id}`)}
           />
         )}
         ListHeaderComponent={<View style={{ height: 100 }} />} // Spacer for sticky header

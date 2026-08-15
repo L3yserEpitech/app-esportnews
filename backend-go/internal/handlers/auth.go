@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
@@ -18,6 +22,9 @@ type AuthHandler struct {
 	BaseHandler
 	authService    *services.AuthService
 	storageService *services.StorageService
+	emailService   *services.EmailService
+	frontendURL    string
+	log            *logrus.Logger
 	JWTSecret      string
 }
 
@@ -26,12 +33,14 @@ func (h *AuthHandler) RegisterRoutes(g RouterGroup) {
 	g.POST("/auth/login", h.Login)
 	g.GET("/auth/me", h.GetMe)
 	g.POST("/auth/me", h.UpdateProfile)
-	g.POST("/auth/avatar", h.UploadAvatar)              // Web: reçoit URL
-	g.POST("/auth/avatar/upload", h.UploadAvatarFile)   // Mobile: reçoit fichier
+	g.POST("/auth/avatar", h.UploadAvatar)            // Web: reçoit URL
+	g.POST("/auth/avatar/upload", h.UploadAvatarFile) // Mobile: reçoit fichier
 	g.DELETE("/auth/avatar", h.DeleteAvatar)
-	g.POST("/auth/change-password", h.ChangePassword)   // Change password
+	g.POST("/auth/change-password", h.ChangePassword) // Change password
 	g.POST("/auth/logout", h.Logout)
 	g.POST("/auth/refresh", h.RefreshToken)
+	g.POST("/auth/forgot-password", h.ForgotPassword)
+	g.POST("/auth/reset-password", h.ResetPassword)
 	g.DELETE("/auth/account", h.DeleteAccount)
 }
 
@@ -280,7 +289,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	if err := h.authService.Logout(ctx, claims.ID); err != nil {
+	if err := h.authService.Logout(ctx, claims.ID, claims.UserID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to logout")
 	}
 
@@ -295,21 +304,18 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 		RefreshToken string `json:"refresh_token"`
 	}
 
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	if err := c.Bind(&req); err != nil || req.RefreshToken == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "refresh_token is required")
 	}
 
-	userID, err := h.extractUserID(c)
+	// Deliberately no Authorization check: this route exists to renew a session
+	// whose access token has already expired.
+	resp, err := h.authService.RefreshSession(ctx, req.RefreshToken)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid refresh token")
 	}
 
-	newAccessToken, err := h.authService.RefreshAccessToken(ctx, userID, req.RefreshToken)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"access_token": newAccessToken})
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (h *AuthHandler) DeleteAccount(c echo.Context) error {
@@ -336,7 +342,7 @@ func (h *AuthHandler) DeleteAccount(c echo.Context) error {
 	}
 
 	// Blacklist the access token before deleting the user (prevents race window)
-	if err := h.authService.Logout(ctx, claims.ID); err != nil {
+	if err := h.authService.Logout(ctx, claims.ID, claims.UserID); err != nil {
 		c.Logger().Warnf("Failed to blacklist JWT for user %d during account deletion: %v", claims.UserID, err)
 	}
 
@@ -371,4 +377,95 @@ func extractToken(c echo.Context) string {
 		return auth[7:]
 	}
 	return ""
+}
+
+// ForgotPassword mails a reset link. It always answers 200, whatever the
+// address: telling the caller whether an account exists would turn this route
+// into an account directory.
+func (h *AuthHandler) ForgotPassword(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var input struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	ok := map[string]string{"message": "Si un compte existe pour cette adresse, un e-mail vient d'être envoyé."}
+
+	token, user, err := h.authService.RequestPasswordReset(ctx, input.Email)
+	if err != nil {
+		h.logError("[RESET] failed to mint reset token", err)
+		return c.JSON(http.StatusOK, ok)
+	}
+	if token == "" || user == nil {
+		return c.JSON(http.StatusOK, ok)
+	}
+
+	if h.emailService == nil {
+		h.logError("[RESET] no email service configured", nil)
+		return c.JSON(http.StatusOK, ok)
+	}
+
+	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s",
+		strings.TrimRight(h.frontendURL, "/"), url.QueryEscape(token))
+	if err := h.emailService.SendPasswordReset(ctx, user.Email, resetURL); err != nil {
+		// Silencieux pour l'appelant (on ne révèle rien), mais surtout pas pour
+		// nous : une clé Resend invalide ne doit pas passer inaperçue.
+		h.logError("[RESET] failed to send password reset email", err)
+	} else {
+		h.logInfo("[RESET] password reset email sent")
+	}
+
+	return c.JSON(http.StatusOK, ok)
+}
+
+// ResetPassword consumes the token and returns a full session, so the user is
+// logged in straight away instead of being sent back to the login form.
+func (h *AuthHandler) ResetPassword(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var input struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
+	}
+
+	response, err := h.authService.ResetPassword(ctx, input.Token, input.Password)
+	if err != nil {
+		if strings.Contains(err.Error(), "8 caractères") {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "Ce lien de réinitialisation est invalide ou a expiré.")
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// logError / logInfo écrivent via le logger applicatif quand il est câblé, et
+// retombent sur la sortie standard sinon : ces messages doivent survivre à un
+// handler construit par un chemin qui ne passe pas de logger.
+func (h *AuthHandler) logError(msg string, err error) {
+	if h.log == nil {
+		log.Printf("%s: %v", msg, err)
+		return
+	}
+	if err != nil {
+		h.log.WithError(err).Error(msg)
+		return
+	}
+	h.log.Error(msg)
+}
+
+func (h *AuthHandler) logInfo(msg string) {
+	if h.log == nil {
+		log.Print(msg)
+		return
+	}
+	h.log.Info(msg)
 }

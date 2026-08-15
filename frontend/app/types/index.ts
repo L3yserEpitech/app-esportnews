@@ -153,6 +153,11 @@ export interface PandaTournament {
   matches?: PandaMatch[];
   expected_roster?: PandaRoster[];
   winner_id?: number | null;
+  banner_url?: string | null;
+  banner_dark_url?: string | null;
+  icon_url?: string | null;
+  icon_dark_url?: string | null;
+  wiki?: string | null;
 }
 
 export interface PandaMatchResult {
@@ -187,6 +192,47 @@ export interface PandaMatch {
     opens_at?: string | null;
   };
   videogame?: PandaVideogame;
+
+  // Liquipedia extra fields
+  wiki?: string | null;
+  match2id?: string | null;
+
+  // Bracket fields for tournament bracket tree
+  section?: string | null;
+  match2bracketid?: string | null;
+  bracket_data?: PandaBracketData | null;
+  mvp?: string | null;
+  vod?: string | null;
+  patch?: string | null;
+  links?: Record<string, string>;
+}
+
+/**
+ * Liquipedia's own description of where a match sits in its bracket.
+ * `match_index_in_round` is numbered across both sections of a round, so upper
+ * and lower bracket matches of the same round share one vertical ordering.
+ */
+export interface PandaBracketCoordinates {
+  round_index: number;
+  match_index_in_round: number;
+  round_count: number;
+  section_index: number;
+  section_count: number;
+}
+
+/**
+ * `type: 'bracket'` is a real elimination tree — `lower_match_ids` carries the
+ * actual edges (which matches feed this one). `type: 'matchlist'` is a flat round
+ * (Swiss, group stage) with no tree structure at all: never draw connectors for it.
+ */
+export interface PandaBracketData {
+  type: string;
+  bracket_section?: string | null;
+  bracket_index: number;
+  title?: string | null;
+  match_index?: number;
+  lower_match_ids?: string[];
+  coordinates?: PandaBracketCoordinates | null;
 }
 
 export interface PandaStream {
@@ -203,8 +249,10 @@ export interface PandaTeam {
   slug: string;
   acronym?: string | null;
   image_url?: string | null;
+  dark_image_url?: string | null;
   players?: PandaPlayer[];
   location?: string | null;
+  template?: string | null;
 }
 
 export interface PandaSerie {
@@ -252,6 +300,7 @@ export interface PandaExpectedRoster {
 export interface PandaPlayer {
   id: number;
   name: string;
+  slug?: string | null;
   role?: string | null;
   image_url?: string | null;
   active?: boolean;
@@ -273,6 +322,17 @@ export interface PandaResult {
   score: number;
 }
 
+export interface PandaParticipant {
+  player: string;
+  character?: string | null; // champion / agent / hero
+  role?: string | null;
+  team?: number; // 1 or 2
+  kills?: number | null;
+  deaths?: number | null;
+  assists?: number | null;
+  extra?: Record<string, unknown>; // game-specific: gold, acs, netWorth, items[]...
+}
+
 export interface PandaGame {
   complete: boolean;
   id: number;
@@ -290,6 +350,10 @@ export interface PandaGame {
     id: number | null;
     type: string;
   };
+  map?: string;
+  scores?: number[];
+  participants?: PandaParticipant[];
+  extradata?: Record<string, unknown>;
 }
 
 export interface PandaMapPick {

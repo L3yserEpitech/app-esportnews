@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { generateListingMetadata } from '@/app/lib/seoHelpers';
+import { articleHref } from '@/app/lib/articleUrl';
+import { tournamentHref } from '@/app/lib/gameLinks';
 
 export const revalidate = 3600;
 
@@ -135,7 +137,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
               {tournaments.map((t: any) => (
                 <Link
                   key={t.id}
-                  href={`/tournois/${t.id}`}
+                  href={tournamentHref(t)}
                   className="rounded-xl border border-white/10 bg-[#091626] p-4 hover:border-[#F22E62]/40 transition-colors"
                 >
                   <p className="text-xs uppercase tracking-widest text-[#F22E62]">
@@ -168,7 +170,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
                 const away = m.opponents?.[1]?.opponent;
                 return (
                   <Link
-                    key={m.id}
+                    key={m.match2id || m.id}
                     href={`/match/${m.id}`}
                     className="flex items-center justify-between rounded-xl border border-white/10 bg-[#091626] px-4 py-3 hover:border-[#F22E62]/40 transition-colors"
                   >
@@ -195,7 +197,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
               {articles.map((a: any) => (
                 <Link
                   key={a.id}
-                  href={`/article/${a.slug}`}
+                  href={articleHref(a)}
                   className="group rounded-xl border border-white/10 bg-[#091626] overflow-hidden hover:border-[#F22E62]/40 transition-colors"
                 >
                   {a.featuredImage && (

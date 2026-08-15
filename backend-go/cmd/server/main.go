@@ -107,6 +107,10 @@ func main() {
 			}
 			// Navigateurs web - vérifier whitelist stricte
 			allowed := corsOriginsSet[origin]
+			// Autoriser tous les previews Vercel du projet esport-news
+			if !allowed && strings.HasSuffix(origin, "-esport-news.vercel.app") && strings.HasPrefix(origin, "https://") {
+				allowed = true
+			}
 			if !allowed {
 				logger.Warnf("CORS rejected origin: %s", origin)
 			}
@@ -138,7 +142,18 @@ func main() {
 	// Initialize services
 	gameService := services.NewGameServiceWithGORM(gormDB, redisClient)
 	authService := services.NewAuthServiceWithGORM(gormDB, redisClient, cfg.JWTSecret)
-	pandaScoreService := services.NewPandaScoreService(cfg.PandaScoreAPIKey, redisClient)
+
+	// Liquipedia service + poller + webhook dirty tracker
+	liquipediaService := services.NewLiquipediaService(cfg.LiquipediaAPIKey, cfg.LiquipediaBudgetPerWiki, redisClient, logger)
+	dirtyTracker := services.NewDirtyTracker()
+	imageWarmer := services.NewImageWarmer(redisClient, logger)
+	liquipediaPoller := services.NewLiquipediaPoller(liquipediaService, dirtyTracker, imageWarmer, logger)
+	if cfg.LiquipediaWebhooksEnabled {
+		liquipediaPoller.SetWebhooksEnabled(true)
+		logger.WithField("secret_configured", cfg.LiquipediaWebhookSecret != "").
+			Info("Liquipedia webhooks mode enabled")
+	}
+
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
@@ -170,16 +185,17 @@ func main() {
 
 	// Initialize handlers
 	gameHandler := handlers.NewGameHandler(gameService)
-	tournamentHandler := handlers.NewTournamentHandler(pandaScoreService)
-	matchHandler := handlers.NewMatchHandler(pandaScoreService)
+	tournamentHandler := handlers.NewTournamentHandler(liquipediaService, redisClient, logger)
+	matchHandler := handlers.NewMatchHandler(liquipediaService, redisClient, logger)
 	articleService := services.NewArticleServiceWithGORM(gormDB, redisClient)
 	expoPushService := services.NewExpoPushService(logger)
 	contentNotifier := services.NewContentNotificationService(gormDB, expoPushService, logger)
 	articleHandler := handlers.NewArticleHandlerWithService(articleService, authService, storageService, contentNotifier)
 	adService := services.NewAdServiceWithGORM(gormDB, redisClient)
 	adHandler := handlers.NewAdHandlerWithStorage(adService, storageService)
-	authHandler := handlers.NewAuthHandler(authService, storageService)
-	teamHandler := handlers.NewTeamHandler(pandaScoreService, authService, gormDB)
+	authHandler := handlers.NewAuthHandler(authService, storageService, emailService, cfg.FrontendURL, logger)
+	teamHandler := handlers.NewTeamHandler(liquipediaService, authService, gormDB, redisClient, logger)
+	playerHandler := handlers.NewPlayerHandler(liquipediaService, logger)
 	notificationHandler := handlers.NewNotificationHandler(gormDB, authService)
 	stripeWebhookHandler := handlers.NewStripeWebhookHandler(stripeService, emailService, logger, cfg.StripeWebhookSecret)
 	subscriptionHandler := handlers.NewSubscriptionHandler(stripeService, authService, logger, gormDB, cfg.FrontendURL)
@@ -188,6 +204,8 @@ func main() {
 	iapHandler := handlers.NewIAPHandler(iapService, authService, logger)
 	appleWebhookHandler := handlers.NewAppleWebhookHandler(iapService, logger)
 	googleWebhookHandler := handlers.NewGoogleWebhookHandler(iapService, logger, cfg.GoogleWebhookToken)
+	webhookHandler := handlers.NewWebhookHandler(dirtyTracker, cfg.LiquipediaWebhookSecret, logger)
+	imageProxyHandler := handlers.NewImageProxyHandler(redisClient, storageService)
 
 	// Register routes
 	gameHandler.RegisterRoutes(apiGroup)
@@ -197,6 +215,7 @@ func main() {
 	adHandler.RegisterRoutes(apiGroup)
 	authHandler.RegisterRoutes(apiGroup)
 	teamHandler.RegisterRoutes(apiGroup)
+	playerHandler.RegisterRoutes(apiGroup)
 	notificationHandler.RegisterRoutes(apiGroup)
 	stripeWebhookHandler.RegisterRoutes(apiGroup)
 	subscriptionHandler.RegisterRoutes(apiGroup)
@@ -205,6 +224,8 @@ func main() {
 	iapHandler.RegisterRoutes(apiGroup)           // IAP validation (JWT required)
 	appleWebhookHandler.RegisterRoutes(apiGroup)  // Apple Server Notifications V2 (public, JWS-signed)
 	googleWebhookHandler.RegisterRoutes(apiGroup) // Google Play RTDN via Pub/Sub (token-secured)
+	webhookHandler.RegisterRoutes(apiGroup)       // Liquipedia webhook endpoint
+	imageProxyHandler.RegisterRoutes(apiGroup)    // Image proxy for Liquipedia assets
 
 	// Register admin routes with RequireAdmin middleware
 	adminGroup := apiGroup.Group("")
@@ -212,16 +233,38 @@ func main() {
 	articleHandler.RegisterAdminRoutes(adminGroup)
 	adHandler.RegisterAdminRoutes(adminGroup)
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
+	gameHandler.RegisterAdminRoutes(adminGroup)
 
-	// Start notification scheduler (background goroutine)
-	notifScheduler := services.NewNotificationScheduler(gormDB, redisClient, expoPushService, logger)
+	// Notification scheduler — disabled on preview/staging environments that
+	// share the prod database, to avoid two backends racing on match_subscriptions
+	// and dispatching duplicate push notifications.
+	// (expoPushService is created earlier, before articleHandler, and shared with contentNotifier.)
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
-	go notifScheduler.Start(schedulerCtx)
+	if cfg.NotificationSchedulerEnabled {
+		notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
+		go notifScheduler.Start(schedulerCtx)
+		logger.Info("Notification scheduler started")
+	} else {
+		logger.Info("Notification scheduler disabled (NOTIFICATION_SCHEDULER_ENABLED=false)")
+	}
 
 	// Start IAP validation scheduler (daily re-validation of Apple/Google receipts)
 	iapScheduler := services.NewIAPValidationScheduler(gormDB, iapService, logger)
 	iapSchedulerCtx, iapSchedulerCancel := context.WithCancel(context.Background())
 	go iapScheduler.Start(iapSchedulerCtx)
+
+	// Liquipedia API budget monitoring (admin only)
+	adminGroup.GET("/admin/api-budget", func(c echo.Context) error {
+		return c.JSON(200, liquipediaService.GetBudgetStatus())
+	})
+
+	// Start Liquipedia poller in background
+	pollerCtx, pollerCancel := context.WithCancel(context.Background())
+	if cfg.LiquipediaPollerEnabled {
+		liquipediaPoller.Start(pollerCtx)
+	} else {
+		logger.Warn("Liquipedia poller disabled (LIQUIPEDIA_POLLER_ENABLED=false) — no warmup/tickers, on-demand fetches only")
+	}
 
 	// Start server
 	go func() {
@@ -242,6 +285,10 @@ func main() {
 	// Stop schedulers
 	schedulerCancel()
 	iapSchedulerCancel()
+
+	// Stop Liquipedia poller gracefully
+	pollerCancel()
+	liquipediaPoller.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

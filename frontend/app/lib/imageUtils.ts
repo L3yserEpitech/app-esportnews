@@ -3,7 +3,6 @@
  * Keep in sync.
  */
 const ALLOWED_IMAGE_HOSTS = new Set<string>([
-  'cdn.pandascore.co',
   'olybccviffjiqjmnsysn.supabase.co',
   'pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev',
   'i.postimg.cc',

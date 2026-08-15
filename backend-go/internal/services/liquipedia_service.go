@@ -1,0 +1,1181 @@
+package services
+
+import (
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/singleflight"
+
+	"github.com/esportnews/backend/internal/cache"
+	"github.com/esportnews/backend/internal/models"
+)
+
+const (
+	liquipediaBaseURL = "https://api.liquipedia.net/api/v3"
+	liquipediaUA      = "EsportNews/1.0 (contact@esportnews.fr)"
+
+	// defaultBudgetLimitPerWiki is used when no positive value is supplied to
+	// NewLiquipediaService. Liquipedia's published rate limit is 1000 req/wiki/hour
+	// since June 2026; configure via LIQUIPEDIA_BUDGET_PER_WIKI to override.
+	defaultBudgetLimitPerWiki = 1000
+
+	// maxConcurrentRequests caps in-flight HTTP calls to Liquipedia across all
+	// callers. The API enforces a short-window burst limit (separate from the
+	// hourly budget): fanning out to all 10 wikis at once — e.g. matches-by-date
+	// or team search — returns 429 even with a fresh budget. Serialising to a
+	// small number of concurrent calls keeps bursts under that ceiling.
+	maxConcurrentRequests = 1
+)
+
+// maxLiqResponseSize caps response bodies. A body at the cap was silently
+// truncated by the old io.LimitReader approach and then cached as corrupt
+// JSON for up to TTLStale (6h) — matches_past payloads already reach ~9.3MB,
+// so the cap is 20MB with an explicit refuse-to-cache on overflow.
+// var (not const) so tests can lower it.
+var maxLiqResponseSize int64 = 20 * 1024 * 1024
+
+// Cache TTLs — must be > polling interval to avoid gaps where cache is empty.
+// Aligned with reduced polling intervals (~17 req/wiki/hr).
+const (
+	// TTLs stay above BOTH the blind-poll interval AND the (larger) webhook
+	// dirty-refresh cooldown, so the cache never lapses between refreshes.
+	TTLMatchesRunning        = 13 * time.Minute  // > DirtyCooldownMatchesRunning (10m)
+	TTLMatchesUpcoming       = 28 * time.Minute  // > DirtyCooldownMatchesUpcoming (25m)
+	TTLMatchesPast           = 55 * time.Minute  // > DirtyCooldownMatchesPast (50m)
+	TTLTournamentsRunning    = 45 * time.Minute  // > DirtyCooldownTournaments (40m)
+	TTLTournamentsUpcoming   = 45 * time.Minute  // > DirtyCooldownTournaments (40m)
+	TTLTournamentsFinished   = 100 * time.Minute // > PollIntervalTournamentsFinished (90m)
+	TTLMatchDetail           = 5 * time.Minute
+	TTLMatchDetailFinished   = 24 * time.Hour
+	TTLMatchesByDatePast     = 24 * time.Hour // deep-past (< J-7) by-date: immutable, on-demand only
+	TTLTournamentsByDatePast = 24 * time.Hour // deep-past (< J-30) by-date: immutable, on-demand only
+	TTLTournamentDetail      = 10 * time.Minute
+	TTLTeam                  = 6 * time.Hour // roster data changes infrequently
+	TTLTeamMatches           = 15 * time.Minute
+	TTLTeamPlacements        = 1 * time.Hour
+	TTLStale                 = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
+)
+
+// RequestBudget tracks API usage per wiki (game) to enforce the 60 req/hour limit.
+// The counter is persisted in Redis so restarts don't reset the count within a live hour.
+// Includes exponential backoff on 429 responses to avoid hammering.
+type RequestBudget struct {
+	Wiki    string
+	Used    int
+	Limit   int
+	ResetAt time.Time
+	mu      sync.Mutex
+
+	// Backoff: when we receive a 429, stop making requests until this time
+	blockedUntil time.Time
+
+	// Redis persistence (optional — best-effort)
+	redisCache *cache.RedisCache
+}
+
+// budgetRedisKey returns the Redis key for this wiki's current hour budget.
+func (b *RequestBudget) budgetRedisKey() string {
+	hour := time.Now().UTC().Truncate(time.Hour).Format("2006010215")
+	return fmt.Sprintf("liq:budget:%s:%s", b.Wiki, hour)
+}
+
+// CanMakeRequest checks if there's budget remaining for this wiki.
+func (b *RequestBudget) CanMakeRequest() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.maybeReset()
+	// Respect backoff from 429
+	if time.Now().Before(b.blockedUntil) {
+		return false
+	}
+	return b.Used < b.Limit
+}
+
+// BlockReason reports why a request would be blocked ("429_backoff" or
+// "budget_exhausted"), or "" if it wouldn't — for accurate logging.
+func (b *RequestBudget) BlockReason() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.maybeReset()
+	if time.Now().Before(b.blockedUntil) {
+		return "429_backoff"
+	}
+	if b.Used >= b.Limit {
+		return "budget_exhausted"
+	}
+	return ""
+}
+
+// Record429 applies an exponential backoff after a 429 response: 5min, 10min,
+// 20min on consecutive hits, capped at 30min. It does NOT exhaust the hourly
+// budget — a transient 429 means "slow down briefly", not "quota spent". The
+// backoff window blocks requests and auto-expires, so a single 429 no longer
+// locks the wiki until the hourly reset.
+func (b *RequestBudget) Record429() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	now := time.Now()
+	remaining := time.Until(b.blockedUntil)
+	if remaining <= 0 {
+		// First 429 in this cycle — backoff 5 minutes
+		b.blockedUntil = now.Add(5 * time.Minute)
+	} else {
+		// Consecutive 429 — double the backoff, cap at 30 minutes
+		newBackoff := remaining * 2
+		if newBackoff > 30*time.Minute {
+			newBackoff = 30 * time.Minute
+		}
+		b.blockedUntil = now.Add(newBackoff)
+	}
+	// Note: can't log here (no logger on budget struct), logged at call site
+}
+
+// RecordRequest increments the usage counter (in-memory + Redis best-effort).
+func (b *RequestBudget) RecordRequest() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.maybeReset()
+	b.Used++
+	// Persist to Redis (best-effort, async)
+	if b.redisCache != nil {
+		key := b.budgetRedisKey()
+		used := b.Used
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			ttl := time.Until(b.ResetAt) + 2*time.Minute // slightly beyond reset
+			_ = b.redisCache.Set(ctx, key, fmt.Sprintf("%d", used), ttl)
+		}()
+	}
+}
+
+// loadFromRedis initializes the in-memory counter from Redis (called once at startup).
+func (b *RequestBudget) loadFromRedis(ctx context.Context) {
+	if b.redisCache == nil {
+		return
+	}
+	val, err := b.redisCache.Get(ctx, b.budgetRedisKey())
+	if err != nil || val == "" {
+		return
+	}
+	var used int
+	if _, err := fmt.Sscanf(val, "%d", &used); err == nil && used > 0 {
+		b.mu.Lock()
+		b.maybeReset()
+		if used > b.Used {
+			b.Used = used
+		}
+		b.mu.Unlock()
+	}
+}
+
+// Status returns a snapshot of the budget state (for monitoring endpoint).
+func (b *RequestBudget) Status() map[string]interface{} {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.maybeReset()
+	return map[string]interface{}{
+		"wiki":      b.Wiki,
+		"used":      b.Used,
+		"limit":     b.Limit,
+		"remaining": b.Limit - b.Used,
+		"resets_at": b.ResetAt.Format(time.RFC3339),
+	}
+}
+
+// maybeReset resets the counter if the hour has elapsed. Must be called with lock held.
+// Also clears 429 backoff since Liquipedia's rate limit resets every hour.
+func (b *RequestBudget) maybeReset() {
+	if time.Now().After(b.ResetAt) {
+		b.Used = 0
+		b.blockedUntil = time.Time{} // clear 429 backoff on hourly reset
+		b.ResetAt = time.Now().Truncate(time.Hour).Add(time.Hour)
+	}
+}
+
+// LiquipediaService is the core HTTP client for the Liquipedia API v3.
+type LiquipediaService struct {
+	apiKey     string
+	cache      *cache.RedisCache
+	httpClient *http.Client
+	baseURL    string                    // overridable in tests; defaults to liquipediaBaseURL
+	budgets    map[string]*RequestBudget // keyed by wiki name
+	log        *logrus.Logger
+	mu         sync.RWMutex
+	sfGroup    singleflight.Group // deduplicates concurrent API calls for the same cache key
+	sem        chan struct{}      // global concurrency limiter for outbound HTTP calls
+
+	// minInterval spaces outbound HTTP calls to stay under Liquipedia's sustained
+	// rate limit (set via LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS; 0 = disabled). Useful
+	// for cold-start/local dev where many wikis are fetched back-to-back.
+	minInterval time.Duration
+	rateMu      sync.Mutex
+	lastReq     time.Time
+}
+
+// NewLiquipediaService creates the service with budget trackers for all known wikis.
+// budgetPerWiki bounds the number of API calls allowed per wiki per hour. A value
+// of zero or less falls back to defaultBudgetLimitPerWiki.
+func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.RedisCache, logger *logrus.Logger) *LiquipediaService {
+	if budgetPerWiki <= 0 {
+		budgetPerWiki = defaultBudgetLimitPerWiki
+	}
+
+	budgets := make(map[string]*RequestBudget, len(models.GameWikiMapping))
+	for _, wiki := range models.GameWikiMapping {
+		budgets[wiki] = &RequestBudget{
+			Wiki:       wiki,
+			Limit:      budgetPerWiki,
+			ResetAt:    time.Now().Truncate(time.Hour).Add(time.Hour),
+			redisCache: redisCache,
+		}
+	}
+
+	// Load persisted budget counts from Redis (survives restarts within the same hour)
+	if redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for _, b := range budgets {
+			b.loadFromRedis(ctx)
+		}
+	}
+
+	// 30s: cold matches_past payloads (~9MB) measured at 17s — 15s burned the
+	// request right before completion and fell back to stale every time.
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Force IPv4 for Liquipedia API — IPv6 is unreachable on Railway/Docker, and
+	// without this Go's Happy Eyeballs tries IPv6 first (3s timeout per request).
+	// Opt out with LIQUIPEDIA_DISABLE_IPV4=true for local dev where the host has
+	// working IPv6 but the IPv4 egress is rate-limited by Liquipedia.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if os.Getenv("LIQUIPEDIA_DISABLE_IPV4") != "true" {
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, _ := net.SplitHostPort(addr)
+			if host == "api.liquipedia.net" {
+				dialer := &net.Dialer{Timeout: 8 * time.Second}
+				return dialer.DialContext(ctx, "tcp4", addr)
+			}
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, addr)
+		}
+	} else {
+		logger.Warn("IPv4 forcing disabled for Liquipedia API (LIQUIPEDIA_DISABLE_IPV4=true)")
+	}
+
+	if os.Getenv("LIQUIPEDIA_SKIP_TLS") == "true" {
+		logger.Warn("TLS verification disabled for Liquipedia API (LIQUIPEDIA_SKIP_TLS=true)")
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	// Route API egress through an outbound proxy (a dedicated clean-IP VPS) when set —
+	// Liquipedia's edge blocks Railway's shared egress IPs wholesale. No-op when unset
+	// (direct egress). The IPv4-forcing dialer above is inert here: with a proxy the dial
+	// target is the proxy host, not api.liquipedia.net, so it takes the default branch.
+	if proxyURL := os.Getenv("LIQUIPEDIA_HTTP_PROXY"); proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+			logger.WithField("proxy", u.Host).Info("Liquipedia API egress via outbound proxy")
+		} else {
+			logger.WithError(err).Warn("Invalid LIQUIPEDIA_HTTP_PROXY — ignoring, egress stays direct")
+		}
+	}
+
+	httpClient.Transport = transport
+
+	minInterval := time.Duration(0)
+	if ms, err := strconv.Atoi(os.Getenv("LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS")); err == nil && ms > 0 {
+		minInterval = time.Duration(ms) * time.Millisecond
+		logger.WithField("interval_ms", ms).Info("Liquipedia request spacing enabled")
+	}
+
+	svc := &LiquipediaService{
+		apiKey:      apiKey,
+		cache:       redisCache,
+		httpClient:  httpClient,
+		baseURL:     liquipediaBaseURL,
+		budgets:     budgets,
+		log:         logger,
+		sem:         make(chan struct{}, maxConcurrentRequests),
+		minInterval: minInterval,
+	}
+
+	// Log startup budget status for all wikis
+	for wiki, budget := range budgets {
+		status := budget.Status()
+		logger.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"used":      status["used"],
+			"remaining": status["remaining"],
+			"resets_at": status["resets_at"],
+		}).Info("[BUDGET] Initial budget status at startup")
+	}
+
+	return svc
+}
+
+// MakeRequest performs a cached, budget-aware GET to the Liquipedia API.
+// It handles: cache lookup → singleflight dedup → budget check → HTTP request → cache store + stale copy.
+// Singleflight ensures that N concurrent requests for the same cacheKey result in only 1 API call.
+// wiki: the Liquipedia wiki name (e.g. "valorant")
+// endpoint: the API path after the wiki (e.g. "match")
+// params: query parameters (conditions, limit, etc.)
+// cacheKey: Redis key for this data
+// cacheTTL: how long to cache the fresh data
+func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint string, params url.Values, cacheKey string, cacheTTL time.Duration) ([]byte, error) {
+	// 1. Check fresh cache (fast path, no dedup needed)
+	cached, err := s.cache.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		s.log.WithFields(logrus.Fields{
+			"wiki": wiki,
+			"key":  cacheKey,
+			"size": len(cached),
+		}).Debug("[MAKEREQ] Cache HIT — returning cached data")
+		return []byte(cached), nil
+	}
+	s.log.WithFields(logrus.Fields{
+		"wiki":     wiki,
+		"endpoint": endpoint,
+		"key":      cacheKey,
+	}).Debug("[MAKEREQ] Cache MISS — entering singleflight")
+
+	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
+	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
+	v, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		// Detach from the first caller's context: N callers share this single
+		// fetch, so the first caller cancelling (browser disconnect) must not
+		// fail the others. Bounded by its own timeout (> httpClient.Timeout).
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 35*time.Second)
+		defer cancel()
+
+		// Re-check cache (another goroutine may have populated it while we waited)
+		if cached, cErr := s.cache.Get(ctx, cacheKey); cErr == nil && cached != "" {
+			s.log.WithFields(logrus.Fields{
+				"wiki": wiki,
+				"key":  cacheKey,
+			}).Debug("[MAKEREQ] Cache HIT after singleflight wait")
+			return []byte(cached), nil
+		}
+
+		// Check budget
+		budget := s.getBudget(wiki)
+		if budget == nil {
+			return nil, fmt.Errorf("unknown wiki: %s", wiki)
+		}
+
+		if !budget.CanMakeRequest() {
+			status := budget.Status()
+			s.log.WithFields(logrus.Fields{
+				"wiki":      wiki,
+				"key":       cacheKey,
+				"reason":    budget.BlockReason(),
+				"used":      status["used"],
+				"limit":     status["limit"],
+				"remaining": status["remaining"],
+				"resets_at": status["resets_at"],
+			}).Warn("[MAKEREQ] request blocked (see reason) — attempting stale cache")
+			return s.getStaleOrError(ctx, cacheKey, wiki, budget.BlockReason())
+		}
+
+		budgetStatus := budget.Status()
+		s.log.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"endpoint":  endpoint,
+			"used":      budgetStatus["used"],
+			"remaining": budgetStatus["remaining"],
+		}).Debug("[MAKEREQ] Budget OK — making API call")
+
+		// Build URL — Liquipedia API v3 uses /v3/{endpoint}?wiki={wiki}
+		fetchParams := params
+		if fetchParams == nil {
+			fetchParams = url.Values{}
+		}
+		fetchParams.Set("wiki", wiki)
+		encoded := strings.ReplaceAll(fetchParams.Encode(), "+", "%20")
+		reqURL := fmt.Sprintf("%s/%s?%s", s.baseURL, endpoint, encoded)
+
+		// Build HTTP request
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+		if reqErr != nil {
+			return nil, fmt.Errorf("building request: %w", reqErr)
+		}
+		req.Header.Set("Authorization", "Apikey "+s.apiKey)
+		req.Header.Set("User-Agent", liquipediaUA)
+		req.Header.Set("Accept", "application/json")
+
+		// Execute
+		s.log.WithFields(logrus.Fields{
+			"wiki":     wiki,
+			"endpoint": endpoint,
+			"url":      reqURL,
+		}).Debug("[MAKEREQ] Sending HTTP request to Liquipedia")
+
+		// Bound concurrent outbound calls to stay under Liquipedia's burst limit.
+		select {
+		case s.sem <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		// Space successive calls when configured (cold-start / local dev).
+		if s.minInterval > 0 {
+			s.rateMu.Lock()
+			if wait := s.minInterval - time.Since(s.lastReq); wait > 0 {
+				timer := time.NewTimer(wait)
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					timer.Stop()
+					s.rateMu.Unlock()
+					<-s.sem
+					return nil, ctx.Err()
+				}
+			}
+			s.lastReq = time.Now()
+			s.rateMu.Unlock()
+		}
+		resp, doErr := s.httpClient.Do(req)
+		<-s.sem
+		if doErr != nil {
+			s.log.WithError(doErr).WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+			}).Error("[MAKEREQ] HTTP request FAILED — falling back to stale")
+			return s.getStaleOrError(ctx, cacheKey, wiki, fmt.Sprintf("network error: %v", doErr))
+		}
+		defer resp.Body.Close()
+
+		s.log.WithFields(logrus.Fields{
+			"wiki":     wiki,
+			"endpoint": endpoint,
+			"status":   resp.StatusCode,
+		}).Debug("[MAKEREQ] HTTP response received")
+
+		// Handle rate limit (429) — surface everything Liquipedia tells us (body, Retry-After).
+		if resp.StatusCode == http.StatusTooManyRequests {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			s.log.WithFields(logrus.Fields{
+				"wiki":        wiki,
+				"endpoint":    endpoint,
+				"retry_after": resp.Header.Get("Retry-After"),
+				"body":        string(body),
+			}).Warn("[MAKEREQ] 🚫 Rate limited (429) — recording backoff, falling back to stale")
+			budget.Record429()
+			return s.getStaleOrError(ctx, cacheKey, wiki, "upstream 429 (per-IP throttle, budget NOT exhausted)")
+		}
+
+		// Handle other errors
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			s.log.WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+				"status":   resp.StatusCode,
+				"body":     string(body),
+			}).Error("[MAKEREQ] API error — falling back to stale")
+			return s.getStaleOrError(ctx, cacheKey, wiki, fmt.Sprintf("upstream HTTP %d", resp.StatusCode))
+		}
+
+		// Read one byte past the cap so truncation is detectable instead of silent.
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxLiqResponseSize+1))
+		if readErr != nil {
+			return nil, fmt.Errorf("reading response body: %w", readErr)
+		}
+		if int64(len(body)) > maxLiqResponseSize {
+			s.log.WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+				"cap":      maxLiqResponseSize,
+			}).Error("[MAKEREQ] Response exceeds size cap — refusing to cache truncated body")
+			return s.getStaleOrError(ctx, cacheKey, wiki, "response exceeds size cap")
+		}
+
+		// Record the request in the budget
+		budget.RecordRequest()
+		afterStatus := budget.Status()
+
+		// Store in cache (fresh + stale copy)
+		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
+		_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), TTLStale)
+
+		s.log.WithFields(logrus.Fields{
+			"wiki":             wiki,
+			"endpoint":         endpoint,
+			"key":              cacheKey,
+			"ttl":              cacheTTL.String(),
+			"body_bytes":       len(body),
+			"budget_used":      afterStatus["used"],
+			"budget_remaining": afterStatus["remaining"],
+		}).Info("[MAKEREQ] ✅ API call success — data cached (fresh + stale)")
+
+		return body, nil
+	})
+
+	if shared {
+		s.log.WithFields(logrus.Fields{
+			"wiki": wiki,
+			"key":  cacheKey,
+		}).Debug("[MAKEREQ] Singleflight: shared result from concurrent request")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return v.([]byte), nil
+}
+
+// getStaleOrError returns stale cached data, or an error carrying the real failure cause.
+func (s *LiquipediaService) getStaleOrError(ctx context.Context, cacheKey, wiki, reason string) ([]byte, error) {
+	staleKey := cache.StaleKey(cacheKey)
+	stale, err := s.cache.Get(ctx, staleKey)
+	if err == nil && stale != "" {
+		s.log.WithFields(logrus.Fields{
+			"wiki":      wiki,
+			"key":       cacheKey,
+			"stale_key": staleKey,
+			"size":      len(stale),
+			"reason":    reason,
+		}).Debug("[STALE] ♻️ Returning stale data as fallback")
+		return []byte(stale), nil
+	}
+	s.log.WithFields(logrus.Fields{
+		"wiki":      wiki,
+		"key":       cacheKey,
+		"stale_key": staleKey,
+		"reason":    reason,
+	}).Error("[STALE] ❌ No stale data available — returning error")
+	return nil, fmt.Errorf("no data available for %s (%s, no stale cache)", wiki, reason)
+}
+
+// getBudget returns the budget tracker for a wiki.
+func (s *LiquipediaService) getBudget(wiki string) *RequestBudget {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.budgets[wiki]
+}
+
+// MapAcronymToWiki converts an internal game acronym to the Liquipedia wiki name.
+func (s *LiquipediaService) MapAcronymToWiki(acronym string) (string, bool) {
+	wiki, ok := models.GameWikiMapping[acronym]
+	return wiki, ok
+}
+
+// GetBudgetStatus returns the current budget state for all wikis (for /admin/api-budget).
+func (s *LiquipediaService) GetBudgetStatus() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	wikiBudgets := make(map[string]interface{}, len(s.budgets))
+	totalUsed := 0
+	totalLimit := 0
+
+	for wiki, budget := range s.budgets {
+		status := budget.Status()
+		wikiBudgets[wiki] = status
+		totalUsed += status["used"].(int)
+		totalLimit += status["limit"].(int)
+	}
+
+	return map[string]interface{}{
+		"budgets":     wikiBudgets,
+		"total_used":  totalUsed,
+		"total_limit": totalLimit,
+	}
+}
+
+// ParseResponse parses a raw Liquipedia API response into the generic wrapper.
+func ParseResponse(data []byte) (*models.LiquipediaResponse, error) {
+	var resp models.LiquipediaResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parsing Liquipedia response: %w", err)
+	}
+	return &resp, nil
+}
+
+// GetCache returns the Redis cache (needed by the poller to write directly).
+func (s *LiquipediaService) GetCache() *cache.RedisCache {
+	return s.cache
+}
+
+// TTLTeamSearch is the cache TTL for team search results.
+const TTLTeamSearch = 30 * time.Minute
+
+// SearchTeams searches teams across all wikis matching the query string.
+// Since Liquipedia doesn't support partial text search, we fetch active teams
+// and filter client-side (in Go) by name containing the query.
+func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageSize int) ([]models.NormalizedTeam, error) {
+	if query == "" {
+		return []models.NormalizedTeam{}, nil
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	queryLower := strings.ToLower(query)
+	var allTeams []models.NormalizedTeam
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Limit concurrent wiki searches to avoid flooding Liquipedia API
+	sem := make(chan struct{}, 4)
+	for _, wiki := range s.getAllWikis() {
+		wg.Add(1)
+		go func(w string) {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
+
+			cacheKey := cache.LiqTeamSearchKey(w, queryLower)
+			params := url.Values{}
+			params.Set("wiki", w)
+			params.Set("conditions", "[[status::active]]")
+			params.Set("query", "pageid, pagename, objectname, name, locations, region, logourl, logodarkurl, template, status, extradata")
+			// 500, not 50: results come back in alphabetical order and are
+			// filtered client-side — an active team outside the first 50
+			// alphabetically was simply unfindable.
+			params.Set("limit", "500")
+			params.Set("order", "name ASC")
+
+			data, err := s.MakeRequest(ctx, w, "team", params, cacheKey, TTLTeamSearch)
+			if err != nil {
+				s.log.WithError(err).WithField("wiki", w).Debug("Team search failed for wiki")
+				return
+			}
+
+			resp, err := ParseResponse(data)
+			if err != nil {
+				return
+			}
+
+			for _, raw := range resp.Result {
+				var team models.LiqTeam
+				if err := json.Unmarshal(raw, &team); err != nil {
+					continue
+				}
+				// Client-side partial match filter
+				if !strings.Contains(strings.ToLower(team.Name), queryLower) &&
+					!strings.Contains(strings.ToLower(team.Template), queryLower) &&
+					!strings.Contains(strings.ToLower(team.PageName), queryLower) {
+					continue
+				}
+				normalized := models.NormalizeLiqTeam(team, w, nil)
+				mu.Lock()
+				allTeams = append(allTeams, normalized)
+				mu.Unlock()
+			}
+		}(wiki)
+	}
+
+	wg.Wait()
+
+	// Deduplicate by ID
+	seen := make(map[int]bool)
+	deduped := make([]models.NormalizedTeam, 0, len(allTeams))
+	for _, t := range allTeams {
+		if !seen[t.ID] {
+			seen[t.ID] = true
+			deduped = append(deduped, t)
+		}
+	}
+
+	// Limit results
+	if len(deduped) > pageSize {
+		deduped = deduped[:pageSize]
+	}
+
+	return deduped, nil
+}
+
+// GetTeamByPageID fetches a single team by its Liquipedia pageid.
+// wikiHint (from the caller's game context, may be empty) or the cached hint
+// usually skips the 10-wiki fan-out entirely — that fan-out costs 10 API
+// requests, enough to trip Liquipedia's per-IP edge throttle on its own.
+func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.NormalizedTeam, error) {
+	pageIDStr := fmt.Sprintf("%d", pageID)
+	hintKey := cache.LiqWikiHintKey(pageIDStr)
+
+	if wikiHint != "" {
+		if team := s.fetchTeamFromWiki(ctx, wikiHint, pageID); team != nil {
+			_ = s.cache.Set(ctx, hintKey, wikiHint, 24*time.Hour)
+			return team, nil
+		}
+		// Wrong hint — fall through to the cached hint / fan-out.
+	}
+
+	if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" && hint != wikiHint {
+		if team := s.fetchTeamFromWiki(ctx, hint, pageID); team != nil {
+			return team, nil
+		}
+		// Stale hint — fall through to the fan-out.
+	}
+
+	type teamResult struct {
+		team *models.NormalizedTeam
+		wiki string
+	}
+	allWikis := s.getAllWikis()
+	results := make(chan teamResult, len(allWikis))
+	for _, wiki := range allWikis {
+		go func(w string) {
+			results <- teamResult{s.fetchTeamFromWiki(ctx, w, pageID), w}
+		}(wiki)
+	}
+
+	for i := 0; i < len(allWikis); i++ {
+		select {
+		case res := <-results:
+			if res.team != nil {
+				_ = s.cache.Set(ctx, hintKey, res.wiki, 24*time.Hour)
+				return res.team, nil
+			}
+		case <-ctx.Done():
+			return nil, fmt.Errorf("team search timeout for pageid %d", pageID)
+		}
+	}
+	return nil, fmt.Errorf("team with pageid %d not found", pageID)
+}
+
+// fetchTeamFromWiki returns the team with roster from one wiki, or nil when
+// the wiki doesn't have it.
+func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, pageID int64) *models.NormalizedTeam {
+	cacheKey := cache.LiqTeamKey(wiki, fmt.Sprintf("%d", pageID))
+	params := url.Values{}
+	params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
+	params.Set("limit", "1")
+
+	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	if err != nil {
+		return nil
+	}
+	resp, err := ParseResponse(data)
+	if err != nil || len(resp.Result) == 0 {
+		return nil
+	}
+	var team models.LiqTeam
+	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+		return nil
+	}
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	normalized := models.NormalizeLiqTeam(team, wiki, players)
+	return &normalized
+}
+
+// GetTeamByTemplate fetches a single team by its Liquipedia template shortname on a specific wiki.
+// The template param is the team's shortname (e.g. "genone"), which maps to the `template` field
+// in Liquipedia's team cargo table — NOT to pagename (e.g. "Gen.ONE").
+// Returns the team with its active roster (from /squadplayer).
+// fetchTeamRecord resolves a team on a wiki from its template, falling back to
+// its display name. Match and tournament opponents carry the template that was
+// in use back then ("brion 2023"), which stops matching the team record once a
+// team is renamed — its name still does.
+func (s *LiquipediaService) fetchTeamRecord(ctx context.Context, wiki, template, name string) (*models.LiqTeam, error) {
+	type attempt struct{ cacheKey, condition string }
+
+	attempts := make([]attempt, 0, 2)
+	if template != "" {
+		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, template), fmt.Sprintf("[[template::%s]]", template)})
+	}
+	if name != "" && !strings.EqualFold(name, template) {
+		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, "name:"+name), fmt.Sprintf("[[name::%s]]", name)})
+	}
+
+	for _, a := range attempts {
+		params := url.Values{}
+		params.Set("wiki", wiki)
+		params.Set("conditions", a.condition)
+		params.Set("limit", "1")
+
+		data, err := s.MakeRequest(ctx, wiki, "team", params, a.cacheKey, TTLTeam)
+		if err != nil {
+			continue
+		}
+		resp, err := ParseResponse(data)
+		if err != nil || len(resp.Result) == 0 {
+			continue
+		}
+		var team models.LiqTeam
+		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+			continue
+		}
+		return &team, nil
+	}
+
+	return nil, fmt.Errorf("team %q (name %q) not found in wiki %s", template, name, wiki)
+}
+
+func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string, name string) (*models.NormalizedTeam, error) {
+	record, err := s.fetchTeamRecord(ctx, wiki, template, name)
+	if err != nil {
+		return nil, err
+	}
+	team := *record
+
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	normalized := models.NormalizeLiqTeam(team, wiki, players)
+	return &normalized, nil
+}
+
+// GetTeamDetailByTemplate resolves a team by template and returns the enriched
+// detail in one shot. It does the exact same fetches as GetTeamByTemplate (team +
+// squad, sharing the same cache key), only with the richer normalizer — so a
+// caller that needs the full detail no longer pays a separate by-template→detail
+// round trip (which used a different cache key = a second team fetch when cold).
+func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki string, template string, name string) (*models.EnrichedTeamDetail, error) {
+	record, err := s.fetchTeamRecord(ctx, wiki, template, name)
+	if err != nil {
+		return nil, err
+	}
+	team := *record
+
+	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+	return &detail, nil
+}
+
+// GetTeamsByPageIDs fetches multiple teams by their Liquipedia pageids.
+// Uses parallel goroutines for efficiency.
+func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int64) []models.NormalizedTeam {
+	// Slice initialisée : une slice nil se sérialise en `null`, que les clients
+	// reçoivent là où ils attendent un tableau. Arrive dès qu'aucun pageid ne se
+	// résout — le cas des favoris hérités de PandaScore.
+	results := make([]models.NormalizedTeam, 0, len(pageIDs))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Limit concurrent team fetches to avoid flooding Liquipedia API
+	sem := make(chan struct{}, 4)
+	for _, pid := range pageIDs {
+		wg.Add(1)
+		go func(id int64) {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
+			team, err := s.GetTeamByPageID(ctx, id, "")
+			if err != nil {
+				s.log.WithError(err).WithField("pageid", id).Debug("Failed to fetch team for favorites")
+				return
+			}
+			mu.Lock()
+			results = append(results, *team)
+			mu.Unlock()
+		}(pid)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// fetchSquadPlayers fetches the active roster for a team from /squadplayer.
+func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPageName string) []models.NormalizedPlayer {
+	cacheKey := cache.LiqTeamSquadKey(wiki, teamPageName)
+	params := url.Values{}
+	params.Set("wiki", wiki)
+	params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", teamPageName))
+	params.Set("limit", "100")
+
+	data, err := s.MakeRequest(ctx, wiki, "squadplayer", params, cacheKey, TTLTeam)
+	if err != nil {
+		s.log.WithError(err).WithFields(logrus.Fields{
+			"wiki": wiki,
+			"team": teamPageName,
+		}).Debug("Failed to fetch squad players")
+		return []models.NormalizedPlayer{}
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return []models.NormalizedPlayer{}
+	}
+
+	var squadPlayers []models.LiqSquadPlayer
+	for _, raw := range resp.Result {
+		var sp models.LiqSquadPlayer
+		if err := json.Unmarshal(raw, &sp); err != nil {
+			continue
+		}
+		squadPlayers = append(squadPlayers, sp)
+	}
+
+	return models.NormalizeLiqSquadPlayers(squadPlayers)
+}
+
+// FetchBatchSquadPlayers fetches squad players for multiple teams in a single API call.
+// Uses OR conditions on pagename ([[pagename::T1]] OR [[pagename::T2]] OR ...) since
+// Liquipedia's teamtemplate field includes date suffixes (e.g. "heroic sep 2024").
+// teamNames are the Liquipedia page names (opponent Name from match data).
+// Returns a map of lowercase team name → []NormalizedRosterPlayer (active players only).
+func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki string, teamNames []string, cacheKey string, ttl time.Duration) map[string][]models.NormalizedRosterPlayer {
+	if len(teamNames) == 0 {
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	// Build OR condition: [[pagename::T1]] OR [[pagename::T2]] OR ...
+	// The || operator doesn't work with pagename, so we use the OR keyword.
+	parts := make([]string, len(teamNames))
+	for i, name := range teamNames {
+		parts[i] = fmt.Sprintf("[[pagename::%s]]", name)
+	}
+	condition := strings.Join(parts, " OR ")
+
+	params := url.Values{}
+	params.Set("conditions", condition)
+	params.Set("limit", "5000")
+
+	s.log.WithFields(logrus.Fields{
+		"wiki":  wiki,
+		"teams": len(teamNames),
+	}).Info("Batch fetching squad players by pagename")
+
+	data, err := s.MakeRequest(ctx, wiki, "squadplayer", params, cacheKey, ttl)
+	if err != nil {
+		s.log.WithError(err).WithField("wiki", wiki).Warn("Failed to batch fetch squad players")
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return map[string][]models.NormalizedRosterPlayer{}
+	}
+
+	s.log.WithFields(logrus.Fields{
+		"wiki":       wiki,
+		"rawResults": len(resp.Result),
+	}).Info("Batch squad players API response")
+
+	// Group players by pagename (lowercase for matching), filter type=player and status!=former
+	teamPlayers := make(map[string][]models.LiqSquadPlayer)
+	for _, raw := range resp.Result {
+		var sp models.LiqSquadPlayer
+		if err := json.Unmarshal(raw, &sp); err != nil {
+			continue
+		}
+		// Only keep current roster: type=player, not former
+		if sp.Type != "player" || sp.Status == "former" {
+			continue
+		}
+		key := strings.ToLower(sp.PageName)
+		teamPlayers[key] = append(teamPlayers[key], sp)
+	}
+
+	// Normalize each group
+	result := make(map[string][]models.NormalizedRosterPlayer)
+	for teamKey, players := range teamPlayers {
+		normalized := models.NormalizeLiqSquadPlayers(players)
+		rosterPlayers := make([]models.NormalizedRosterPlayer, 0, len(normalized))
+		for _, p := range normalized {
+			rp := models.NormalizedRosterPlayer{
+				ID:     p.ID,
+				Name:   p.Name,
+				Active: p.Active,
+				Role:   p.Role,
+			}
+			if p.ImageURL != "" {
+				v := p.ImageURL
+				rp.ImageURL = &v
+			}
+			if p.FirstName != "" {
+				v := p.FirstName
+				rp.FirstName = &v
+			}
+			if p.LastName != "" {
+				v := p.LastName
+				rp.LastName = &v
+			}
+			if p.Nationality != "" {
+				v := p.Nationality
+				rp.Nationality = &v
+			}
+			rosterPlayers = append(rosterPlayers, rp)
+		}
+		result[teamKey] = rosterPlayers
+	}
+
+	return result
+}
+
+// GetTeamDetailByPageID fetches comprehensive team details for the team detail page.
+// Returns enriched team info + roster (2 API calls max, both cached 2h).
+// wikiHint (from the caller's game context, may be empty) is tried first to
+// avoid the sequential all-wikis walk.
+func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.EnrichedTeamDetail, error) {
+	pageIDStr := fmt.Sprintf("%d", pageID)
+
+	hintKey := cache.LiqWikiHintKey(pageIDStr)
+	if wikiHint == "" {
+		if hint, err := s.cache.Get(ctx, hintKey); err == nil && hint != "" {
+			wikiHint = hint
+		}
+	}
+	wikis := s.getAllWikis()
+	if wikiHint != "" {
+		// Try the hinted wiki first; keep the rest as fallback.
+		ordered := make([]string, 0, len(wikis)+1)
+		ordered = append(ordered, wikiHint)
+		for _, w := range wikis {
+			if w != wikiHint {
+				ordered = append(ordered, w)
+			}
+		}
+		wikis = ordered
+	}
+
+	for _, wiki := range wikis {
+		cacheKey := cache.LiqTeamKey(wiki, pageIDStr)
+		params := url.Values{}
+		params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
+		params.Set("limit", "1")
+
+		data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+		if err != nil {
+			continue
+		}
+
+		resp, err := ParseResponse(data)
+		if err != nil || len(resp.Result) == 0 {
+			continue
+		}
+
+		var team models.LiqTeam
+		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+			continue
+		}
+
+		// Fetch roster (cached 2h via TTLTeam)
+		players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+
+		detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+		_ = s.cache.Set(ctx, hintKey, wiki, 24*time.Hour)
+		return &detail, nil
+	}
+
+	return nil, fmt.Errorf("team with pageid %d not found", pageID)
+}
+
+// FetchTeamMatches fetches recent or upcoming matches for a team from Liquipedia.
+// matchType: "recent" (finished, desc) or "upcoming" (not started, asc).
+// Uses [[opponent::teamTemplate]] condition to filter by team.
+func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemplate, matchType string) ([]models.NormalizedMatch, error) {
+	var conditions string
+	var order string
+	var cacheKey string
+
+	if matchType == "recent" {
+		conditions = fmt.Sprintf("[[opponent::%s]] AND [[finished::1]]", teamTemplate)
+		order = "date DESC"
+		cacheKey = cache.LiqTeamMatchesRecentKey(wiki, teamTemplate)
+	} else {
+		now := time.Now().UTC().Format("2006-01-02 15:04:05")
+		conditions = fmt.Sprintf("[[opponent::%s]] AND [[finished::0]] AND [[date::>%s]]", teamTemplate, now)
+		order = "date ASC"
+		cacheKey = cache.LiqTeamMatchesUpcomingKey(wiki, teamTemplate)
+	}
+
+	params := url.Values{}
+	params.Set("conditions", conditions)
+	params.Set("order", order)
+	params.Set("limit", "25")
+
+	data, err := s.MakeRequest(ctx, wiki, "match", params, cacheKey, TTLTeamMatches)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch %s matches for team %s: %w", matchType, teamTemplate, err)
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]models.NormalizedMatch, 0, len(resp.Result))
+	seen := make(map[string]bool)
+	for _, raw := range resp.Result {
+		var m models.LiqMatch
+		if err := json.Unmarshal(raw, &m); err != nil {
+			continue
+		}
+
+		key := m.UniqueKey()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		if !m.HasTwoNamedOpponents() {
+			continue
+		}
+
+		statusHint := ""
+		if matchType == "recent" {
+			statusHint = "finished"
+		} else {
+			statusHint = "not_started"
+		}
+
+		matches = append(matches, models.NormalizeLiqMatch(m, wiki, statusHint))
+	}
+
+	return matches, nil
+}
+
+// FetchTeamPlacements fetches tournament placements for a team from the Liquipedia /placement endpoint.
+// Returns the most recent placements with actual results (non-empty placement string).
+func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamName string, limit int) ([]models.NormalizedPlacement, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	cacheKey := cache.LiqTeamPlacementsKey(wiki, teamName)
+
+	conditions := fmt.Sprintf("[[opponentname::%s]]", teamName)
+	params := url.Values{}
+	params.Set("conditions", conditions)
+	params.Set("order", "date DESC")
+	params.Set("limit", fmt.Sprintf("%d", limit))
+
+	data, err := s.MakeRequest(ctx, wiki, "placement", params, cacheKey, TTLTeamPlacements)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch placements for team %s: %w", teamName, err)
+	}
+
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	placements := make([]models.NormalizedPlacement, 0, len(resp.Result))
+	for _, raw := range resp.Result {
+		var p models.LiqPlacement
+		if err := json.Unmarshal(raw, &p); err != nil {
+			continue
+		}
+		// Only include entries that have an actual placement result
+		if p.Placement == "" {
+			continue
+		}
+		placements = append(placements, models.NormalizeLiqPlacement(p))
+	}
+
+	return placements, nil
+}
+
+// getAllWikis returns a list of all known Liquipedia wiki names.
+func (s *LiquipediaService) getAllWikis() []string {
+	wikis := make([]string, 0, len(models.GameWikiMapping))
+	for _, wiki := range models.GameWikiMapping {
+		wikis = append(wikis, wiki)
+	}
+	return wikis
+}

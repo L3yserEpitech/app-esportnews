@@ -53,7 +53,9 @@ export default function SubscriptionScreen() {
         Linking.openURL(url).catch(() => {
             Alert.alert(
                 'Gestion impossible',
-                'Ouvre Réglages → Apple ID → Abonnements pour gérer ton abonnement.'
+                Platform.OS === 'ios'
+                    ? 'Ouvre Réglages → Apple ID → Abonnements pour gérer ton abonnement.'
+                    : 'Ouvre le Play Store → Menu → Paiements et abonnements pour gérer ton abonnement.'
             );
         });
     };
@@ -73,10 +75,11 @@ export default function SubscriptionScreen() {
         }
     };
 
-    // Afficher le prix depuis le store si disponible
-    const displayPrice = products.length > 0
-        ? products[0].displayPrice
-        : '0.99€';
+    // Le store n'a renvoyé aucun produit : SKU absent de la console, forfait de
+    // base inactif, build hors piste Play… On le dit au lieu d'afficher un prix
+    // inventé qui mène à une alerte « Produit non disponible » au clic.
+    const storeUnavailable = !loading && products.length === 0;
+    const displayPrice = products.length > 0 ? products[0].displayPrice : '—';
 
     return (
         <View style={styles.container}>
@@ -177,16 +180,18 @@ export default function SubscriptionScreen() {
                             onPress={handleSubscribe}
                             activeOpacity={0.8}
                             style={styles.subscribeButtonContainer}
-                            disabled={purchasing || loading}
+                            disabled={purchasing || loading || storeUnavailable}
                         >
                             <LinearGradient
                                 colors={[COLORS.primary, '#C2185B']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
-                                style={[styles.subscribeButton, (purchasing || loading) && styles.buttonDisabled]}
+                                style={[styles.subscribeButton, (purchasing || loading || storeUnavailable) && styles.buttonDisabled]}
                             >
                                 {purchasing ? (
                                     <ActivityIndicator color="white" />
+                                ) : storeUnavailable ? (
+                                    <Text style={styles.subscribeButtonText}>Abonnement indisponible</Text>
                                 ) : (
                                     <>
                                         <Text style={styles.subscribeButtonText}>
@@ -197,6 +202,12 @@ export default function SubscriptionScreen() {
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
+
+                        {storeUnavailable && (
+                            <Text style={styles.unavailableHint}>
+                                L'abonnement n'est pas disponible sur ce compte pour le moment. Réessayez dans quelques minutes.
+                            </Text>
+                        )}
 
                         <View style={styles.legalLinks}>
                             <TouchableOpacity
@@ -423,6 +434,12 @@ const styles = StyleSheet.create({
     },
     buttonDisabled: {
         opacity: 0.6,
+    },
+    unavailableHint: {
+        color: COLORS.textMuted,
+        fontSize: 13,
+        textAlign: 'center',
+        marginBottom: spacing.md,
     },
     legalLinks: {
         flexDirection: 'row',

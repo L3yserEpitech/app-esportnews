@@ -1,6 +1,7 @@
 import { articleService } from '@/app/services/articleService';
+import { formatDateSlug } from '@/app/lib/articleUrl';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
@@ -30,8 +31,8 @@ export async function GET() {
         (article) => `
     <item>
       <title>${escapeXml(article.title)}</title>
-      <link>${baseUrl}/article/${article.slug}</link>
-      <guid isPermaLink="true">${baseUrl}/article/${article.slug}</guid>
+      <link>${baseUrl}/article/${article.slug}/${formatDateSlug(article.created_at)}</link>
+      <guid isPermaLink="true">${baseUrl}/article/${article.slug}/${formatDateSlug(article.created_at)}</guid>
       <description>${escapeXml(article.description || article.subtitle || '')}</description>
       <content:encoded><![CDATA[
         <p>${escapeXml(article.description || article.subtitle || '')}</p>

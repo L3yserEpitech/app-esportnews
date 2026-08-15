@@ -11,6 +11,8 @@ export { adCooldownService } from './adCooldownService';
 export { subscriptionService } from './subscriptionService';
 export { pushTokenService } from './pushTokenService';
 export { matchSubscriptionService } from './matchSubscriptionService';
+export { teamService } from './teamService';
+export { playerService } from './playerService';
 
 // Export types
 export type { SignupData, LoginData, UserData } from './authService';

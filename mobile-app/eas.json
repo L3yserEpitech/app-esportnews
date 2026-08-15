@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_ENVIRONMENT": "development"
+        "EXPO_PUBLIC_ENVIRONMENT": "development",
+        "EXPO_PUBLIC_API_URL": "https://app-esportnews-preview-production.up.railway.app"
       }
     },
     "development:simulator": {

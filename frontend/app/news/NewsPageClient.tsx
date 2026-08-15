@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X } from 'lucide-react';
+import { Search, X, Newspaper } from 'lucide-react';
+import ContentLoader from '../components/ui/ContentLoader';
 import AdColumn from '../components/ads/AdColumn';
 import ArticleCard from '../components/article/ArticleCard';
 import FeaturedArticleCard from '../components/article/FeaturedArticleCard';
 import { NewsItem, Advertisement } from '../types';
 import { articleService } from '../services/articleService';
 import { advertisementService } from '../services/advertisementService';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useArticleSearch } from '../hooks/useArticleSearch';
 import {
   Dialog,
@@ -98,10 +98,6 @@ export default function NewsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchModalOpen]);
 
-  const handleArticleClick = useCallback((slug: string) => {
-    window.location.href = `/article/${slug}`;
-  }, []);
-
   // Article le plus récent (featured) - on le récupère en premier lors du premier chargement
   const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
 
@@ -152,8 +148,15 @@ export default function NewsPage() {
 
   if (isLoadingArticles) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen bg-bg-primary">
+        <main className="container mx-auto px-4 py-8 pt-24">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <ContentLoader label={t('pages_detail.articles.loading')} icon={Newspaper} />
+            </div>
+            <AdColumn ads={ads} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
+          </div>
+        </main>
       </div>
     );
   }
@@ -193,7 +196,6 @@ export default function NewsPage() {
                 {featuredArticle && (
                   <FeaturedArticleCard
                     article={featuredArticle}
-                    onClick={handleArticleClick}
                   />
                 )}
 
@@ -205,7 +207,6 @@ export default function NewsPage() {
                         <ArticleCard
                           key={article.id}
                           article={article}
-                          onClick={handleArticleClick}
                         />
                       ))}
                     </div>
@@ -316,10 +317,9 @@ export default function NewsPage() {
                   <ArticleCard
                     key={article.id}
                     article={article}
-                    onClick={(slug) => {
+                    onClick={() => {
                       setIsSearchModalOpen(false);
                       setSearchQuery('');
-                      handleArticleClick(slug);
                     }}
                   />
                 ))}

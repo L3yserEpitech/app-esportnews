@@ -1,22 +1,27 @@
-import { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
+import * as SplashScreen from 'expo-splash-screen';
+import { useNotificationDeepLink } from '@/hooks';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { GameProvider } from '@/contexts/GameContext';
 import { LocaleProvider } from '@/contexts/LocaleContext';
 import { AdProvider } from '@/contexts/AdContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import SplashAnimation from '@/components/SplashAnimation';
 import { theme } from '@/constants/theme';
 import mobileAds from 'react-native-google-mobile-ads';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { Platform } from 'react-native';
 import '@/utils/i18n'; // Initialize i18n
 
+// Hold the native static splash until the animated splash mounts and takes over.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
-  const router = useRouter();
+  const [splashDone, setSplashDone] = useState(false);
 
   // Request ATT on iOS, then initialize AdMob
   useEffect(() => {
@@ -35,18 +40,8 @@ export default function RootLayout() {
     initAds();
   }, []);
 
-  // Handle notification tap — deep link to match detail
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data?.type === 'match_start' && data?.match_id) {
-        router.push(`/match/${data.match_id}` as any);
-      } else if ((data?.type === 'new_article' || data?.type === 'new_news') && data?.slug) {
-        router.push(`/article/${data.slug}` as any);
-      }
-    });
-    return () => subscription.remove();
-  }, [router]);
+  // Notification tap → match / article, cold start included
+  useNotificationDeepLink();
 
   return (
     <SafeAreaProvider>
@@ -91,6 +86,7 @@ export default function RootLayout() {
           </AuthProvider>
         </LocaleProvider>
       </PaperProvider>
+      {!splashDone && <SplashAnimation onFinish={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }

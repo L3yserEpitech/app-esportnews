@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { NewsItem } from '@/app/types';
+import { articleHref } from '@/app/lib/articleUrl';
 
 interface FeaturedArticleCardProps {
   article: NewsItem;
@@ -20,27 +22,12 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
   // Détecter si c'est une vidéo basé sur l'extension du fichier
   const isVideo = article.featuredImage && /\.(mp4|webm|ogg|mov|avi)$/i.test(article.featuredImage);
 
-  const handleClick = () => {
-    if (onClick) {
-      onClick(article.slug);
-    } else {
-      window.location.href = `/article/${article.slug}`;
-    }
-  };
-
   return (
-    <article
-      className="group cursor-pointer rounded-xl overflow-hidden transition-all duration-300 hover:shadow-2xl relative h-[500px] mt-2"
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
+    <Link
+      href={articleHref(article)}
+      onClick={() => onClick?.(article.slug)}
+      className="group block cursor-pointer rounded-xl overflow-hidden transition-all duration-300 hover:shadow-2xl relative h-[500px] mt-2"
       aria-label={`Lire l'article: ${article.title}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
     >
       {/* Image or Video pleine */}
       <div className="relative w-full h-full overflow-hidden bg-black">
@@ -100,6 +87,6 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
           </div>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
