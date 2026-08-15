@@ -169,8 +169,8 @@
 * **Déploiement** : Railway (2 projets : prod + preview)
 * **CDN frontend** : Vercel (esportnews.fr)
 * **Domaines** :
-  - Prod : `https://www.esportnews.fr` (frontend) + backend Railway prod
-  - Preview R&D : `https://www.blitchapp.online` (backend Railway preview, custom domain en cours)
+  - Prod : `https://www.esportnews.fr` (frontend) + `https://app-esportnews-production.up.railway.app` (backend Railway prod, branche `main`) — c'est aussi l'URL que tape l'app mobile
+  - Preview R&D : `https://www.blitchapp.online` + `https://app-esportnews-preview-production.up.railway.app` (backend Railway preview, branche `liquipedia`)
 
 ### Paiements
 * **Web** : Stripe (Checkout + Customer Portal + webhooks)
@@ -759,7 +759,7 @@ LiquipediaDB peut envoyer un POST à notre backend chaque fois qu'une page est �
 
 ### Configuration côté LiquipediaDB
 Dashboard LiquipediaDB → Webhooks → Webhook #49. **Le dashboard ne permet de régler qu'une URL + un commentaire** : aucun header custom, aucune signature dans le payload. Le secret voyage donc **dans l'URL en query param** (`?secret=`) — c'est le seul moyen d'authentifier les livraisons réelles.
-* **URL** : `https://www.blitchapp.online/api/webhooks/liquipedia?secret=<LIQUIPEDIA_WEBHOOK_SECRET>` (preview) ou `https://www.esportnews.fr/api/webhooks/liquipedia?secret=<...>` (prod, à venir)
+* **URL** : `https://app-esportnews-production.up.railway.app/api/webhooks/liquipedia?secret=<LIQUIPEDIA_WEBHOOK_SECRET>` — **la prod reçoit et accepte les livraisons** (vérifié dans les logs le 2026-08-15, source LiquipediaDB `135.125.87.180`). Le secret est le même que celui de la preview. La preview a `LIQUIPEDIA_WEBHOOKS_ENABLED=false` depuis le go-live : c'est la prod, et elle seule, qui consomme les dirty flags.
 * **Events** : `edit`, `delete`, `move`, `purge`
 
 ### Payload reçu
@@ -917,7 +917,7 @@ Layout responsive Tailwind. Important : **éviter le basculement prématuré ver
 
 ### 14.1) Migration Liquipedia mobile — port frontend (branche `liquipedia`)
 
-> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia` (rien pushé — Jules déploie lui-même). **Le backend de prod (`main`) est encore PandaScore** → le build mobile prod ne verra le Liquipedia qu'après merge de `main`. Test dev : `.env` → `EXPO_PUBLIC_API_URL=https://www.blitchapp.online` (backend preview Liquipedia).
+> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia`. **Depuis le 2026-08-15, `main` est sur Liquipedia** (merge `74131468`) : le backend de prod sert `wiki`/`match2id`, et `eas.json` repointe les profils `preview`/`production` sur `https://app-esportnews-production.up.railway.app`. Le profil `development` vise le backend de preview (`https://app-esportnews-preview-production.up.railway.app`).
 
 **Archi détail modulaire (miroir du web §18.3/18.4)** — composants colocalisés **hors `app/`** (Expo Router route tout ce qui est sous `app/`) :
 ```
@@ -962,17 +962,25 @@ components/tournament-detail/{tournamentSections.ts, sections/…}
 
 > **DB et Redis sont partagés entre prod et preview** (`hot-insect-57031.upstash.io`). Toute écriture en base ou toute purge de cache touche la prod immédiatement — vérifié le 2026-08-08.
 
+> **Depuis le go-live du 2026-08-15, la preview est passive** : `LIQUIPEDIA_POLLER_ENABLED=false`, `LIQUIPEDIA_WEBHOOKS_ENABLED=false`, `NOTIFICATION_SCHEDULER_ENABLED=false`. Comme Redis est partagé, elle lit les caches `liq:*` remplis par la prod. Deux pollers actifs doubleraient le débit sortant via **la même IP OVH** du proxy Liquipedia — c'est exactement ce qui l'a fait bannir en juillet. **Ne réactiver le poller sur la preview que si la prod est coupée.**
+
+> ⚠️ **`backend-go/Dockerfile` diverge volontairement entre `main` et `liquipedia`** : les deux services Railway n'ont pas le même *root directory*. **Prod (`app-esportnews`) build depuis la racine du dépôt** → `COPY backend-go/go.mod backend-go/go.sum ./` + `COPY backend-go/ .`. **Preview build depuis `backend-go/`** → `COPY go.mod go.sum ./` + `COPY . .`. À **chaque** merge `liquipedia → main`, restaurer la version racine (`git checkout HEAD -- backend-go/Dockerfile` avant de commiter le merge), sinon le build prod échoue sur `COPY go.sum`. Vérifiable en local : `docker build -f backend-go/Dockerfile .` depuis la racine.
+
 ### Variables d'environnement clés par env
 
 **Prod** (Railway → projet prod → Settings → Variables) :
 ```
 LIQUIPEDIA_API_KEY=<secret>
+LIQUIPEDIA_HTTP_PROXY=http://esportnews:<pass>@164.132.194.8:8888   # IP dédiée OVH, sinon ban 429
 LIQUIPEDIA_BUDGET_PER_WIKI=1000
-LIQUIPEDIA_WEBHOOKS_ENABLED=true        # à activer quand prêt
-LIQUIPEDIA_WEBHOOK_SECRET=<random prod>
-NOTIFICATION_SCHEDULER_ENABLED=true
+LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS=1500
+LIQUIPEDIA_POLLER_ENABLED=true
+LIQUIPEDIA_SKIP_TLS=false
+LIQUIPEDIA_WEBHOOKS_ENABLED=true
+LIQUIPEDIA_WEBHOOK_SECRET=<même secret que preview — il est dans l'URL du webhook LiquipediaDB>
+NOTIFICATION_SCHEDULER_ENABLED=true     # la prod est le SEUL émetteur de push
 DATABASE_URL=<Supabase pooler>
-REDIS_URL=<Railway Redis>
+REDIS_URL=<Upstash, partagé avec la preview>
 JWT_SECRET=<random>
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=<Stripe webhook>
@@ -980,15 +988,18 @@ APPLE_IAP_*, GOOGLE_IAP_* (production keys)
 CLOUDFLARE_R2_*
 ```
 
-**Preview** (Railway → projet preview → Settings → Variables) :
+**Preview** (Railway → projet preview → Settings → Variables) — passive depuis le go-live :
 ```
 LIQUIPEDIA_API_KEY=<same as prod>
+LIQUIPEDIA_HTTP_PROXY=<same as prod>
 LIQUIPEDIA_BUDGET_PER_WIKI=1000
-LIQUIPEDIA_WEBHOOKS_ENABLED=true
-LIQUIPEDIA_WEBHOOK_SECRET=<random preview, different from prod>
-NOTIFICATION_SCHEDULER_ENABLED=false    # CRUCIAL — DB partagée
+LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS=1500
+LIQUIPEDIA_POLLER_ENABLED=false         # CRUCIAL — Redis partagé + même IP de proxy
+LIQUIPEDIA_WEBHOOKS_ENABLED=false       # CRUCIAL — la prod consomme les dirty flags
+LIQUIPEDIA_WEBHOOK_SECRET=<same as prod>
+NOTIFICATION_SCHEDULER_ENABLED=false    # CRUCIAL — DB partagée, sinon push en double
 DATABASE_URL=<same as prod — Supabase pooler>
-REDIS_URL=<Railway Redis preview>
+REDIS_URL=<same as prod — Upstash>
 JWT_SECRET=<same as prod si les sessions doivent être valides cross-env>
 ... (Stripe et IAP idéalement en test/sandbox)
 ```
