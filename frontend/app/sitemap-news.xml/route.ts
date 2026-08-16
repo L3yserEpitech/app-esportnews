@@ -15,9 +15,20 @@ const NEWS_CATEGORY = 'Actus';
 const WINDOW_MS = 48 * 60 * 60 * 1000; // Google News only accepts articles < 2 days old
 const MAX_URLS = 1000; // Google News sitemap hard cap
 
+// A `<urlset>` with no `<url>` child violates the sitemap schema, and Search
+// Console reports it as a red "missing XML tag" error — which then masks real
+// sitemap problems. Whenever the 48h window is empty (no article published for
+// two days), fall back to the latest articles carrying no `<news:news>` block.
+// That is exactly how Google says to age an article out of a news sitemap:
+// keep the URL, drop the news metadata.
+const FALLBACK_URLS = 10;
+
+type NewsEntry = { slug: string; title: string; created_at: string; isNews: boolean };
+
 export async function GET() {
   const cutoff = Date.now() - WINDOW_MS;
-  const recent: { slug: string; title: string; created_at: string }[] = [];
+  const recent: NewsEntry[] = [];
+  const fallback: NewsEntry[] = [];
   const pageSize = 100;
   let offset = 0;
   let keepGoing = true;
@@ -37,10 +48,16 @@ export async function GET() {
       const ts = new Date(a.created_at).getTime();
       if (Number.isNaN(ts)) continue;
       if (ts < cutoff) {
+        // Newest-first: this is the head of the "too old" tail, so it is also
+        // the best fallback material. Collected on the first page only.
+        if (fallback.length < FALLBACK_URLS) {
+          fallback.push({ slug: a.slug, title: a.title, created_at: a.created_at, isNews: false });
+          continue;
+        }
         keepGoing = false;
         break;
       }
-      recent.push({ slug: a.slug, title: a.title, created_at: a.created_at });
+      recent.push({ slug: a.slug, title: a.title, created_at: a.created_at, isNews: true });
       if (recent.length >= MAX_URLS) {
         keepGoing = false;
         break;
@@ -51,11 +68,12 @@ export async function GET() {
     offset += pageSize;
   }
 
-  const urls = recent
-    .map(
-      (a) => `
-  <url>
-    <loc>${escapeXml(`${BASE_URL}${articleHref(a)}`)}</loc>
+  const entries = recent.length ? recent : fallback;
+
+  const urls = entries
+    .map((a) => {
+      const news = a.isNews
+        ? `
     <news:news>
       <news:publication>
         <news:name>${escapeXml(PUBLICATION_NAME)}</news:name>
@@ -63,9 +81,15 @@ export async function GET() {
       </news:publication>
       <news:publication_date>${new Date(a.created_at).toISOString()}</news:publication_date>
       <news:title>${escapeXml(a.title)}</news:title>
-    </news:news>
-  </url>`
-    )
+    </news:news>`
+        : `
+    <lastmod>${new Date(a.created_at).toISOString()}</lastmod>`;
+
+      return `
+  <url>
+    <loc>${escapeXml(`${BASE_URL}${articleHref(a)}`)}</loc>${news}
+  </url>`;
+    })
     .join('');
 
   return new Response(
