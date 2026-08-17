@@ -152,7 +152,7 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const matchUrl = `${siteUrl}/${game?.slug ?? 'match'}/match/${matchId}`;
   const breadcrumbs = generateBreadcrumbs([
     { name: t('breadcrumb_home'), url: '/' },

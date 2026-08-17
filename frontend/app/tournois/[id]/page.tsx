@@ -31,7 +31,7 @@ export async function generateMetadata(
     }
 
     const tournament = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     // Canonical points to the game-first URL when the wiki is known, so the
     // legacy /tournois/<id> URLs consolidate onto /<slug>/tournois/<id>.
     const slug = tournament.wiki ? wikiToSlug(tournament.wiki) : undefined;

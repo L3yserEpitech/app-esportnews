@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
     const awayTeam = match.opponents?.[1]?.opponent;
     const title = `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'} | ${match.videogame?.name || 'Esport'}`;
     const description = `${title} - ${match.league?.name || ''} - ${match.begin_at ? new Date(match.begin_at).toLocaleDateString('fr-FR') : ''}`;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const matchUrl = `${siteUrl}/${game}/match/${id}`;
 
     return {

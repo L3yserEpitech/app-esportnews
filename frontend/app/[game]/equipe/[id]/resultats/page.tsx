@@ -12,7 +12,7 @@ export async function generateMetadata(
   const sp = await searchParams;
   const name = sp.name || id;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const url = `${siteUrl}/${game}/equipe/${encodeURIComponent(id)}/resultats`;
 
   return {

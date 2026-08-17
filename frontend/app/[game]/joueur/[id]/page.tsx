@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
 
   try {
     const player = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const url = `${siteUrl}/${game}/joueur/${encodeURIComponent(id)}`;
     const realName = [player.first_name, player.last_name].filter(Boolean).join(' ') || player.name;
     const description = `Profil de ${player.id} (${realName}) : équipe, carrière, gains, matchs et statistiques.`;

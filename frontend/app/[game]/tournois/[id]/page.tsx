@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
 
   try {
     const tournament = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const url = `${siteUrl}/${game}/tournois/${tournament.id}`;
     const description = `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`;
 

@@ -179,7 +179,7 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
     relatedArticles,
   };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const tournamentUrl = `${siteUrl}${tournamentHref({ id: tournament.id, wiki: resolvedWiki })}`;
   const breadcrumbs = generateBreadcrumbs([
     { name: 'Tournois', url: '/tournois' },

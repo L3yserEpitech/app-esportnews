@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import TournamentsPageClient from './TournamentsPageClient';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+
 export const metadata: Metadata = {
   title: 'Tournois | EsportNews - Toutes les Compétitions Esport',
   description: 'Découvrez tous les tournois esport. Consultez les classements, résultats et détails des plus grandes compétitions.',
@@ -8,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Tournois | EsportNews',
     description: 'Découvrez tous les tournois esport.',
-    url: 'https://esportnews.fr/tournois',
+    url: `${SITE_URL}/tournois`,
     type: 'website',
   },
   twitter: {
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
     description: 'Tous les tournois esport en un seul endroit.',
   },
   alternates: {
-    canonical: 'https://esportnews.fr/tournois',
+    canonical: `${SITE_URL}/tournois`,
   },
 };
 
