@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import NewsPageClient from './NewsPageClient';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+
 export const metadata: Metadata = {
   title: 'Actualités | EsportNews - Dernières Actu Esport',
   description: 'Découvrez les dernières actualités esport. Toutes les infos, analyses et brèves des meilleures équipes et compétitions.',
@@ -8,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Actualités | EsportNews',
     description: 'Découvrez les dernières actualités esport.',
-    url: 'https://esportnews.fr/news',
+    url: `${SITE_URL}/news`,
     type: 'website',
   },
   twitter: {
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
     description: 'Les dernières actualités de l\'esport.',
   },
   alternates: {
-    canonical: 'https://esportnews.fr/news',
+    canonical: `${SITE_URL}/news`,
   },
 };
 

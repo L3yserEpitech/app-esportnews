@@ -10,8 +10,6 @@ import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
 import AdColumn from '../../components/ads/AdColumn';
 import ContentLoader from '../../components/ui/ContentLoader';
-import { SportsEventSchema, BreadcrumbSchema } from '../../components/seo/StructuredData';
-import { generateBreadcrumbs } from '../../lib/breadcrumbHelper';
 import { prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 import { gameByWiki } from '../../lib/gameRegistry';
@@ -152,13 +150,6 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-  const matchUrl = `${siteUrl}/${game?.slug ?? 'match'}/match/${matchId}`;
-  const breadcrumbs = generateBreadcrumbs([
-    { name: t('breadcrumb_home'), url: '/' },
-    { name: t('breadcrumb_matchs'), url: '/match' },
-    { name: `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`, url: matchUrl },
-  ]);
 
   const renderSection = (id: SectionId) => {
     switch (id) {
@@ -178,20 +169,6 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      <SportsEventSchema
-        name={`${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'}`}
-        description={`${match.videogame?.name || 'Esport'} - ${match.league?.name || ''}`}
-        startDate={match.begin_at || new Date().toISOString()}
-        endDate={match.end_at || undefined}
-        url={matchUrl}
-        location={match.tournament?.region || undefined}
-        image={homeTeam?.image_url || undefined}
-        teams={[
-          ...(homeTeam ? [{ name: homeTeam.name, logo: homeTeam.image_url || undefined }] : []),
-          ...(awayTeam ? [{ name: awayTeam.name, logo: awayTeam.image_url || undefined }] : []),
-        ]}
-      />
-      <BreadcrumbSchema items={breadcrumbs} />
       <h1 className="sr-only">{homeTeam?.name || 'Match'} vs {awayTeam?.name || 'Match'} - {match.videogame?.name} - {match.tournament?.name}</h1>
 
       {headerIds.map(renderSection)}

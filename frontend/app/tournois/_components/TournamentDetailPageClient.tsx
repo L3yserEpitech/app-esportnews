@@ -12,10 +12,7 @@ import { articleService } from '@/app/services/articleService';
 import { Trophy } from 'lucide-react';
 import AdColumn from '@/app/components/ads/AdColumn';
 import ContentLoader from '@/app/components/ui/ContentLoader';
-import { TournamentSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
-import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 import { prewarmFromData } from '@/app/lib/imageProxy';
-import { tournamentHref } from '@/app/lib/gameLinks';
 import { resolveSections, type SectionId } from './tournamentSections';
 import { groupMatchesByDate, type TournamentSectionProps } from './sections/shared';
 import TournamentHeader from './sections/TournamentHeader';
@@ -179,28 +176,11 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
     relatedArticles,
   };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportnews.fr';
-  const tournamentUrl = `${siteUrl}${tournamentHref({ id: tournament.id, wiki: resolvedWiki })}`;
-  const breadcrumbs = generateBreadcrumbs([
-    { name: 'Tournois', url: '/tournois' },
-    { name: tournament.name, url: tournamentUrl },
-  ]);
 
   const [headerId, ...bodySections] = sections;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
-      <TournamentSchema
-        name={tournament.name}
-        description={`Tournoi ${tournament.name} - ${tournament.league?.name || 'Esport'}`}
-        startDate={tournament.begin_at || undefined}
-        endDate={tournament.end_at || undefined}
-        url={tournamentUrl}
-        location={tournament.region || undefined}
-        prizeMoney={tournament.prizepool || undefined}
-        teams={tournament.teams?.length}
-      />
-      <BreadcrumbSchema items={breadcrumbs} />
 
       {headerId === 'header' && <TournamentHeader {...sectionProps} />}
 
