@@ -54,6 +54,16 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#060B13" />
+        {/* Applies the stored theme before first paint. ThemeProvider only
+            reaches it from an effect, i.e. after hydration, so without this the
+            server-rendered markup would flash the dark default at anyone using
+            the light theme. Kept inline and synchronous on purpose, and cookie
+            based rather than server read so pages stay statically renderable. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=document.cookie.match(/(?:^|; )esport_theme=([^;]*)/);var t=m?decodeURIComponent(m[1]):'dark';if(t==='auto'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t!=='dark'&&t!=='light'){t='dark'}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}})()`,
+          }}
+        />
       </head>
       <body
         className="font-sans antialiased min-h-screen"

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { slugToWiki } from '../../../lib/gameRegistry';
 import { decodeRouteParam } from '../../../lib/gameLinks';
 import TournamentDetailPageClient from '../../../tournois/_components/TournamentDetailPageClient';
+import { TournamentJsonLd } from '../../../components/seo/entityJsonLd';
 
 interface TournamentPageProps {
   params: Promise<{ game: string; id: string }>;
@@ -88,5 +89,17 @@ export default async function TournamentDetailPage({ params }: TournamentPagePro
     }
   }
 
-  return <TournamentDetailPageClient tournamentId={id} wiki={wiki} initialTournament={initialTournament} />;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+
+  return (
+    <>
+      {initialTournament && (
+        <TournamentJsonLd
+          tournament={initialTournament}
+          url={`${siteUrl}/${game}/tournois/${initialTournament.id ?? id}`}
+        />
+      )}
+      <TournamentDetailPageClient tournamentId={id} wiki={wiki} initialTournament={initialTournament} />
+    </>
+  );
 }

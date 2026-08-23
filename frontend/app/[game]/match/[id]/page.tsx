@@ -4,6 +4,7 @@ import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { matchService } from '../../../services/matchService';
 import { slugToWiki } from '../../../lib/gameRegistry';
 import MatchDetailPageClient from '../../../match/_components/MatchDetailPageClient';
+import { MatchJsonLd } from '../../../components/seo/entityJsonLd';
 
 interface MatchPageProps {
   params: Promise<{ game: string; id: string }>;
@@ -87,5 +88,12 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
     }
   }
 
-  return <MatchDetailPageClient matchId={id} wiki={wiki} initialMatch={initialMatch} />;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+
+  return (
+    <>
+      {initialMatch && <MatchJsonLd match={initialMatch} url={`${siteUrl}/${game}/match/${id}`} />}
+      <MatchDetailPageClient matchId={id} wiki={wiki} initialMatch={initialMatch} />
+    </>
+  );
 }
