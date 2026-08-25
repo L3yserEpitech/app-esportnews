@@ -7,6 +7,9 @@ import type { NextConfig } from "next";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const nextConfig: NextConfig = {
+  // isomorphic-dompurify sanitizes article bodies on the server; jsdom is a
+  // native-ish package that must stay outside the bundle to resolve at runtime.
+  serverExternalPackages: ['jsdom'],
   images: {
     remotePatterns: [
       {
