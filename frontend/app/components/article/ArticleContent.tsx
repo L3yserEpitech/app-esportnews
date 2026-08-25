@@ -106,7 +106,14 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
                 aria-label="Tweet intégré"
                 data-theme={isDarkMode ? 'dark' : 'light'}
               >
-                <Tweet apiUrl="/api/tweet" id={segment.id} fallback={null} />
+                {/* `apiUrl` is used verbatim as the fetch URL — react-tweet does
+                    NOT append the id — so it has to carry the id itself. */}
+                <Tweet
+                  apiUrl={`/api/tweet/${segment.id}`}
+                  id={segment.id}
+                  fallback={null}
+                  components={{ TweetNotFound: () => <></> }}
+                />
               </figure>
             </TweetErrorBoundary>
           );
