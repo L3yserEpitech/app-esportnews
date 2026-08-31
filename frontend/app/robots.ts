@@ -23,6 +23,9 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: [
+      // L'index en tête : il porte les <lastmod> qui disent au robot
+      // quand un sitemap a réellement changé.
+      `${baseUrl}/sitemap-index.xml`,
       `${baseUrl}/sitemap.xml`,
       `${baseUrl}/sitemap-news.xml`,
       `${baseUrl}/sitemap-articles.xml`,
