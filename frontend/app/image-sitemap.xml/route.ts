@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
-  const images: Array<{ loc: string; image: string; title: string; caption?: string }> = [];
+  const images: Array<{ loc: string; image: string }> = [];
 
   try {
     const allArticles: any[] = [];
@@ -30,8 +30,6 @@ export async function GET() {
         images.push({
           loc: `${baseUrl}/article/${article.slug}/${formatDateSlug(article.created_at)}`,
           image: article.featuredImage,
-          title: article.title,
-          caption: article.description || article.subtitle,
         });
       }
     }
@@ -41,7 +39,10 @@ export async function GET() {
     console.error('Error fetching images for sitemap:', error);
   }
 
-  // Generate XML
+  // Google n'accepte plus que <image:loc> : caption, title, geo_location et
+  // license ont été retirés de la spécification en mai 2022 et sont ignorés.
+  // On les émettait en plus dans un ordre que le schéma refuse (title avant
+  // caption), d'où un sitemap invalide pour des données inutilisées.
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
@@ -51,8 +52,6 @@ ${images
     <loc>${escapeXml(item.loc)}</loc>
     <image:image>
       <image:loc>${escapeXml(item.image)}</image:loc>
-      <image:title>${escapeXml(item.title)}</image:title>
-      ${item.caption ? `<image:caption>${escapeXml(item.caption)}</image:caption>` : ''}
     </image:image>
   </url>`
   )
