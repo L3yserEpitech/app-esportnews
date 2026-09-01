@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Article, NewsItem, SupabaseArticle } from '@/app/types';
 import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleBody from '@/app/components/article/ArticleBody';
-import { sanitizeArticleHtml } from '@/app/lib/sanitizeArticle';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import ArticleSidebar from '../ArticleSidebar';
 import { ArticleSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
@@ -189,11 +188,8 @@ export default async function ArticlePage(
     { name: article.title, url: articleUrl },
   ]);
 
-  // Sanitisation côté serveur : le corps de l'article doit exister dans le
-  // HTML servi. Tant qu'elle vivait dans un effet client, <article> partait
-  // vide et les moteurs ne voyaient que le titre et la cover.
-  const contentDark = sanitizeArticleHtml(article.content_black ?? article.content);
-  const contentLight = sanitizeArticleHtml(article.content_white ?? article.content);
+  const contentDark = article.content_black ?? article.content ?? '';
+  const contentLight = article.content_white ?? article.content ?? '';
 
   return (
     <div className="min-h-screen bg-bg-primary">
