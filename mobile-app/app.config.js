@@ -110,14 +110,23 @@ module.exports = {
       "react-native-iap",
       "expo-notifications",
       [
-        // Pas d'`image` : l'écran de lancement natif est un aplat noir sans logo.
-        // iOS et Android en imposent un, il ne peut pas être supprimé — mais vidé
-        // de son logo il devient invisible, puisque SplashAnimation joue sur le
-        // même noir pur. Le seul saut de couleur restant est le cross-fade final
-        // vers #060B13, déjà géré par le composant.
+        // Écran de lancement natif : aplat noir sans logo. iOS et Android en
+        // imposent un, il ne peut pas être supprimé — mais vidé de son logo il
+        // devient invisible, puisque SplashAnimation joue sur le même noir pur.
+        // Le seul saut de couleur restant est le cross-fade final vers #060B13,
+        // déjà géré par le composant.
+        //
+        // `image` pointe sur un PNG entièrement transparent au lieu d'être omis :
+        // withAndroidSplashStyles écrit `windowSplashScreenAnimatedIcon ->
+        // @drawable/splashscreen_logo` dans styles.xml quoi qu'il arrive, alors
+        // que withAndroidSplashImages ne génère ce drawable QUE s'il y a une
+        // image. Sans elle, `:app:processReleaseResources` casse sur
+        // « resource drawable/splashscreen_logo not found ». iOS s'en accommode,
+        // pas Android.
         "expo-splash-screen",
         {
-          backgroundColor: "#000000"
+          backgroundColor: "#000000",
+          image: "./assets/splash-blank.png"
         }
       ]
     ],
