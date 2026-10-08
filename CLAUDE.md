@@ -272,6 +272,7 @@ Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh to
 |----------|------|------|
 | `NEXT_PUBLIC_API_URL` | url | Base URL backend (ex: `https://api.esportnews.fr` ou `http://localhost:4000`) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | string | Clé publique Stripe pour Checkout |
+| `NEXT_PUBLIC_IMAGE_HOST` | host | Domaine propre devant le bucket R2 (ex. `images.esportnews.fr`). Quand il est défini, `publicImageUrl()`/`rewriteImageHosts()` (`lib/imageUtils.ts`) réécrivent à la volée l'hôte `pub-…r2.dev` des URLs stockées en base (couvertures + images inline) ; `next.config.ts` l'ajoute aux `remotePatterns`. Vide = aucune réécriture. Côté backend, `CLOUDFLARE_R2_PUBLIC_URL` doit pointer sur le même domaine pour que les nouveaux uploads le portent nativement |
 
 ---
 
@@ -413,7 +414,7 @@ Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `
 ### Articles (`articles.go`)
 | Méthode | Route | Auth | Description |
 |---------|-------|------|-------------|
-| `GET` | `/api/articles` | – | Liste paginée |
+| `GET` | `/api/articles` | – | Liste paginée (`category`, `excludeNews`, `limit`, `offset`, `author=<nom>,<alias>,…` — comparaison casse/espaces insensible, accents conservés, header `X-Total-Count`) |
 | `GET` | `/api/articles/search` | – | Full-text search |
 | `GET` | `/api/count-articles` | – | Compte total (pour pagination) |
 | `GET` | `/api/articles/:slug` | – | Article par slug |
@@ -677,7 +678,10 @@ Fichiers SQL dans `backend-go/migrations/` :
 00011_page_views.sql
 00012_add_iap_fields_to_users.sql
 00013_articles_search.sql        — index GIN pour full-text search
+00014_articles_updated_at.sql    — colonne `updated_at` (dateModified SEO), aussi appliquée au boot par `gorm.go`
 ```
+
+> `articles.updated_at` : backfillée depuis `created_at`, défaut `now()`, mise à jour automatiquement par GORM (`autoUpdateTime`) sur `PUT /api/admin/articles/:id`. Les incréments de vues et le marquage `notified_at` passent par `UpdateColumn` pour **ne pas** la toucher, sinon chaque lecture ou chaque push rajeunirait `dateModified`. Tout futur `Update(...)` sur `models.Article` qui n'est pas une édition éditoriale doit faire pareil.
 
 > Les tables GORM (`match_subscription`, `tournament_subscription`, `push_token`) sont créées par **AutoMigrate** au démarrage du backend, pas par les migrations SQL.
 
@@ -896,6 +900,16 @@ Les images Liquipedia passent par le **proxy backend** (`/api/proxy/image`) pour
 
 ### i18n
 5 langues : `fr`, `en`, `es`, `de`, `it`. Fichiers de traduction par page/composant.
+
+### SEO éditorial (articles, auteurs, flux)
+* **Nom de marque** : `EsportNews` partout (titres, OG `siteName`, JSON-LD, RSS, Google News). « Esport News » ne subsiste que dans les mentions légales (raison sociale « Esport News SAS »).
+* **Robots** : `max-image-preview:large`, `max-snippet:-1`, `max-video-preview:-1` déclarés dans `layout.tsx` (hérités partout) et répétés explicitement sur les pages article.
+* **Viewport / theme-color** : via `export const viewport` dans `layout.tsx` — ne jamais rajouter de `<meta name="viewport">` manuel (doublon).
+* **RSS** : `/feed.xml` (20 derniers articles, `atom:link rel=self`, `dc:creator` = nom complet), déclaré en `<link rel="alternate" type="application/rss+xml">` directement dans le `<head>` du layout — pas via `metadata.alternates`, qu'une page écrase entièrement dès qu'elle pose son `canonical`.
+* **Auteurs** : `lib/authors.ts` = registre unique (slug, nom complet, alias des graphies réelles de la base : « Samuel C » → Samuel Cohen, espaces/casse). `authorDisplayName()` sur les cartes et la page article ; `rel="author"` vers `/auteurs/<slug>` ; index `/auteurs`. Page auteur = server component qui appelle `GET /api/articles?author=<aliases>` et pose `ProfilePage`/`Person` en JSON-LD. Un auteur absent du registre reste affiché (trim) mais sans page. Aucune bio inventée.
+* **Dates** : `lib/seoDates.ts` — `toIsoSeconds()` supprime les microsecondes du backend (`+00:00`), `modifiedDate()` retombe sur `created_at` si `updated_at` manque/est à zéro (cache antérieur à la colonne). Émises dans `article:published_time`, `article:modified_time`, `datePublished`, `dateModified`.
+* **Éditeur** : nœud `PUBLISHER` partagé (`components/seo/StructuredData.tsx`) de type `NewsMediaOrganization`, `@id` `${SITE_URL}/#organization`, logo 527×190 (dimensions réelles de `logo_blanc.png`). Réutilisé par `NewsArticle.publisher`, `WebSite.publisher`, `OrganizationSchema` (home) et `Person.worksFor`.
+* **Fil d'Ariane article** : la section dépend de la catégorie — `Actus` → « Actualités » (`/news`), tout le reste → « Articles » (`/articles`). Même logique dans le `BreadcrumbList` JSON-LD.
 
 ### Détection mobile vs desktop
 Layout responsive Tailwind. Important : **éviter le basculement prématuré vers tablet** quand on réduit la fenêtre depuis desktop.
