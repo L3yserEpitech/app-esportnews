@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -72,13 +73,16 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 		}
 	}
 
+	// `author` carries every known spelling of one byline, comma-separated.
+	authors := splitAuthors(c.QueryParam("author"))
+
 	// Get total count for pagination
-	totalCount, err := h.service.CountArticles(ctx, category, excludeNews)
+	totalCount, err := h.service.CountArticlesByAuthor(ctx, category, authors, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	articles, err := h.service.GetArticles(ctx, limit, offset, category, excludeNews)
+	articles, err := h.service.GetArticlesByAuthor(ctx, limit, offset, category, authors, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -96,8 +100,9 @@ func (h *ArticleHandler) CountArticles(c echo.Context) error {
 
 	category := c.QueryParam("category")
 	excludeNews := c.QueryParam("excludeNews") == "true"
+	authors := splitAuthors(c.QueryParam("author"))
 
-	count, err := h.service.CountArticles(ctx, category, excludeNews)
+	count, err := h.service.CountArticlesByAuthor(ctx, category, authors, excludeNews)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -397,4 +402,11 @@ func (h *ArticleHandler) IncrementViews(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func splitAuthors(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
 }

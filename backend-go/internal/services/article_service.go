@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,6 +43,14 @@ func NewArticleServiceWithGORM(gormDB *database.Database, redisCache *cache.Redi
 // GetArticles retrieves articles with pagination and optional category filter
 // If category is empty, returns all articles
 func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, category string, excludeNews ...bool) ([]*models.Article, error) {
+	return s.GetArticlesByAuthor(ctx, limit, offset, category, nil, excludeNews...)
+}
+
+// GetArticlesByAuthor is GetArticles narrowed to a byline. Bylines are free
+// text typed in the back-office, so the same person appears under several
+// spellings ("Samuel C", "Samuel Cohen", "Kenan Altarac ") — every alias is
+// matched after trim + lower-case.
+func (s *ArticleService) GetArticlesByAuthor(ctx context.Context, limit int, offset int, category string, authors []string, excludeNews ...bool) ([]*models.Article, error) {
 	// Use GORM if available, otherwise fall back to pgxpool
 	if s.gormDB != nil {
 		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
@@ -54,6 +63,9 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 		} else if shouldExcludeNews {
 			// Exclude "Actus" when excludeNews is true
 			query = query.Where("category != ?", "Actus")
+		}
+		if len(authors) > 0 {
+			query = query.Where(authorMatchSQL, normalizeAuthors(authors))
 		}
 
 		if err := query.Limit(limit).Offset(offset).Find(&articles).Error; err != nil {
@@ -70,6 +82,9 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 	}
 
 	// Fallback to pgxpool
+	if len(authors) > 0 {
+		return nil, fmt.Errorf("author filter requires GORM")
+	}
 	var rows pgx.Rows
 	var err error
 
@@ -112,6 +127,10 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 // CountArticles counts articles with optional category filter
 // If category is empty, counts all articles
 func (s *ArticleService) CountArticles(ctx context.Context, category string, excludeNews ...bool) (int64, error) {
+	return s.CountArticlesByAuthor(ctx, category, nil, excludeNews...)
+}
+
+func (s *ArticleService) CountArticlesByAuthor(ctx context.Context, category string, authors []string, excludeNews ...bool) (int64, error) {
 	if s.gormDB != nil {
 		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
 		var count int64
@@ -124,6 +143,9 @@ func (s *ArticleService) CountArticles(ctx context.Context, category string, exc
 			// Exclude "Actus" when excludeNews is true
 			query = query.Where("category != ?", "Actus")
 		}
+		if len(authors) > 0 {
+			query = query.Where(authorMatchSQL, normalizeAuthors(authors))
+		}
 
 		if err := query.Count(&count).Error; err != nil {
 			return 0, fmt.Errorf("failed to count articles: %w", err)
@@ -132,6 +154,9 @@ func (s *ArticleService) CountArticles(ctx context.Context, category string, exc
 	}
 
 	// Fallback to pgxpool
+	if len(authors) > 0 {
+		return 0, fmt.Errorf("author filter requires GORM")
+	}
 	var count int64
 	var err error
 
@@ -695,4 +720,22 @@ func (s *ArticleService) generateUniqueSlugForUpdate(ctx context.Context, title 
 
 	// Use the utility function with 150 char limit (increased from 80)
 	return utils.GenerateUniqueSlug(title, 150, checkExists)
+}
+
+// Byline comparison: case-insensitive, trimmed, inner whitespace collapsed —
+// the same normalization on both sides. Accents are kept (no unaccent
+// extension on the DB), so the frontend registry must list accented spellings
+// exactly as they appear in the table.
+const authorMatchSQL = `LOWER(regexp_replace(TRIM(author), '\s+', ' ', 'g')) IN ?`
+
+var authorSpaces = regexp.MustCompile(`\s+`)
+
+func normalizeAuthors(authors []string) []string {
+	out := make([]string, 0, len(authors))
+	for _, a := range authors {
+		if a = strings.ToLower(authorSpaces.ReplaceAllString(strings.TrimSpace(a), " ")); a != "" {
+			out = append(out, a)
+		}
+	}
+	return out
 }
