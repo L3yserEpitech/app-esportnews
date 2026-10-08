@@ -16,7 +16,7 @@ export async function generateMetadata(
   const url = `${siteUrl}/${game}/equipe/${encodeURIComponent(id)}/resultats`;
 
   return {
-    title: `${name} — Résultats en tournoi | EsportNews`,
+    title: `${name} — Résultats en tournoi | Esport News`,
     description: `Tous les résultats en tournoi de ${name}. Historique complet des placements, gains et performances.`,
     keywords: `${name}, résultats, tournois, esport, placements, gains`,
     openGraph: {

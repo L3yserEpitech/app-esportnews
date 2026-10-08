@@ -27,11 +27,11 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
   const { game, id: rawId } = await params;
   const id = decodeRouteParam(rawId);
 
-  const fallback = { title: 'Tournoi | EsportNews', description: 'Consultez les tournois esport sur EsportNews' };
+  const fallback = { title: 'Tournoi | Esport News', description: 'Consultez les tournois esport sur Esport News' };
   const response = await fetchTournament(game, id);
   if (!response?.ok) {
     return response?.status === 404
-      ? { title: 'Tournoi non trouvé | EsportNews', description: 'Le tournoi que vous recherchez n\'existe pas.' }
+      ? { title: 'Tournoi non trouvé | Esport News', description: 'Le tournoi que vous recherchez n\'existe pas.' }
       : fallback;
   }
 
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
     const description = `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`;
 
     return {
-      title: `${tournament.name} | Tournoi Esport | EsportNews`,
+      title: `${tournament.name} | Tournoi Esport | Esport News`,
       description,
       keywords: `${tournament.name}, tournoi esport, esports, résultats, classements`,
       openGraph: {

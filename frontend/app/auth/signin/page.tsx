@@ -45,7 +45,7 @@ function SignInForm() {
         <div>
           <Link href="/" className="flex justify-center">
             <div className="text-3xl font-bold bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">
-              EsportNews
+              Esport News
             </div>
           </Link>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">

@@ -74,12 +74,12 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ game: string }> }): Promise<Metadata> {
   const { game } = await params;
   const gameData = await getGame(game);
-  if (!gameData) return { title: 'Jeu non trouvé | EsportNews' };
+  if (!gameData) return { title: 'Jeu non trouvé | Esport News' };
 
   const name = gameData.full_name || gameData.name;
   return generateListingMetadata(
     `Esport ${name} - Matchs en direct, Tournois et Actualités`,
-    `Suivez l'esport ${name} sur EsportNews : matchs en direct, résultats de tournois, classements et toutes les actualités.`,
+    `Suivez l'esport ${name} sur Esport News : matchs en direct, résultats de tournois, classements et toutes les actualités.`,
     `/jeux/${game}`,
     `${name} esport, matchs ${name}, tournois ${name}, actualités ${name}, results ${name}`
   );

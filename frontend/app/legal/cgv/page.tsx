@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Conditions Générales de Vente | EsportNews',
+  title: 'Conditions Générales de Vente | Esport News',
   description: 'Conditions de vente de l\'abonnement Premium ESPORT NEWS',
 };
 

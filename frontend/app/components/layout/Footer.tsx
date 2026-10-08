@@ -242,7 +242,7 @@ export default function Footer() {
         <div style={{ borderColor: 'var(--color-border-primary)' }} className="border-t mt-12 pt-8 flex flex-col items-center gap-2">
           <LiquipediaBadge variant="text" />
           <p style={{ color: 'var(--color-text-muted)' }} className="text-sm text-center">
-            &copy; {year} EsportNews. {t('layout.footer.copyright')}
+            &copy; {year} Esport News. {t('layout.footer.copyright')}
           </p>
         </div>
       </div>

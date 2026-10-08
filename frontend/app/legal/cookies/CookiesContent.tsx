@@ -34,7 +34,7 @@ export default function CookiesContent() {
           <section>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6">
               <p className="mb-4">
-                EsportNews utilise des cookies et technologies similaires pour vous offrir la meilleure expérience possible lors de votre navigation sur notre plateforme e-sport.
+                Esport News utilise des cookies et technologies similaires pour vous offrir la meilleure expérience possible lors de votre navigation sur notre plateforme e-sport.
               </p>
               <p>
                 Cette page vous explique ce que sont les cookies, comment nous les utilisons, et comment vous pouvez gérer vos préférences.
@@ -57,7 +57,7 @@ export default function CookiesContent() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li><strong className="text-white">Cookies de session</strong> : supprimés automatiquement lorsque vous fermez votre navigateur</li>
                 <li><strong className="text-white">Cookies persistants</strong> : restent sur votre appareil pendant une durée définie</li>
-                <li><strong className="text-white">Cookies first-party</strong> : déposés par EsportNews directement</li>
+                <li><strong className="text-white">Cookies first-party</strong> : déposés par Esport News directement</li>
                 <li><strong className="text-white">Cookies third-party</strong> : déposés par nos partenaires (régies publicitaires, analytics)</li>
               </ul>
             </div>
@@ -147,7 +147,7 @@ export default function CookiesContent() {
                       <tr>
                         <td className="py-3 px-4 font-mono text-xs text-gray-400">analytics_events</td>
                         <td className="py-3 px-4">Suivi des interactions clés (clics jeux, ouverture streams, navigation)</td>
-                        <td className="py-3 px-4 text-gray-400">EsportNews</td>
+                        <td className="py-3 px-4 text-gray-400">Esport News</td>
                         <td className="py-3 px-4 text-gray-400">90 jours</td>
                       </tr>
                       <tr>
@@ -230,7 +230,7 @@ export default function CookiesContent() {
               </h3>
               <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-4">
                 <p className="text-sm bg-[#182859]/20 border border-[#182859] rounded px-3 py-2 text-gray-300">
-                  Ces cookies permettent de mémoriser vos préférences pour personnaliser votre expérience sur EsportNews.
+                  Ces cookies permettent de mémoriser vos préférences pour personnaliser votre expérience sur Esport News.
                 </p>
 
                 <div className="overflow-x-auto">
@@ -393,7 +393,7 @@ export default function CookiesContent() {
                     Une expérience mobile sans popups publicitaires
                   </h3>
                   <p className="mb-4">
-                    En souscrivant à un abonnement EsportNews Premium, vous bénéficiez d'une navigation mobile <strong className="text-[#F22E62]">sans aucun popup publicitaire intrusif</strong>.
+                    En souscrivant à un abonnement Esport News Premium, vous bénéficiez d'une navigation mobile <strong className="text-[#F22E62]">sans aucun popup publicitaire intrusif</strong>.
                   </p>
 
                   <div className="bg-[#182859]/30 rounded p-4 mb-3">

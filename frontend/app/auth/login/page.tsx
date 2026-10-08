@@ -120,7 +120,7 @@ export default function LoginPage() {
             <h1 className="text-5xl font-bold text-text-primary leading-tight">
               Connectez-vous à<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F22E62] to-pink-400">
-                EsportNews
+                Esport News
               </span>
             </h1>
 

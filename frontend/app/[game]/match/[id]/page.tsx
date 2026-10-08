@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   const { game, id } = await params;
   const wiki = slugToWiki(game);
   if (!wiki) {
-    return { title: 'Match | EsportNews', description: 'Détails du match en direct' };
+    return { title: 'Match | Esport News', description: 'Détails du match en direct' };
   }
 
   try {
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
     };
   } catch (error) {
     console.error('Error generating metadata for match:', error);
-    return { title: 'Match | EsportNews', description: 'Détails du match en direct' };
+    return { title: 'Match | Esport News', description: 'Détails du match en direct' };
   }
 }
 

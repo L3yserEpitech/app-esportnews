@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Mentions légales | EsportNews',
-  description: 'Mentions légales et informations juridiques d\'EsportNews',
+  title: 'Mentions légales | Esport News',
+  description: 'Mentions légales et informations juridiques d\'Esport News',
 };
 
 export default function MentionsLegalesPage() {

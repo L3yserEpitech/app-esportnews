@@ -23,7 +23,7 @@ export function StructuredData({ data }: StructuredDataProps) {
 /**
  * Schéma pour un article (NewsArticle ou Article)
  */
-const SITE_NAME = 'EsportNews';
+const SITE_NAME = 'Esport News';
 
 // Shared publisher node: a news site is a NewsMediaOrganization, not a bare
 // Organization. Logo dimensions are the real ones of public/logo_blanc.png.

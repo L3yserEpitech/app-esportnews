@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Politique de Confidentialité | EsportNews',
+  title: 'Politique de Confidentialité | Esport News',
   description: 'Comment ESPORT NEWS protège vos données personnelles - Conformité RGPD',
 };
 

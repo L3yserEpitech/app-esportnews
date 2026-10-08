@@ -25,7 +25,7 @@ export async function generateMetadata(
 
     if (!response.ok) {
       return {
-        title: 'Tournoi non trouvé | EsportNews',
+        title: 'Tournoi non trouvé | Esport News',
         description: 'Le tournoi que vous recherchez n\'existe pas.',
       };
     }
@@ -40,7 +40,7 @@ export async function generateMetadata(
       : `${siteUrl}/tournois/${tournament.id}`;
 
     return {
-      title: `${tournament.name} | Tournoi Esport | EsportNews`,
+      title: `${tournament.name} | Tournoi Esport | Esport News`,
       description: `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`,
       keywords: `${tournament.name}, tournoi esport, esports, résultats, classements`,
       openGraph: {
@@ -61,8 +61,8 @@ export async function generateMetadata(
   } catch (error) {
     console.error('Error generating metadata for tournament:', error);
     return {
-      title: 'Tournoi | EsportNews',
-      description: 'Consultez les tournois esport sur EsportNews',
+      title: 'Tournoi | Esport News',
+      description: 'Consultez les tournois esport sur Esport News',
     };
   }
 }

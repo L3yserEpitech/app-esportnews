@@ -64,14 +64,14 @@ export async function generateMetadata(
 
   const team = await fetchTeamDetail(wiki, id);
   if (!team) {
-    return { title: 'Équipe non trouvée | EsportNews', description: "L'équipe que vous recherchez n'existe pas." };
+    return { title: 'Équipe non trouvée | Esport News', description: "L'équipe que vous recherchez n'existe pas." };
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const url = `${siteUrl}/${game}/equipe/${encodeURIComponent(id)}`;
 
   return {
-    title: `${team.name} | Équipe Esport | EsportNews`,
+    title: `${team.name} | Équipe Esport | Esport News`,
     description: `Suivez l'équipe ${team.name}. Roster, matchs récents et à venir, résultats et statistiques.`,
     keywords: `${team.name}, ${team.acronym || ''}, équipe esport, esports, roster, résultats`,
     openGraph: {

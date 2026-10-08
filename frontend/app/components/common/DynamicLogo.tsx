@@ -39,7 +39,7 @@ export default function DynamicLogo({ width, height, className, priority = false
     return (
       <Image
         src="/logo_blanc.png"
-        alt="EsportNews"
+        alt="Esport News"
         width={width}
         height={height}
         className={className}
@@ -51,7 +51,7 @@ export default function DynamicLogo({ width, height, className, priority = false
   return (
     <Image
       src={isDarkTheme ? '/logo_blanc.png' : '/logo_noir.png'}
-      alt="EsportNews"
+      alt="Esport News"
       width={width}
       height={height}
       className={className}

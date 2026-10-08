@@ -15,7 +15,7 @@ export function generateListingMetadata(
   const url = `${siteUrl}${path}`;
 
   return {
-    title: `${title} | EsportNews`,
+    title: `${title} | Esport News`,
     description,
     keywords: keywords || title,
     openGraph: {

@@ -902,7 +902,7 @@ Les images Liquipedia passent par le **proxy backend** (`/api/proxy/image`) pour
 5 langues : `fr`, `en`, `es`, `de`, `it`. Fichiers de traduction par page/composant.
 
 ### SEO éditorial (articles, auteurs, flux)
-* **Nom de marque** : `EsportNews` partout (titres, OG `siteName`, JSON-LD, RSS, Google News). « Esport News » ne subsiste que dans les mentions légales (raison sociale « Esport News SAS »).
+* **Nom de marque** : `Esport News` (deux mots, décision de Kenan le 2026-10-08) partout : titres, OG `siteName`, JSON-LD, RSS, `<news:name>` du sitemap Google News (doit matcher le Publisher Center), locales. Jamais `EsportNews` dans un texte visible.
 * **Robots** : `max-image-preview:large`, `max-snippet:-1`, `max-video-preview:-1` déclarés dans `layout.tsx` (hérités partout) et répétés explicitement sur les pages article.
 * **Viewport / theme-color** : via `export const viewport` dans `layout.tsx` — ne jamais rajouter de `<meta name="viewport">` manuel (doublon).
 * **RSS** : `/feed.xml` (20 derniers articles, `atom:link rel=self`, `dc:creator` = nom complet), déclaré en `<link rel="alternate" type="application/rss+xml">` directement dans le `<head>` du layout — pas via `metadata.alternates`, qu'une page écrase entièrement dès qu'elle pose son `canonical`.

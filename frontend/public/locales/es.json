@@ -47,7 +47,7 @@
     }
   },
   "meta": {
-    "title": "EsportNews — Noticias de esports y resultados en directo",
+    "title": "Esport News — Noticias de esports y resultados en directo",
     "description": "Noticias de esports y resultados en directo. Resultados, clasificaciones, análisis, entrevistas y calendario de torneos: CS2, Rocket League, LoL, Valorant, Fortnite…",
     "keywords": "esport, gaming, torneos, partidos en directo, noticias, resultados, CS2, Rocket League, LoL, Valorant, Fortnite, clasificaciones, análisis"
   },
@@ -110,7 +110,7 @@
     "login": {
       "content_de_vous_revoir": "¡Nos alegra verte de nuevo!",
       "connectez_vous_a": "Inicia sesión en",
-      "esportnews": "EsportNews",
+      "esportnews": "Esport News",
       "acces_espace_personnel": "Accede a tu espacio personal y disfruta de todas las características de la plataforma.",
       "personnalisez_experience": "Personaliza tu experiencia",
       "suivez_jeux_equipes": "Sigue tus juegos y equipos favoritos",

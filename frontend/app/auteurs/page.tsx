@@ -7,12 +7,12 @@ import { SITE_URL } from '@/app/lib/seoHelpers';
 
 
 export const metadata: Metadata = {
-  title: 'La rédaction | EsportNews',
-  description: "Les journalistes et rédacteurs d'EsportNews : actualités, analyses, interviews et tests produits esport.",
+  title: 'La rédaction | Esport News',
+  description: "Les journalistes et rédacteurs d'Esport News : actualités, analyses, interviews et tests produits esport.",
   alternates: { canonical: `${SITE_URL}/auteurs` },
   openGraph: {
-    title: 'La rédaction | EsportNews',
-    description: "Les journalistes et rédacteurs d'EsportNews.",
+    title: 'La rédaction | Esport News',
+    description: "Les journalistes et rédacteurs d'Esport News.",
     url: `${SITE_URL}/auteurs`,
     type: 'website',
   },
@@ -36,7 +36,7 @@ export default function AuthorsPage() {
 
         <h1 className="text-3xl md:text-4xl font-bold text-text-primary mb-2">La rédaction</h1>
         <p className="text-text-secondary mb-8">
-          Les journalistes et rédacteurs qui signent les actualités, analyses et interviews d&apos;EsportNews.
+          Les journalistes et rédacteurs qui signent les actualités, analyses et interviews d&apos;Esport News.
         </p>
 
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

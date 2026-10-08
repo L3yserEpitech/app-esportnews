@@ -47,7 +47,7 @@
     }
   },
   "meta": {
-    "title": "EsportNews — Live esports news & scores",
+    "title": "Esport News — Live esports news & scores",
     "description": "Live esports news and scores. Results, rankings, analysis, interviews and tournament schedule: CS2, Rocket League, LoL, Valorant, Fortnite…",
     "keywords": "esport, gaming, tournaments, live matches, news, scores, CS2, Rocket League, LoL, Valorant, Fortnite, rankings, analysis"
   },
@@ -110,7 +110,7 @@
     "login": {
       "content_de_vous_revoir": "Welcome back!",
       "connectez_vous_a": "Sign in to",
-      "esportnews": "EsportNews",
+      "esportnews": "Esport News",
       "acces_espace_personnel": "Access your personal space and enjoy all the platform features.",
       "personnalisez_experience": "Personalize your experience",
       "suivez_jeux_equipes": "Follow your favorite games and teams",

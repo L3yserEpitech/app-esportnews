@@ -26,11 +26,11 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
   const { game, id: rawId } = await params;
   const id = decodeRouteParam(rawId);
 
-  const fallback = { title: 'Joueur | EsportNews', description: 'Profils des joueurs esport sur EsportNews' };
+  const fallback = { title: 'Joueur | Esport News', description: 'Profils des joueurs esport sur Esport News' };
   const response = await fetchPlayer(game, id);
   if (!response?.ok) {
     return response?.status === 404
-      ? { title: 'Joueur non trouvé | EsportNews', description: 'Le joueur que vous recherchez n\'existe pas.' }
+      ? { title: 'Joueur non trouvé | Esport News', description: 'Le joueur que vous recherchez n\'existe pas.' }
       : fallback;
   }
 
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
     const description = `Profil de ${player.id} (${realName}) : équipe, carrière, gains, matchs et statistiques.`;
 
     return {
-      title: `${player.id} | Joueur Esport | EsportNews`,
+      title: `${player.id} | Joueur Esport | Esport News`,
       description,
       keywords: `${player.id}, ${realName}, joueur esport, esports, carrière, gains`,
       openGraph: { title: player.id, description, type: 'profile', url },

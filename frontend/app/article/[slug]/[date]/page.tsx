@@ -127,21 +127,21 @@ export async function generateMetadata(
 
   if (!article) {
     return {
-      title: 'Article non trouvé | EsportNews',
+      title: 'Article non trouvé | Esport News',
       description: "L'article que vous recherchez n'existe pas.",
     };
   }
 
   const url = `${SITE_URL}/article/${article.slug}/${formatDateSlug(article.created_at)}`;
   const description =
-    article.description || article.subtitle || "Lire l'article complet sur EsportNews";
+    article.description || article.subtitle || "Lire l'article complet sur Esport News";
   const author = findAuthor(article.author);
-  const authorName = authorDisplayName(article.author) || 'EsportNews';
+  const authorName = authorDisplayName(article.author) || 'Esport News';
   const authorUrl = author ? `${SITE_URL}${authorHref(author)}` : undefined;
   const section = sectionFor(article.category);
 
   return {
-    title: `${article.title} | EsportNews`,
+    title: `${article.title} | Esport News`,
     description,
     keywords: article.tags?.join(', '),
     authors: [{ name: authorName, url: authorUrl }],
@@ -150,7 +150,7 @@ export async function generateMetadata(
       description,
       type: 'article',
       url,
-      siteName: 'EsportNews',
+      siteName: 'Esport News',
       locale: 'fr_FR',
       images: article.featuredImage
         ? [
@@ -215,7 +215,7 @@ export default async function ArticlePage(
     { name: article.title, url: articleUrl },
   ]);
   const author = findAuthor(article.author);
-  const authorName = authorDisplayName(article.author) || 'EsportNews';
+  const authorName = authorDisplayName(article.author) || 'Esport News';
   const authorUrl = author ? `${SITE_URL}${authorHref(author)}` : undefined;
 
   const contentDark = article.content_black ?? article.content ?? '';

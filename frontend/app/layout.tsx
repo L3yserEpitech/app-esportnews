@@ -12,7 +12,7 @@ import ProxyImageRetry from "./components/common/ProxyImageRetry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
-const SITE_NAME = "EsportNews";
+const SITE_NAME = "Esport News";
 const SITE_TITLE = `${SITE_NAME} — Actus esport & scores en direct`;
 const SITE_DESCRIPTION = "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…";
 

@@ -38,19 +38,19 @@ function pageNumber(raw: string | undefined): number {
 export async function generateMetadata({ params, searchParams }: Params): Promise<Metadata> {
   const { slug } = await params;
   const author = findAuthorBySlug(slug);
-  if (!author) return { title: 'Auteur introuvable | EsportNews' };
+  if (!author) return { title: 'Auteur introuvable | Esport News' };
 
   const page = pageNumber((await searchParams).page);
   const base = `${SITE_URL}${authorHref(author)}`;
   const url = page > 1 ? `${base}?page=${page}` : base;
-  const title = page > 1 ? `${author.name} — page ${page} | EsportNews` : `${author.name} | EsportNews`;
-  const description = `Tous les articles de ${author.name} sur EsportNews : actualités, analyses et interviews esport.`;
+  const title = page > 1 ? `${author.name} — page ${page} | Esport News` : `${author.name} | Esport News`;
+  const description = `Tous les articles de ${author.name} sur Esport News : actualités, analyses et interviews esport.`;
 
   return {
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'profile', siteName: 'EsportNews' },
+    openGraph: { title, description, url, type: 'profile', siteName: 'Esport News' },
   };
 }
 
@@ -90,7 +90,7 @@ export default async function AuthorPage({ params, searchParams }: Params) {
         <header className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-text-primary mb-2">{author.name}</h1>
           <p className="text-text-secondary">
-            {total} {total > 1 ? 'articles publiés' : 'article publié'} sur EsportNews
+            {total} {total > 1 ? 'articles publiés' : 'article publié'} sur Esport News
           </p>
         </header>
 

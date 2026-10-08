@@ -8,7 +8,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr'
 // Google News Publisher Center: <news:name> must EXACTLY match the publication
 // name displayed on news.google.com (omitting anything in parentheses).
 // Article bodies are French, so the whole feed is declared as `fr`.
-const PUBLICATION_NAME = 'EsportNews';
+const PUBLICATION_NAME = 'Esport News';
 const PUBLICATION_LANGUAGE = 'fr';
 
 const NEWS_CATEGORY = 'Actus';
