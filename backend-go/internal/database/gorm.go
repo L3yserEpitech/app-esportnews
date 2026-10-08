@@ -105,6 +105,20 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	}
 	log.Info("articles.notified_at column ensured")
 
+	// dateModified for SEO: the legacy table has no updated_at. Backfill from
+	// created_at so existing rows carry a real value instead of "now", which
+	// would falsely advertise every article as freshly edited.
+	for _, stmt := range []string{
+		`ALTER TABLE IF EXISTS articles ADD COLUMN IF NOT EXISTS updated_at timestamptz`,
+		`UPDATE articles SET updated_at = created_at WHERE updated_at IS NULL`,
+		`ALTER TABLE IF EXISTS articles ALTER COLUMN updated_at SET DEFAULT now()`,
+	} {
+		if err := db.Exec(stmt).Error; err != nil {
+			return nil, fmt.Errorf("failed to ensure articles.updated_at column: %w", err)
+		}
+	}
+	log.Info("articles.updated_at column ensured")
+
 	// Auto migrate legacy models only in development (tables already exist in production/Supabase)
 	if env == "development" {
 		if err := db.AutoMigrate(

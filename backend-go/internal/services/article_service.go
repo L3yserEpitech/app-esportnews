@@ -188,7 +188,7 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 			defer cancel()
 			s.gormDB.WithContext(ctx).Model(&models.Article{}).
 				Where("slug = ?", slug).
-				Update("views", gorm.Expr("views + ?", 1))
+				UpdateColumn("views", gorm.Expr("views + ?", 1))
 		}()
 	} else {
 		// Fallback to pgxpool
@@ -634,7 +634,7 @@ func (s *ArticleService) IncrementViews(ctx context.Context, slug string) error 
 	if err := s.gormDB.WithContext(ctx).
 		Model(&models.Article{}).
 		Where("slug = ?", slug).
-		Update("views", gorm.Expr("views + ?", 1)).Error; err != nil {
+		UpdateColumn("views", gorm.Expr("views + ?", 1)).Error; err != nil {
 		return fmt.Errorf("failed to increment views: %w", err)
 	}
 

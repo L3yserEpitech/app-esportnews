@@ -225,7 +225,7 @@ func (s *ContentNotificationService) markNotified(ctx context.Context, article *
 	now := time.Now()
 	if err := s.getDB().WithContext(ctx).Model(&models.Article{}).
 		Where("id = ?", article.ID).
-		Update("notified_at", now).Error; err != nil {
+		UpdateColumn("notified_at", now).Error; err != nil {
 		s.logger.Errorf("[ContentNotif] Failed to stamp notified_at for article %d: %v", article.ID, err)
 		return
 	}

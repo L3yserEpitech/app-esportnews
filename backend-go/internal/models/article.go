@@ -15,6 +15,7 @@ type StringArray []string
 type Article struct {
 	ID             int64       `json:"id" gorm:"primaryKey"`
 	CreatedAt      time.Time   `json:"created_at" gorm:"autoCreateTime:milli"`
+	UpdatedAt      time.Time   `json:"updated_at" gorm:"autoUpdateTime:milli"`
 	Slug           *string     `json:"slug" gorm:"uniqueIndex"`
 	Tags           StringArray `json:"tags" gorm:"type:text[]"`
 	Title          *string     `json:"title"`
