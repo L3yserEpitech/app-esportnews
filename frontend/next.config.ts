@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      ...(process.env.NEXT_PUBLIC_IMAGE_HOST
+        ? [{ protocol: 'https' as const, hostname: process.env.NEXT_PUBLIC_IMAGE_HOST, port: '', pathname: '/**' }]
+        : []),
       {
         protocol: 'https',
         hostname: 'i.postimg.cc',
