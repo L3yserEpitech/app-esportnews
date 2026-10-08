@@ -1,3 +1,5 @@
+import { SITE_URL } from './seoHelpers';
+
 /**
  * Helper pour générer les breadcrumbs et le JSON-LD
  */
@@ -7,10 +9,12 @@ export interface BreadcrumbItem {
   url: string;
 }
 
+
 export function generateBreadcrumbs(pathSegments: BreadcrumbItem[]): BreadcrumbItem[] {
-  // Toujours commencer par Home
+  // Always start at home, as an absolute URL: the crawler reads BreadcrumbList
+  // items outside any page context, so a bare "/" is meaningless there.
   return [
-    { name: 'Accueil', url: '/' },
+    { name: 'Accueil', url: SITE_URL },
     ...pathSegments,
   ];
 }

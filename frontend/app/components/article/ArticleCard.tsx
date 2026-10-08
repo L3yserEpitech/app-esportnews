@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { NewsItem } from '@/app/types';
 import { canUseNextImage, isVideoUrl } from '@/app/lib/imageUtils';
 import { articleHref } from '@/app/lib/articleUrl';
+import { authorDisplayName } from '@/app/lib/authors';
 
 interface ArticleCardProps {
   article: NewsItem;
@@ -101,7 +102,7 @@ export default function ArticleCard({ article, onClick }: ArticleCardProps) {
             <span>•</span>
             <span>{article.readTime} min</span>
             <span>•</span>
-            <span>{article.author}</span>
+            <span>{authorDisplayName(article.author)}</span>
           </div>
         </div>
       </article>

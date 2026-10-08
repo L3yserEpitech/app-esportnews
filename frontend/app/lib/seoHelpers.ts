@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+const siteUrl = SITE_URL;
 
 /**
  * Générer des métadonnées cohérentes pour les pages listing

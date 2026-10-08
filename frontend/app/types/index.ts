@@ -53,6 +53,7 @@ export interface NewsItem {
   description: string;
   author: string;
   created_at: string;
+  updated_at?: string;
   readTime?: number; // Calculé côté client si nécessaire
   featuredImage: string;
   category: string;
@@ -73,6 +74,7 @@ export interface Article extends NewsItem {
 export interface SupabaseArticle {
   id: number;
   created_at: string;
+  updated_at?: string;
   slug: string;
   tags: string[] | string | null;
   title: string;

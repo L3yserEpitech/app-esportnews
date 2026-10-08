@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { NewsItem } from '@/app/types';
 import { articleHref } from '@/app/lib/articleUrl';
+import { authorDisplayName } from '@/app/lib/authors';
 
 interface FeaturedArticleCardProps {
   article: NewsItem;
@@ -83,7 +84,7 @@ export default function FeaturedArticleCard({ article, onClick }: FeaturedArticl
           >
             <span>{formatDate(article.created_at)}</span>
             <span>•</span>
-            <span>{article.author}</span>
+            <span>{authorDisplayName(article.author)}</span>
           </div>
         </div>
       </div>

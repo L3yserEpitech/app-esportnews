@@ -1,5 +1,6 @@
 import { NewsItem, Article, SupabaseArticle } from '../types';
 import { getApiBaseUrl } from '../lib/apiConfig';
+import { publicImageUrl, rewriteImageHosts } from '../lib/imageUtils';
 
 function parseTags(tags: string | string[] | null | undefined): string[] {
   if (!tags) return [];
@@ -12,18 +13,46 @@ function parseTags(tags: string | string[] | null | undefined): string[] {
   }
 }
 
+function calculateReadTime(content: string | undefined): number {
+  if (!content) return 0;
+  const words = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+// Single API → NewsItem mapping, shared by every listing (client pages,
+// feeds, sitemaps, author pages). Add new fields here, nowhere else.
+export function toNewsItem(item: SupabaseArticle): NewsItem {
+  return {
+    id: item.id,
+    slug: item.slug,
+    title: item.title,
+    subtitle: item.subtitle,
+    description: item.description,
+    author: item.author,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+    readTime: calculateReadTime(item.content),
+    featuredImage: publicImageUrl(item.featuredImage),
+    category: item.category,
+    credit: item.credit,
+    tags: parseTags(item.tags),
+    views: item.views || 0,
+  };
+}
+
 class ArticleService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   private lastTotalCount: number = 0; // Cache for X-Total-Count header
 
-  async getAllArticles(options?: { limit?: number; offset?: number; category?: string; excludeNews?: boolean }): Promise<NewsItem[]> {
+  async getAllArticles(options?: { limit?: number; offset?: number; category?: string; excludeNews?: boolean; author?: string }): Promise<NewsItem[]> {
     try {
       const params = new URLSearchParams();
       if (options?.limit) params.append('limit', options.limit.toString());
       if (options?.offset) params.append('offset', options.offset.toString());
       if (options?.category) params.append('category', options.category);
       if (options?.excludeNews) params.append('excludeNews', 'true');
+      if (options?.author) params.append('author', options.author);
 
       const url = `${this.baseUrl}/api/articles${params.toString() ? `?${params.toString()}` : ''}`;
 
@@ -60,21 +89,7 @@ class ArticleService {
         return [];
       }
 
-      const transformed = data.map((item: SupabaseArticle) => ({
-        id: item.id,
-        slug: item.slug,
-        title: item.title,
-        subtitle: item.subtitle,
-        description: item.description,
-        author: item.author,
-        created_at: item.created_at,
-        readTime: this.calculateReadTime(item.content), // Calculer le temps de lecture
-        featuredImage: item.featuredImage,
-        category: item.category,
-        credit: item.credit,
-        tags: parseTags(item.tags),
-        views: item.views || 0,
-      }));
+      const transformed = data.map(toNewsItem);
 
       console.log('[ArticleService] Transformed articles:', transformed.length);
       return transformed;
@@ -127,15 +142,16 @@ class ArticleService {
         description: data.description,
         author: data.author,
         created_at: data.created_at,
-        readTime: this.calculateReadTime(data.content),
-        featuredImage: data.featuredImage,
+        updated_at: data.updated_at,
+        readTime: calculateReadTime(data.content),
+        featuredImage: publicImageUrl(data.featuredImage),
         category: data.category,
         credit: data.credit,
         tags: parseTags(data.tags),
         views: data.views || 0,
-        content: data.content,
-        content_black: data.content_black,
-        content_white: data.content_white,
+        content: rewriteImageHosts(data.content),
+        content_black: rewriteImageHosts(data.content_black),
+        content_white: rewriteImageHosts(data.content_white),
       };
 
     } catch (error) {
@@ -185,8 +201,9 @@ class ArticleService {
         description: item.description,
         author: item.author,
         created_at: item.created_at,
-        readTime: this.calculateReadTime(item.content),
-        featuredImage: item.featuredImage,
+        updated_at: item.updated_at,
+        readTime: calculateReadTime(item.content),
+        featuredImage: publicImageUrl(item.featuredImage),
         category: item.category,
         credit: item.credit,
         tags: parseTags(item.tags),
@@ -227,8 +244,9 @@ class ArticleService {
         description: item.description,
         author: item.author,
         created_at: item.created_at,
-        readTime: this.calculateReadTime(item.content),
-        featuredImage: item.featuredImage,
+        updated_at: item.updated_at,
+        readTime: calculateReadTime(item.content),
+        featuredImage: publicImageUrl(item.featuredImage),
         category: item.category,
         credit: item.credit,
         tags: parseTags(item.tags),
@@ -241,20 +259,6 @@ class ArticleService {
     }
   }
 
-  // Méthode utilitaire pour calculer le temps de lecture
-  private calculateReadTime(content: string): number {
-    if (!content) return 0;
-    
-    // Supprimer les balises HTML et compter les mots
-    const textContent = content.replace(/<[^>]*>/g, '');
-    const wordCount = textContent.split(/\s+/).length;
-    
-    // Estimation : 200 mots par minute
-    const wordsPerMinute = 200;
-    const readTime = Math.ceil(wordCount / wordsPerMinute);
-    
-    return Math.max(1, readTime); // Minimum 1 minute
-  }
 }
 
 export const articleService = new ArticleService();
