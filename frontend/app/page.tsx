@@ -19,7 +19,7 @@ export default function HomePage() {
   return (
     <>
       <WebSiteSchema url={SITE_URL} />
-      <OrganizationSchema url={SITE_URL} />
+      <OrganizationSchema />
       <HomePageClient />
     </>
   );

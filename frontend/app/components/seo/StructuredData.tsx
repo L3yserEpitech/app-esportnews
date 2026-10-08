@@ -1,3 +1,5 @@
+import { SITE_URL } from '@/app/lib/seoHelpers';
+
 
 interface StructuredDataProps {
   data: Record<string, any>;
@@ -21,6 +23,23 @@ export function StructuredData({ data }: StructuredDataProps) {
 /**
  * Schéma pour un article (NewsArticle ou Article)
  */
+const SITE_NAME = 'EsportNews';
+
+// Shared publisher node: a news site is a NewsMediaOrganization, not a bare
+// Organization. Logo dimensions are the real ones of public/logo_blanc.png.
+export const PUBLISHER = {
+  '@type': 'NewsMediaOrganization',
+  '@id': `${SITE_URL}/#organization`,
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: {
+    '@type': 'ImageObject',
+    url: `${SITE_URL}/logo_blanc.png`,
+    width: 527,
+    height: 190,
+  },
+};
+
 export function ArticleSchema({
   title,
   description,
@@ -28,6 +47,9 @@ export function ArticleSchema({
   datePublished,
   dateModified,
   author,
+  authorUrl,
+  section,
+  keywords,
   url,
 }: {
   title: string;
@@ -36,6 +58,9 @@ export function ArticleSchema({
   datePublished: string;
   dateModified?: string;
   author: string;
+  authorUrl?: string;
+  section?: string;
+  keywords?: string[];
   url: string;
 }) {
   const schema = {
@@ -55,25 +80,46 @@ export function ArticleSchema({
       : [],
     datePublished,
     dateModified: dateModified || datePublished,
+    inLanguage: 'fr',
+    isAccessibleForFree: true,
+    ...(section && { articleSection: section }),
+    ...(keywords?.length && { keywords: keywords.join(', ') }),
     author: {
       '@type': 'Person',
       name: author,
+      ...(authorUrl && { url: authorUrl }),
     },
-    publisher: {
-      '@type': 'Organization',
-      name: 'EsportNews',
-      url: 'https://www.esportnews.fr',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://www.esportnews.fr/logo_blanc.png',
-        width: 250,
-        height: 60,
-      },
-    },
+    publisher: PUBLISHER,
     url,
     mainEntityOfPage: {
       '@type': 'WebPage',
       '@id': url,
+    },
+  };
+
+  return <StructuredData data={schema} />;
+}
+
+/**
+ * Schéma pour une page auteur (ProfilePage + Person)
+ */
+export function AuthorSchema({
+  name,
+  url,
+}: {
+  name: string;
+  url: string;
+}) {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url,
+    mainEntity: {
+      '@type': 'Person',
+      '@id': `${url}#person`,
+      name,
+      url,
+      worksFor: PUBLISHER,
     },
   };
 
@@ -156,10 +202,6 @@ export function TournamentSchema({
     endDate,
     url,
     location: location ? { '@type': 'Place', name: location } : undefined,
-    organizer: {
-      '@type': 'Organization',
-      name: 'EsportNews',
-    },
     ...(prizeMoney && { offers: { '@type': 'Offer', price: prizeMoney } }),
     ...(teams && { numberOfParticipants: teams }),
   };
@@ -171,24 +213,15 @@ export function TournamentSchema({
  * Schéma pour une Organisation
  */
 export function OrganizationSchema({
-  url = 'https://www.esportnews.fr',
-  logo = 'https://www.esportnews.fr/logo_blanc.png',
-  name = 'EsportNews',
-  description = 'Plateforme e-sport mettant en avant les matchs en direct et actualités',
+  description = 'Média esport : actualités, analyses, interviews et scores en direct',
   sameAs = [],
 }: {
-  url?: string;
-  logo?: string;
-  name?: string;
   description?: string;
   sameAs?: string[];
-}) {
+} = {}) {
   const schema = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
-    url,
-    name,
-    logo,
+    ...PUBLISHER,
     description,
     sameAs,
   };
@@ -222,8 +255,8 @@ export function BreadcrumbSchema({
  * Schéma pour un WebSite (homepage)
  */
 export function WebSiteSchema({
-  url = 'https://www.esportnews.fr',
-  name = 'EsportNews',
+  url = SITE_URL,
+  name = SITE_NAME,
 }: {
   url?: string;
   name?: string;
@@ -233,6 +266,8 @@ export function WebSiteSchema({
     '@type': 'WebSite',
     url,
     name,
+    inLanguage: 'fr',
+    publisher: { '@id': PUBLISHER['@id'] },
   };
 
   return <StructuredData data={schema} />;

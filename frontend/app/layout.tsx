@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -12,26 +12,51 @@ import ProxyImageRetry from "./components/common/ProxyImageRetry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
+const SITE_NAME = "EsportNews";
+const SITE_TITLE = `${SITE_NAME} — Actus esport & scores en direct`;
+const SITE_DESCRIPTION = "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…";
+
+// Next.js emits the viewport meta from this export; a hand-written
+// <meta name="viewport"> in <head> would be a duplicate.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#060B13",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Esport News — Actus esport & scores en direct",
-  description: "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   keywords: "esport, gaming, tournois, matchs en direct, actualités, scores, CS2, Rocket League, LoL, Valorant, Fortnite, classements, analyses,",
-  authors: [{ name: "Esport News" }],
+  authors: [{ name: SITE_NAME }],
   openGraph: {
-    title: "Esport News — Actus esport & scores en direct",
-    description: "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     type: "website",
     locale: "fr_FR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Esport News — Actus esport & scores en direct",
-    description: "Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois : CS2, Rocket League, LoL, Valorant, Fortnite…",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
+  // Google only shows large image thumbnails (Discover, Top Stories) and
+  // full-length snippets when the page opts in explicitly.
   robots: {
     index: true,
     follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+    "max-video-preview": -1,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 
@@ -52,8 +77,15 @@ export default function RootLayout({
   return (
     <html lang={langMap[locale] || 'fr'}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#060B13" />
+        {/* Emitted here rather than through metadata.alternates: pages that set
+            their own canonical replace the whole `alternates` object, which
+            would silently drop the feed link on every article. */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={`${SITE_NAME} — Flux RSS`}
+          href={`${SITE_URL}/feed.xml`}
+        />
         {/* Applies the stored theme before first paint. ThemeProvider only
             reaches it from an effect, i.e. after hydration, so without this the
             server-rendered markup would flash the dark default at anyone using

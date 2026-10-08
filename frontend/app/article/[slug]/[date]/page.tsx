@@ -10,9 +10,23 @@ import ArticleSidebar from '../ArticleSidebar';
 import { ArticleSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 import { formatDateSlug } from '@/app/lib/articleUrl';
+import { authorDisplayName, authorHref, findAuthor } from '@/app/lib/authors';
+import { publicImageUrl, rewriteImageHosts } from '@/app/lib/imageUtils';
+import { modifiedDate, toIsoSeconds } from '@/app/lib/seoDates';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+
+// Articles are split into two public sections: "Actus" lives under /news,
+// everything else (analyses, interviews, tests…) under /articles. The
+// breadcrumb must point at the section the article is actually listed in.
+const NEWS_CATEGORY = 'Actus';
+
+function sectionFor(category: string | null | undefined) {
+  return category === NEWS_CATEGORY
+    ? { name: 'Actualités', path: '/news' }
+    : { name: 'Articles', path: '/articles' };
+}
 
 function calculateReadTime(content: string | undefined): number {
   if (!content) return 0;
@@ -41,15 +55,16 @@ function toArticle(data: SupabaseArticle): Article {
     description: data.description,
     author: data.author,
     created_at: data.created_at,
+    updated_at: data.updated_at,
     readTime: calculateReadTime(data.content),
-    featuredImage: data.featuredImage,
+    featuredImage: publicImageUrl(data.featuredImage),
     category: data.category,
     credit: data.credit,
     tags: parseTags(data.tags),
     views: data.views || 0,
-    content: data.content,
-    content_black: data.content_black,
-    content_white: data.content_white,
+    content: rewriteImageHosts(data.content),
+    content_black: rewriteImageHosts(data.content_black),
+    content_white: rewriteImageHosts(data.content_white),
   };
 }
 
@@ -62,8 +77,9 @@ function toNewsItem(data: SupabaseArticle): NewsItem {
     description: data.description,
     author: data.author,
     created_at: data.created_at,
+    updated_at: data.updated_at,
     readTime: calculateReadTime(data.content),
-    featuredImage: data.featuredImage,
+    featuredImage: publicImageUrl(data.featuredImage),
     category: data.category,
     credit: data.credit,
     tags: parseTags(data.tags),
@@ -119,17 +135,23 @@ export async function generateMetadata(
   const url = `${SITE_URL}/article/${article.slug}/${formatDateSlug(article.created_at)}`;
   const description =
     article.description || article.subtitle || "Lire l'article complet sur EsportNews";
+  const author = findAuthor(article.author);
+  const authorName = authorDisplayName(article.author) || 'EsportNews';
+  const authorUrl = author ? `${SITE_URL}${authorHref(author)}` : undefined;
+  const section = sectionFor(article.category);
 
   return {
     title: `${article.title} | EsportNews`,
     description,
     keywords: article.tags?.join(', '),
-    authors: [{ name: article.author || 'EsportNews' }],
+    authors: [{ name: authorName, url: authorUrl }],
     openGraph: {
       title: article.title,
       description,
       type: 'article',
       url,
+      siteName: 'EsportNews',
+      locale: 'fr_FR',
       images: article.featuredImage
         ? [
             {
@@ -140,8 +162,12 @@ export async function generateMetadata(
             },
           ]
         : [],
-      publishedTime: article.created_at,
-      authors: [article.author || 'EsportNews'],
+      publishedTime: toIsoSeconds(article.created_at),
+      modifiedTime: toIsoSeconds(modifiedDate(article.created_at, article.updated_at)),
+      // article:author expects a URL; the plain name only has value when no
+      // author page exists.
+      authors: [authorUrl || authorName],
+      section: article.category || section.name,
       tags: article.tags || [],
     },
     twitter: {
@@ -183,10 +209,14 @@ export default async function ArticlePage(
   const similarArticles = await fetchSimilarArticles(slug, 3);
 
   const articleUrl = `${SITE_URL}/article/${article.slug}/${canonicalDate}`;
+  const section = sectionFor(article.category);
   const breadcrumbs = generateBreadcrumbs([
-    { name: 'Articles', url: `${SITE_URL}/articles` },
+    { name: section.name, url: `${SITE_URL}${section.path}` },
     { name: article.title, url: articleUrl },
   ]);
+  const author = findAuthor(article.author);
+  const authorName = authorDisplayName(article.author) || 'EsportNews';
+  const authorUrl = author ? `${SITE_URL}${authorHref(author)}` : undefined;
 
   const contentDark = article.content_black ?? article.content ?? '';
   const contentLight = article.content_white ?? article.content ?? '';
@@ -197,8 +227,12 @@ export default async function ArticlePage(
         title={article.title}
         description={article.description || article.subtitle || ''}
         image={article.featuredImage}
-        datePublished={article.created_at}
-        author={article.author}
+        datePublished={toIsoSeconds(article.created_at) || article.created_at}
+        dateModified={toIsoSeconds(modifiedDate(article.created_at, article.updated_at))}
+        author={authorName}
+        authorUrl={authorUrl}
+        section={article.category}
+        keywords={article.tags}
         url={articleUrl}
       />
       <BreadcrumbSchema items={breadcrumbs} />
@@ -216,7 +250,7 @@ export default async function ArticlePage(
                 </li>
                 <li aria-hidden="true">›</li>
                 <li>
-                  <Link href="/articles" className="hover:text-text-primary">Articles</Link>
+                  <Link href={section.path} className="hover:text-text-primary">{section.name}</Link>
                 </li>
                 <li aria-hidden="true">›</li>
                 <li className="text-text-primary line-clamp-1" aria-current="page">
@@ -261,10 +295,20 @@ export default async function ArticlePage(
                 <div className="flex items-center space-x-4 text-text-secondary mb-6 pb-6 border-b border-border-primary">
                   <div className="flex items-center space-x-2">
                     <span>Par</span>
-                    <span className="text-text-primary font-medium">{article.author}</span>
+                    {author ? (
+                      <Link
+                        href={authorHref(author)}
+                        rel="author"
+                        className="text-text-primary font-medium hover:text-[#F22E62]"
+                      >
+                        {authorName}
+                      </Link>
+                    ) : (
+                      <span className="text-text-primary font-medium">{authorName}</span>
+                    )}
                   </div>
                   <span>•</span>
-                  <span>{formatDate(article.created_at)}</span>
+                  <time dateTime={toIsoSeconds(article.created_at)}>{formatDate(article.created_at)}</time>
                   <span>•</span>
                   <span>{article.readTime} min de lecture</span>
                 </div>
