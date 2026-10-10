@@ -1,8 +1,7 @@
 'use client';
 
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useMemo } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import DOMPurify from 'dompurify';
 import { Tweet } from 'react-tweet';
 import styles from './ArticleContent.module.css';
 
@@ -18,6 +17,8 @@ class TweetErrorBoundary extends Component<{ fallback: ReactNode; children: Reac
 }
 
 interface ArticleContentProps {
+  // Already sanitized by the server page (lib/sanitizeArticle.ts); never
+  // pass raw back-office HTML here.
   content: string;
   isDarkMode?: boolean;
 }
@@ -50,33 +51,14 @@ function parseSegments(html: string): Segment[] {
   return segments;
 }
 
-// Rend un bloc HTML sanitizé via ref (contenu déjà traité par DOMPurify)
+// Server-rendered: the text is in the initial HTML, which is the whole point
+// (crawlers read it). Only the tweets hydrate on the client.
 function HtmlBlock({ html }: { html: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.innerHTML = html;
-  }, [html]);
-  return <div ref={ref} />;
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 export default function ArticleContent({ content, isDarkMode = true }: ArticleContentProps) {
-  // DOMPurify requires a window — sanitize on the client only to avoid SSR
-  // crashes (jsdom not bundled) and to prevent hydration mismatches. The
-  // surrounding article shell (cover, h1, schema) is server-rendered.
-  const [sanitized, setSanitized] = useState('');
-
-  useEffect(() => {
-    setSanitized(
-      DOMPurify.sanitize(content, {
-        FORBID_TAGS: ['style', 'link', 'script'],
-        FORBID_ATTR: ['style'],
-        ADD_ATTR: ['class', 'href', 'target', 'rel', 'title', 'alt', 'data-tweet-id'],
-        USE_PROFILES: { html: true },
-      }),
-    );
-  }, [content]);
-
-  const segments = useMemo(() => parseSegments(sanitized), [sanitized]);
+  const segments = useMemo(() => parseSegments(content), [content]);
   const hasTweets = segments.some(s => s.type === 'tweet');
 
   if (!hasTweets) {
@@ -85,7 +67,7 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
         className={styles.articleContent}
         itemScope
         itemType="https://schema.org/Article"
-        dangerouslySetInnerHTML={{ __html: sanitized }}
+        dangerouslySetInnerHTML={{ __html: content }}
       />
     );
   }

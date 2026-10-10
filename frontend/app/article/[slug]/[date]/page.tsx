@@ -13,6 +13,7 @@ import { formatDateSlug } from '@/app/lib/articleUrl';
 import { authorDisplayName, authorHref, findAuthor } from '@/app/lib/authors';
 import { publicImageUrl, rewriteImageHosts } from '@/app/lib/imageUtils';
 import { modifiedDate, toIsoSeconds } from '@/app/lib/seoDates';
+import { sanitizeArticle } from '@/app/lib/sanitizeArticle';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -218,8 +219,10 @@ export default async function ArticlePage(
   const authorName = authorDisplayName(article.author) || 'Esport News';
   const authorUrl = author ? `${SITE_URL}${authorHref(author)}` : undefined;
 
-  const contentDark = article.content_black ?? article.content ?? '';
-  const contentLight = article.content_white ?? article.content ?? '';
+  // Sanitized here, on the server, so the body text is part of the served
+  // HTML rather than injected after hydration.
+  const contentDark = sanitizeArticle(article.content_black ?? article.content);
+  const contentLight = sanitizeArticle(article.content_white ?? article.content);
 
   return (
     <div className="min-h-screen bg-bg-primary">
