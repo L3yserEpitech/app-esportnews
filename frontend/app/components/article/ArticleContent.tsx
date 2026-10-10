@@ -65,8 +65,6 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
     return (
       <article
         className={styles.articleContent}
-        itemScope
-        itemType="https://schema.org/Article"
         dangerouslySetInnerHTML={{ __html: content }}
       />
     );
@@ -75,8 +73,6 @@ export default function ArticleContent({ content, isDarkMode = true }: ArticleCo
   return (
     <article
       className={styles.articleContent}
-      itemScope
-      itemType="https://schema.org/Article"
     >
       {segments.map((segment, i) => {
         if (segment.type === 'tweet') {
