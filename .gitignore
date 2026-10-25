@@ -55,3 +55,7 @@ frontend/tsconfig.tsbuildinfo
 
 # Superpowers brainstorming companion (local mockups)
 .superpowers/
+
+# Apple IAP private keys: never commit (rotated 2026-10-25)
+backend-go/keys/
+*.p8
