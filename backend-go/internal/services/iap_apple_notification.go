@@ -133,7 +133,7 @@ func parseX5CCert(b64 string) (*x509.Certificate, error) {
 // Apple sends POST body: { "signedPayload": "eyJ..." }
 // Reference: https://developer.apple.com/documentation/appstoreservernotifications
 func (s *IAPService) HandleAppleNotification(ctx context.Context, signedPayload string) error {
-	if !s.appleReady {
+	if s.appleProd == nil {
 		// We don't want to 500 Apple's retries — treat as no-op but log.
 		s.logger.Warn("[IAP][Webhook] Received Apple notification but Apple IAP is not configured")
 		return nil
@@ -153,7 +153,7 @@ func (s *IAPService) HandleAppleNotification(ctx context.Context, signedPayload 
 		revoked      bool
 	)
 	if string(payload.Data.SignedTransactionInfo) != "" {
-		tx, err := s.appleClient.ParseSignedTransaction(string(payload.Data.SignedTransactionInfo))
+		tx, err := s.parseAppleTx(string(payload.Data.SignedTransactionInfo))
 		if err != nil {
 			return fmt.Errorf("parse signed transaction info: %w", err)
 		}

@@ -157,14 +157,13 @@ func main() {
 	stripeService := services.NewStripeServiceWithGORM(gormDB, cfg.StripeSecretKey, cfg.StripePriceID, cfg.FrontendURL)
 	emailService := services.NewEmailService(cfg.ResendAPIKey, cfg.EmailFrom)
 	iapService := services.NewIAPService(gormDB.DB, logger, &services.IAPConfig{
-		AppleKeyPath:     cfg.AppleIAPKeyPath,
-		AppleKeyContent:  cfg.AppleIAPKeyContent,
-		AppleKeyID:       cfg.AppleIAPKeyID,
-		AppleIssuerID:    cfg.AppleIAPIssuerID,
-		AppleBundleID:    cfg.AppleIAPBundleID,
-		AppleEnvironment: cfg.AppleIAPEnvironment,
-		GoogleKeyPath:    cfg.GoogleIAPKeyPath,
-		GooglePackage:    cfg.GoogleIAPPackage,
+		AppleKeyPath:    cfg.AppleIAPKeyPath,
+		AppleKeyContent: cfg.AppleIAPKeyContent,
+		AppleKeyID:      cfg.AppleIAPKeyID,
+		AppleIssuerID:   cfg.AppleIAPIssuerID,
+		AppleBundleID:   cfg.AppleIAPBundleID,
+		GoogleKeyPath:   cfg.GoogleIAPKeyPath,
+		GooglePackage:   cfg.GoogleIAPPackage,
 	})
 
 	// Initialize StorageService for Cloudflare R2

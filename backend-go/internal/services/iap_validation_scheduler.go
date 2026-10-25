@@ -143,7 +143,9 @@ func (s *IAPValidationScheduler) revalidateOne(ctx context.Context, u *models.Us
 			return nil // Nothing we can query Apple with.
 		}
 
-		result, err := s.iapService.ValidateApplePurchase(ctx, txID)
+		// Subscription statuses, not transaction info: the latter would
+		// describe the first billing period of a renewed subscription.
+		result, err := s.iapService.ValidateAppleSubscription(ctx, txID)
 		if err != nil {
 			return err
 		}

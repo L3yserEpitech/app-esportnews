@@ -5,7 +5,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,12 +23,11 @@ import (
 // IAPConfig holds configuration for Apple and Google IAP validation
 type IAPConfig struct {
 	// Apple App Store
-	AppleKeyPath     string
-	AppleKeyContent  string // inline PEM of the .p8 key (takes precedence over AppleKeyPath)
-	AppleKeyID       string
-	AppleIssuerID    string
-	AppleBundleID    string
-	AppleEnvironment string
+	AppleKeyPath    string
+	AppleKeyContent string // inline PEM of the .p8 key (takes precedence over AppleKeyPath)
+	AppleKeyID      string
+	AppleIssuerID   string
+	AppleBundleID   string
 
 	// Google Play Store
 	GoogleKeyPath string
@@ -44,17 +45,24 @@ type IAPValidationResult struct {
 	Status                string
 }
 
+// appleStoreClient is the slice of *api.StoreClient we call, so tests can feed canned Apple responses.
+type appleStoreClient interface {
+	GetTransactionInfo(ctx context.Context, transactionID string) (*api.TransactionInfoResponse, error)
+	GetALLSubscriptionStatuses(ctx context.Context, transactionID string, query *url.Values) (*api.StatusResponse, error)
+}
+
 // IAPService handles in-app purchase validation for iOS and Android
 type IAPService struct {
 	db     *gorm.DB
 	logger *logrus.Logger
 	config *IAPConfig
 
-	// Apple
-	appleClient *api.StoreClient // single-env client, kept for parsing signed transactions
-	appleAPI    *api.APIClient   // dual-env client: tries production, falls back to sandbox
-	appleKey    *ecdsa.PrivateKey
-	appleReady  bool
+	// Apple: nil clients = Apple IAP disabled. Real purchases live in
+	// production, TestFlight / App Review / sandbox testers in sandbox.
+	appleProd         appleStoreClient
+	appleSandbox      appleStoreClient
+	parseAppleTx      func(signed string) (*api.JWSTransaction, error)
+	parseAppleRenewal func(signed string) (*api.JWSRenewalInfoDecodedPayload, error)
 
 	// Google
 	googleClient *playstore.Client
@@ -73,7 +81,7 @@ func NewIAPService(db *gorm.DB, logger *logrus.Logger, cfg *IAPConfig) *IAPServi
 	// --- Apple setup ---
 	// The key can be provided inline (APPLE_IAP_KEY_CONTENT, preferred on hosts
 	// like Railway that can't mount files) or as a file path (APPLE_IAP_KEY_PATH).
-	appleKeyData, keySource := loadAppleKey(cfg)
+	appleKeyData, keySource := LoadAppleKey(cfg)
 	if appleKeyData == nil {
 		logger.Warn("[IAP] Apple key not provided (set APPLE_IAP_KEY_CONTENT or APPLE_IAP_KEY_PATH) — Apple IAP disabled")
 	} else if cfg.AppleKeyID == "" || cfg.AppleIssuerID == "" {
@@ -84,24 +92,22 @@ func NewIAPService(db *gorm.DB, logger *logrus.Logger, cfg *IAPConfig) *IAPServi
 			logger.Warn("[IAP] Cannot decode Apple PEM key — Apple IAP disabled")
 		} else if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err != nil {
 			logger.Warnf("[IAP] Cannot parse Apple private key: %v — Apple IAP disabled", err)
-		} else if ecKey, ok := key.(*ecdsa.PrivateKey); !ok {
+		} else if _, ok := key.(*ecdsa.PrivateKey); !ok {
 			logger.Warn("[IAP] Apple key is not ECDSA — Apple IAP disabled")
 		} else {
-			s.appleKey = ecKey
-			storeConfig := api.StoreConfig{
+			prodConfig := api.StoreConfig{
 				KeyContent: appleKeyData,
 				KeyID:      cfg.AppleKeyID,
 				BundleID:   cfg.AppleBundleID,
 				Issuer:     cfg.AppleIssuerID,
-				Sandbox:    cfg.AppleEnvironment == "sandbox",
 			}
-			// Single-env client (used only to parse signed transactions).
-			s.appleClient = api.NewStoreClient(&storeConfig)
-			// Dual-env client: Verify() tries production first, then sandbox on
-			// TransactionIdNotFoundError. This is what makes the SAME backend work
-			// for both real App Store purchases AND sandbox/TestFlight/App Review.
-			s.appleAPI = api.NewAPIClient(storeConfig)
-			s.appleReady = true
+			sandboxConfig := prodConfig
+			sandboxConfig.Sandbox = true
+			prod := api.NewStoreClient(&prodConfig)
+			s.appleProd = prod
+			s.appleSandbox = api.NewStoreClient(&sandboxConfig)
+			s.parseAppleTx = prod.ParseSignedTransaction
+			s.parseAppleRenewal = parseAppleRenewalInfo
 			logger.Infof("[IAP] Apple App Store validation ready (key source: %s, prod+sandbox fallback enabled)", keySource)
 		}
 	}
@@ -132,13 +138,10 @@ func keyData(path string) []byte {
 	return data
 }
 
-// loadAppleKey returns the Apple .p8 key material, preferring inline content
-// (APPLE_IAP_KEY_CONTENT) over a file path (APPLE_IAP_KEY_PATH). Inline content
-// pasted into env vars often has its newlines escaped as the two characters
-// "\n"; we restore real newlines so pem.Decode can parse it. Returns nil if no
-// usable key is configured, plus a short label describing the source.
-func loadAppleKey(cfg *IAPConfig) ([]byte, string) {
+// LoadAppleKey returns the Apple .p8 key material (inline content wins over the file path) and a label naming its source, or nil.
+func LoadAppleKey(cfg *IAPConfig) ([]byte, string) {
 	if content := strings.TrimSpace(cfg.AppleKeyContent); content != "" {
+		// Railway stores the PEM on one line with literal "\n" sequences.
 		if !strings.Contains(content, "\n") && strings.Contains(content, "\\n") {
 			content = strings.ReplaceAll(content, "\\n", "\n")
 		}
@@ -152,51 +155,131 @@ func loadAppleKey(cfg *IAPConfig) ([]byte, string) {
 	return nil, "none"
 }
 
-// ValidateApplePurchase validates an Apple App Store transaction
-func (s *IAPService) ValidateApplePurchase(ctx context.Context, transactionID string) (*IAPValidationResult, error) {
-	if !s.appleReady {
+// ValidateAppleSubscription returns the current state of the subscription txID belongs to.
+func (s *IAPService) ValidateAppleSubscription(ctx context.Context, txID string) (*IAPValidationResult, error) {
+	if s.appleProd == nil {
 		return nil, fmt.Errorf("Apple IAP validation is not configured")
 	}
 
-	// Verify against production first, falling back to sandbox automatically.
-	// Do NOT rely on a single hardcoded environment: real purchases live in
-	// production while TestFlight / App Review / sandbox testers live in sandbox.
-	resp, err := s.appleAPI.Verify(ctx, transactionID)
+	// Subscription statuses, never GetTransactionInfo alone: asked about the
+	// original transaction of a renewed subscription, the latter describes the
+	// first billing period (long expired) and would strip a paying subscriber.
+	resp, client, err := appleFirst(s.appleProd, s.appleSandbox, func(c appleStoreClient) (*api.StatusResponse, error) {
+		return c.GetALLSubscriptionStatuses(ctx, txID, nil)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("Apple validation failed: %w", err)
+		return nil, fmt.Errorf("Apple subscription status failed: %w", err)
 	}
 
-	// Decode the signed transaction
-	tx, err := s.appleClient.ParseSignedTransaction(resp.SignedTransactionInfo)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse Apple transaction: %w", err)
-	}
-
-	result := &IAPValidationResult{
-		Platform:              "ios",
-		ProductID:             tx.ProductID,
-		TransactionID:         transactionID,
-		OriginalTransactionID: tx.OriginalTransactionId,
-		IsValid:               true,
-		Status:                "active",
-	}
-
-	// Check expiration
-	if tx.ExpiresDate > 0 {
-		result.ExpiresAt = time.UnixMilli(tx.ExpiresDate)
-		if result.ExpiresAt.Before(time.Now()) {
-			result.IsValid = false
-			result.Status = "expired"
+	last, ok := subscriptionAnchoredOn(resp, txID)
+	if !ok {
+		// txID is a renewal id and the group holds several subscriptions: the
+		// entries only carry original ids, so ask which one txID belongs to.
+		info, err := client.GetTransactionInfo(ctx, txID)
+		if err != nil {
+			return nil, fmt.Errorf("Apple transaction lookup failed: %w", err)
+		}
+		tx, err := s.parseAppleTx(info.SignedTransactionInfo)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse Apple transaction: %w", err)
+		}
+		if last, ok = subscriptionAnchoredOn(resp, tx.OriginalTransactionId); !ok {
+			return nil, fmt.Errorf("Apple lists no subscription anchored on %s (original of %s)", tx.OriginalTransactionId, txID)
 		}
 	}
 
-	// Check revocation
-	if tx.RevocationDate > 0 {
-		result.IsValid = false
-		result.Status = "revoked"
+	tx, err := s.parseAppleTx(last.SignedTransactionInfo)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse Apple transaction: %w", err)
+	}
+	result := appleSubscriptionResult(last.Status, tx)
+
+	// In a billing grace period the transaction's expiresDate is already past;
+	// the renewal info carries the date access actually ends.
+	if last.Status == api.SubscriptionGracePeriod && last.SignedRenewalInfo != "" {
+		renewal, err := s.parseAppleRenewal(last.SignedRenewalInfo)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse Apple renewal info: %w", err)
+		}
+		if renewal.GracePeriodExpiresDate > 0 {
+			result.ExpiresAt = time.UnixMilli(renewal.GracePeriodExpiresDate)
+		}
+	}
+	return result, nil
+}
+
+// appleFirst runs call on production, then on sandbox when the transaction is unknown there, and returns the client that answered.
+func appleFirst[T any](prod, sandbox appleStoreClient, call func(appleStoreClient) (T, error)) (T, appleStoreClient, error) {
+	v, err := call(prod)
+	if err != nil && isAppleTransactionNotFound(err) {
+		v, err = call(sandbox)
+		return v, sandbox, err
+	}
+	return v, prod, err
+}
+
+func isAppleTransactionNotFound(err error) bool {
+	return errors.Is(err, api.OriginalTransactionIdNotFoundError) ||
+		errors.Is(err, api.TransactionIdNotFoundError)
+}
+
+// subscriptionAnchoredOn finds the group entry with this original transaction id, or the only entry when Apple listed a single subscription.
+func subscriptionAnchoredOn(resp *api.StatusResponse, originalTxID string) (*api.LastTransactionsItem, bool) {
+	var candidates []api.LastTransactionsItem
+	for _, group := range resp.Data {
+		for _, item := range group.LastTransactions {
+			if item.OriginalTransactionId == originalTxID {
+				return &item, true
+			}
+			candidates = append(candidates, item)
+		}
+	}
+	if len(candidates) == 1 {
+		return &candidates[0], true
+	}
+	return nil, false
+}
+
+// appleSubscriptionResult maps Apple's subscription status to our premium decision.
+func appleSubscriptionResult(status api.AutoRenewSubscriptionStatus, tx *api.JWSTransaction) *IAPValidationResult {
+	result := &IAPValidationResult{
+		Platform:              "ios",
+		ProductID:             tx.ProductID,
+		TransactionID:         tx.TransactionID,
+		OriginalTransactionID: tx.OriginalTransactionId,
+	}
+	if tx.ExpiresDate > 0 {
+		result.ExpiresAt = time.UnixMilli(tx.ExpiresDate)
 	}
 
-	return result, nil
+	// Apple asks that users keep their entitlement during a billing grace period.
+	switch status {
+	case api.SubscriptionActive:
+		result.IsValid, result.Status = true, "active"
+	case api.SubscriptionGracePeriod:
+		result.IsValid, result.Status = true, "grace_period"
+	case api.SubscriptionRetryPeriod:
+		result.Status = "billing_retry"
+	case api.SubscriptionRevoked:
+		result.Status = "revoked"
+	default:
+		result.Status = "expired"
+	}
+	// A refund ends access at the revocation date, whatever the paid period says.
+	if tx.RevocationDate > 0 {
+		result.IsValid, result.Status = false, "revoked"
+		result.ExpiresAt = time.UnixMilli(tx.RevocationDate)
+	}
+	return result
+}
+
+// parseAppleRenewalInfo verifies a signed renewal-info JWS (go-iap has no exported parser for it).
+func parseAppleRenewalInfo(signed string) (*api.JWSRenewalInfoDecodedPayload, error) {
+	var renewal api.JWSRenewalInfoDecodedPayload
+	if err := verifyAppleJWS(signed, &renewal); err != nil {
+		return nil, err
+	}
+	return &renewal, nil
 }
 
 // ValidateGooglePurchase validates a Google Play subscription purchase

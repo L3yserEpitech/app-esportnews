@@ -246,7 +246,6 @@ Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh to
 | `APPLE_IAP_KEY_ID` | string | `""` | Identifiant 10 chars de la clé Apple |
 | `APPLE_IAP_ISSUER_ID` | uuid | `""` | Issuer ID de l'App Store Connect |
 | `APPLE_IAP_BUNDLE_ID` | string | `com.esportnews-app.mobile` | Bundle ID de l'app iOS |
-| `APPLE_IAP_ENVIRONMENT` | string | `sandbox` | `sandbox` ou `production` |
 
 ### Google IAP
 | Variable | Type | Défaut | Rôle |

@@ -71,7 +71,7 @@ func (h *IAPHandler) ValidatePurchase(c echo.Context) error {
 		if req.TransactionID == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "transaction_id is required for iOS"})
 		}
-		result, err = h.iapService.ValidateApplePurchase(ctx, req.TransactionID)
+		result, err = h.iapService.ValidateAppleSubscription(ctx, req.TransactionID)
 
 	case "android":
 		if req.ProductID == "" || req.PurchaseToken == "" {

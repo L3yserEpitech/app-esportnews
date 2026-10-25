@@ -57,12 +57,11 @@ type Config struct {
 	NotificationSchedulerEnabled bool // disable on preview/staging to avoid duplicate pushes against shared prod DB
 
 	// Apple IAP (In-App Purchase)
-	AppleIAPKeyPath     string
-	AppleIAPKeyContent  string // PEM of the .p8 key, inline (preferred on hosts that can't mount files, e.g. Railway)
-	AppleIAPKeyID       string
-	AppleIAPIssuerID    string
-	AppleIAPBundleID    string
-	AppleIAPEnvironment string // "sandbox" or "production"
+	AppleIAPKeyPath    string
+	AppleIAPKeyContent string // PEM of the .p8 key, inline (preferred on hosts that can't mount files, e.g. Railway)
+	AppleIAPKeyID      string
+	AppleIAPIssuerID   string
+	AppleIAPBundleID   string
 
 	// Google IAP (In-App Purchase)
 	GoogleIAPKeyPath   string
@@ -110,12 +109,11 @@ func LoadConfig() *Config {
 		NotificationSchedulerEnabled: getEnvBool("NOTIFICATION_SCHEDULER_ENABLED", true),
 
 		// Apple IAP
-		AppleIAPKeyPath:     getEnv("APPLE_IAP_KEY_PATH", ""),
-		AppleIAPKeyContent:  getEnv("APPLE_IAP_KEY_CONTENT", ""),
-		AppleIAPKeyID:       getEnv("APPLE_IAP_KEY_ID", ""),
-		AppleIAPIssuerID:    getEnv("APPLE_IAP_ISSUER_ID", ""),
-		AppleIAPBundleID:    getEnv("APPLE_IAP_BUNDLE_ID", "com.esportnews-app.mobile"),
-		AppleIAPEnvironment: getEnv("APPLE_IAP_ENVIRONMENT", "sandbox"),
+		AppleIAPKeyPath:    getEnv("APPLE_IAP_KEY_PATH", ""),
+		AppleIAPKeyContent: getEnv("APPLE_IAP_KEY_CONTENT", ""),
+		AppleIAPKeyID:      getEnv("APPLE_IAP_KEY_ID", ""),
+		AppleIAPIssuerID:   getEnv("APPLE_IAP_ISSUER_ID", ""),
+		AppleIAPBundleID:   getEnv("APPLE_IAP_BUNDLE_ID", "com.esportnews-app.mobile"),
 
 		// Google IAP
 		GoogleIAPKeyPath:   getEnv("GOOGLE_IAP_KEY_PATH", ""),
