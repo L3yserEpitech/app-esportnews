@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -37,6 +38,12 @@ const (
 	// or team search — returns 429 even with a fresh budget. Serialising to a
 	// small number of concurrent calls keeps bursts under that ceiling.
 	maxConcurrentRequests = 1
+
+	// maxLiquipediaPageID is MediaWiki's page_id ceiling (unsigned 32-bit).
+	// Opponent ids in match payloads are hashStringToInt(name), up to 19
+	// digits: anything above this cannot be a pageid, so it 404s without
+	// burning a 10-wiki fan-out on Liquipedia.
+	maxLiquipediaPageID = math.MaxUint32
 )
 
 // maxLiqResponseSize caps response bodies. A body at the cap was silently
@@ -705,6 +712,9 @@ func (s *LiquipediaService) SearchTeams(ctx context.Context, query string, pageS
 // usually skips the 10-wiki fan-out entirely — that fan-out costs 10 API
 // requests, enough to trip Liquipedia's per-IP edge throttle on its own.
 func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.NormalizedTeam, error) {
+	if pageID > maxLiquipediaPageID {
+		return nil, fmt.Errorf("pageid %d exceeds MediaWiki range", pageID)
+	}
 	pageIDStr := fmt.Sprintf("%d", pageID)
 	hintKey := cache.LiqWikiHintKey(pageIDStr)
 
@@ -1012,6 +1022,9 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 // wikiHint (from the caller's game context, may be empty) is tried first to
 // avoid the sequential all-wikis walk.
 func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.EnrichedTeamDetail, error) {
+	if pageID > maxLiquipediaPageID {
+		return nil, fmt.Errorf("pageid %d exceeds MediaWiki range", pageID)
+	}
 	pageIDStr := fmt.Sprintf("%d", pageID)
 
 	hintKey := cache.LiqWikiHintKey(pageIDStr)

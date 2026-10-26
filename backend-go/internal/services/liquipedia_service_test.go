@@ -190,3 +190,39 @@ func TestGetTeamDetailByTemplateSkipsNameWhenTemplateMatches(t *testing.T) {
 	require.Equal(t, 24057, detail.ID)
 	require.Equal(t, int32(1), teamCalls.Load()) // no second lookup by name
 }
+
+// Opponent ids in match payloads are hashStringToInt(name) (up to 19 digits),
+// never MediaWiki pageids (unsigned 32-bit). Such an id must 404 without a
+// single upstream call — the old 10-wiki fan-out cost 10 Liquipedia requests
+// per hashed id and was saturating the outbound pipe.
+func TestGetTeamByPageIDRejectsHashedIDWithoutUpstreamCall(t *testing.T) {
+	var upstreamCalls atomic.Int32
+	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls.Add(1)
+		_, _ = w.Write([]byte(`{"result":[]}`))
+	}))
+	const hashed = int64(2532014407522215000) // seen in prod logs
+
+	team, err := svc.GetTeamByPageID(context.Background(), hashed, "valorant")
+	require.Error(t, err)
+	require.Nil(t, team)
+
+	detail, err := svc.GetTeamDetailByPageID(context.Background(), hashed, "valorant")
+	require.Error(t, err)
+	require.Nil(t, detail)
+
+	require.Equal(t, int32(0), upstreamCalls.Load(), "hashed id must not reach Liquipedia")
+}
+
+// The guard must not swallow real pageids: the largest MediaWiki page_id
+// (unsigned 32-bit) still goes upstream.
+func TestGetTeamByPageIDStillLooksUpMaxPageID(t *testing.T) {
+	var upstreamCalls atomic.Int32
+	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls.Add(1)
+		_, _ = w.Write([]byte(`{"result":[]}`))
+	}))
+
+	_, _ = svc.GetTeamByPageID(context.Background(), 4294967295, "valorant")
+	require.Greater(t, upstreamCalls.Load(), int32(0))
+}
