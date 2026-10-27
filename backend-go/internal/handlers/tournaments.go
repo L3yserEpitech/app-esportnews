@@ -131,7 +131,7 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 	// A detail is 3-4 sequential upstream calls (tournament, up to 5000 matches,
 	// squads): 8 s for TI 2026 on an idle queue. Now that MakeRequest honours
 	// this deadline, 10 s would 503 big tournaments.
-	ctx, cancel := context.WithTimeout(c.Request().Context(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request().Context(), detailDeadline(c, 20*time.Second))
 	defer cancel()
 
 	tournamentID := c.Param("id")

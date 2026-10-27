@@ -300,7 +300,7 @@ func (h *MatchHandler) GetMatchesByDate(c echo.Context) error {
 //  2. Scan poller caches running/upcoming/past (Redis only)
 //  3. On-demand fetch wiki-by-wiki (sequential, stops on first hit)
 func (h *MatchHandler) GetMatch(c echo.Context) error {
-	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request().Context(), detailDeadline(c, 15*time.Second))
 	defer cancel()
 
 	matchID := c.Param("id")
@@ -670,4 +670,17 @@ func compareBeginAt(a, b *string) int {
 		return 1
 	}
 	return 0
+}
+
+// unscopedScanDeadline covers the legacy lookups without ?wiki=: a 10-wiki
+// scan is 10 sequential upstream calls at 1.5 s spacing, so a shorter
+// deadline, now that MakeRequest honours it, turns every cold legacy URL
+// into a 503 — and a dead one never reaches its 404.
+const unscopedScanDeadline = 30 * time.Second
+
+func detailDeadline(c echo.Context, scoped time.Duration) time.Duration {
+	if c.QueryParam("wiki") == "" {
+		return unscopedScanDeadline
+	}
+	return scoped
 }
