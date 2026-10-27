@@ -224,10 +224,12 @@ class TeamService {
   /**
    * Récupère une équipe par son template Liquipedia (pagename) + wiki
    */
-  async getTeamByTemplate(template: string, wiki: string): Promise<Team> {
+  async getTeamByTemplate(template: string, wiki: string, name?: string): Promise<Team> {
     try {
+      const params = new URLSearchParams({ template, wiki });
+      if (name) params.set('name', name); // backend falls back to [[name::…]] for renamed/dated templates
       const response = await fetch(
-        `${API_BASE_URL}/api/teams/by-template?template=${encodeURIComponent(template)}&wiki=${encodeURIComponent(wiki)}`,
+        `${API_BASE_URL}/api/teams/by-template?${params.toString()}`,
         {
           method: 'GET',
           headers: { 'Accept': 'application/json' },

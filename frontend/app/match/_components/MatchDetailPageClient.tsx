@@ -14,6 +14,7 @@ import { prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 import { gameByWiki } from '../../lib/gameRegistry';
 import { resolveSections, type SectionId } from './matchSections';
+import { loadOpponentTeams } from './opponentTeams';
 import type { MatchSectionProps } from './sections/shared';
 import MatchHeader from './sections/MatchHeader';
 import GameResults from './sections/GameResults';
@@ -61,33 +62,12 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
   }, []);
 
   useEffect(() => {
-    const loadTeams = async (data: LiveMatch) => {
-      if (data.opponents && data.opponents.length === 2) {
-        const matchWiki = data.wiki || wiki;
-        const opponents = data.opponents.filter(o => o.opponent);
-        if (opponents.length === 0) return;
-        try {
-          const teams = (await Promise.all(opponents.map(async (o) => {
-            const template = o.opponent?.template;
-            if (template && matchWiki) {
-              try { return await teamService.getTeamByTemplate(template, matchWiki); } catch {}
-            }
-            // Roster labels ("m80 orig", "qor 2022") often have no team page of
-            // their own — the org page uses the plain name as template ("m80").
-            const nameGuess = o.opponent?.name?.toLowerCase().trim();
-            if (nameGuess && nameGuess !== template && matchWiki) {
-              try { return await teamService.getTeamByTemplate(nameGuess, matchWiki); } catch {}
-            }
-            try { return await teamService.getTeamById(o.opponent!.id, matchWiki); } catch { return null; }
-          }))).filter(Boolean);
-          setTeamsData(teams);
-        } catch (e) {
-          console.error('Error loading team details:', e);
-        }
-      }
-    };
-    if (match) loadTeams(match);
-  }, [match]);
+    if (!match) return;
+    let cancelled = false;
+    loadOpponentTeams(match.opponents, match.wiki || wiki, (template, w, name) => teamService.getTeamByTemplate(template, w, name))
+      .then((teams) => { if (!cancelled) setTeamsData(teams); });
+    return () => { cancelled = true; };
+  }, [match, wiki]);
 
   useEffect(() => {
     if (initialMatch) return;
