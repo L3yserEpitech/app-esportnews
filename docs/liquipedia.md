@@ -72,18 +72,18 @@
 
 | Élément | Valeur | Source |
 |---------|--------|--------|
-| Base URL | `https://api.liquipedia.net/api/v3` | `liquipedia_service.go:26` |
-| Auth | header `Authorization: Apikey <LIQUIPEDIA_API_KEY>` | `liquipedia_service.go:385` |
-| User-Agent | `EsportNews/1.0 (contact@esportnews.fr)` (obligatoire) | `liquipedia_service.go:27` |
-| Accept | `application/json` | `liquipedia_service.go:387` |
+| Base URL | `https://api.liquipedia.net/api/v3` | `liquipedia_service.go` |
+| Auth | header `Authorization: Apikey <LIQUIPEDIA_API_KEY>` | `liquipedia_service.go` |
+| User-Agent | `EsportNews/1.0 (contact@esportnews.fr)` (obligatoire) | `liquipedia_service.go` |
+| Accept | `application/json` | `liquipedia_service.go` |
 | Format requête | `GET /v3/{endpoint}?wiki={wiki}&conditions=…&query=…&limit=…&order=…` | `liquipedia_service.go:371-378` |
 | Format réponse | `{ "result": [ …objets… ], "error"?: [], "warning"?: [] }` | `models/liquipedia.go:8` |
 
-**Encodage des params** : les espaces sont encodés en `%20` (pas `+`) — `strings.ReplaceAll(encode, "+", "%20")` (`liquipedia_service.go:377`), car le langage de conditions Liquipedia n'accepte pas `+`.
+**Encodage des params** : les espaces sont encodés en `%20` (pas `+`) — `strings.ReplaceAll(encode, "+", "%20")`, car le langage de conditions Liquipedia n'accepte pas `+`.
 
 **Triple limite de débit réelle** (à ne pas confondre) :
 1. **Quota horaire** : 1000 req/wiki/h (suivi par `RequestBudget`).
-2. **Burst court** : fanout simultané sur les 10 wikis renvoie 429 même avec quota frais → sérialisation globale via `maxConcurrentRequests = 1` (`liquipedia_service.go:39`).
+2. **Burst court** : fanout simultané sur les 10 wikis renvoie 429 même avec quota frais → sérialisation globale via `maxConcurrentRequests = 1`.
 3. **Limite par IP** : motive le forçage IPv4 (une seule IP de sortie maîtrisée).
 
 ---
@@ -113,13 +113,13 @@ Source unique : `models.GameWikiMapping` (`models/liquipedia.go:26`). `models.Wi
 
 ### `MakeRequest(ctx, wiki, endpoint, params, cacheKey, cacheTTL) ([]byte, error)`
 
-Pipeline complet (`liquipedia_service.go:309`) :
+Pipeline complet :
 
 1. **Fast-path cache** : `cache.Get(cacheKey)` → HIT renvoie immédiatement.
-2. **Singleflight** (`sfGroup.Do(cacheKey, …)`) : N requêtes concurrentes pour la même clé ⇒ **1 seul** appel API ; les autres partagent le résultat. Le contexte est détaché (`context.WithoutCancel`) + timeout 35 s, pour qu'un appelant qui annule (déconnexion navigateur) ne fasse pas échouer les autres.
+2. **Singleflight** (`sfGroup.DoChan(cacheKey, …)`) : N requêtes concurrentes pour la même clé ⇒ **1 seul** appel API ; les autres partagent le résultat. Le fetch tourne sur un contexte détaché (`context.WithoutCancel`) + `sharedFetchTimeout` 35 s, pour qu'un appelant qui annule (déconnexion navigateur, timeout de handler) ne fasse pas échouer les autres et que le résultat atterrisse quand même en cache. Chaque appelant attend le résultat via un `select` sur son propre `ctx.Done()` : le timeout du handler est respecté (avant, `Do` bloquant pouvait retenir un handler à 10 s pendant 35 s par appel).
 3. **Re-check cache** dans le singleflight (un autre goroutine a pu peupler entre-temps).
 4. **Budget check** : `budget.CanMakeRequest()`. Si épuisé/bloqué → `getStaleOrError` (cache `:stale` ou erreur).
-5. **Concurrence globale** : acquisition d'un slot dans `sem` (capacité `maxConcurrentRequests = 1`).
+5. **Concurrence globale** : acquisition du slot unique via `acquireSlot` (capacité `maxConcurrentRequests = 1`). Les contextes marqués `BackgroundLane` (poller, hydratation) sondent le slot au lieu de s'y mettre en file et cèdent donc la place aux appels servant une page, pendant 5 s au plus. Débit réel : 40 appels/min pour tout le backend.
 6. **Espacement optionnel** : si `LIQUIPEDIA_MIN_REQUEST_INTERVAL_MS > 0`, attend l'intervalle minimum depuis le dernier appel (utile cold-start / dev local).
 7. **HTTP GET** avec auth + UA + Accept.
 8. **Gestion réponse** :
@@ -154,7 +154,7 @@ Pipeline complet (`liquipedia_service.go:309`) :
 
 ## 6) Budget de requêtes — `RequestBudget`
 
-Un `RequestBudget` par wiki (`liquipedia_service.go:71`).
+Un `RequestBudget` par wiki.
 
 - **Limite** : `LiquipediaBudgetPerWiki` (défaut **1000**, env `LIQUIPEDIA_BUDGET_PER_WIKI`).
 - **Persistance Redis** : clé `liq:budget:<wiki>:<YYYYMMDDHH>`, rechargée au démarrage (`loadFromRedis`) → un redémarrage dans la même heure ne remet pas le compteur à zéro. Écriture best-effort async.
