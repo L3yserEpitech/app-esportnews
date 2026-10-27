@@ -16,17 +16,18 @@ export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) 
     permanentRedirect('/match');
   }
 
-  let response: Response | undefined;
-  try {
-    response = await fetch(`${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}`, {
-      next: { revalidate: 60 },
-    });
-  } catch {
+  // Only a backend 404 may become a real 404 (SEO policy, CLAUDE.md §18.1):
+  // a 503 or a network error means the match could not be fetched, and a 404
+  // here would de-index a valid match. Throwing yields a 5xx that crawlers
+  // treat as temporary.
+  const response = await fetch(`${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}`, {
+    next: { revalidate: 60 },
+  });
+  if (response.status === 404) {
     notFound();
   }
-
-  if (!response || response.status === 404 || !response.ok) {
-    notFound();
+  if (!response.ok) {
+    throw new Error(`match ${id} temporarily unavailable (backend ${response.status})`);
   }
 
   let match: { wiki?: string; match2id?: string; id?: number | string } | null = null;
