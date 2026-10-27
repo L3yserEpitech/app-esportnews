@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { buildBracketLayout, buildGroupColumns, columnX, CELL_H, CELL_W, SLOT, type BracketLayout } from './bracketModel';
+import {
+  buildBracketLayout,
+  buildGroupColumns,
+  columnX,
+  stageWidth,
+  CELL_H,
+  CELL_W,
+  SLOT,
+  type BracketLayout,
+} from './bracketModel';
 import type { PandaMatch, PandaBracketData } from '../../types';
 
 /** Edges landing on a given column, in emission order. */
@@ -238,6 +247,7 @@ describe('buildBracketLayout — bracket split into one mini-bracket per round',
 
   it('merges the three mini-brackets into one chain: no dividers, real round names', () => {
     expect(layout.columns.map(c => c.startsStage)).toEqual([false, false, false]);
+    expect(layout.stages).toEqual([{ key: 'QF:0', label: null, firstColumn: 0, lastColumn: 2 }]);
     expect(layout.columns.map(c => c.label)).toEqual([
       { key: 'bracket_quarterfinals' },
       { key: 'bracket_semifinals' },
@@ -346,7 +356,7 @@ describe('buildBracketLayout — degraded input', () => {
       { id: 2, match2id: 'b', section: 'Quarterfinals' },
     ] as unknown as PandaMatch[];
 
-    expect(buildBracketLayout(legacy)).toEqual({ columns: [], edges: [], width: 0, height: 0 });
+    expect(buildBracketLayout(legacy)).toEqual({ columns: [], stages: [], edges: [], width: 0, height: 0 });
   });
 
   it('drops matches with no bracket data', () => {
@@ -356,5 +366,60 @@ describe('buildBracketLayout — degraded input', () => {
   it('deduplicates repeated match entries', () => {
     const dupes = [...singleElim16(), ...singleElim16()];
     expect(buildBracketLayout(dupes).columns.map(c => c.cells.length)).toEqual([8, 4, 2, 1]);
+  });
+});
+
+describe('buildBracketLayout — stages', () => {
+  /** 2 → 1 under its own bracket id. */
+  function singleElim4(bracketId: string): PandaMatch[] {
+    return [
+      treeNode(`${bracketId}-R01-M001`, bracketId, 0, 0, [], { roundCount: 2 }),
+      treeNode(`${bracketId}-R01-M002`, bracketId, 0, 1, [], { roundCount: 2 }),
+      treeNode(`${bracketId}-R02-M001`, bracketId, 1, 0, [`${bracketId}-R01-M001`, `${bracketId}-R01-M002`], {
+        roundCount: 2,
+      }),
+    ];
+  }
+
+  /** Files a tree under a Liquipedia page section, dated like a real stage. */
+  function inSection(matches: PandaMatch[], section: string, beginAt: string): PandaMatch[] {
+    return matches.map(m => ({ ...m, section, begin_at: beginAt }) as PandaMatch);
+  }
+
+  // 2026 World Championship (leagueoflegends): the play-in and the knockout stage
+  // are two trees nothing links, filed under `Play-In` and `Knockout Stage`, and
+  // both report bracket_index 0 because the index restarts on every page stage.
+  const playIn = inSection(singleElim4('PlyIn'), 'Play-In', '2026-10-15T18:00:00Z');
+  const knockout = inSection(singleElim4('KnOut'), 'Knockout Stage', '2026-11-03T22:00:00Z');
+
+  it('names each unlinked tree after its Liquipedia section', () => {
+    const layout = buildBracketLayout([...playIn, ...knockout]);
+    expect(layout.stages).toEqual([
+      { key: 'PlyIn:0', label: 'Play-In', firstColumn: 0, lastColumn: 1 },
+      { key: 'KnOut:0', label: 'Knockout Stage', firstColumn: 2, lastColumn: 3 },
+    ]);
+    expect(layout.columns.map(c => c.startsStage)).toEqual([false, false, true, false]);
+  });
+
+  it('orders the trees by their first match when bracket_index ties', () => {
+    const layout = buildBracketLayout([...knockout, ...playIn]);
+    expect(layout.stages.map(s => s.label)).toEqual(['Play-In', 'Knockout Stage']);
+  });
+
+  it('gives a lone tree no title', () => {
+    const layout = buildBracketLayout(inSection(singleElim16(), 'Playoffs', '2026-06-01T10:00:00Z'));
+    expect(layout.stages).toEqual([{ key: 'B:0', label: null, firstColumn: 0, lastColumn: 3 }]);
+  });
+
+  it('drops titles that would not tell the stages apart', () => {
+    const first = inSection(singleElim4('P1'), 'Playoffs', '2026-06-01T10:00:00Z');
+    const second = inSection(singleElim4('P2'), 'Playoffs', '2026-06-02T10:00:00Z');
+    expect(buildBracketLayout([...first, ...second]).stages.map(s => s.label)).toEqual([null, null]);
+  });
+
+  it('measures a stage from its first column to its last', () => {
+    const layout = buildBracketLayout([...playIn, ...knockout]);
+    expect(layout.stages.map(stageWidth)).toEqual([columnX(1) + CELL_W, columnX(1) + CELL_W]);
+    expect(columnX(layout.stages[1].firstColumn)).toBe(columnX(2));
   });
 });

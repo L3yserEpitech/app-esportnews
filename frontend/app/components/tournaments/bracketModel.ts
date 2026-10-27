@@ -42,8 +42,21 @@ export interface BracketColumn {
   startsStage: boolean;
 }
 
+/**
+ * A run of columns that feed each other. Its only name is the Liquipedia section
+ * of its opening round ("Play-In", "Knockout Stage"): null when there is none, or
+ * when the names would not tell the stages apart.
+ */
+export interface BracketStage {
+  key: string;
+  label: string | null;
+  firstColumn: number;
+  lastColumn: number;
+}
+
 export interface BracketLayout {
   columns: BracketColumn[];
+  stages: BracketStage[];
   /** Drawn as one overlay on top of the whole grid, so links may span columns. */
   edges: BracketEdge[];
   width: number;
@@ -58,11 +71,16 @@ export interface GroupColumn {
   matches: PandaMatch[];
 }
 
-const EMPTY: BracketLayout = { columns: [], edges: [], width: 0, height: 0 };
+const EMPTY: BracketLayout = { columns: [], stages: [], edges: [], width: 0, height: 0 };
 
 /** Left offset of a column on the canvas. */
 export function columnX(index: number): number {
   return index * (CELL_W + CONNECTOR_W);
+}
+
+/** Canvas width covered by a stage, from its first column to its last. */
+export function stageWidth(stage: BracketStage): number {
+  return columnX(stage.lastColumn - stage.firstColumn) + CELL_W;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -87,6 +105,16 @@ function push<T>(map: Map<string, T[]>, key: string, value: T) {
   const bucket = map.get(key);
   if (bucket) bucket.push(value);
   else map.set(key, [value]);
+}
+
+/** ISO date of the earliest match, sorting last when none is dated. */
+function earliestStart(matches: PandaMatch[]): string {
+  return (
+    matches.reduce((min, m) => {
+      const d = String(m.begin_at ?? '');
+      return d && (!min || d < min) ? d : min;
+    }, '') || '\uffff'
+  );
 }
 
 /** Opponent ids are hashes of the team name, so they are stable across matches. */
@@ -200,6 +228,8 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
   });
 
   const labels = columnLabels(columns, fed);
+  // A stage that turned out to be fed by the previous column is not a new stage.
+  const stageStarts = columns.map((col, i) => i > 0 && col.stageFirst && !fed.has(i));
   const height = positioned.reduce(
     (max, cells) => cells.reduce((m, c) => Math.max(m, c.centerY + CELL_H / 2), max),
     SLOT,
@@ -210,9 +240,9 @@ export function buildBracketLayout(matches: PandaMatch[]): BracketLayout {
       key: col.key,
       label: labels[i],
       cells: positioned[i],
-      // A stage that turned out to be fed by the previous column is not a new stage.
-      startsStage: i > 0 && col.stageFirst && !fed.has(i),
+      startsStage: stageStarts[i],
     })),
+    stages: buildStages(columns, stageStarts),
     edges,
     width: columnX(columns.length - 1) + CELL_W,
     height,
@@ -243,13 +273,9 @@ export function buildGroupColumns(matches: PandaMatch[]): GroupColumn[] {
       // ce qui sortait les colonnes en 1, 10, 2, 11. La date du premier match sépare
       // les stages ; bracket_index garde l'ordre déclaré à l'intérieur d'un stage,
       // donc les groupes joués en parallèle (Group A/B/C, mêmes dates) restent dans
-      // l'ordre de la page. Réservé aux matchlists : dans l'arbre, la chronologie n'a
-      // aucun rapport avec la position dans le bracket.
-      start:
-        group.reduce((min, m) => {
-          const d = String(m.begin_at ?? '');
-          return d && (!min || d < min) ? d : min;
-        }, '') || '\uffff',
+      // l'ordre de la page. La chronologie ne classe que des stages entiers, jamais
+      // les matchs à l'intérieur d'un round.
+      start: earliestStart(group),
       order: Math.min(...group.map(m => m.bracket_data!.bracket_index)),
       matches: [...group].sort(
         (a, b) =>
@@ -280,7 +306,10 @@ function buildColumns(matches: PandaMatch[]): RawColumn[] {
         (a, b) => a - b,
       );
       return {
-        // bracket_index is Liquipedia's own left-to-right order for the page.
+        // Same rule as the group columns: bracket_index restarts at 0 on every stage
+        // of the page (Worlds files Play-In and Knockout Stage both at 0), so the
+        // earliest match orders whole trees and bracket_index only settles ties.
+        start: earliestStart(group),
         order: Math.min(...group.map(m => m.bracket_data!.bracket_index)),
         columns: roundIndexes.map(roundIndex => ({
           key: `${group[0].match2bracketid}:${roundIndex}`,
@@ -296,8 +325,27 @@ function buildColumns(matches: PandaMatch[]): RawColumn[] {
         })),
       };
     })
-    .sort((a, b) => a.order - b.order)
+    .sort((a, b) => a.start.localeCompare(b.start) || a.order - b.order)
     .flatMap(s => s.columns);
+}
+
+/**
+ * Group the columns into stages and name each after the section of its opening
+ * round. Names are kept only when they tell the stages apart: a lone tree, or
+ * several trees filed under one section, get none.
+ */
+function buildStages(columns: RawColumn[], stageStarts: boolean[]): BracketStage[] {
+  const stages: BracketStage[] = [];
+  columns.forEach((col, i) => {
+    if (i > 0 && !stageStarts[i]) {
+      stages[stages.length - 1].lastColumn = i;
+      return;
+    }
+    const label = col.cells.map(m => m.section).find(Boolean) ?? null;
+    stages.push({ key: col.key, label, firstColumn: i, lastColumn: i });
+  });
+  const distinct = new Set(stages.map(s => s.label)).size > 1;
+  return distinct ? stages : stages.map(s => ({ ...s, label: null }));
 }
 
 /**

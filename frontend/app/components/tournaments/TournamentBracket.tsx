@@ -15,7 +15,9 @@ import {
   CELL_H,
   CELL_W,
   CONNECTOR_W,
+  stageWidth,
   type BracketEdge,
+  type BracketStage,
   type ColumnLabel,
 } from './bracketModel';
 
@@ -149,6 +151,26 @@ function BlockHeading({ text }: { text: string }) {
   );
 }
 
+/** One heading per named stage, laid over the columns it spans. */
+function StageHeadings({ stages }: { stages: BracketStage[] }) {
+  return (
+    <div className="relative mb-3 h-4">
+      {stages.map(stage =>
+        stage.label === null ? null : (
+          <div
+            key={stage.key}
+            className="absolute top-0 flex items-center gap-3"
+            style={{ left: columnX(stage.firstColumn), width: stageWidth(stage) }}
+          >
+            <BlockHeading text={stage.label} />
+            <span aria-hidden className="h-px flex-1 bg-[var(--color-border-primary)]/60" />
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
 export default function TournamentBracket({ matches }: TournamentBracketProps) {
   const t = useTranslations('pages_detail.tournament_detail');
   const groups = useMemo(() => buildGroupColumns(matches), [matches]);
@@ -157,8 +179,10 @@ export default function TournamentBracket({ matches }: TournamentBracketProps) {
   if (groups.length === 0 && layout.columns.length === 0) return null;
 
   const label = (l: ColumnLabel) => t(l.key, l.round !== undefined ? { round: l.round } : undefined);
-  // Sub-headings only earn their place when both blocks are on screen.
+  // Sub-headings only earn their place when both blocks are on screen. Named
+  // stages ("Play-In", "Knockout Stage") title the tree themselves.
   const bothBlocks = groups.length > 0 && layout.columns.length > 0;
+  const namedStages = layout.stages.some(stage => stage.label !== null);
 
   return (
     <section className="space-y-4">
@@ -189,9 +213,10 @@ export default function TournamentBracket({ matches }: TournamentBracketProps) {
       {/* ── Elimination tree ── */}
       {layout.columns.length > 0 && (
         <div className="space-y-3">
-          {bothBlocks && <BlockHeading text={t('bracket_playoffs')} />}
+          {bothBlocks && !namedStages && <BlockHeading text={t('bracket_playoffs')} />}
           <div className="overflow-x-auto pb-4 -mx-4 px-4">
             <div className="min-w-max">
+              {namedStages && <StageHeadings stages={layout.stages} />}
               <div className="flex">
                 {layout.columns.map((col, colIdx) => (
                   <React.Fragment key={`label-${col.key}`}>

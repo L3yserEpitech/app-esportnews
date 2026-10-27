@@ -22,7 +22,9 @@ import {
   CELL_H,
   CELL_W,
   CONNECTOR_W,
+  stageWidth,
   type BracketEdge,
+  type BracketStage,
 } from '../bracketModel';
 
 const CORNER_R = 5;
@@ -131,13 +133,34 @@ function RoundPill({ text }: { text: string }) {
   );
 }
 
+/** One heading per named stage, laid over the columns it spans. */
+function StageHeadings({ stages }: { stages: BracketStage[] }) {
+  return (
+    <View style={styles.stageRow}>
+      {stages.map(stage =>
+        stage.label === null ? null : (
+          <View
+            key={stage.key}
+            style={[styles.stageHeading, { left: columnX(stage.firstColumn), width: stageWidth(stage) }]}
+          >
+            <Text style={styles.stageLabel} numberOfLines={1}>{stage.label}</Text>
+            <View style={styles.stageRule} />
+          </View>
+        ),
+      )}
+    </View>
+  );
+}
+
 export default function BracketSection({ matches }: TournamentSectionProps) {
   const groups = useMemo(() => buildGroupColumns(matches), [matches]);
   const layout = useMemo(() => buildBracketLayout(matches), [matches]);
   if (groups.length === 0 && layout.columns.length === 0) return null;
 
-  // Sub-headings only earn their place when both blocks are on screen.
+  // Sub-headings only earn their place when both blocks are on screen. Named
+  // stages ("Play-In", "Knockout Stage") title the tree themselves.
   const bothBlocks = groups.length > 0 && layout.columns.length > 0;
+  const namedStages = layout.stages.some(stage => stage.label !== null);
 
   return (
     <View>
@@ -165,9 +188,10 @@ export default function BracketSection({ matches }: TournamentSectionProps) {
       {/* Elimination tree */}
       {layout.columns.length > 0 && (
         <View style={styles.block}>
-          {bothBlocks && <Text style={styles.blockHeading}>Phase finale</Text>}
+          {bothBlocks && !namedStages && <Text style={styles.blockHeading}>Phase finale</Text>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
             <View>
+              {namedStages && <StageHeadings stages={layout.stages} />}
               <View style={styles.labelsRow}>
                 {layout.columns.map((col, colIdx) => (
                   <React.Fragment key={`label-${col.key}`}>
@@ -207,17 +231,22 @@ export default function BracketSection({ matches }: TournamentSectionProps) {
   );
 }
 
+const headingText = {
+  color: COLORS.textSecondary,
+  fontSize: 11,
+  fontWeight: '700',
+  textTransform: 'uppercase',
+  letterSpacing: 1.5,
+} as const;
+
 const styles = StyleSheet.create({
   scroll: { paddingBottom: spacing.sm, paddingRight: spacing.md },
   block: { marginBottom: spacing.sm },
-  blockHeading: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: spacing.sm,
-  },
+  blockHeading: { ...headingText, marginBottom: spacing.sm },
+  stageRow: { height: 16, marginBottom: spacing.sm },
+  stageHeading: { position: 'absolute', top: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  stageLabel: headingText,
+  stageRule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   groupRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   groupColumn: { width: CELL_W, alignItems: 'center', gap: spacing.sm },
   labelsRow: { flexDirection: 'row', marginBottom: spacing.sm },
