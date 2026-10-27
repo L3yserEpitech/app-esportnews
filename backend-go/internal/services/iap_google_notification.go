@@ -56,7 +56,7 @@ const (
 // delivered via Pub/Sub push. The purchase token is used to re-validate with the
 // Google Play API and update the matching user's premium status.
 func (s *IAPService) HandleGoogleNotification(ctx context.Context, body []byte) error {
-	if !s.googleReady {
+	if s.googlePlay == nil {
 		s.logger.Warn("[IAP][GoogleWebhook] Received Google notification but Google IAP is not configured")
 		return nil
 	}
@@ -93,22 +93,31 @@ func (s *IAPService) HandleGoogleNotification(ctx context.Context, body []byte) 
 	}
 
 	// For all other types, re-validate with Google Play to get the ground truth.
-	result, err := s.ValidateGooglePurchase(ctx, sub.SubscriptionID, sub.PurchaseToken)
+	result, err := s.ValidateGooglePurchase(ctx, sub.PurchaseToken)
 	if err != nil {
 		return fmt.Errorf("re-validate after RTDN: %w", err)
 	}
 
 	updates := map[string]interface{}{
-		"premium":        result.IsValid,
-		"iap_product_id": result.ProductID,
+		"premium":            result.IsValid,
+		"iap_transaction_id": sub.PurchaseToken,
+	}
+	if result.ProductID != "" {
+		updates["iap_product_id"] = result.ProductID
 	}
 	if !result.ExpiresAt.IsZero() {
 		updates["iap_expires_at"] = result.ExpiresAt
 	}
 
+	// A resubscription or plan change issues a new token linked to the old one;
+	// the user row still carries the old token, so match both and migrate it.
+	tokens := []string{sub.PurchaseToken}
+	if result.PreviousTransactionID != "" {
+		tokens = append(tokens, result.PreviousTransactionID)
+	}
 	res := s.db.WithContext(ctx).
 		Model(&models.User{}).
-		Where("iap_transaction_id = ?", sub.PurchaseToken).
+		Where("iap_transaction_id IN ?", tokens).
 		Updates(updates)
 	if res.Error != nil {
 		return fmt.Errorf("update user by purchase_token: %w", res.Error)
@@ -122,11 +131,11 @@ func (s *IAPService) HandleGoogleNotification(ctx context.Context, body []byte) 
 	return nil
 }
 
-// isGoogleTerminalNotification returns true for notification types that
-// unconditionally end the subscription (no need to re-validate).
+// isGoogleTerminalNotification is true for types that end access right now.
+// CANCELED is not one: auto-renew is off but the paid period keeps running.
 func isGoogleTerminalNotification(t int) bool {
 	switch t {
-	case rtdnRevoked, rtdnExpired, rtdnCanceled, rtdnOnHold:
+	case rtdnRevoked, rtdnExpired, rtdnOnHold:
 		return true
 	}
 	return false

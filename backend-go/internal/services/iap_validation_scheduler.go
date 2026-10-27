@@ -152,14 +152,12 @@ func (s *IAPValidationScheduler) revalidateOne(ctx context.Context, u *models.Us
 		return s.iapService.UpdateUserIAPStatus(ctx, u.ID, result)
 
 	case "android":
-		// iap_transaction_id holds the purchaseToken for Android (set by
-		// UpdateUserIAPStatus). iap_product_id holds "premium_monthly".
+		// iap_transaction_id holds the Play purchase token.
 		purchaseToken := derefString(u.IAPTransactionID)
-		productID := derefString(u.IAPProductID)
-		if purchaseToken == "" || productID == "" {
+		if purchaseToken == "" {
 			return nil
 		}
-		result, err := s.iapService.ValidateGooglePurchase(ctx, productID, purchaseToken)
+		result, err := s.iapService.ValidateGooglePurchase(ctx, purchaseToken)
 		if err != nil {
 			return err
 		}

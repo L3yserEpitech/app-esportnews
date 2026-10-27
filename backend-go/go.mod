@@ -3,6 +3,7 @@ module github.com/esportnews/backend
 go 1.25.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/awa/go-iap v1.49.0
 	github.com/aws/aws-sdk-go-v2 v1.40.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.3
@@ -22,6 +23,7 @@ require (
 	golang.org/x/crypto v0.49.0
 	golang.org/x/net v0.51.0
 	golang.org/x/sync v0.20.0
+	google.golang.org/api v0.256.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
@@ -30,7 +32,6 @@ require (
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
-	github.com/alicebob/miniredis/v2 v2.38.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.15 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.15 // indirect
@@ -82,7 +83,6 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	google.golang.org/api v0.256.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251103181224-f26f9409b101 // indirect
 	google.golang.org/grpc v1.76.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

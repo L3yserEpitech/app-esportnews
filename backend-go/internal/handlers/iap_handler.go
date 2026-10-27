@@ -34,7 +34,7 @@ func (h *IAPHandler) RegisterRoutes(g *echo.Group) {
 type ValidatePurchaseRequest struct {
 	Platform      string `json:"platform"`       // "ios" or "android"
 	TransactionID string `json:"transaction_id"` // Apple transaction ID or Google order ID
-	ProductID     string `json:"product_id"`     // Product/SKU ID
+	ProductID     string `json:"product_id"`     // Product/SKU ID (informational: Play reports the real product)
 	PurchaseToken string `json:"purchase_token"` // Google Play purchase token
 }
 
@@ -74,10 +74,10 @@ func (h *IAPHandler) ValidatePurchase(c echo.Context) error {
 		result, err = h.iapService.ValidateAppleSubscription(ctx, req.TransactionID)
 
 	case "android":
-		if req.ProductID == "" || req.PurchaseToken == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "product_id and purchase_token are required for Android"})
+		if req.PurchaseToken == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "purchase_token is required for Android"})
 		}
-		result, err = h.iapService.ValidateGooglePurchase(ctx, req.ProductID, req.PurchaseToken)
+		result, err = h.iapService.ValidateGooglePurchase(ctx, req.PurchaseToken)
 	}
 
 	if err != nil {

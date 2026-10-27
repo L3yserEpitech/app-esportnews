@@ -251,6 +251,7 @@ Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh to
 | Variable | Type | Défaut | Rôle |
 |----------|------|--------|------|
 | `GOOGLE_IAP_KEY_PATH` | path | `""` | Chemin vers le JSON du service account Google |
+| `GOOGLE_IAP_KEY_CONTENT` | json | `""` | JSON du compte de service **sur une ligne** (prioritaire sur le chemin). **Obligatoire sur Railway** : l'image n'embarque aucun fichier, `GOOGLE_IAP_KEY_PATH` n'y marche pas. Le compte de service doit être invité dans la Play Console avec les droits commandes/abonnements |
 | `GOOGLE_IAP_PACKAGE` | string | `com.esportnewsapp.mobile` | Package name Android |
 | `GOOGLE_WEBHOOK_TOKEN` | string | `""` | Secret partagé pour authentifier les notifications RTDN via Pub/Sub push |
 

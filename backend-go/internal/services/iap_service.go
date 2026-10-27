@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/awa/go-iap/appstore/api"
 	"github.com/awa/go-iap/playstore"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/api/androidpublisher/v3"
 	"gorm.io/gorm"
 
 	"github.com/esportnews/backend/internal/models"
@@ -30,8 +32,9 @@ type IAPConfig struct {
 	AppleBundleID   string
 
 	// Google Play Store
-	GoogleKeyPath string
-	GooglePackage string
+	GoogleKeyPath    string
+	GoogleKeyContent string // inline service-account JSON (takes precedence over GoogleKeyPath)
+	GooglePackage    string
 }
 
 // IAPValidationResult represents the result of an IAP validation
@@ -40,6 +43,7 @@ type IAPValidationResult struct {
 	ProductID             string
 	TransactionID         string
 	OriginalTransactionID string
+	PreviousTransactionID string // Play: token this purchase replaces (resubscription / plan change)
 	ExpiresAt             time.Time
 	IsValid               bool
 	Status                string
@@ -64,9 +68,19 @@ type IAPService struct {
 	parseAppleTx      func(signed string) (*api.JWSTransaction, error)
 	parseAppleRenewal func(signed string) (*api.JWSRenewalInfoDecodedPayload, error)
 
-	// Google
-	googleClient *playstore.Client
-	googleReady  bool
+	// Google Play: nil = disabled.
+	googlePlay googlePlayClient
+}
+
+// googlePlayClient is the slice of *playstore.Client we call, so tests can feed canned Play responses.
+type googlePlayClient interface {
+	VerifySubscriptionV2(ctx context.Context, packageName, token string) (*androidpublisher.SubscriptionPurchaseV2, error)
+}
+
+// newGooglePlayClient builds the Play client without the eager token probe of
+// playstore.New: a flaky boot must not disable Google IAP for the process lifetime.
+var newGooglePlayClient = func(jsonKey []byte) (googlePlayClient, error) {
+	return playstore.NewWithClient(jsonKey, &http.Client{Timeout: 10 * time.Second})
 }
 
 // NewIAPService creates a new IAP service. It does NOT fail if keys are missing —
@@ -113,29 +127,30 @@ func NewIAPService(db *gorm.DB, logger *logrus.Logger, cfg *IAPConfig) *IAPServi
 	}
 
 	// --- Google setup ---
-	if cfg.GoogleKeyPath != "" {
-		client, err := playstore.New(keyData(cfg.GoogleKeyPath))
-		if err != nil {
-			logger.Warnf("[IAP] Cannot init Google Play client: %v — Google IAP disabled", err)
-		} else {
-			s.googleClient = client
-			s.googleReady = true
-			logger.Info("[IAP] Google Play validation ready")
-		}
+	googleKey, googleSource := LoadGoogleKey(cfg)
+	if googleKey == nil {
+		logger.Warn("[IAP] Google key not provided (set GOOGLE_IAP_KEY_CONTENT or GOOGLE_IAP_KEY_PATH) — Google IAP disabled")
+	} else if client, err := newGooglePlayClient(googleKey); err != nil {
+		logger.Warnf("[IAP] Cannot init Google Play client: %v — Google IAP disabled", err)
 	} else {
-		logger.Warn("[IAP] Google IAP key path not set — Google IAP disabled")
+		s.googlePlay = client
+		logger.Infof("[IAP] Google Play validation ready (key source: %s)", googleSource)
 	}
 
 	return s
 }
 
-// keyData reads a JSON key file and returns its bytes
-func keyData(path string) []byte {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
+// LoadGoogleKey returns the service-account JSON (inline content wins over the file path) and a label naming its source, or nil.
+func LoadGoogleKey(cfg *IAPConfig) ([]byte, string) {
+	if content := strings.TrimSpace(cfg.GoogleKeyContent); content != "" {
+		return []byte(content), "inline"
 	}
-	return data
+	if cfg.GoogleKeyPath != "" {
+		if data, err := os.ReadFile(cfg.GoogleKeyPath); err == nil {
+			return data, "file:" + cfg.GoogleKeyPath
+		}
+	}
+	return nil, "none"
 }
 
 // LoadAppleKey returns the Apple .p8 key material (inline content wins over the file path) and a label naming its source, or nil.
@@ -282,47 +297,66 @@ func parseAppleRenewalInfo(signed string) (*api.JWSRenewalInfoDecodedPayload, er
 	return &renewal, nil
 }
 
-// ValidateGooglePurchase validates a Google Play subscription purchase
-func (s *IAPService) ValidateGooglePurchase(ctx context.Context, productID string, purchaseToken string) (*IAPValidationResult, error) {
-	if !s.googleReady {
+// ValidateGooglePurchase returns the current state of the Play subscription behind purchaseToken.
+func (s *IAPService) ValidateGooglePurchase(ctx context.Context, purchaseToken string) (*IAPValidationResult, error) {
+	if s.googlePlay == nil {
 		return nil, fmt.Errorf("Google IAP validation is not configured")
 	}
 
-	resp, err := s.googleClient.VerifySubscription(ctx, s.config.GooglePackage, productID, purchaseToken)
+	// purchases.subscriptionsv2, not v1: v1 only reads base plans flagged
+	// "backwards compatible" in the Play Console and knows nothing of the
+	// subscription state machine (grace, hold, pause).
+	resp, err := s.googlePlay.VerifySubscriptionV2(ctx, s.config.GooglePackage, purchaseToken)
 	if err != nil {
 		return nil, fmt.Errorf("Google validation failed: %w", err)
 	}
-
-	result := &IAPValidationResult{
-		Platform:      "android",
-		ProductID:     productID,
-		TransactionID: purchaseToken,
-		IsValid:       true,
-		Status:        "active",
+	if resp.AcknowledgementState == "ACKNOWLEDGEMENT_STATE_PENDING" {
+		// The app acknowledges in finishTransaction; Play refunds unacknowledged purchases after 3 days.
+		s.logger.Warnf("[IAP] Google purchase %.20s... is not acknowledged yet", purchaseToken)
 	}
+	return googleSubscriptionResult(resp, purchaseToken, time.Now()), nil
+}
 
-	// Check expiry
-	now := time.Now()
-	if resp.ExpiryTimeMillis > 0 {
-		result.ExpiresAt = time.UnixMilli(resp.ExpiryTimeMillis)
-		if !result.ExpiresAt.After(now) {
-			result.IsValid = false
-			result.Status = "expired"
+// googleSubscriptionResult maps a Play subscription state to our premium decision.
+func googleSubscriptionResult(resp *androidpublisher.SubscriptionPurchaseV2, purchaseToken string, now time.Time) *IAPValidationResult {
+	result := &IAPValidationResult{
+		Platform:              "android",
+		TransactionID:         purchaseToken,
+		PreviousTransactionID: resp.LinkedPurchaseToken,
+	}
+	for _, item := range resp.LineItems {
+		if item.ProductId != "" {
+			result.ProductID = item.ProductId
+		}
+		if t, err := time.Parse(time.RFC3339Nano, item.ExpiryTime); err == nil && t.After(result.ExpiresAt) {
+			result.ExpiresAt = t
 		}
 	}
+	paidPeriodRunning := !result.ExpiresAt.IsZero() && result.ExpiresAt.After(now)
 
-	// Check cancellation (CancelReason is int64, not pointer)
-	if resp.CancelReason > 0 {
-		result.Status = "canceled"
-	}
-
-	// PaymentState: 0=pending, 1=received, 2=free trial, 3=deferred
-	if resp.PaymentState != nil && *resp.PaymentState == 0 {
-		result.IsValid = false
+	switch resp.SubscriptionState {
+	case "SUBSCRIPTION_STATE_ACTIVE":
+		result.IsValid, result.Status = paidPeriodRunning, "active"
+	case "SUBSCRIPTION_STATE_CANCELED":
+		// Auto-renew is off but the paid period keeps running until expiry.
+		result.IsValid, result.Status = paidPeriodRunning, "canceled"
+	case "SUBSCRIPTION_STATE_IN_GRACE_PERIOD":
+		// Play asks that users keep their entitlement during a billing grace period.
+		result.IsValid, result.Status = true, "grace_period"
+	case "SUBSCRIPTION_STATE_ON_HOLD":
+		result.Status = "on_hold"
+	case "SUBSCRIPTION_STATE_PAUSED":
+		result.Status = "paused"
+	case "SUBSCRIPTION_STATE_EXPIRED":
+		result.Status = "expired"
+	case "SUBSCRIPTION_STATE_PENDING":
 		result.Status = "payment_pending"
+	case "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED":
+		result.Status = "canceled"
+	default:
+		result.Status = "unknown"
 	}
-
-	return result, nil
+	return result
 }
 
 // UpdateUserIAPStatus updates the user's premium status based on IAP validation
@@ -332,8 +366,10 @@ func (s *IAPService) UpdateUserIAPStatus(ctx context.Context, userID int64, resu
 	updates := map[string]interface{}{
 		"premium":            premium,
 		"iap_platform":       result.Platform,
-		"iap_product_id":     result.ProductID,
 		"iap_transaction_id": result.TransactionID,
+	}
+	if result.ProductID != "" {
+		updates["iap_product_id"] = result.ProductID
 	}
 
 	if result.OriginalTransactionID != "" {

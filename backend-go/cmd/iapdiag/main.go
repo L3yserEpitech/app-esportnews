@@ -1,10 +1,10 @@
-// iapdiag queries the App Store Server API to diagnose App Store Server
-// Notifications delivery: it lists the notifications Apple tried to send us
-// (with each delivery attempt's result) and can trigger a TEST notification.
+// iapdiag exercises the store credentials the backend runs with: Apple's
+// notification history and delivery results, a TEST notification, a
+// transaction or subscription lookup, and a Google Play purchase check.
 //
 // Run with the production env vars:
 //
-//	railway run --service app-esportnews -- go run ./cmd/iapdiag [-sandbox] [-days 180] [-test] [-tx id] [-sub id]
+//	railway run --service app-esportnews -- go run ./cmd/iapdiag [-sandbox] [-days 180] [-test] [-tx id] [-sub id] [-google token]
 package main
 
 import (
@@ -30,29 +30,45 @@ func main() {
 	sendTest := flag.Bool("test", false, "ask Apple to send a TEST notification and report its delivery status")
 	txID := flag.String("tx", "", "print Apple's transaction info and subscription statuses for this (original) transaction id")
 	subID := flag.String("sub", "", "run IAPService.ValidateAppleSubscription (the scheduler's code path) for this transaction id")
+	googleToken := flag.String("google", "", "run IAPService.ValidateGooglePurchase for this Play purchase token (a bogus token still proves the credentials)")
 	flag.Parse()
 
 	cfg := config.LoadConfig()
 	iapCfg := &services.IAPConfig{
-		AppleKeyPath:    cfg.AppleIAPKeyPath,
-		AppleKeyContent: cfg.AppleIAPKeyContent,
-		AppleKeyID:      cfg.AppleIAPKeyID,
-		AppleIssuerID:   cfg.AppleIAPIssuerID,
-		AppleBundleID:   cfg.AppleIAPBundleID,
+		AppleKeyPath:     cfg.AppleIAPKeyPath,
+		AppleKeyContent:  cfg.AppleIAPKeyContent,
+		AppleKeyID:       cfg.AppleIAPKeyID,
+		AppleIssuerID:    cfg.AppleIAPIssuerID,
+		AppleBundleID:    cfg.AppleIAPBundleID,
+		GoogleKeyPath:    cfg.GoogleIAPKeyPath,
+		GoogleKeyContent: cfg.GoogleIAPKeyContent,
+		GooglePackage:    cfg.GoogleIAPPackage,
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+
+	if *googleToken != "" {
+		res, err := services.NewIAPService(nil, logger, iapCfg).ValidateGooglePurchase(ctx, *googleToken)
+		if err != nil {
+			fmt.Printf("ValidateGooglePurchase error: %v\n", err)
+			os.Exit(2)
+		}
+		fmt.Printf("ValidateGooglePurchase: valid=%v status=%s product=%s expiresAt=%s\n",
+			res.IsValid, res.Status, res.ProductID, res.ExpiresAt.UTC().Format(time.RFC3339))
+		return
+	}
+
 	key, _ := services.LoadAppleKey(iapCfg)
 	if key == nil || iapCfg.AppleKeyID == "" || iapCfg.AppleIssuerID == "" {
 		fmt.Fprintln(os.Stderr, "APPLE_IAP_KEY_CONTENT (or APPLE_IAP_KEY_PATH), APPLE_IAP_KEY_ID and APPLE_IAP_ISSUER_ID are required")
 		os.Exit(1)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
 
 	if *subID != "" {
 		// The service's own code path: production first, sandbox fallback,
 		// so -sandbox does not apply here.
-		logger := logrus.New()
-		logger.SetLevel(logrus.WarnLevel)
 		res, err := services.NewIAPService(nil, logger, iapCfg).ValidateAppleSubscription(ctx, *subID)
 		if err != nil {
 			fmt.Printf("ValidateAppleSubscription error: %v\n", err)
