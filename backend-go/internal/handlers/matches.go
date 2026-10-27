@@ -354,13 +354,20 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		return h.findMatchInCache(ctx, wiki, matchID)
 	}
 
-	// Helper: on-demand fetch from Liquipedia for a given wiki (1 API call)
+	// Helper: on-demand fetch from Liquipedia for a given wiki (1 API call).
+	// anyTransient remembers an upstream failure (429, budget, network,
+	// deadline): the match may exist but be unreachable, which must end in a
+	// 503, not a 404 that de-indexes it.
+	anyTransient := false
 	fetchOnDemand := func(wiki string) (*models.NormalizedMatch, bool) {
 		normalized, err := h.fetchMatchFromWiki(ctx, wiki, matchID)
-		if err != nil || normalized == nil {
-			return nil, false
+		if err == nil {
+			return normalized, true
 		}
-		return normalized, true
+		if !errors.Is(err, errMatchNotFound) {
+			anyTransient = true
+		}
+		return nil, false
 	}
 
 	// Helper: return match + store wiki hint for future lookups
@@ -401,6 +408,9 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		}
 	}
 
+	if anyTransient {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "match temporarily unavailable"})
+	}
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "match not found"})
 }
 

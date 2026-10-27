@@ -44,6 +44,22 @@ const (
 	// digits: anything above this cannot be a pageid, so it 404s without
 	// burning a 10-wiki fan-out on Liquipedia.
 	maxLiquipediaPageID = math.MaxUint32
+
+	// sharedFetchTimeout bounds one shared upstream fetch (queue wait + HTTP). It
+	// exceeds httpClient.Timeout so the client, not this timer, ends a slow body.
+	sharedFetchTimeout = 35 * time.Second
+
+	// Background callers (poller, notification hydration) poll the outbound slot
+	// instead of queueing on it, so a page-serving caller that arrives later is
+	// still served first; after backgroundYield they queue like everyone else so
+	// a sustained crawl cannot starve the poller.
+	backgroundPollInterval = 50 * time.Millisecond
+	backgroundYield        = 5 * time.Second
+
+	// budgetWarnNumerator/Denominator = 80 %: one warning per wiki per hour when
+	// crossed, before on-demand calls of that game start failing at the limit.
+	budgetWarnNumerator   = 4
+	budgetWarnDenominator = 5
 )
 
 // maxLiqResponseSize caps response bodies. A body at the cap was silently
@@ -87,6 +103,9 @@ type RequestBudget struct {
 
 	// Backoff: when we receive a 429, stop making requests until this time
 	blockedUntil time.Time
+
+	// warned is set once per hour when Used crosses the warning threshold.
+	warned bool
 
 	// Redis persistence (optional — best-effort)
 	redisCache *cache.RedisCache
@@ -150,12 +169,17 @@ func (b *RequestBudget) Record429() {
 	// Note: can't log here (no logger on budget struct), logged at call site
 }
 
-// RecordRequest increments the usage counter (in-memory + Redis best-effort).
-func (b *RequestBudget) RecordRequest() {
+// RecordRequest counts one request and reports whether this call crossed the
+// hourly warning threshold (reported once per hour).
+func (b *RequestBudget) RecordRequest() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.maybeReset()
 	b.Used++
+	warn := !b.warned && b.Used >= b.warnThreshold()
+	if warn {
+		b.warned = true
+	}
 	// Persist to Redis (best-effort, async)
 	if b.redisCache != nil {
 		key := b.budgetRedisKey()
@@ -167,6 +191,12 @@ func (b *RequestBudget) RecordRequest() {
 			_ = b.redisCache.Set(ctx, key, fmt.Sprintf("%d", used), ttl)
 		}()
 	}
+	return warn
+}
+
+// warnThreshold is ceil(Limit × 80 %), in integers so 1000 → 800 and 10 → 8.
+func (b *RequestBudget) warnThreshold() int {
+	return (b.Limit*budgetWarnNumerator + budgetWarnDenominator - 1) / budgetWarnDenominator
 }
 
 // loadFromRedis initializes the in-memory counter from Redis (called once at startup).
@@ -209,6 +239,7 @@ func (b *RequestBudget) maybeReset() {
 	if time.Now().After(b.ResetAt) {
 		b.Used = 0
 		b.blockedUntil = time.Time{} // clear 429 backoff on hourly reset
+		b.warned = false
 		b.ResetAt = time.Now().Truncate(time.Hour).Add(time.Hour)
 	}
 }
@@ -311,11 +342,19 @@ func NewLiquipediaService(apiKey string, budgetPerWiki int, redisCache *cache.Re
 		logger.WithField("interval_ms", ms).Info("Liquipedia request spacing enabled")
 	}
 
+	// LIQUIPEDIA_API_BASE_URL points the client at a stand-in (handler tests,
+	// local mock); empty = the real API.
+	baseURL := liquipediaBaseURL
+	if override := os.Getenv("LIQUIPEDIA_API_BASE_URL"); override != "" {
+		baseURL = override
+		logger.WithField("base_url", override).Warn("Liquipedia API base URL overridden — tests/mock only, never in prod")
+	}
+
 	svc := &LiquipediaService{
 		apiKey:      apiKey,
 		cache:       redisCache,
 		httpClient:  httpClient,
-		baseURL:     liquipediaBaseURL,
+		baseURL:     baseURL,
 		budgets:     budgets,
 		log:         logger,
 		sem:         make(chan struct{}, maxConcurrentRequests),
@@ -363,11 +402,12 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 
 	// 2. Singleflight: deduplicate concurrent API calls for the same cache key.
 	// If 5 users request the same uncached data simultaneously, only 1 API call is made.
-	v, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
-		// Detach from the first caller's context: N callers share this single
-		// fetch, so the first caller cancelling (browser disconnect) must not
-		// fail the others. Bounded by its own timeout (> httpClient.Timeout).
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 35*time.Second)
+	// The fetch is detached from the first caller: N callers share it, so the
+	// first one giving up must not fail the others, and the result still lands in
+	// cache for the next attempt. Each caller only waits as long as its own
+	// context allows (select below), so handler deadlines stay real.
+	results := s.sfGroup.DoChan(cacheKey, func() (interface{}, error) {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sharedFetchTimeout)
 		defer cancel()
 
 		// Re-check cache (another goroutine may have populated it while we waited)
@@ -432,11 +472,8 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			"url":      reqURL,
 		}).Debug("[MAKEREQ] Sending HTTP request to Liquipedia")
 
-		// Bound concurrent outbound calls to stay under Liquipedia's burst limit.
-		select {
-		case s.sem <- struct{}{}:
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		if err := s.acquireSlot(ctx); err != nil {
+			return nil, err
 		}
 		// Space successive calls when configured (cold-start / local dev).
 		if s.minInterval > 0 {
@@ -511,9 +548,16 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			return s.getStaleOrError(ctx, cacheKey, wiki, "response exceeds size cap")
 		}
 
-		// Record the request in the budget
-		budget.RecordRequest()
+		crossedWarning := budget.RecordRequest()
 		afterStatus := budget.Status()
+		if crossedWarning {
+			s.log.WithFields(logrus.Fields{
+				"wiki":      wiki,
+				"used":      afterStatus["used"],
+				"limit":     afterStatus["limit"],
+				"resets_at": afterStatus["resets_at"],
+			}).Warn("[BUDGET] ⚠️ 80% of the hourly budget used — on-demand calls fall back to stale at the limit")
+		}
 
 		// Store in cache (fresh + stale copy)
 		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
@@ -532,17 +576,15 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		return body, nil
 	})
 
-	if shared {
-		s.log.WithFields(logrus.Fields{
-			"wiki": wiki,
-			"key":  cacheKey,
-		}).Debug("[MAKEREQ] Singleflight: shared result from concurrent request")
+	select {
+	case res := <-results:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		return res.Val.([]byte), nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-
-	if err != nil {
-		return nil, err
-	}
-	return v.([]byte), nil
 }
 
 // getStaleOrError returns stale cached data, or an error carrying the real failure cause.
@@ -799,7 +841,7 @@ func (s *LiquipediaService) fetchTeamRecord(ctx context.Context, wiki, template,
 	if template != "" {
 		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, template), fmt.Sprintf("[[template::%s]]", template)})
 	}
-	if name != "" && !strings.EqualFold(name, template) {
+	if name != "" {
 		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, "name:"+name), fmt.Sprintf("[[name::%s]]", name)})
 	}
 
@@ -1191,4 +1233,55 @@ func (s *LiquipediaService) getAllWikis() []string {
 		wikis = append(wikis, wiki)
 	}
 	return wikis
+}
+
+type laneKey struct{}
+
+// BackgroundLane marks ctx as background work (poller, notification hydration):
+// its Liquipedia calls yield the outbound slot to page-serving callers.
+func BackgroundLane(ctx context.Context) context.Context {
+	return context.WithValue(ctx, laneKey{}, true)
+}
+
+func isBackground(ctx context.Context) bool {
+	v, _ := ctx.Value(laneKey{}).(bool)
+	return v
+}
+
+// acquireSlot takes the single outbound slot. Foreground callers queue on it
+// (FIFO); background callers only poll it for backgroundYield, so a queued
+// foreground caller is always handed a freed slot first.
+func (s *LiquipediaService) acquireSlot(ctx context.Context) error {
+	if !isBackground(ctx) {
+		select {
+		case s.sem <- struct{}{}:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	poll := time.NewTicker(backgroundPollInterval)
+	defer poll.Stop()
+	yield := time.NewTimer(backgroundYield)
+	defer yield.Stop()
+	for {
+		select {
+		case s.sem <- struct{}{}:
+			return nil
+		default:
+		}
+		select {
+		case <-poll.C:
+		case <-yield.C:
+			select {
+			case s.sem <- struct{}{}:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

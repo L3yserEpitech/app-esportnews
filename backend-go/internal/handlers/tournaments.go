@@ -128,7 +128,10 @@ func (h *TournamentHandler) ListAllFinishedTournaments(c echo.Context) error {
 // GetTournament retrieves a single tournament by ID (pagename).
 // On-demand cache-aside: checks cache first, then fetches from Liquipedia.
 func (h *TournamentHandler) GetTournament(c echo.Context) error {
-	ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Second)
+	// A detail is 3-4 sequential upstream calls (tournament, up to 5000 matches,
+	// squads): 8 s for TI 2026 on an idle queue. Now that MakeRequest honours
+	// this deadline, 10 s would 503 big tournaments.
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 20*time.Second)
 	defer cancel()
 
 	tournamentID := c.Param("id")
@@ -167,43 +170,32 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 	}
 
 	// Helper: on-demand fetch from Liquipedia for a given wiki. transient=true
-	// when at least one upstream call failed (429 backoff, budget, network) —
-	// the tournament may exist but be temporarily unreachable.
-	fetchOnDemandDetailed := func(wiki string) (t *models.NormalizedTournament, found bool, transient bool) {
-		_, isNumeric := strconv.Atoi(decodedID)
-		conditions := []string{fmt.Sprintf("[[pagename::%s]]", decodedID)}
-		if isNumeric == nil {
-			conditions = []string{fmt.Sprintf("[[pageid::%s]]", decodedID), fmt.Sprintf("[[pagename::%s]]", decodedID)}
+	// when at least one upstream call failed (429 backoff, budget, network,
+	// deadline) — the tournament may exist but be temporarily unreachable.
+	fetchOnDemand := func(wiki string) (t *models.NormalizedTournament, found bool, transient bool) {
+		condition := fmt.Sprintf("[[pagename::%s]]", decodedID)
+		if _, err := strconv.Atoi(decodedID); err == nil {
+			condition = fmt.Sprintf("[[pageid::%s]]", decodedID)
 		}
-		for _, condition := range conditions {
-			cacheKey := cache.LiqTournamentKey(wiki, decodedID)
-			params := url.Values{}
-			params.Set("conditions", condition)
-			params.Set("limit", "1")
+		params := url.Values{}
+		params.Set("conditions", condition)
+		params.Set("limit", "1")
 
-			data, err := h.liqService.MakeRequest(ctx, wiki, "tournament", params, cacheKey, services.TTLTournamentDetail)
-			if err != nil {
-				transient = true
-				continue
-			}
-			resp, err := services.ParseResponse(data)
-			if err != nil || len(resp.Result) == 0 {
-				continue
-			}
-			var liqT models.LiqTournament
-			if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
-				continue
-			}
-			normalized := models.NormalizeLiqTournament(liqT, wiki)
-			return &normalized, true, false
+		data, err := h.liqService.MakeRequest(ctx, wiki, "tournament", params, cache.LiqTournamentKey(wiki, decodedID), services.TTLTournamentDetail)
+		if err != nil {
+			return nil, false, true
 		}
-		return nil, false, transient
+		resp, err := services.ParseResponse(data)
+		if err != nil || len(resp.Result) == 0 {
+			return nil, false, false
+		}
+		var liqT models.LiqTournament
+		if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
+			return nil, false, false
+		}
+		normalized := models.NormalizeLiqTournament(liqT, wiki)
+		return &normalized, true, false
 	}
-	fetchOnDemand := func(wiki string) (*models.NormalizedTournament, bool) {
-		t, found, _ := fetchOnDemandDetailed(wiki)
-		return t, found
-	}
-
 	// Helper: return enriched tournament + store wiki hint for future lookups
 	returnTournament := func(t models.NormalizedTournament, wiki string) error {
 		// Cache wiki hint so future requests skip the all-wiki scan (24h TTL)
@@ -212,7 +204,12 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		if idStr := fmt.Sprintf("%d", t.ID); idStr != decodedID && t.ID > 0 {
 			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(idStr), wiki, 24*time.Hour)
 		}
-		enriched := h.enrichTournamentWithMatches(ctx, t, wiki)
+		enriched, err := h.enrichTournamentWithMatches(ctx, t, wiki)
+		if err != nil {
+			// A bracket-less detail served as 200 would sit in public caches for
+			// 5-10 min; the matches are the page, rosters are best-effort.
+			return tournamentUnavailable(c)
+		}
 		setPublicCache(c, 300, 600)
 		return c.JSON(http.StatusOK, enriched)
 	}
@@ -231,27 +228,29 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		if t, found := findInCache(wiki); found {
 			return returnTournament(*t, wiki)
 		}
-		t, found, transient := fetchOnDemandDetailed(wiki)
+		t, found, transient := fetchOnDemand(wiki)
 		if found {
 			return returnTournament(*t, wiki)
 		}
 		if transient {
-			// 503 (not 404) so a valid tournament isn't de-indexed on a 429 blip.
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "tournament temporarily unavailable"})
+			return tournamentUnavailable(c)
 		}
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "tournament not found"})
+		return tournamentNotFound(c)
 	}
 
 	allWikis := getAllWikis()
+	anyTransient := false
 
 	// Step 1: Check wiki hint from Redis (avoids scanning all 10 wikis)
 	if hintWiki, err := h.redisCache.Get(ctx, cache.LiqWikiHintKey(decodedID)); err == nil && hintWiki != "" {
 		if t, found := findInCache(hintWiki); found {
 			return returnTournament(*t, hintWiki)
 		}
-		if t, found := fetchOnDemand(hintWiki); found {
+		t, found, transient := fetchOnDemand(hintWiki)
+		if found {
 			return returnTournament(*t, hintWiki)
 		}
+		anyTransient = anyTransient || transient
 		// Hint was stale — fall through to full scan
 	}
 
@@ -264,11 +263,26 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 
 	// Step 3: On-demand fetch — try each wiki (costs 1-2 API calls per wiki)
 	for _, wiki := range allWikis {
-		if t, found := fetchOnDemand(wiki); found {
+		t, found, transient := fetchOnDemand(wiki)
+		if found {
 			return returnTournament(*t, wiki)
 		}
+		anyTransient = anyTransient || transient
 	}
 
+	if anyTransient {
+		return tournamentUnavailable(c)
+	}
+	return tournamentNotFound(c)
+}
+
+// tournamentUnavailable is the 503 for a transient upstream failure: a 404 here
+// would make the SSR page de-index a tournament that merely could not be fetched.
+func tournamentUnavailable(c echo.Context) error {
+	return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "tournament temporarily unavailable"})
+}
+
+func tournamentNotFound(c echo.Context) error {
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "tournament not found"})
 }
 
@@ -444,7 +458,9 @@ func (h *TournamentHandler) FilterTournaments(c echo.Context) error {
 // extracts teams from match opponents, and returns an enriched detail response.
 // Unlike the list endpoints, this does NOT filter by HasTwoNamedOpponents because
 // tournament brackets often contain TBD/upcoming match slots.
-func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tournament models.NormalizedTournament, wiki string) models.EnrichedTournamentDetail {
+// enrichTournamentWithMatches returns an error only when the matches could not
+// be fetched (MakeRequest already tried the stale copy); squads stay best-effort.
+func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tournament models.NormalizedTournament, wiki string) (models.EnrichedTournamentDetail, error) {
 	cacheKey := cache.LiqTournamentMatchesKey(wiki, tournament.PageName)
 	params := url.Values{}
 	// Use [[parent::PageName]] because the match's "tournament" field is a display name,
@@ -470,33 +486,31 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 			"wiki":       wiki,
 			"tournament": tournament.PageName,
 		}).Warn("Failed to fetch tournament matches")
-		matches = []models.NormalizedMatch{}
+		return models.EnrichedTournamentDetail{}, err
+	}
+	// Parse all matches without opponent filter (tournament detail shows all matches)
+	resp, parseErr := services.ParseResponse(data)
+	if parseErr != nil {
+		h.log.WithError(parseErr).Warn("Failed to parse tournament matches response")
 	} else {
-		// Parse all matches without opponent filter (tournament detail shows all matches)
-		resp, parseErr := services.ParseResponse(data)
-		if parseErr != nil {
-			h.log.WithError(parseErr).Warn("Failed to parse tournament matches response")
-			matches = []models.NormalizedMatch{}
-		} else {
-			h.log.WithFields(logrus.Fields{
-				"wiki":       wiki,
-				"tournament": tournament.PageName,
-				"rawCount":   len(resp.Result),
-			}).Info("Tournament matches API response")
+		h.log.WithFields(logrus.Fields{
+			"wiki":       wiki,
+			"tournament": tournament.PageName,
+			"rawCount":   len(resp.Result),
+		}).Info("Tournament matches API response")
 
-			seen := make(map[string]bool)
-			for _, raw := range resp.Result {
-				var m models.LiqMatch
-				if err := json.Unmarshal(raw, &m); err != nil {
-					continue
-				}
-				key := m.UniqueKey()
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				matches = append(matches, models.NormalizeLiqMatch(m, wiki, ""))
+		seen := make(map[string]bool)
+		for _, raw := range resp.Result {
+			var m models.LiqMatch
+			if err := json.Unmarshal(raw, &m); err != nil {
+				continue
 			}
+			key := m.UniqueKey()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			matches = append(matches, models.NormalizeLiqMatch(m, wiki, ""))
 		}
 	}
 
@@ -593,7 +607,7 @@ func (h *TournamentHandler) enrichTournamentWithMatches(ctx context.Context, tou
 		Matches:              matches,
 		Teams:                teams,
 		ExpectedRoster:       rosters,
-	}
+	}, nil
 }
 
 // tournamentsForDateFromPollerCache reads the three poller caches of a wiki and

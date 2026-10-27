@@ -240,6 +240,7 @@ func (p *LiquipediaPoller) isWebhooksEnabled() bool {
 // Start launches background polling goroutines for all known games.
 func (p *LiquipediaPoller) Start(ctx context.Context) {
 	ctx, p.cancel = context.WithCancel(ctx)
+	ctx = BackgroundLane(ctx)
 
 	if p.service.apiKey == "" {
 		p.log.Warn("Liquipedia API key not set — poller disabled")

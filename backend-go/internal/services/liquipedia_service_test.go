@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -225,4 +227,99 @@ func TestGetTeamByPageIDStillLooksUpMaxPageID(t *testing.T) {
 
 	_, _ = svc.GetTeamByPageID(context.Background(), 4294967295, "valorant")
 	require.Greater(t, upstreamCalls.Load(), int32(0))
+}
+
+// A caller whose context ends while the shared fetch is still queued must get
+// its context error at once: the old blocking singleflight wait ignored the
+// handler's deadline, so a 10 s handler could hang 35 s per upstream call.
+// The fetch itself carries on for the other waiters and still lands in cache.
+func TestMakeRequestHonoursCallerContextWhileSharedFetchContinues(t *testing.T) {
+	release := make(chan struct{})
+	var upstreamCalls atomic.Int32
+	svc, mr := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls.Add(1)
+		<-release
+		_, _ = w.Write([]byte(`{"result":[{"pageid":1}]}`))
+	}))
+	const key = "liq:team:valorant:1"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := svc.MakeRequest(ctx, "valorant", "team", url.Values{}, key, time.Minute)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, time.Since(start), 2*time.Second)
+
+	close(release)
+	require.Eventually(t, func() bool {
+		v, err := mr.Get(key)
+		return err == nil && v != ""
+	}, 2*time.Second, 10*time.Millisecond)
+
+	data, err := svc.MakeRequest(context.Background(), "valorant", "team", url.Values{}, key, time.Minute)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "pageid")
+	require.Equal(t, int32(1), upstreamCalls.Load(), "the abandoned fetch must be reused, not repeated")
+}
+
+// Background work (poller, notification hydration) must not make a page wait:
+// with the single outbound slot held, a foreground caller queued after a
+// background one still goes upstream first.
+func TestBackgroundLaneYieldsOutboundSlotToForegroundCaller(t *testing.T) {
+	holding := make(chan struct{})
+	gate := make(chan struct{})
+	var mu sync.Mutex
+	var order []string
+	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cond := r.URL.Query().Get("conditions")
+		if cond == "hold" {
+			close(holding)
+			<-gate
+		}
+		mu.Lock()
+		order = append(order, cond)
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"result":[]}`))
+	}))
+	request := func(ctx context.Context, cond string) {
+		params := url.Values{}
+		params.Set("conditions", cond)
+		_, _ = svc.MakeRequest(ctx, "valorant", "team", params, "liq:team:valorant:"+cond, time.Minute)
+	}
+
+	go request(context.Background(), "hold")
+	<-holding
+	go request(BackgroundLane(context.Background()), "background")
+	time.Sleep(50 * time.Millisecond)
+	go request(context.Background(), "foreground")
+	time.Sleep(50 * time.Millisecond)
+	close(gate)
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(order) == 3
+	}, 3*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []string{"hold", "foreground", "background"}, order)
+}
+
+// The hourly budget warns exactly once per hour when it crosses 80 %, so a wiki
+// about to be blocked (rainbowsix hit 727/1000 on 2026-10-27) shows up in the
+// logs before every on-demand page of that game starts failing.
+func TestRequestBudgetWarnsOnceWhenCrossingEightyPercent(t *testing.T) {
+	b := &RequestBudget{Wiki: "rainbowsix", Limit: 10, ResetAt: time.Now().Add(time.Hour)}
+
+	for i := 0; i < 7; i++ {
+		require.False(t, b.RecordRequest(), "request %d is below the threshold", i+1)
+	}
+	require.True(t, b.RecordRequest(), "8th request crosses 80 %")
+	require.False(t, b.RecordRequest(), "warned already this hour")
+
+	b.ResetAt = time.Now().Add(-time.Second)
+	for i := 0; i < 7; i++ {
+		require.False(t, b.RecordRequest())
+	}
+	require.True(t, b.RecordRequest(), "warns again after the hourly reset")
 }

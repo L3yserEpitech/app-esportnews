@@ -69,6 +69,7 @@ func (s *NotificationScheduler) getDB() *gorm.DB {
 
 // Start runs the scheduler until the given context is cancelled.
 func (s *NotificationScheduler) Start(ctx context.Context) {
+	ctx = BackgroundLane(ctx)
 	s.logger.Info("[NotifScheduler] Starting notification scheduler")
 
 	mainTicker := time.NewTicker(schedulerTickInterval)
