@@ -70,6 +70,7 @@ func main() {
 	}))
 	e.Use(mw.LoggingMiddleware(logger))
 	e.Use(mw.ErrorHandlerMiddleware())
+	e.Use(mw.BlockedCrawlersMiddleware())
 	// Parse CORS origins from env var (comma-separated)
 	corsOrigins := []string{
 		"http://localhost:3000",
