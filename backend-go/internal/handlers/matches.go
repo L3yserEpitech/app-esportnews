@@ -673,10 +673,11 @@ func compareBeginAt(a, b *string) int {
 }
 
 // unscopedScanDeadline covers the legacy lookups without ?wiki=: a 10-wiki
-// scan is 10 sequential upstream calls at 1.5 s spacing, so a shorter
-// deadline, now that MakeRequest honours it, turns every cold legacy URL
-// into a 503 — and a dead one never reaches its 404.
-const unscopedScanDeadline = 30 * time.Second
+// scan is 10 sequential upstream calls at 1.5 s spacing plus queueing, 25-31 s
+// measured at 40 % load for a dead id. A shorter deadline, now that MakeRequest
+// honours it, turns every cold legacy URL into a 503 — and a dead one never
+// reaches its 404.
+const unscopedScanDeadline = 45 * time.Second
 
 func detailDeadline(c echo.Context, scoped time.Duration) time.Duration {
 	if c.QueryParam("wiki") == "" {
