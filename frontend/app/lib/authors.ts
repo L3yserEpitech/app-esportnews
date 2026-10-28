@@ -26,6 +26,8 @@ export const AUTHORS: Author[] = [
   { slug: 'jawed-aichouche', name: 'Jawed Aichouche', aliases: [] },
   { slug: 'sami-zeroual', name: 'Sami Zeroual', aliases: [] },
   { slug: 'thomas-noel', name: 'Thomas Noël', aliases: [] },
+  { slug: 'kenan-paris', name: 'Kenan Paris', aliases: [] },
+
   // Only the initial is known for this byline; the full surname has to come
   // from the editorial team before this entry can be completed.
   { slug: 'shawn-a', name: 'Shawn A', aliases: [] },
