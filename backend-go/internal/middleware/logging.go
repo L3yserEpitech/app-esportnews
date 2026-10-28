@@ -30,6 +30,7 @@ func LoggingMiddleware(logger *logrus.Logger) echo.MiddlewareFunc {
 				"path":   c.Request().URL.Path,
 				"status": status,
 				"ip":     c.RealIP(),
+				"ua":     c.Request().UserAgent(),
 			})
 			if err != nil {
 				entry.WithError(err).Warn("Request failed")

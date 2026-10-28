@@ -39,3 +39,25 @@ func TestBlockedCrawlersGet403BeforeAnyHandler(t *testing.T) {
 		require.Equal(t, want == http.StatusOK, handlerHit, ua)
 	}
 }
+
+// Baidu's renderer fetches the API with a browser-like user agent (observed
+// 2026-10-28: 403 on the HTML, yet 120 API calls/min from 116.179.37.x kept
+// coming), so its published crawler range is refused by address as well.
+func TestBlockedCrawlerNetworksGet403ByIP(t *testing.T) {
+	e := echo.New()
+	h := BlockedCrawlersMiddleware()(func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	cases := map[string]int{
+		"116.179.37.217": http.StatusForbidden, // Baiduspider range 116.179.32.0/20
+		"116.179.47.1":   http.StatusForbidden,
+		"116.179.48.1":   http.StatusOK, // just outside the /20
+		"8.8.8.8":        http.StatusOK,
+	}
+	for ip, want := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36")
+		req.Header.Set("X-Forwarded-For", ip)
+		rec := httptest.NewRecorder()
+		require.NoError(t, h(e.NewContext(req, rec)), ip)
+		require.Equal(t, want, rec.Code, ip)
+	}
+}
