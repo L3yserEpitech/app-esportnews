@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next';
+import { BLOCKED_CRAWLERS } from './lib/crawlers';
 
 export default function robots(): MetadataRoute.Robots {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
@@ -21,12 +22,9 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: ['MJ12bot', 'AhrefsBot', 'SemrushBot', 'DotBot'],
         disallow: '/',
       },
-      // Crawlers sans trafic utile pour un site francophone, mais qui rendent le
-      // JavaScript et déclenchent donc tous les appels API d'une page (Baidu et
-      // Meta = 60 % des GET backend le 2026-10-27, cf. rapport perf pages détail).
-      // facebookexternalhit n'est PAS bloqué : il sert les aperçus de liens.
+      // Same list as middleware.ts, which enforces it with a 403 (see lib/crawlers.ts).
       {
-        userAgent: ['Baiduspider', 'meta-externalagent', 'Bytespider', 'PetalBot', 'Amazonbot', 'GPTBot', 'CCBot'],
+        userAgent: [...BLOCKED_CRAWLERS],
         disallow: '/',
       },
     ],

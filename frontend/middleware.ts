@@ -1,46 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { isBlockedCrawler } from './app/lib/crawlers';
 
-// Configuration des locales supportées
-const locales = ['fr', 'en', 'es', 'de', 'it'];
-const defaultLocale = 'fr';
-
+// robots.txt only asks: a crawler keeps its cached copy for hours or days, and
+// some ignore it. A 403 at the edge stops the page load, hence every API call
+// the page would make, immediately. robots.txt itself stays readable so the
+// disallow can still be picked up.
 export function middleware(request: NextRequest) {
-  // Récupérer la langue depuis le cookie utilisateur ou le header
-  const languageCookie = request.cookies.get('esport_language')?.value;
-
-  // Récupérer la langue préférée du navigateur
-  const acceptLanguage = request.headers.get('accept-language');
-  let preferredLanguage = defaultLocale;
-
-  // Priorité: cookie > header > default
-  if (languageCookie && locales.includes(languageCookie)) {
-    preferredLanguage = languageCookie;
-  } else if (acceptLanguage) {
-    // Extraire la première langue du header accept-language
-    const firstLanguage = acceptLanguage.split(',')[0].split('-')[0].toLowerCase();
-    if (locales.includes(firstLanguage)) {
-      preferredLanguage = firstLanguage;
-    }
+  if (isBlockedCrawler(request.headers.get('user-agent'))) {
+    return new NextResponse(null, { status: 403 });
   }
-
-  // Ajouter la langue préférée aux headers pour qu'elle soit accessible au serveur
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-preferred-locale', preferredLanguage);
-
-  // Passer la réponse sans modifier les routes
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-
-  return response;
+  return NextResponse.next();
 }
 
-// Configuration du middleware
 export const config = {
-  matcher: [
-    // Matcher tous les paths sauf les fichiers statiques et les fichiers système
-    '/((?!_next|.*\\..*|api).*)',
-  ],
+  matcher: ['/((?!robots\\.txt|_next/static|_next/image|favicon\\.ico).*)'],
 };
