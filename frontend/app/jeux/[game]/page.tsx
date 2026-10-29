@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { generateListingMetadata } from '@/app/lib/seoHelpers';
+import { gameTitle } from '@/app/lib/seoTitles';
 import { articleHref } from '@/app/lib/articleUrl';
 import { tournamentHref } from '@/app/lib/gameLinks';
 
@@ -78,7 +79,7 @@ export async function generateMetadata({ params }: { params: Promise<{ game: str
 
   const name = gameData.full_name || gameData.name;
   return generateListingMetadata(
-    `Esport ${name} - Matchs en direct, Tournois et Actualités`,
+    gameTitle(name),
     `Suivez l'esport ${name} sur Esport News : matchs en direct, résultats de tournois, classements et toutes les actualités.`,
     `/jeux/${game}`,
     `${name} esport, matchs ${name}, tournois ${name}, actualités ${name}, results ${name}`

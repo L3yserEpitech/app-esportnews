@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { AUTHORS, authorHref } from '@/app/lib/authors';
 import { BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
-import { SITE_URL } from '@/app/lib/seoHelpers';
+import { DEFAULT_OG_IMAGE, SITE_URL } from '@/app/lib/seoHelpers';
 
 
 export const metadata: Metadata = {
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     description: "Les journalistes et rédacteurs d'Esport News.",
     url: `${SITE_URL}/auteurs`,
     type: 'website',
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 

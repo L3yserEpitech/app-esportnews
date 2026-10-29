@@ -1,7 +1,18 @@
 import { Metadata } from 'next';
+import { brandTitle } from './seoTitles';
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 const siteUrl = SITE_URL;
+
+// Every page that declares its own `openGraph` replaces the layout's object
+// wholesale, so the default image has to be repeated explicitly rather than
+// inherited. Generated from the logo: public/og-default.png, 1200×630.
+export const DEFAULT_OG_IMAGE = {
+  url: `${SITE_URL}/og-default.png`,
+  width: 1200,
+  height: 630,
+  alt: 'Esport News',
+};
 
 /**
  * Générer des métadonnées cohérentes pour les pages listing
@@ -15,7 +26,7 @@ export function generateListingMetadata(
   const url = `${siteUrl}${path}`;
 
   return {
-    title: `${title} | Esport News`,
+    title: brandTitle(title),
     description,
     keywords: keywords || title,
     openGraph: {
@@ -23,11 +34,13 @@ export function generateListingMetadata(
       description,
       type: 'website',
       url,
+      images: [DEFAULT_OG_IMAGE],
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title,
       description,
+      images: [DEFAULT_OG_IMAGE.url],
     },
     alternates: {
       canonical: url,

@@ -3,6 +3,7 @@ import {
   WebSiteSchema,
   OrganizationSchema,
 } from './components/seo/StructuredData';
+import { DEFAULT_OG_IMAGE } from './lib/seoHelpers';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
@@ -12,6 +13,7 @@ export const metadata = {
   },
   openGraph: {
     url: SITE_URL,
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 

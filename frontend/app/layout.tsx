@@ -9,6 +9,7 @@ import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
 import CookieBanner from "./components/common/CookieBanner";
 import ProxyImageRetry from "./components/common/ProxyImageRetry";
+import { DEFAULT_OG_IMAGE } from "./lib/seoHelpers";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
@@ -36,11 +37,13 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     type: "website",
     locale: "fr_FR",
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
   },
   // Google only shows large image thumbnails (Discover, Top Stories) and
   // full-length snippets when the page opts in explicitly.

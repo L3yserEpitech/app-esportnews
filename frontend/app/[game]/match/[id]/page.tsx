@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { matchService } from '../../../services/matchService';
 import { slugToWiki } from '../../../lib/gameRegistry';
+import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { brandTitle, matchDescription, matchTitle } from '../../../lib/seoTitles';
 import MatchDetailPageClient from '../../../match/_components/MatchDetailPageClient';
 import { MatchJsonLd } from '../../../components/seo/entityJsonLd';
 
@@ -26,28 +28,42 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
       };
     }
 
-    const homeTeam = match.opponents?.[0]?.opponent;
-    const awayTeam = match.opponents?.[1]?.opponent;
-    const title = `${homeTeam?.name || 'Match'} vs ${awayTeam?.name || 'Match'} | ${match.videogame?.name || 'Esport'}`;
-    const description = `${title} - ${match.league?.name || ''} - ${match.begin_at ? new Date(match.begin_at).toLocaleDateString('fr-FR') : ''}`;
+    const seo = {
+      home: match.opponents?.[0]?.opponent?.name,
+      away: match.opponents?.[1]?.opponent?.name,
+      tournament: match.league?.name || match.tournament?.name,
+      game: match.videogame?.name,
+      beginAt: match.begin_at,
+    };
+    const title = matchTitle(seo);
+    const stream = match.streams_list?.find((s) => s.main) ?? match.streams_list?.[0];
+    const description = matchDescription({
+      ...seo,
+      stage: match.section,
+      bestOf: match.number_of_games,
+      streamUrl: stream?.raw_url,
+    });
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const matchUrl = `${siteUrl}/${game}/match/${id}`;
 
+    // The branded 1200×630 card, not a team logo: Liquipedia logo URLs are
+    // hotlinks that social crawlers cannot fetch, and a 200 px logo renders
+    // as a thumbnail anyway.
     return {
-      title,
+      title: brandTitle(title),
       description,
       openGraph: {
         title,
         description,
         url: matchUrl,
         type: 'website',
-        images: homeTeam?.image_url ? [{ url: homeTeam.image_url, width: 200, height: 200 }] : [],
+        images: [DEFAULT_OG_IMAGE],
       },
       twitter: {
-        card: 'summary',
+        card: 'summary_large_image',
         title,
         description,
-        images: homeTeam?.image_url ? [homeTeam.image_url] : [],
+        images: [DEFAULT_OG_IMAGE.url],
       },
       alternates: { canonical: matchUrl },
     };

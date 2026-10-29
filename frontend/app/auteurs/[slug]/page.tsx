@@ -6,7 +6,8 @@ import ArticleCard from '@/app/components/article/ArticleCard';
 import { AuthorSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { authorHref, authorQueryValue, findAuthorBySlug } from '@/app/lib/authors';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
-import { SITE_URL } from '@/app/lib/seoHelpers';
+import { DEFAULT_OG_IMAGE, SITE_URL } from '@/app/lib/seoHelpers';
+import { brandTitle } from '@/app/lib/seoTitles';
 import { toNewsItem } from '@/app/services/articleService';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -43,14 +44,14 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   const page = pageNumber((await searchParams).page);
   const base = `${SITE_URL}${authorHref(author)}`;
   const url = page > 1 ? `${base}?page=${page}` : base;
-  const title = page > 1 ? `${author.name} — page ${page} | Esport News` : `${author.name} | Esport News`;
+  const title = `${author.name} – Articles et actualités esport${page > 1 ? ` (page ${page})` : ''}`;
   const description = `Tous les articles de ${author.name} sur Esport News : actualités, analyses et interviews esport.`;
 
   return {
-    title,
+    title: brandTitle(title),
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'profile', siteName: 'Esport News' },
+    openGraph: { title, description, url, type: 'profile', siteName: 'Esport News', images: [DEFAULT_OG_IMAGE] },
   };
 }
 

@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { slugToWiki } from '../../../lib/gameRegistry';
 import { decodeRouteParam } from '../../../lib/gameLinks';
+import { proxyImageUrl } from '../../../lib/imageProxy';
+import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { brandTitle, tournamentDescription, tournamentTitle } from '../../../lib/seoTitles';
 import TournamentDetailPageClient from '../../../tournois/_components/TournamentDetailPageClient';
 import { TournamentJsonLd } from '../../../components/seo/entityJsonLd';
 
@@ -39,22 +42,35 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
     const tournament = await response.json();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const url = `${siteUrl}/${game}/tournois/${tournament.id}`;
-    const description = `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`;
+    const seo = {
+      name: tournament.name,
+      game: tournament.videogame?.name,
+      beginAt: tournament.begin_at,
+      endAt: tournament.end_at,
+      teams: tournament.teams?.length,
+      prizepool: tournament.prizepool,
+    };
+    const title = tournamentTitle(seo);
+    const description = tournamentDescription(seo);
+    const banner = tournament.banner_url || tournament.banner_dark_url;
+    const image = banner ? { url: proxyImageUrl(banner), alt: tournament.name } : DEFAULT_OG_IMAGE;
 
     return {
-      title: `${tournament.name} | Tournoi Esport | Esport News`,
+      title: brandTitle(title),
       description,
       keywords: `${tournament.name}, tournoi esport, esports, résultats, classements`,
       openGraph: {
-        title: tournament.name,
+        title,
         description,
         type: 'website',
         url,
+        images: [image],
       },
       twitter: {
         card: 'summary_large_image',
-        title: tournament.name,
-        description: `Suivez le tournoi ${tournament.name}`,
+        title,
+        description,
+        images: [image.url],
       },
       alternates: { canonical: url },
     };

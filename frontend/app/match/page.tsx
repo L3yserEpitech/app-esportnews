@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import MatchPageClient from './MatchPageClient';
+import { DEFAULT_OG_IMAGE } from '@/app/lib/seoHelpers';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
@@ -12,11 +13,13 @@ export const metadata: Metadata = {
     description: 'Retrouvez tous les matchs esport : en direct, à venir et passés.',
     url: `${SITE_URL}/match`,
     type: 'website',
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Matchs Esport | Esport News',
     description: 'Matchs en direct, à venir et passés.',
+    images: [DEFAULT_OG_IMAGE.url],
   },
   alternates: {
     canonical: `${SITE_URL}/match`,
