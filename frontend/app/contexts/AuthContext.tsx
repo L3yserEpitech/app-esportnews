@@ -31,18 +31,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Vérifier si l'utilisateur est déjà connecté au chargement
+  // Vérifier si l'utilisateur est déjà connecté au chargement. Une session
+  // que le backend refuse est effacée par getSessionUser ; une panne la
+  // conserve pour le prochain chargement.
   useEffect(() => {
     const initAuth = async () => {
-      const token = authService.getToken();
-      if (token) {
-        try {
-          const userData = await authService.getMe(token);
-          setUser(userData);
-        } catch (error) {
-          console.error('Failed to fetch user data:', error);
-          authService.removeToken();
-        }
+      try {
+        setUser(await authService.getSessionUser());
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
       }
       setIsLoading(false);
     };
@@ -52,8 +49,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (data: LoginData) => {
     try {
-      const { authToken, user: userData } = await authService.login(data);
-      authService.setToken(authToken);
+      const { authToken, refreshToken, user: userData } = await authService.login(data);
+      authService.setTokens(authToken, refreshToken);
       setUser(userData);
     } catch (error) {
       throw error;
@@ -62,8 +59,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signup = async (data: SignupData) => {
     try {
-      const { authToken, user: userData } = await authService.signup(data);
-      authService.setToken(authToken);
+      const { authToken, refreshToken, user: userData } = await authService.signup(data);
+      authService.setTokens(authToken, refreshToken);
       setUser(userData);
     } catch (error) {
       throw error;
@@ -76,15 +73,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const refreshUser = async () => {
-    const token = authService.getToken();
-    if (token) {
-      try {
-        const userData = await authService.getMe(token);
-        setUser(userData);
-      } catch (error) {
-        console.error('Failed to refresh user data:', error);
-        logout();
-      }
+    try {
+      setUser(await authService.getSessionUser());
+    } catch (error) {
+      // Panne ou réseau absent : on garde le profil affiché.
+      console.error('Failed to refresh user data:', error);
     }
   };
 

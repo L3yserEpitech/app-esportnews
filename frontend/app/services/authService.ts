@@ -1,4 +1,30 @@
+import {
+  ACCESS_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  refreshStoredSession,
+  type RefreshOutcome,
+  type TokenStore,
+} from './sessionRefresh';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+
+/** Erreur HTTP qui garde le statut : le contexte d'auth distingue un 401 (session à renouveler) d'une panne. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+const browserStore: TokenStore = {
+  get: (key) => (typeof window !== 'undefined' ? localStorage.getItem(key) : null),
+  set: (key, value) => {
+    if (typeof window !== 'undefined') localStorage.setItem(key, value);
+  },
+  remove: (key) => {
+    if (typeof window !== 'undefined') localStorage.removeItem(key);
+  },
+};
 
 export interface SignupData {
   name: string;
@@ -14,7 +40,13 @@ export interface LoginData {
 
 export interface AuthResponse {
   access_token: string;
-  refresh_token?: string;
+  refresh_token: string;
+  user: UserData;
+}
+
+export interface Session {
+  authToken: string;
+  refreshToken: string;
   user: UserData;
 }
 
@@ -44,7 +76,7 @@ class AuthService {
   /**
    * Inscription d'un nouvel utilisateur
    */
-  async signup(data: SignupData): Promise<{ authToken: string; user: UserData }> {
+  async signup(data: SignupData): Promise<Session> {
     const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: {
@@ -62,6 +94,7 @@ class AuthService {
 
     return {
       authToken: result.access_token,
+      refreshToken: result.refresh_token,
       user: result.user,
     };
   }
@@ -69,7 +102,7 @@ class AuthService {
   /**
    * Connexion d'un utilisateur
    */
-  async login(data: LoginData): Promise<{ authToken: string; user: UserData }> {
+  async login(data: LoginData): Promise<Session> {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
@@ -87,6 +120,7 @@ class AuthService {
 
     return {
       authToken: result.access_token,
+      refreshToken: result.refresh_token,
       user: result.user,
     };
   }
@@ -104,11 +138,35 @@ class AuthService {
     });
 
     if (!response.ok) {
-      throw new Error('Impossible de récupérer les informations utilisateur');
+      throw new ApiError('Impossible de récupérer les informations utilisateur', response.status);
     }
 
     const userData: UserData = await response.json();
     return userData;
+  }
+
+  /**
+   * Utilisateur de la session stockée. L'access token ne vit que 7 jours :
+   * sur un 401, la session est renouvelée une fois avec le refresh token au
+   * lieu de redemander le mot de passe chaque semaine. Seul un refus du
+   * backend termine la session ; une panne laisse les tokens en place et
+   * remonte l'erreur. Renvoie null sans session utilisable.
+   */
+  async getSessionUser(): Promise<UserData | null> {
+    const token = this.getToken();
+    if (!token) return null;
+    try {
+      return await this.getMe(token);
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) throw error;
+    }
+    if ((await this.refreshSession()) !== 'renewed') return null;
+    const renewed = this.getToken();
+    return renewed ? this.getMe(renewed) : null;
+  }
+
+  refreshSession(): Promise<RefreshOutcome> {
+    return refreshStoredSession(API_BASE_URL, browserStore);
   }
 
   /**
@@ -132,7 +190,7 @@ class AuthService {
    * Consommation du lien : enregistre le nouveau mot de passe et ouvre une
    * session, l'utilisateur repart connecté.
    */
-  async resetPassword(token: string, password: string): Promise<{ authToken: string; user: UserData }> {
+  async resetPassword(token: string, password: string): Promise<Session> {
     const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -145,41 +203,46 @@ class AuthService {
     }
 
     const result: AuthResponse = await response.json();
-    return { authToken: result.access_token, user: result.user };
+    return { authToken: result.access_token, refreshToken: result.refresh_token, user: result.user };
   }
 
   /**
-   * Stockage du token dans le localStorage
+   * Stockage de la session dans le localStorage. Les deux tokens : sans le
+   * refresh, la session meurt à l'expiration de l'access token (7 jours).
    */
-  setToken(token: string): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('authToken', token);
-    }
+  setTokens(authToken: string, refreshToken: string): void {
+    browserStore.set(ACCESS_TOKEN_KEY, authToken);
+    browserStore.set(REFRESH_TOKEN_KEY, refreshToken);
   }
 
   /**
    * Récupération du token depuis le localStorage
    */
   getToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('authToken');
-    }
-    return null;
+    return browserStore.get(ACCESS_TOKEN_KEY);
   }
 
   /**
-   * Suppression du token
+   * Suppression de la session locale
    */
   removeToken(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
-    }
+    browserStore.remove(ACCESS_TOKEN_KEY);
+    browserStore.remove(REFRESH_TOKEN_KEY);
   }
 
   /**
-   * Déconnexion
+   * Déconnexion : révoque le refresh token de ce navigateur côté serveur
+   * (best-effort, sans attendre) puis efface la session locale.
    */
   logout(): void {
+    const token = this.getToken();
+    if (token) {
+      void fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        keepalive: true,
+      }).catch(() => undefined);
+    }
     this.removeToken();
   }
 }

@@ -37,10 +37,10 @@ function ResetPasswordForm() {
     setError('');
     setIsLoading(true);
     try {
-      const { authToken } = await authService.resetPassword(token, password);
+      const { authToken, refreshToken } = await authService.resetPassword(token, password);
       // Le backend renvoie une session complète : on enchaîne directement sur
       // l'accueil connecté plutôt que de renvoyer vers le formulaire de login.
-      authService.setToken(authToken);
+      authService.setTokens(authToken, refreshToken);
       await refreshUser();
       router.push('/');
     } catch (err) {
