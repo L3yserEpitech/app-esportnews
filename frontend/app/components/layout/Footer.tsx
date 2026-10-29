@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import DynamicLogo from '../common/DynamicLogo';
 import LiquipediaBadge from '../common/LiquipediaBadge';
+import { GAMES } from '../../lib/gameRegistry';
 
 export default function Footer() {
   const t = useTranslations();
@@ -238,8 +239,23 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Pages jeux : les seules pages de catégorie du site, sinon
+            atteignables uniquement par le sélecteur de jeux. */}
+        <nav aria-label={t('layout.footer.jeux')} style={{ borderColor: 'var(--color-border-primary)' }} className="border-t mt-12 pt-8">
+          <h4 style={{ color: 'var(--color-text-primary)' }} className="font-semibold mb-4 text-base">{t('layout.footer.jeux')}</h4>
+          <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            {GAMES.map((game) => (
+              <li key={game.slug}>
+                <Link href={`/jeux/${game.acronym}`} style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
+                  {game.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
         {/* Copyright */}
-        <div style={{ borderColor: 'var(--color-border-primary)' }} className="border-t mt-12 pt-8 flex flex-col items-center gap-2">
+        <div style={{ borderColor: 'var(--color-border-primary)' }} className="border-t mt-8 pt-8 flex flex-col items-center gap-2">
           <LiquipediaBadge variant="text" />
           <p style={{ color: 'var(--color-text-muted)' }} className="text-sm text-center">
             &copy; {year} Esport News. {t('layout.footer.copyright')}
