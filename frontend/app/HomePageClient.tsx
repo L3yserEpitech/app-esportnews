@@ -175,6 +175,10 @@ export default function HomePageClient() {
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+              {t('pages.home.h1')}
+            </h1>
+
             {/* Section Meilleurs matchs du jour */}
             {(isLoadingMatches || memoizedBestMatches.length > 0) && (
               <section aria-labelledby="best-matches">

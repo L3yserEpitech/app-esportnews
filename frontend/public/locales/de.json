@@ -33,7 +33,8 @@
       "telecharger_app": "App herunterladen",
       "telecharger_sur": "Laden im",
       "disponible_sur": "Jetzt bei",
-      "copyright": "Alle Rechte vorbehalten."
+      "copyright": "Alle Rechte vorbehalten.",
+      "jeux": "Spiele"
     },
     "settings_modal": {
       "langue": "Sprache",
@@ -106,7 +107,8 @@
       },
       "best_matches": {
         "title": "Top-Matches des Tages"
-      }
+      },
+      "h1": "Esport-News und Live-Ergebnisse"
     },
     "login": {
       "content_de_vous_revoir": "Willkommen zurück!",
@@ -403,7 +405,8 @@
     },
     "news": {
       "aucune_actualite": "Keine Nachrichten verfügbar",
-      "revenez_decouvrir": "Kommen Sie bald wieder, um die neuesten Esports-Nachrichten zu entdecken!"
+      "revenez_decouvrir": "Kommen Sie bald wieder, um die neuesten Esports-Nachrichten zu entdecken!",
+      "h1": "Esport-News"
     },
     "articles": {
       "aucun_article": "Keine Artikel verfügbar",
@@ -421,7 +424,8 @@
         "try_other_keywords": "Versuchen Sie es mit anderen Stichwörtern",
         "searching": "Suche läuft..."
       },
-      "loading": "Artikel werden geladen..."
+      "loading": "Artikel werden geladen...",
+      "h1": "Esport-Artikel"
     },
     "calendar": {
       "type_affichage": "Anzeigetyp",

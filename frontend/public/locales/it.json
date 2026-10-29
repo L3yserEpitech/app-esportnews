@@ -33,7 +33,8 @@
       "telecharger_app": "Scarica l'app",
       "telecharger_sur": "Scarica su",
       "disponible_sur": "Disponibile su",
-      "copyright": "Tutti i diritti riservati."
+      "copyright": "Tutti i diritti riservati.",
+      "jeux": "Giochi"
     },
     "settings_modal": {
       "langue": "Lingua",
@@ -106,7 +107,8 @@
       },
       "best_matches": {
         "title": "Migliori partite del giorno"
-      }
+      },
+      "h1": "Notizie esport e risultati in diretta"
     },
     "login": {
       "content_de_vous_revoir": "Bentornato!",
@@ -403,7 +405,8 @@
     },
     "news": {
       "aucune_actualite": "Nessuna notizia disponibile",
-      "revenez_decouvrir": "Torna presto per scoprire le ultime notizie esports!"
+      "revenez_decouvrir": "Torna presto per scoprire le ultime notizie esports!",
+      "h1": "Notizie esport"
     },
     "articles": {
       "aucun_article": "Nessun articolo disponibile",
@@ -421,7 +424,8 @@
         "try_other_keywords": "Prova con altre parole chiave",
         "searching": "Ricerca in corso..."
       },
-      "loading": "Caricamento articoli..."
+      "loading": "Caricamento articoli...",
+      "h1": "Articoli esport"
     },
     "calendar": {
       "type_affichage": "Tipo di visualizzazione",

@@ -152,6 +152,7 @@ export default function NewsPage() {
         <main className="container mx-auto px-4 py-8 pt-24">
           <div className="flex gap-8">
             <div className="flex-1 min-w-0">
+              <h1 className="text-2xl md:text-3xl font-bold text-text-primary mt-3 mb-6">{t('pages_detail.news.h1')}</h1>
               <ContentLoader label={t('pages_detail.articles.loading')} icon={Newspaper} />
             </div>
             <AdColumn ads={ads} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
@@ -167,6 +168,7 @@ export default function NewsPage() {
         <div className="flex gap-8">
           {/* News content */}
           <div className="flex-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold text-text-primary mt-3 mb-6">{t('pages_detail.news.h1')}</h1>
             {articles.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-text-muted text-lg mb-2">
