@@ -208,7 +208,7 @@ Toutes lues dans `backend-go/internal/config/config.go` via `LoadConfig()`. Sour
 
 Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh token 90 jours**.
 
-**Renouvellement de session** : `POST /api/auth/refresh` prend `{refresh_token}` **sans header Authorization** — exiger un access token valide pour en renouveler un expiré rendrait la route inutile (c'était le bug historique). `RefreshSession` compare le token présenté à celui stocké dans `auth:refresh:<user_id>` (`crypto/subtle`), puis **fait tourner la paire** : le refresh token consommé est aussitôt invalidé et la fenêtre de 90 jours repart de zéro. Une app ouverte au moins une fois par trimestre ne déconnecte donc jamais. Le logout supprime les deux clés Redis. Côté mobile, `apiClient` échange automatiquement au premier 401 (un seul échange en vol, requête rejouée ensuite) et ne déconnecte que si l'échange échoue.
+**Renouvellement de session** : `POST /api/auth/refresh` prend `{refresh_token}` **sans header Authorization** — exiger un access token valide pour en renouveler un expiré rendrait la route inutile (c'était le bug historique). Le refresh token est enregistré **par appareil** (`auth:refresh:<user_id>:<jti>`, 90 j) : un login sur le site ou sur un second téléphone n'écrase plus la session des autres appareils — c'était, avec l'ancien refresh de 14 j, la cause des déconnexions « toutes les deux semaines » remontées en octobre 2026. `RefreshSession` vérifie la signature, exige que la clé de l'appareil existe, puis **fait tourner la paire** : le token consommé est désinscrit et la fenêtre de 90 jours repart de zéro. Un token consommé il y a moins d'une heure (`auth:refresh:replay:<jti>`) rend **la même paire** qu'il a produite, tant qu'elle est toujours inscrite : un téléphone qui n'a pas reçu la réponse (timeout, app tuée) réessaie sans être déconnecté. Le logout ne désinscrit que l'appareil courant (`auth:jwt:<jti>` porte l'id du refresh associé) ; reset de mot de passe et suppression de compte passent par `RevokeAllSessions` (tous les appareils, replay compris). Les tokens de l'ancien schéma (`auth:refresh:<user_id>`, avant le 2026-10-28) sont acceptés une fois puis migrés — `consumeLegacyRefresh` est à retirer après le 2027-01-26. Un refus est journalisé avec sa raison et l'utilisateur (`internal=refresh token revoked (user 42)`) tout en répondant `401 Invalid refresh token`. Côté mobile, `apiClient` échange automatiquement au premier 401 (un seul échange en vol, requête rejouée ensuite) et **ne déconnecte que sur un refus explicite du backend** (400/401 de `/auth/refresh`) : sans réseau, backend en redéploiement ou 5xx, les tokens sont conservés, l'app s'ouvre sur le dernier profil connu (`authUser` en AsyncStorage) et refait l'appel au retour au premier plan. Le site web stocke aussi le refresh token (`localStorage.refreshToken`) et renouvelle sa session au chargement sur un 401 (`authService.getSessionUser`).
 
 ### Liquipedia
 | Variable | Type | Défaut | Rôle | Pourquoi |
@@ -610,8 +610,10 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `cache:ads` | 1h | `AdService.List` | CUD via `/api/admin/ads/*` |
 | `cache:teams:<id>` | – | (cache rapide id-only) | – |
 | `cache:user:favorites:<id>` | – | – | – |
-| `auth:jwt:<token_id>` | 7j (JWT exp) | `AuthService` | Logout |
-| `auth:refresh:<user_id>` | 90j | `AuthService` | Logout / rotation au refresh |
+| `auth:jwt:<token_id>` | 7j (JWT exp) | `AuthService` | Logout (valeur = jti du refresh token associé) |
+| `auth:refresh:<user_id>:<jti>` | 90j | `AuthService` (une clé par appareil) | Logout de l'appareil / rotation au refresh / `RevokeAllSessions` |
+| `auth:refresh:replay:<jti>` | 1h | `AuthService.RefreshSession` | Paire rendue à un token consommé dont la réponse s'est perdue |
+| `auth:refresh:<user_id>` | 90j | ancien schéma (avant 2026-10-28) | consommé puis supprimé au premier refresh ; code à retirer après 2027-01-26 |
 | `ratelimit:<ip>` | sliding window | `RateLimitMiddleware` | – |
 
 ### Clés Liquipedia (préfixe `liq:`)
