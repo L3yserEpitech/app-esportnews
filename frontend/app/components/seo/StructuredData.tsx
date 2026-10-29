@@ -261,11 +261,16 @@ export function WebSiteSchema({
   url?: string;
   name?: string;
 } = {}) {
+  // Google builds the site name from this node. The former one-word brand and
+  // the bare domain go in alternateName (domain last, as Google recommends when
+  // results still show the domain instead of the name); url is the home page
+  // in the form Google documents, with its trailing slash.
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    url,
+    url: url.endsWith('/') ? url : `${url}/`,
     name,
+    alternateName: ['EsportNews', 'esportnews.fr'],
     inLanguage: 'fr',
     publisher: { '@id': PUBLISHER['@id'] },
   };
