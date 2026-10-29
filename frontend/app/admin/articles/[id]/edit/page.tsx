@@ -36,6 +36,7 @@ export default function EditArticlePage() {
     article_content: "",
     author: "",
     subtitle: "",
+    seo_title: "",
     category: "",
     description: "",
     featuredImage: "",
@@ -62,6 +63,7 @@ export default function EditArticlePage() {
         article_content: data.article_content || data.content || "",
         author: data.author || "",
         subtitle: data.subtitle || "",
+        seo_title: data.seo_title || "",
         category: data.category || "",
         description: data.description || "",
         featuredImage: data.featuredImage || "",
@@ -111,6 +113,8 @@ export default function EditArticlePage() {
       // Only add optional fields if they have values
       if (formData.author?.trim()) cleanedData.author = formData.author;
       if (formData.subtitle?.trim()) cleanedData.subtitle = formData.subtitle;
+      // Always sent: an emptied field must clear the stored title (backend stores blank as NULL).
+      cleanedData.seo_title = formData.seo_title.trim();
       if (formData.category?.trim()) cleanedData.category = formData.category;
       if (formData.description?.trim()) cleanedData.description = formData.description;
       if (formData.featuredImage?.trim()) cleanedData.featuredImage = formData.featuredImage;
@@ -209,6 +213,23 @@ export default function EditArticlePage() {
                   placeholder="Sous-titre (optionnel)"
                   className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="seo_title" className="text-gray-300 mb-2">Titre SEO</Label>
+                <Input
+                  id="seo_title"
+                  value={formData.seo_title}
+                  maxLength={60}
+                  onChange={(e) =>
+                    setFormData({ ...formData, seo_title: e.target.value })
+                  }
+                  placeholder="Titre affiché par Google (vide = titre de l'article)"
+                  className="bg-[#060B13] border-[#182859] text-white placeholder:text-gray-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.seo_title.length}/60 caractères, mot-clé en tête. Le titre de l'article reste celui affiché sur la page.
+                </p>
               </div>
 
               <div>

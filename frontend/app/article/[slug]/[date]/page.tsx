@@ -14,6 +14,7 @@ import { authorDisplayName, authorHref, findAuthor } from '@/app/lib/authors';
 import { publicImageUrl, rewriteImageHosts } from '@/app/lib/imageUtils';
 import { modifiedDate, toIsoSeconds } from '@/app/lib/seoDates';
 import { sanitizeArticle } from '@/app/lib/sanitizeArticle';
+import { brandTitle } from '@/app/lib/seoTitles';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -53,6 +54,7 @@ function toArticle(data: SupabaseArticle): Article {
     slug: data.slug,
     title: data.title,
     subtitle: data.subtitle,
+    seo_title: data.seo_title,
     description: data.description,
     author: data.author,
     created_at: data.created_at,
@@ -142,7 +144,9 @@ export async function generateMetadata(
   const section = sectionFor(article.category);
 
   return {
-    title: `${article.title} | Esport News`,
+    // The editorial title often runs past 60 characters; the dedicated SEO
+    // title, when the newsroom fills it in, is what the SERP shows.
+    title: brandTitle(article.seo_title || article.title),
     description,
     keywords: article.tags?.join(', '),
     authors: [{ name: authorName, url: authorUrl }],

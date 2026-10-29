@@ -13,6 +13,7 @@ export interface Article {
   content: string;
   category: string;
   subtitle?: string;
+  seo_title?: string;
   description?: string;
   content_black?: string;
   content_white?: string;

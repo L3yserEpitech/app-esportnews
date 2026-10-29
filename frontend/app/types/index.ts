@@ -50,6 +50,7 @@ export interface NewsItem {
   slug: string;
   title: string;
   subtitle?: string;
+  seo_title?: string; // balise <title> dédiée (60 c.), vide = title
   description: string;
   author: string;
   created_at: string;
@@ -84,6 +85,7 @@ export interface SupabaseArticle {
   category: string;
   credit?: string;
   subtitle: string;
+  seo_title?: string;
   description: string;
   content_black: string;
   content_white: string;
