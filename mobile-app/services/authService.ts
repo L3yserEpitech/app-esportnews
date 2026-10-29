@@ -47,6 +47,7 @@ class AuthService {
       // Les deux tokens : sans le refresh, la session meurt à l'expiration de
       // l'access token (7 jours) sans aucun moyen de la renouveler.
       await tokenManager.setTokens(access_token, refresh_token);
+      await tokenManager.setCachedUser(user);
 
       return {
         authToken: access_token,
@@ -69,6 +70,7 @@ class AuthService {
       // Les deux tokens : sans le refresh, la session meurt à l'expiration de
       // l'access token (7 jours) sans aucun moyen de la renouveler.
       await tokenManager.setTokens(access_token, refresh_token);
+      await tokenManager.setCachedUser(user);
 
       return {
         authToken: access_token,
@@ -86,10 +88,19 @@ class AuthService {
     try {
       // Token is automatically added by interceptor
       const response = await apiClient.get<UserData>('/api/auth/me');
+      await tokenManager.setCachedUser(response.data);
       return response.data;
     } catch (error: any) {
-      throw new Error('Impossible de récupérer les informations utilisateur');
+      throw toAuthError(error, 'Impossible de récupérer les informations utilisateur');
     }
+  }
+
+  /**
+   * Dernier profil connu, pour ouvrir l'app connectée quand /auth/me est
+   * injoignable alors que la session est toujours valide.
+   */
+  async getCachedUser(): Promise<UserData | null> {
+    return tokenManager.getCachedUser<UserData>();
   }
 
   /**
@@ -123,6 +134,13 @@ class AuthService {
    * Déconnexion
    */
   async logout(): Promise<void> {
+    // Révoque le refresh token de cet appareil côté serveur. Best-effort : sans
+    // réseau, l'utilisateur doit quand même se retrouver déconnecté à l'écran.
+    try {
+      await apiClient.post('/api/auth/logout', undefined, { timeout: 5000 });
+    } catch {
+      // ignoré : token déjà expiré ou réseau absent
+    }
     await this.removeToken();
   }
 

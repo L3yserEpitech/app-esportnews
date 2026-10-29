@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { authService } from '@/services';
 import { onUnauthorized } from '@/services/apiClient';
@@ -19,10 +19,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Register push token with backend after authentication
+async function registerPushToken() {
+  try {
+    const pushToken = await registerForPushNotificationsAsync();
+    if (pushToken) {
+      await pushTokenService.register(pushToken, Platform.OS);
+    }
+  } catch (error) {
+    console.error('AuthContext.registerPushToken error:', error);
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
+  // Set when the stored session could not be verified for a reason that is
+  // not the backend refusing it (offline, backend restarting): the profile is
+  // fetched again when the app comes back to the foreground.
+  const retryOnForegroundRef = useRef(false);
 
   // Track mount state to avoid state updates after unmount
   useEffect(() => {
@@ -31,56 +47,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Loads the profile of the stored session. Only a refresh the backend
+  // refuses ends the session — apiClient then wipes the tokens and fires
+  // onUnauthorized. Any other failure keeps the tokens: the last known profile
+  // is shown and the fetch is retried later.
+  const loadSession = useCallback(async () => {
+    const token = await authService.getToken();
+    if (!token) {
+      retryOnForegroundRef.current = false;
+      return;
+    }
+    try {
+      const userData = await authService.getMe();
+      retryOnForegroundRef.current = false;
+      if (isMountedRef.current) {
+        setUser(userData);
+      }
+      // Fire-and-forget — same as login/register
+      void registerPushToken();
+    } catch (error) {
+      if (!(await authService.getToken())) {
+        // Session over: handled by the onUnauthorized listener.
+        retryOnForegroundRef.current = false;
+        return;
+      }
+      console.warn('AuthContext.loadSession: profile unavailable, session kept', error);
+      retryOnForegroundRef.current = true;
+      const cached = await authService.getCachedUser();
+      if (cached && isMountedRef.current) {
+        setUser((current) => current ?? cached);
+      }
+    }
+  }, []);
+
   // Auto-login on mount (check if token exists in AsyncStorage)
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const token = await authService.getToken();
-        if (token && isMountedRef.current) {
-          // Token exists, fetch user data
-          const userData = await authService.getMe();
-          if (isMountedRef.current) {
-            setUser(userData);
-          }
-
-          // Register push token on auto-login (fire-and-forget — same as login/register)
-          void registerPushToken();
-        }
-      } catch (error) {
-        console.error('AuthContext.initAuth error:', error);
-        // Invalid token, remove it
-        await authService.removeToken();
-      } finally {
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
+    loadSession().finally(() => {
+      if (isMountedRef.current) {
+        setIsLoading(false);
       }
-    };
+    });
+  }, [loadSession]);
 
-    initAuth();
-  }, []);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && retryOnForegroundRef.current) {
+        void loadSession();
+      }
+    });
+    return () => subscription.remove();
+  }, [loadSession]);
 
   // When apiClient gets a 401 on an authenticated request, drop the user state
   // and bounce to the login screen. Token has already been wiped by apiClient.
   useEffect(() => {
     return onUnauthorized(() => {
       if (!isMountedRef.current) return;
+      retryOnForegroundRef.current = false;
       setUser(null);
       router.replace('/auth/login');
     });
   }, []);
-
-  // Register push token with backend after authentication
-  const registerPushToken = async () => {
-    try {
-      const pushToken = await registerForPushNotificationsAsync();
-      if (pushToken) {
-        await pushTokenService.register(pushToken, Platform.OS);
-      }
-    } catch (error) {
-      console.error('AuthContext.registerPushToken error:', error);
-    }
-  };
 
   // Unregister push token from backend
   const unregisterPushToken = async () => {
@@ -139,8 +166,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // notifications permission was revoked or the network is down.
       void unregisterPushToken();
 
-      // Remove token from AsyncStorage
-      await authService.removeToken();
+      // Revokes this device's refresh token server-side, then clears storage.
+      await authService.logout();
 
       // Clear user data
       setUser(null);
@@ -151,16 +178,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshUser = async () => {
+    const token = await authService.getToken();
+    if (!token) return;
     try {
-      const token = await authService.getToken();
-      if (token) {
-        const userData = await authService.getMe();
-        setUser(userData);
-      }
+      const userData = await authService.getMe();
+      setUser(userData);
     } catch (error) {
+      // A refused session is already handled by onUnauthorized; anything else
+      // (offline, backend down) keeps the current profile on screen.
       console.error('AuthContext.refreshUser error:', error);
-      // Invalid token, logout
-      await logout();
       throw error;
     }
   };

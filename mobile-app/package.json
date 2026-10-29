@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "test": "node --test services/*.test.ts",
     "android": "npx expo prebuild --platform android && npx expo run:android",
     "ios": "npx expo prebuild --platform ios && npx expo run:ios",
     "web": "expo start --web",
