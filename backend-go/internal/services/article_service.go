@@ -471,6 +471,7 @@ func (s *ArticleService) CreateArticle(ctx context.Context, input *models.Create
 	article := &models.Article{
 		Title:          &input.Title,
 		Subtitle:       input.Subtitle,
+		SeoTitle:       input.SeoTitle,
 		Author:         &input.Author,
 		ArticleContent: &input.ArticleContent,
 		Content:        &input.ArticleContent, // Map "article_content" input to "content" column for compatibility
@@ -530,6 +531,14 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *mod
 	}
 	if input.Subtitle != nil {
 		updates["subtitle"] = *input.Subtitle
+	}
+	if input.SeoTitle != nil {
+		// Blank means "back to the editorial title": stored as NULL, not "".
+		if trimmed := strings.TrimSpace(*input.SeoTitle); trimmed == "" {
+			updates["seo_title"] = nil
+		} else {
+			updates["seo_title"] = trimmed
+		}
 	}
 	if input.Author != nil {
 		updates["author"] = *input.Author

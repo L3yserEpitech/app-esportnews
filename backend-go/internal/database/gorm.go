@@ -119,6 +119,13 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	}
 	log.Info("articles.updated_at column ensured")
 
+	// Dedicated <title> for the SERP, filled in from the admin. NULL = the
+	// editorial title is used as is.
+	if err := db.Exec(`ALTER TABLE IF EXISTS articles ADD COLUMN IF NOT EXISTS seo_title text`).Error; err != nil {
+		return nil, fmt.Errorf("failed to ensure articles.seo_title column: %w", err)
+	}
+	log.Info("articles.seo_title column ensured")
+
 	// Auto migrate legacy models only in development (tables already exist in production/Supabase)
 	if env == "development" {
 		if err := db.AutoMigrate(

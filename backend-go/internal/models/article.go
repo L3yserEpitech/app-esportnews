@@ -24,6 +24,7 @@ type Article struct {
 	Content        *string     `json:"content"`
 	Category       *string     `json:"category"`
 	Subtitle       *string     `json:"subtitle"`
+	SeoTitle       *string     `json:"seo_title"` // balise <title> dédiée (60 c.), NULL = Title
 	Description    *string     `json:"description"`
 	ContentBlack   *string     `json:"content_black"`
 	ContentWhite   *string     `json:"content_white"`
@@ -147,6 +148,7 @@ type ArticleWithMetadata struct {
 type CreateArticleInput struct {
 	Title          string   `json:"title" validate:"required"`
 	Subtitle       *string  `json:"subtitle"`
+	SeoTitle       *string  `json:"seo_title"`
 	Author         string   `json:"author"`
 	ArticleContent string   `json:"article_content" validate:"required"` // Contenu HTML brut
 	Category       *string  `json:"category"`
@@ -162,6 +164,7 @@ type CreateArticleInput struct {
 type UpdateArticleInput struct {
 	Title          *string  `json:"title"`
 	Subtitle       *string  `json:"subtitle"`
+	SeoTitle       *string  `json:"seo_title"`
 	Author         *string  `json:"author"`
 	ArticleContent *string  `json:"article_content"`
 	Category       *string  `json:"category"`
