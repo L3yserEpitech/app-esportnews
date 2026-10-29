@@ -7,6 +7,11 @@ import type { NextConfig } from "next";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const nextConfig: NextConfig = {
+  // /live was the matches page before /match; the old URL is still linked
+  // from outside and answered 404.
+  async redirects() {
+    return [{ source: '/live', destination: '/match', permanent: true }];
+  },
   images: {
     remotePatterns: [
       {

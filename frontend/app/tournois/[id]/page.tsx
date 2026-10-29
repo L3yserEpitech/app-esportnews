@@ -1,79 +1,20 @@
-import { Metadata, ResolvingMetadata } from 'next';
-import { notFound } from 'next/navigation';
-import { wikiToSlug } from '../../lib/gameRegistry';
-import { decodeRouteParam } from '../../lib/gameLinks';
+import { Metadata } from 'next';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { decodeRouteParam, tournamentHref } from '../../lib/gameLinks';
 import TournamentDetailPageClient from '../_components/TournamentDetailPageClient';
 
-// Générer les métadonnées dynamiques pour chaque tournoi
-export async function generateMetadata(
-  { params }: { params: Promise<{ id: string }> },
-  parent: ResolvingMetadata
-): Promise<Metadata> {
-  const baseUrl_api = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-  const { id: rawId } = await params;
-  const id = decodeRouteParam(rawId);
-
-  try {
-    // Récupérer le tournoi
-    const response = await fetch(`${baseUrl_api}/api/tournaments/${encodeURIComponent(id)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 3600 },
-    });
-
-    if (!response.ok) {
-      return {
-        title: 'Tournoi non trouvé | Esport News',
-        description: 'Le tournoi que vous recherchez n\'existe pas.',
-      };
-    }
-
-    const tournament = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
-    // Canonical points to the game-first URL when the wiki is known, so the
-    // legacy /tournois/<id> URLs consolidate onto /<slug>/tournois/<id>.
-    const slug = tournament.wiki ? wikiToSlug(tournament.wiki) : undefined;
-    const url = slug
-      ? `${siteUrl}/${slug}/tournois/${tournament.id}`
-      : `${siteUrl}/tournois/${tournament.id}`;
-
-    return {
-      title: `${tournament.name} | Tournoi Esport | Esport News`,
-      description: `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`,
-      keywords: `${tournament.name}, tournoi esport, esports, résultats, classements`,
-      openGraph: {
-        title: tournament.name,
-        description: `Suivez le tournoi ${tournament.name}. Résultats, matchs, équipes, calendrier et classements en direct.`,
-        type: 'website',
-        url,
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: tournament.name,
-        description: `Suivez le tournoi ${tournament.name}`,
-      },
-      alternates: {
-        canonical: url,
-      },
-    };
-  } catch (error) {
-    console.error('Error generating metadata for tournament:', error);
-    return {
-      title: 'Tournoi | Esport News',
-      description: 'Consultez les tournois esport sur Esport News',
-    };
-  }
-}
+// Legacy /tournois/<id>. The canonical lives at /<game>/tournois/<id>, so a
+// tournament that resolves is sent there with a 308 instead of being served a
+// second time under this URL. Only a transient backend error (5xx, network)
+// still renders here, leaving the client to retry; a backend 404 is a real 404.
+export const metadata: Metadata = {
+  title: 'Tournoi | Esport News',
+  description: 'Consultez les tournois esport sur Esport News',
+};
 
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
   const id = decodeRouteParam(rawId);
-
-  // Return a real 404 for a genuinely missing tournament (e.g. a stale
-  // PandaScore-era URL still indexed) instead of a soft-404. Only 404 on an
-  // explicit backend 404 — transient errors fall through to the client.
   const baseUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
   let response: Response | undefined;
@@ -85,6 +26,11 @@ export default async function TournamentDetailPage({ params }: { params: Promise
 
   if (response?.status === 404) {
     notFound();
+  }
+
+  const tournament = response?.ok ? await response.json().catch(() => null) : null;
+  if (tournament?.wiki) {
+    permanentRedirect(tournamentHref(tournament));
   }
 
   return <TournamentDetailPageClient tournamentId={id} />;
