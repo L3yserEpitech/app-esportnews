@@ -319,8 +319,8 @@ func TestRefreshSessionRejectsUnknownTokens(t *testing.T) {
 	_, err = authService.RefreshSession(context.Background(), token)
 	assert.Error(t, err)
 
-	// A different token is stored → the presented one has been rotated out.
-	require.NoError(t, redisCache.Set(context.Background(), cache.RefreshTokenKey(7), "another-token", time.Hour))
+	// Another device of the same user is logged in → this token stays refused.
+	require.NoError(t, redisCache.Set(context.Background(), cache.RefreshTokenKey(7, "other-device"), "1", time.Hour))
 	_, err = authService.RefreshSession(context.Background(), token)
 	assert.Error(t, err)
 

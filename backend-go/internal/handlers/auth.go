@@ -311,8 +311,14 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 	// Deliberately no Authorization check: this route exists to renew a session
 	// whose access token has already expired.
 	resp, err := h.authService.RefreshSession(ctx, req.RefreshToken)
+	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+		// Nothing could be checked: a 401 here would sign the client out.
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	}
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid refresh token")
+		// The client only learns that the session is over; the reason (expired,
+		// revoked, which user) reaches the access log through Internal.
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid refresh token").SetInternal(err)
 	}
 
 	return c.JSON(http.StatusOK, resp)

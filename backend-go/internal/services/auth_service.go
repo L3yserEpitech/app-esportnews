@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -35,6 +36,19 @@ const (
 	// Fenêtre glissante : chaque refresh en émet un nouveau et repart de zéro,
 	// donc une app ouverte au moins une fois par trimestre ne déconnecte jamais.
 	refreshTokenTTL = 90 * 24 * time.Hour
+	// A rotated-out refresh token still answers with the pair it was rotated
+	// into for this long: a phone that lost the response (timeout, app killed
+	// mid-refresh) retries with the token it still holds instead of being
+	// logged out. Nothing new is minted on that path.
+	refreshReplayGrace = time.Hour
+)
+
+var (
+	ErrRefreshTokenInvalid = errors.New("refresh token invalid or expired")
+	ErrRefreshTokenRevoked = errors.New("refresh token revoked")
+	// Redis unreachable: the token can't be judged, so the caller must not
+	// read the failure as "session over".
+	ErrSessionStoreUnavailable = errors.New("session store unavailable")
 )
 
 // ErrEmailAlreadyRegistered is returned when signup hits the users.email UNIQUE constraint.
@@ -57,24 +71,37 @@ type AuthService struct {
 	gormDB    *database.Database // For GORM queries
 	Cache     *cache.RedisCache  // Exported for handler access
 	JWTSecret string             // Exported for handler access
+	// lookupUser is GetUser, swapped by tests so the session paths run
+	// without Postgres.
+	lookupUser func(ctx context.Context, userID int64) (*models.User, error)
+}
+
+// issuedPair is what a consumed refresh token can be replayed into.
+type issuedPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // NewAuthService creates a new AuthService with pgxpool
 func NewAuthService(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtSecret string) *AuthService {
-	return &AuthService{
+	s := &AuthService{
 		db:        db,
 		Cache:     redisCache,
 		JWTSecret: jwtSecret,
 	}
+	s.lookupUser = s.GetUser
+	return s
 }
 
 // NewAuthServiceWithGORM creates a new AuthService with GORM
 func NewAuthServiceWithGORM(gormDB *database.Database, redisCache *cache.RedisCache, jwtSecret string) *AuthService {
-	return &AuthService{
+	s := &AuthService{
 		gormDB:    gormDB,
 		Cache:     redisCache,
 		JWTSecret: jwtSecret,
 	}
+	s.lookupUser = s.GetUser
+	return s
 }
 
 // GetUserByEmail retrieves a user by email (type-safe with GORM)
@@ -171,24 +198,25 @@ func (s *AuthService) Signup(ctx context.Context, input *models.CreateUserInput)
 	return &user, nil
 }
 
-// issueSession mints an access + refresh token pair for a user and records both
-// in Redis. The stored refresh token is the only one accepted afterwards, so
-// rotating it here invalidates the previous one.
+// issueSession mints an access + refresh token pair for a user and registers
+// the refresh token for this device only.
 func (s *AuthService) issueSession(user *models.User) (*models.AuthResponse, error) {
-	accessToken, tokenID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, accessTokenTTL)
+	accessToken, accessID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, accessTokenTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, _, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, refreshTokenTTL)
+	refreshToken, refreshID, err := utils.GenerateJWT(user.ID, user.Email, user.Admin, s.JWTSecret, refreshTokenTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	s.Cache.Set(cacheCtx, cache.JWTKey(tokenID), "true", accessTokenTTL)
-	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID), refreshToken, refreshTokenTTL)
+	// The access token remembers its refresh token so a logout can unregister
+	// this device alone.
+	s.Cache.Set(cacheCtx, cache.JWTKey(accessID), refreshID, accessTokenTTL)
+	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID, refreshID), "1", refreshTokenTTL)
 
 	return &models.AuthResponse{
 		AccessToken:  accessToken,
@@ -229,33 +257,86 @@ func (s *AuthService) VerifyToken(tokenString string) (*utils.JWTClaims, error) 
 // RefreshSession exchanges a refresh token for a brand new token pair. It takes
 // the identity from the refresh token itself — requiring a valid access token
 // here would make the endpoint useless, since renewing an expired session is
-// precisely what it exists for. The presented token must still be the one held
-// in Redis, so logging out or refreshing again revokes it.
+// precisely what it exists for. The token must still be registered for its
+// device: a logout or a password reset unregisters it, a login on another
+// device leaves it alone.
 func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (*models.AuthResponse, error) {
 	claims, err := s.VerifyToken(refreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token")
+		return nil, fmt.Errorf("%w: %v", ErrRefreshTokenInvalid, err)
 	}
 
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	stored, err := s.Cache.Get(cacheCtx, cache.RefreshTokenKey(claims.UserID))
-	if err != nil || stored == "" {
-		return nil, fmt.Errorf("refresh token revoked")
+	deviceKey := cache.RefreshTokenKey(claims.UserID, claims.ID)
+	live, err := s.Cache.Exists(cacheCtx, deviceKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
 	}
-	if subtle.ConstantTimeCompare([]byte(stored), []byte(refreshToken)) != 1 {
-		return nil, fmt.Errorf("refresh token superseded")
+	if !live {
+		if resp, ok := s.replayRefresh(ctx, cacheCtx, claims); ok {
+			return resp, nil
+		}
+		if !s.consumeLegacyRefresh(cacheCtx, claims.UserID, refreshToken) {
+			return nil, fmt.Errorf("%w (user %d)", ErrRefreshTokenRevoked, claims.UserID)
+		}
 	}
 
 	// Re-read the user so the new token and the response carry current claims
 	// (admin flag, premium status…) rather than a 3-month-old snapshot.
-	user, err := s.GetUser(ctx, claims.UserID)
+	user, err := s.lookupUser(ctx, claims.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("%w (user %d not found)", ErrRefreshTokenRevoked, claims.UserID)
 	}
 
-	return s.issueSession(user)
+	resp, err := s.issueSession(user)
+	if err != nil {
+		return nil, err
+	}
+	pair, _ := json.Marshal(issuedPair{AccessToken: resp.AccessToken, RefreshToken: resp.RefreshToken})
+	s.Cache.Set(cacheCtx, cache.RefreshReplayKey(claims.ID), pair, refreshReplayGrace)
+	s.Cache.Del(cacheCtx, deviceKey)
+	return resp, nil
+}
+
+// replayRefresh answers a token consumed less than refreshReplayGrace ago with
+// the pair it was rotated into, as long as that pair is itself still
+// registered — a logout or a password reset in between closes the window.
+func (s *AuthService) replayRefresh(ctx, cacheCtx context.Context, claims *utils.JWTClaims) (*models.AuthResponse, bool) {
+	raw, err := s.Cache.Get(cacheCtx, cache.RefreshReplayKey(claims.ID))
+	if err != nil {
+		return nil, false
+	}
+	var pair issuedPair
+	if json.Unmarshal([]byte(raw), &pair) != nil {
+		return nil, false
+	}
+	next, err := s.VerifyToken(pair.RefreshToken)
+	if err != nil {
+		return nil, false
+	}
+	if live, _ := s.Cache.Exists(cacheCtx, cache.RefreshTokenKey(next.UserID, next.ID)); !live {
+		return nil, false
+	}
+	user, err := s.lookupUser(ctx, claims.UserID)
+	if err != nil {
+		return nil, false
+	}
+	return &models.AuthResponse{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken, User: user}, true
+}
+
+// consumeLegacyRefresh accepts a token stored whole under the pre-2026-10-28
+// per-user key and retires that key, so sessions opened before per-device
+// tokens migrate on their next refresh instead of being logged out. Remove
+// once every such token has expired (2027-01-26).
+func (s *AuthService) consumeLegacyRefresh(cacheCtx context.Context, userID int64, token string) bool {
+	stored, err := s.Cache.Get(cacheCtx, cache.LegacyRefreshTokenKey(userID))
+	if err != nil || subtle.ConstantTimeCompare([]byte(stored), []byte(token)) != 1 {
+		return false
+	}
+	s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(userID))
+	return true
 }
 
 // sha256Hex is used to key reset tokens and throttle entries without ever
@@ -348,10 +429,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return nil, err
 	}
 
-	// Single use, and the old session dies with the password.
+	// Single use, and every session dies with the password.
 	s.Cache.Del(cacheCtx, cache.PasswordResetKey(tokenHash))
 	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))
-	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+	s.RevokeAllSessions(ctx, userID)
 
 	return s.issueSession(user)
 }
@@ -375,14 +456,31 @@ func (s *AuthService) updatePassword(ctx context.Context, userID int64, hashedPa
 	return nil
 }
 
-// Logout drops the access token and the stored refresh token, so the session
-// can't be revived through /auth/refresh.
+// Logout ends this device's session: its access token and the refresh token
+// it was issued with. The user's other devices stay signed in.
 func (s *AuthService) Logout(ctx context.Context, tokenID string, userID int64) error {
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
-	return s.Cache.Del(cacheCtx, cache.JWTKey(tokenID))
+	keys := []string{cache.JWTKey(tokenID)}
+	switch refreshID, _ := s.Cache.Get(cacheCtx, cache.JWTKey(tokenID)); refreshID {
+	case "", "true": // session opened before per-device tokens
+		keys = append(keys, cache.LegacyRefreshTokenKey(userID))
+	default:
+		keys = append(keys, cache.RefreshTokenKey(userID, refreshID))
+	}
+	return s.Cache.Del(cacheCtx, keys...)
+}
+
+// RevokeAllSessions signs a user out of every device.
+func (s *AuthService) RevokeAllSessions(ctx context.Context, userID int64) error {
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := s.Cache.DelPattern(cacheCtx, cache.RefreshTokenPattern(userID)); err != nil {
+		return err
+	}
+	return s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(userID))
 }
 
 // GetUser retrieves user by ID (type-safe with GORM)
@@ -577,10 +675,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password 
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
 
-		// Clear cached tokens
-		cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+		s.RevokeAllSessions(ctx, userID)
 
 		return nil
 	}
@@ -611,10 +706,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password 
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	// Clear cached tokens
-	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	s.Cache.Del(cacheCtx, cache.RefreshTokenKey(userID))
+	s.RevokeAllSessions(ctx, userID)
 
 	return nil
 }

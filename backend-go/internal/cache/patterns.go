@@ -46,8 +46,13 @@ const (
 	LiqStaleSuffix = ":stale"
 
 	// Auth
-	AuthJWT     = "auth:jwt:%s"
-	AuthRefresh = "auth:refresh:%d"
+	AuthJWT = "auth:jwt:%s" // value = id of the refresh token issued with it
+	// One key per device: a login elsewhere must not end this session.
+	AuthRefresh       = "auth:refresh:%d:%s"     // %d = user id, %s = refresh token id
+	AuthRefreshReplay = "auth:refresh:replay:%s" // %s = consumed token id, holds the pair it rotated into
+	// Pre-2026-10-28 layout: the token itself under a per-user key. Drop once
+	// every such token has expired, i.e. after 2027-01-26.
+	AuthRefreshLegacy = "auth:refresh:%d"
 	// Password reset — keyed by the SHA-256 of the token, never the token
 	// itself: a Redis dump must not hand out working reset links.
 	AuthPasswordReset         = "auth:reset:%s"          // %s = sha256(token)
@@ -108,8 +113,21 @@ func JWTKey(tokenID string) string {
 	return fmt.Sprintf(AuthJWT, tokenID)
 }
 
-func RefreshTokenKey(userID int64) string {
-	return fmt.Sprintf(AuthRefresh, userID)
+func RefreshTokenKey(userID int64, tokenID string) string {
+	return fmt.Sprintf(AuthRefresh, userID, tokenID)
+}
+
+// RefreshTokenPattern matches every device session of a user.
+func RefreshTokenPattern(userID int64) string {
+	return fmt.Sprintf(AuthRefresh, userID, "*")
+}
+
+func RefreshReplayKey(tokenID string) string {
+	return fmt.Sprintf(AuthRefreshReplay, tokenID)
+}
+
+func LegacyRefreshTokenKey(userID int64) string {
+	return fmt.Sprintf(AuthRefreshLegacy, userID)
 }
 
 func RateLimitKey(ip string) string {
