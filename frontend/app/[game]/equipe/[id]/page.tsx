@@ -1,7 +1,10 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
-import { slugToWiki } from '../../../lib/gameRegistry';
+import { gameByWiki, slugToWiki } from '../../../lib/gameRegistry';
 import { decodeRouteParam } from '../../../lib/gameLinks';
+import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { brandTitle } from '../../../lib/seoTitles';
+import { TeamJsonLd } from '../../../components/seo/entityJsonLd';
 import TeamDetailPageClient from '../../../equipe/_components/TeamDetailPageClient';
 import type { EnrichedTeamDetail } from '../../../services/teamService';
 
@@ -69,18 +72,23 @@ export async function generateMetadata(
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   const url = `${siteUrl}/${game}/equipe/${encodeURIComponent(id)}`;
+  const gameName = gameByWiki(wiki)?.name;
+  const title = `${team.name} – Équipe ${gameName || 'esport'}`;
+  const context = [gameName, team.region].filter(Boolean).join(', ');
+  const description = `Suivez l'équipe ${team.name}${context ? ` (${context})` : ''} : roster, matchs récents et à venir, résultats, palmarès et statistiques.`;
 
   return {
-    title: `${team.name} | Équipe Esport | Esport News`,
-    description: `Suivez l'équipe ${team.name}. Roster, matchs récents et à venir, résultats et statistiques.`,
+    title: brandTitle(title),
+    description,
     keywords: `${team.name}, ${team.acronym || ''}, équipe esport, esports, roster, résultats`,
     openGraph: {
-      title: team.name,
-      description: `Suivez l'équipe ${team.name}. Roster, matchs récents et à venir.`,
+      title,
+      description,
       type: 'website',
       url,
+      images: [DEFAULT_OG_IMAGE],
     },
-    twitter: { card: 'summary_large_image', title: team.name, description: `Suivez l'équipe ${team.name}` },
+    twitter: { card: 'summary_large_image', title, description, images: [DEFAULT_OG_IMAGE.url] },
     alternates: { canonical: url },
   };
 }
@@ -90,9 +98,15 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ gam
   const id = decodeRouteParam(rawId);
   const wiki = slugToWiki(game) || '';
   const initialTeam = await fetchTeamDetail(wiki, id);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
   return (
-    <Suspense>
-      <TeamDetailPageClient teamId={id} wiki={wiki} initialTeam={initialTeam} />
-    </Suspense>
+    <>
+      {initialTeam && (
+        <TeamJsonLd team={{ ...initialTeam, wiki }} url={`${siteUrl}/${game}/equipe/${encodeURIComponent(id)}`} />
+      )}
+      <Suspense>
+        <TeamDetailPageClient teamId={id} wiki={wiki} initialTeam={initialTeam} />
+      </Suspense>
+    </>
   );
 }

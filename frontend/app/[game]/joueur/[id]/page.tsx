@@ -1,8 +1,11 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
-import { slugToWiki } from '../../../lib/gameRegistry';
+import { gameByWiki, slugToWiki } from '../../../lib/gameRegistry';
 import { decodeRouteParam } from '../../../lib/gameLinks';
+import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { brandTitle } from '../../../lib/seoTitles';
+import { PlayerJsonLd } from '../../../components/seo/entityJsonLd';
 import PlayerDetailPageClient from '../../../joueur/_components/PlayerDetailPageClient';
 
 interface PlayerPageProps {
@@ -39,14 +42,17 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const url = `${siteUrl}/${game}/joueur/${encodeURIComponent(id)}`;
     const realName = [player.first_name, player.last_name].filter(Boolean).join(' ') || player.name;
-    const description = `Profil de ${player.id} (${realName}) : équipe, carrière, gains, matchs et statistiques.`;
+    const gameName = gameByWiki(slugToWiki(game) || '')?.name;
+    const team = player.team_pagename?.replace(/_/g, ' ');
+    const title = `${player.id} – Joueur ${gameName || 'esport'}`;
+    const description = `Profil de ${player.id}${realName && realName !== player.id ? ` (${realName})` : ''}, joueur ${gameName || 'esport'}${team ? ` chez ${team}` : ''} : équipe, carrière, gains, matchs et statistiques.`;
 
     return {
-      title: `${player.id} | Joueur Esport | Esport News`,
+      title: brandTitle(title),
       description,
       keywords: `${player.id}, ${realName}, joueur esport, esports, carrière, gains`,
-      openGraph: { title: player.id, description, type: 'profile', url },
-      twitter: { card: 'summary', title: player.id, description },
+      openGraph: { title, description, type: 'profile', url, images: [DEFAULT_OG_IMAGE] },
+      twitter: { card: 'summary_large_image', title, description, images: [DEFAULT_OG_IMAGE.url] },
       alternates: { canonical: url },
     };
   } catch {
@@ -80,5 +86,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     }
   }
 
-  return <PlayerDetailPageClient pagename={id} wiki={wiki} initialPlayer={initialPlayer} />;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+
+  return (
+    <>
+      {initialPlayer && (
+        <PlayerJsonLd player={{ ...initialPlayer, wiki }} url={`${siteUrl}/${game}/joueur/${encodeURIComponent(id)}`} />
+      )}
+      <PlayerDetailPageClient pagename={id} wiki={wiki} initialPlayer={initialPlayer} />
+    </>
+  );
 }
