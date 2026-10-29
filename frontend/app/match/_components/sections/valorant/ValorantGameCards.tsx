@@ -38,7 +38,7 @@ const SideLogo = ({ team, isDark }: { team?: Team | null; isDark: boolean }) => 
   return (
     <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-[#060B13]/70 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 backdrop-blur-sm">
       {logo ? (
-        <img src={proxyImageUrl(logo)} alt="" className="w-3/4 h-3/4 object-contain" loading="lazy" />
+        <img src={proxyImageUrl(logo)} alt={team?.name || ''} className="w-3/4 h-3/4 object-contain" loading="lazy" />
       ) : (
         <Shield className="w-4 h-4 text-white/30" />
       )}

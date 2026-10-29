@@ -47,7 +47,7 @@ export default function TournamentHeader({ tournament }: TournamentSectionProps)
           <div className="hidden sm:flex w-14 h-14 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] items-center justify-center overflow-hidden flex-shrink-0">
             <img
               src={proxyImageUrl(tournament.icon_dark_url || tournament.icon_url || '')}
-              alt=""
+              alt={tournament.name}
               className="w-10 h-10 object-contain"
             />
           </div>
@@ -79,7 +79,7 @@ export default function TournamentHeader({ tournament }: TournamentSectionProps)
           <div className="hidden md:block flex-shrink-0 w-64 lg:w-80 overflow-hidden border border-[var(--color-border-primary)]/50">
             <img
               src={proxyImageUrl(bannerUrl)}
-              alt=""
+              alt={tournament.name}
               className="w-full h-auto object-contain"
               onError={() => setBannerError(true)}
             />

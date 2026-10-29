@@ -43,7 +43,7 @@ const TeamSide = ({
         {logo ? (
           <img
             src={proxyImageUrl(logo)}
-            alt=""
+            alt={team?.name || ''}
             className="w-3/4 h-3/4 object-contain"
             loading="lazy"
           />
