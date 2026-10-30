@@ -46,6 +46,27 @@
       "sombre": "Dunkel",
       "clair": "Hell",
       "auto": "Auto"
+    },
+    "app_promo": {
+      "badge_live": "LIVE",
+      "title_1": "Esports",
+      "title_2": "live,",
+      "title_3": "in deiner Tasche",
+      "description": "Live-Ergebnisse, Benachrichtigungen, wenn deine Spiele beginnen, und alle News der Szene. Erhältlich für iOS und Android.",
+      "feature_live": "Live-Scores",
+      "feature_alerts": "Spiel-Alerts",
+      "feature_news": "Szene-News",
+      "scan_hint": "Zum Herunterladen scannen",
+      "ticker_label": "TOP-THEMEN",
+      "close": "Schließen",
+      "mockup_alt": "Vorschau der Esport News App auf dem iPhone",
+      "ticker_alerts": "Benachrichtigung zum Anpfiff deiner Spiele",
+      "ticker_news": "Alle News der Szene, auf Französisch",
+      "banner_label": "Esport News App herunterladen",
+      "banner_tagline": "Live-Ergebnisse · Alerts zum Start deiner Matches · alle News aus der Szene",
+      "banner_short_accent": "live",
+      "banner_install": "Installieren",
+      "banner_close": "Banner schließen"
     }
   },
   "meta": {

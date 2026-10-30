@@ -45,6 +45,27 @@
       "sombre": "Dark",
       "clair": "Light",
       "auto": "Auto"
+    },
+    "app_promo": {
+      "badge_live": "LIVE",
+      "title_1": "Esports",
+      "title_2": "live,",
+      "title_3": "in your pocket",
+      "description": "Live scores, alerts when your matches start and all the news from the scene. Available on iOS and Android.",
+      "feature_live": "Live scores",
+      "feature_alerts": "Match alerts",
+      "feature_news": "Scene news",
+      "scan_hint": "Scan to download",
+      "ticker_label": "HEADLINES",
+      "close": "Close",
+      "mockup_alt": "Preview of the Esport News app on iPhone",
+      "ticker_alerts": "Alerts at kick-off of your matches",
+      "ticker_news": "All the scene's news, in French",
+      "banner_label": "Download the Esport News app",
+      "banner_tagline": "Live scores · alerts when your matches start · all the news from the scene",
+      "banner_short_accent": "live",
+      "banner_install": "Install",
+      "banner_close": "Close banner"
     }
   },
   "meta": {

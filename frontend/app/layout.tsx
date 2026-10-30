@@ -10,6 +10,7 @@ import { PageViewTracker } from "./components/PageViewTracker";
 import CookieBanner from "./components/common/CookieBanner";
 import ProxyImageRetry from "./components/common/ProxyImageRetry";
 import { DEFAULT_OG_IMAGE } from "./lib/seoHelpers";
+import { APP_BANNER_CLOSED_KEY } from "./lib/appPromo";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
@@ -78,7 +79,9 @@ export default function RootLayout({
   };
 
   return (
-    <html lang={langMap[locale] || 'fr'}>
+    // suppressHydrationWarning: the inline script below sets data-theme and
+    // the dark class before React hydrates, so <html> legitimately differs.
+    <html lang={langMap[locale] || 'fr'} suppressHydrationWarning>
       <head>
         {/* Emitted here rather than through metadata.alternates: pages that set
             their own canonical replace the whole `alternates` object, which
@@ -93,10 +96,11 @@ export default function RootLayout({
             reaches it from an effect, i.e. after hydration, so without this the
             server-rendered markup would flash the dark default at anyone using
             the light theme. Kept inline and synchronous on purpose, and cookie
-            based rather than server read so pages stay statically renderable. */}
+            based rather than server read so pages stay statically renderable.
+            Same reason for hiding the app banner a visitor already closed. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=document.cookie.match(/(?:^|; )esport_theme=([^;]*)/);var t=m?decodeURIComponent(m[1]):'dark';if(t==='auto'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t!=='dark'&&t!=='light'){t='dark'}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}})()`,
+            __html: `(function(){try{var m=document.cookie.match(/(?:^|; )esport_theme=([^;]*)/);var t=m?decodeURIComponent(m[1]):'dark';if(t==='auto'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t!=='dark'&&t!=='light'){t='dark'}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}try{if(sessionStorage.getItem('${APP_BANNER_CLOSED_KEY}'))document.documentElement.setAttribute('data-app-banner','off')}catch(e){}})()`,
           }}
         />
       </head>

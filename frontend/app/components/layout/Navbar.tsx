@@ -97,8 +97,10 @@ const Navbar: React.FC<NavbarProps> = ({
     <nav style={{
       backgroundColor: scrolled ? 'var(--color-bg-secondary)' : 'var(--color-bg-primary)',
       borderBottomColor: 'var(--color-border-primary)',
+      // Below the app banner while it is on screen (see AppTopBanner).
+      top: 'var(--app-banner-offset)',
     }} className={`
-      fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out backdrop-blur-sm border-b opacity-95
+      fixed left-0 right-0 z-50 transition-colors duration-500 ease-out backdrop-blur-sm border-b opacity-95
     `}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">

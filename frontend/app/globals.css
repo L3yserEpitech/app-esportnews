@@ -458,6 +458,260 @@ body {
   animation: slide-up 0.4s ease-out forwards;
 }
 
+@keyframes promo-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes promo-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+
+@keyframes promo-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes promo-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* Mirror of promo-out's curve so opening and closing read at the same pace. */
+.animate-promo-in {
+  animation: promo-in 0.3s cubic-bezier(0, 0, 0.6, 1) both;
+}
+
+.animate-promo-out {
+  animation: promo-out 0.25s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.animate-promo-backdrop-in {
+  animation: promo-backdrop-in 0.3s ease-out both;
+}
+
+.animate-promo-backdrop-out {
+  animation: promo-backdrop-out 0.25s ease-in both;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.25s ease-in both;
+}
+
+/* Top app banner (AppTopBanner): colours of the Claude Design mockup. */
+.app-banner {
+  --ab-accent: #FF2E4D;
+  --ab-bg: #080A10;
+  --ab-border: #1C2130;
+  --ab-text: #EEF1F7;
+  --ab-muted: #A9B1C3;
+  --ab-store-bg: #161A26;
+  --ab-store-text: #EEF1F7;
+  --ab-install-bg: #FF2E4D;
+  --ab-divider: #232838;
+  --ab-echo-opacity: 0.5;
+}
+
+[data-theme="light"] .app-banner {
+  --ab-accent: #E0213F;
+  --ab-bg: #FFFFFF;
+  --ab-border: #DDE1E9;
+  --ab-text: #0B0D14;
+  --ab-muted: #4A5266;
+  --ab-store-bg: #0B0D14;
+  --ab-store-text: #FFFFFF;
+  --ab-install-bg: #0B0D14;
+  --ab-divider: #DDE1E9;
+  --ab-echo-opacity: 0.45;
+}
+
+/* The banner is pinned above the fixed navbar, which (with anything pinned
+   right under it) is pushed down by the banner's height. data-app-banner="off"
+   is set before first paint when the visitor closed the banner earlier in the
+   session. */
+:root {
+  --app-banner-offset: 0px;
+}
+
+:root:not([data-app-banner="off"]):has(#app-banner) {
+  --app-banner-offset: 52px;
+}
+
+@media (min-width: 1024px) {
+  :root:not([data-app-banner="off"]):has(#app-banner) {
+    --app-banner-offset: 56px;
+  }
+}
+
+[data-app-banner="off"] #app-banner {
+  display: none;
+}
+
+@keyframes promo-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes promo-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-promo-pulse {
+  animation: promo-pulse 1.6s infinite;
+}
+
+/* Duration is set inline per number of items (9 s each). */
+.animate-promo-ticker {
+  animation: promo-ticker 28s linear infinite;
+}
+
+/* One 6.7 s loop shared by the three bars and the LIVE outline: cascade in,
+   hold, cascade out in reverse order (same motion played backwards), 0.5 s
+   of nothing, repeat. The 0.2 s delay only applies before the first run. */
+@keyframes promo-bar-loop-1 {
+  0% {
+    clip-path: inset(0 0 100% 0);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  16.42%,
+  75.52% {
+    clip-path: inset(0 0 0 0);
+    animation-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2);
+  }
+  91.94%,
+  100% {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+
+@keyframes promo-bar-loop-2 {
+  0%,
+  3.28% {
+    clip-path: inset(0 0 100% 0);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  19.7%,
+  72.24% {
+    clip-path: inset(0 0 0 0);
+    animation-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2);
+  }
+  88.66%,
+  100% {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+
+@keyframes promo-bar-loop-3 {
+  0%,
+  6.57% {
+    clip-path: inset(0 0 100% 0);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  22.99%,
+  68.96% {
+    clip-path: inset(0 0 0 0);
+    animation-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2);
+  }
+  85.37%,
+  100% {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+
+@keyframes promo-live-loop {
+  0%,
+  10.45% {
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(-24px);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  28.36%,
+  65.67% {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+    animation-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2);
+  }
+  83.58%,
+  100% {
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(-24px);
+  }
+}
+
+.animate-promo-bar {
+  animation: promo-bar-loop-1 6.7s linear 0.2s infinite both;
+}
+
+.animate-promo-bar-2 {
+  animation-name: promo-bar-loop-2;
+}
+
+.animate-promo-bar-3 {
+  animation-name: promo-bar-loop-3;
+}
+
+.animate-promo-live {
+  animation: promo-live-loop 6.7s linear 0.2s infinite both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-promo-in,
+  .animate-promo-out,
+  .animate-promo-backdrop-in,
+  .animate-promo-backdrop-out,
+  .animate-slide-down,
+  .animate-promo-pulse,
+  .animate-promo-ticker,
+  .animate-promo-bar,
+  .animate-promo-live {
+    animation: none;
+  }
+}
+
 /* Tiptap editor — Twitter embed placeholder */
 .twitter-embed-placeholder {
   display: flex;

@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from '@/app/lib/cookieConsent';
 
 export default function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     // Vérifier si l'utilisateur a déjà accepté les cookies
-    const cookieConsent = localStorage.getItem('esportnews_cookie_consent');
+    const cookieConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
 
     if (!cookieConsent) {
       // Afficher la bannière après un court délai (pour ne pas être trop intrusif)
@@ -21,9 +22,10 @@ export default function CookieBanner() {
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem('esportnews_cookie_consent', 'accepted');
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'accepted');
     localStorage.setItem('esportnews_cookie_consent_date', new Date().toISOString());
     setIsVisible(false);
+    window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT));
   };
 
   if (!isVisible) {

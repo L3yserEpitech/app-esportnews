@@ -3,6 +3,8 @@
 import { NextIntlClientProvider } from 'next-intl';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import AppPromoModal from '../common/AppPromoModal';
+import AppTopBanner from '../common/AppTopBanner';
 import { ThemeProvider } from '../providers/ThemeProvider';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -39,6 +41,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
           timeZone="Europe/Paris"
         >
           <ToastProvider>
+            <AppTopBanner />
             <Navbar
               games={games}
               selectedGame={selectedGame}
@@ -46,6 +49,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
             />
             {children}
             <Footer />
+            <AppPromoModal />
           </ToastProvider>
         </NextIntlClientProvider>
       </ThemeProvider>
