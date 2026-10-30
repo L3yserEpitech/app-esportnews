@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { GameProvider } from "./contexts/GameContext";
 import ClientLayout from "./components/layout/ClientLayout";
+import { CHUNK_RETRY_SCRIPT } from "./lib/chunkRetry";
 import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
@@ -92,6 +93,10 @@ export default function RootLayout({
           title={`${SITE_NAME} — Flux RSS`}
           href={`${SITE_URL}/feed.xml`}
         />
+        {/* Keeps the server-rendered page on screen when a chunk fails to
+            load: see lib/chunkRetry.ts. Inline so it is installed before any
+            chunk can error. */}
+        <script dangerouslySetInnerHTML={{ __html: CHUNK_RETRY_SCRIPT }} />
         {/* Applies the stored theme before first paint. ThemeProvider only
             reaches it from an effect, i.e. after hydration, so without this the
             server-rendered markup would flash the dark default at anyone using
