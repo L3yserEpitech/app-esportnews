@@ -49,9 +49,9 @@
     },
     "app_promo": {
       "badge_live": "LIVE",
-      "title_1": "Esports",
-      "title_2": "live,",
-      "title_3": "in deiner Tasche",
+      "title_1": "Der ganze Esport",
+      "title_2": "gebündelt",
+      "title_3": "in einer App",
       "description": "Live-Ergebnisse, Benachrichtigungen, wenn deine Spiele beginnen, und alle News der Szene. Erhältlich für iOS und Android.",
       "feature_live": "Live-Scores",
       "feature_alerts": "Spiel-Alerts",
@@ -64,7 +64,8 @@
       "ticker_news": "Alle News der Szene, auf Französisch",
       "banner_label": "Esport News App herunterladen",
       "banner_tagline": "Live-Ergebnisse · Alerts zum Start deiner Matches · alle News aus der Szene",
-      "banner_short_accent": "live",
+      "banner_short_1": "Esport",
+      "banner_short_2": "gebündelt",
       "banner_install": "Installieren",
       "banner_close": "Banner schließen"
     }

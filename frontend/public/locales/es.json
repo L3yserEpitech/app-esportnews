@@ -48,9 +48,9 @@
     },
     "app_promo": {
       "badge_live": "EN DIRECTO",
-      "title_1": "Los esports",
-      "title_2": "en directo,",
-      "title_3": "en tu bolsillo",
+      "title_1": "Todos los esports",
+      "title_2": "centralizados",
+      "title_3": "en una sola app",
       "description": "Marcadores en directo, alertas cuando empiezan tus partidos y toda la actualidad de la escena. Disponible en iOS y Android.",
       "feature_live": "Marcadores live",
       "feature_alerts": "Alertas de partido",
@@ -63,7 +63,8 @@
       "ticker_news": "Toda la actualidad de la escena, en francés",
       "banner_label": "Descarga la app de Esport News",
       "banner_tagline": "Resultados en directo · alertas al inicio de tus partidos · toda la actualidad de la escena",
-      "banner_short_accent": "en directo",
+      "banner_short_1": "El esport",
+      "banner_short_2": "centralizado",
       "banner_install": "Instalar",
       "banner_close": "Cerrar el banner"
     }

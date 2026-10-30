@@ -48,9 +48,9 @@
     },
     "app_promo": {
       "badge_live": "EN DIRECT",
-      "title_1": "L'esport",
-      "title_2": "en direct,",
-      "title_3": "dans votre poche",
+      "title_1": "Tout l'esport",
+      "title_2": "centralisé",
+      "title_3": "dans une seule app",
       "description": "Scores en direct, alertes quand vos matchs commencent et toute l'actualité de la scène. Disponible sur iOS et Android.",
       "feature_live": "Scores live",
       "feature_alerts": "Alertes match",
@@ -63,7 +63,8 @@
       "ticker_news": "Toute l'actu de la scène, en français",
       "banner_label": "Télécharger l'application Esport News",
       "banner_tagline": "Scores live · alertes au début de vos matchs · toute l'actu de la scène",
-      "banner_short_accent": "en direct",
+      "banner_short_1": "Tout l'esport",
+      "banner_short_2": "centralisé",
       "banner_install": "Installer",
       "banner_close": "Fermer la bannière"
     }

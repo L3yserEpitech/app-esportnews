@@ -85,12 +85,12 @@ export default function AppTopBanner() {
           >
             <span role="img" aria-label={t('badge_live')} className="animate-promo-pulse h-[7px] w-[7px] rounded-full bg-white" />
           </div>
-          <p className="ml-2.5 min-w-0 flex-1 truncate text-lg font-extrabold uppercase italic leading-none" style={condensed}>
-            {t('title_1')} <span className="text-[var(--ab-accent)]">{t('banner_short_accent')}</span>
+          <p className="ml-2.5 min-w-0 flex-1 truncate text-base min-[380px]:text-lg font-extrabold uppercase italic leading-none" style={condensed}>
+            {t('banner_short_1')} <span className="text-[var(--ab-accent)]">{t('banner_short_2')}</span>
           </p>
           <a
             href="/app"
-            className={`ml-2 flex h-9 shrink-0 items-center bg-[var(--ab-install-bg)] px-3.5 text-[15px] font-extrabold uppercase tracking-[0.08em] text-white ${chamferedLink}`}
+            className={`ml-2 flex h-9 shrink-0 items-center bg-[var(--ab-install-bg)] px-2.5 min-[380px]:px-3.5 text-[15px] font-extrabold uppercase tracking-[0.08em] text-white ${chamferedLink}`}
             style={{ ...condensed, clipPath: CHAMFER }}
           >
             {t('banner_install')}
@@ -116,7 +116,7 @@ export default function AppTopBanner() {
             <p className="shrink-0 text-[22px] font-extrabold uppercase italic leading-none" style={condensed}>
               {t('title_1')} <span className="text-[var(--ab-accent)]">{t('title_2')}</span> {t('title_3')}
             </p>
-            <p className="truncate text-sm text-[var(--ab-muted)]">{t('banner_tagline')}</p>
+            <p className="hidden truncate text-sm text-[var(--ab-muted)] xl:block">{t('banner_tagline')}</p>
           </div>
           <div className="ml-6 flex shrink-0 gap-2">
             <StoreLink href={APP_STORE_URL} name="App Store" icon={<AppleIcon size={17} />} />
