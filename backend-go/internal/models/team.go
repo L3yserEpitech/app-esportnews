@@ -448,6 +448,7 @@ type LiqPlacement struct {
 // NormalizedPlacement is the frontend-ready placement object.
 type NormalizedPlacement struct {
 	Tournament     string  `json:"tournament"`
+	TournamentID   int     `json:"tournament_id"`
 	TournamentPage string  `json:"tournament_page"`
 	Placement      string  `json:"placement"`
 	Date           string  `json:"date"`
@@ -465,6 +466,7 @@ type NormalizedPlacement struct {
 func NormalizeLiqPlacement(p LiqPlacement) NormalizedPlacement {
 	np := NormalizedPlacement{
 		Tournament:     p.Tournament,
+		TournamentID:   p.PageID,
 		TournamentPage: p.PageName,
 		Placement:      p.Placement,
 		Date:           p.Date,
