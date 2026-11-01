@@ -14,6 +14,7 @@ import FeaturedMatchCard from '../components/matches/FeaturedMatchCard';
 import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
 import { prewarmImages, matchLogoUrls } from '../lib/imageProxy';
+import { matchesForLocalDate } from './matchListFilter';
 import {
   Dialog,
   DialogContent,
@@ -165,24 +166,7 @@ const MatchPage: React.FC = () => {
         if (fetchVersionRef.current !== version) return;
 
         const validMatches = Array.isArray(fetchedMatches)
-          ? fetchedMatches.filter(match => {
-              const hasValidTeams = match.opponents &&
-                match.opponents.length >= 2 &&
-                match.opponents[0]?.opponent?.name &&
-                match.opponents[1]?.opponent?.name;
-
-              const gameName = match.videogame?.name?.toLowerCase() || '';
-              const isBannedGame = gameName.includes('mobile legends') || gameName.includes('starcraft');
-
-              // Filtrer par date : ne garder que les matchs dont la date locale correspond
-              const matchDateRaw = match.begin_at || match.scheduled_at;
-              if (matchDateRaw) {
-                const matchLocalDate = formatDateToYYYYMMDD(new Date(matchDateRaw));
-                if (matchLocalDate !== selectedDateStr) return false;
-              }
-
-              return hasValidTeams && !isBannedGame;
-            })
+          ? matchesForLocalDate(fetchedMatches, selectedDateStr, formatDateToYYYYMMDD)
           : [];
 
         setMatches(validMatches);
