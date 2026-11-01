@@ -33,6 +33,7 @@ type Article struct {
 	VideoURL       *string     `json:"videoUrl" gorm:"column:videoUrl"`
 	VideoType      *string     `json:"videoType" gorm:"column:videoType"`
 	Credit         *string     `json:"credit"`
+	GameID         *int64      `json:"game_id" gorm:"column:game_id"` // jeu associé (FK games.id), NULL = aucun
 	NotifiedAt     *time.Time  `json:"notified_at,omitempty" gorm:"column:notified_at"`
 }
 
@@ -158,6 +159,7 @@ type CreateArticleInput struct {
 	VideoURL       *string  `json:"videoUrl"`
 	VideoType      *string  `json:"videoType"`
 	Credit         *string  `json:"credit"`
+	GameID         *int64   `json:"game_id"`
 }
 
 // UpdateArticleInput is the input for updating an existing article
@@ -174,4 +176,5 @@ type UpdateArticleInput struct {
 	VideoURL       *string  `json:"videoUrl"`
 	VideoType      *string  `json:"videoType"`
 	Credit         *string  `json:"credit"`
+	GameID         *int64   `json:"game_id"` // 0 = détacher le jeu (NULL en base)
 }

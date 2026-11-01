@@ -126,6 +126,18 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	}
 	log.Info("articles.seo_title column ensured")
 
+	// Optional game an article belongs to (nullable FK, detached if the game
+	// row disappears). Indexed for the per-game listings to come.
+	for _, stmt := range []string{
+		`ALTER TABLE IF EXISTS articles ADD COLUMN IF NOT EXISTS game_id bigint REFERENCES games(id) ON DELETE SET NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_articles_game_id ON articles(game_id)`,
+	} {
+		if err := db.Exec(stmt).Error; err != nil {
+			return nil, fmt.Errorf("failed to ensure articles.game_id column: %w", err)
+		}
+	}
+	log.Info("articles.game_id column ensured")
+
 	// Auto migrate legacy models only in development (tables already exist in production/Supabase)
 	if env == "development" {
 		if err := db.AutoMigrate(

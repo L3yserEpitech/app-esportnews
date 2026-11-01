@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -451,10 +452,33 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 
 // --- ADMIN METHODS ---
 
+// ErrArticleGameNotFound is returned when an article references a game id absent from the games table.
+var ErrArticleGameNotFound = errors.New("article game not found")
+
+func (s *ArticleService) ensureGameExists(ctx context.Context, gameID int64) error {
+	var count int64
+	if err := s.gormDB.WithContext(ctx).Model(&models.Game{}).Where("id = ?", gameID).Count(&count).Error; err != nil {
+		return fmt.Errorf("failed to check game: %w", err)
+	}
+	if count == 0 {
+		return ErrArticleGameNotFound
+	}
+	return nil
+}
+
 // CreateArticle creates a new article with auto-generation of slug, content variants, etc.
 func (s *ArticleService) CreateArticle(ctx context.Context, input *models.CreateArticleInput) (*models.Article, error) {
 	if s.gormDB == nil {
 		return nil, fmt.Errorf("GORM not initialized")
+	}
+
+	if input.GameID != nil && *input.GameID == 0 {
+		input.GameID = nil
+	}
+	if input.GameID != nil {
+		if err := s.ensureGameExists(ctx, *input.GameID); err != nil {
+			return nil, err
+		}
 	}
 
 	// Auto-generate unique slug with validation
@@ -484,6 +508,7 @@ func (s *ArticleService) CreateArticle(ctx context.Context, input *models.Create
 		VideoURL:       input.VideoURL,
 		VideoType:      input.VideoType,
 		Credit:         input.Credit,
+		GameID:         input.GameID,
 		Slug:           &slug,
 		Views:          0,
 	}
@@ -570,6 +595,18 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, id int64, input *mod
 	}
 	if input.Credit != nil {
 		updates["credit"] = *input.Credit
+	}
+	if input.GameID != nil {
+		// A JSON null is indistinguishable from an absent field once bound to a
+		// pointer, so 0 (never a real BIGSERIAL id) is the "detach" value.
+		if *input.GameID == 0 {
+			updates["game_id"] = nil
+		} else {
+			if err := s.ensureGameExists(ctx, *input.GameID); err != nil {
+				return nil, err
+			}
+			updates["game_id"] = *input.GameID
+		}
 	}
 
 	// Apply updates

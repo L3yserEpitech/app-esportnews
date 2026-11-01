@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -201,6 +202,9 @@ func (h *ArticleHandler) CreateArticle(c echo.Context) error {
 	}
 
 	article, err := h.service.CreateArticle(ctx, &input)
+	if errors.Is(err, services.ErrArticleGameNotFound) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Unknown game")
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -240,6 +244,9 @@ func (h *ArticleHandler) UpdateArticle(c echo.Context) error {
 	}
 
 	article, err := h.service.UpdateArticle(ctx, id, &input)
+	if errors.Is(err, services.ErrArticleGameNotFound) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Unknown game")
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
