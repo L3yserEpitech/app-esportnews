@@ -551,7 +551,9 @@ Champs clés : `id`, `email` (unique), `password` (jamais exposé), `avatar`, `a
 > **Note** : Il existait historiquement une seconde table `public.users` accédée via pgxpool. **Cette voie est dépréciée** — tous les handlers actuels (`NotificationHandler`, `TeamHandler`, `AuthHandler`) utilisent GORM sur `public.users`.
 
 #### `Article` — `articles`
-Champs : `id`, `slug` (unique), `tags` (`text[]`), `title`, `views`, `author`, `content` (markdown ?), `article_content` (HTML brut moderne), `category`, `subtitle`, `description`, `content_black`/`content_white` (variants thème), `featuredImage`, `videoUrl`, `videoType`, `credit`.
+Champs : `id`, `slug` (unique), `tags` (`text[]`), `title`, `views`, `author`, `content` (markdown ?), `article_content` (HTML brut moderne), `category`, `subtitle`, `description`, `content_black`/`content_white` (variants thème), `featuredImage`, `videoUrl`, `videoType`, `credit`, `seo_title` (NULL = titre éditorial), `game_id` (FK nullable vers `games.id`, `ON DELETE SET NULL`, NULL = aucun jeu).
+
+> `game_id` : choisi dans l'admin (dropdown « Jeu », option « Aucun jeu ») à la création et à la modification. En `PUT`, la valeur `0` détache le jeu (stockée NULL) : un pointeur Go ne distingue pas un JSON `null` d'un champ absent. Un id inconnu de la table `games` rend **400**. Exposé tel quel (`game_id`) dans toutes les réponses articles, sans objet `game` imbriqué : la liste des jeux est statique et déjà en cache côté front (`GameContext`).
 
 #### `Ad` — `ads`
 Champs : `id`, `title`, `position` (1-3), `type` (`image`|`video`), `url` (R2), `redirect_link`.
@@ -685,6 +687,8 @@ Fichiers SQL dans `backend-go/migrations/` :
 00012_add_iap_fields_to_users.sql
 00013_articles_search.sql        — index GIN pour full-text search
 00014_articles_updated_at.sql    — colonne `updated_at` (dateModified SEO), aussi appliquée au boot par `gorm.go`
+00015_articles_seo_title.sql     — colonne `seo_title`, aussi appliquée au boot par `gorm.go`
+00016_articles_game_id.sql       — colonne `game_id` (FK `games`) + index, aussi appliquée au boot par `gorm.go`
 ```
 
 > `articles.updated_at` : backfillée depuis `created_at`, défaut `now()`, mise à jour automatiquement par GORM (`autoUpdateTime`) sur `PUT /api/admin/articles/:id`. Les incréments de vues et le marquage `notified_at` passent par `UpdateColumn` pour **ne pas** la toucher, sinon chaque lecture ou chaque push rajeunirait `dateModified`. Tout futur `Update(...)` sur `models.Article` qui n'est pas une édition éditoriale doit faire pareil.
