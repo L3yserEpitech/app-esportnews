@@ -605,7 +605,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                   accentColor="#fbbf24"
                 />
                 <Link
-                  href={teamResultatsHref({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki || '', template: teamId, name: team?.name || '', acronym: (team && 'acronym' in team) ? (team as any).acronym : undefined, image_url: (team && 'image_url' in team) ? (team as any).image_url : undefined })}
+                  href={teamResultatsHref({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki || '', template: teamId, name: team?.name || '', acronym: (team && 'acronym' in team) ? (team as any).acronym : undefined, image_url: (team && 'image_url' in team) ? pickThemeLogo(isDark, (team as any).image_url, (team as any).dark_mode_image_url) : undefined })}
                   className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
                 >
                   <span className="hidden sm:inline">{t('see_all_results_short')}</span>

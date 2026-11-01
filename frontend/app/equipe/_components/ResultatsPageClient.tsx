@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, Trophy, AlertCircle } from 'lucide-react';
 import ContentLoader from '../../components/ui/ContentLoader';
-import { teamService, TeamPlacement } from '../../services/teamService';
+import { teamService, Team, TeamPlacement } from '../../services/teamService';
 import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import AdColumn from '../../components/ads/AdColumn';
@@ -18,17 +18,18 @@ import PlacementRow from './PlacementRow';
 interface ResultatsPageClientProps {
   teamId: string;
   wiki?: string;
+  team?: Pick<Team, 'name' | 'acronym' | 'image_url' | 'dark_mode_image_url'> | null;
 }
 
-export default function ResultatsPageClient({ teamId, wiki: wikiProp }: ResultatsPageClientProps) {
+export default function ResultatsPageClient({ teamId, wiki: wikiProp, team }: ResultatsPageClientProps) {
   const t = useTranslations('pages_detail.team_detail');
   const searchParams = useSearchParams();
   const isDark = useIsDarkTheme();
 
   const wiki = wikiProp || searchParams.get('wiki') || '';
-  const name = searchParams.get('name') || decodeURIComponent(teamId);
-  const acronym = searchParams.get('acronym') || '';
-  const logo = searchParams.get('logo') || '';
+  const name = searchParams.get('name') || team?.name || decodeURIComponent(teamId);
+  const acronym = searchParams.get('acronym') || team?.acronym || '';
+  const logo = searchParams.get('logo') || pickThemeLogo(isDark, team?.image_url, team?.dark_mode_image_url) || '';
 
   const [placements, setPlacements] = useState<TeamPlacement[]>([]);
   const [loading, setLoading] = useState(true);
