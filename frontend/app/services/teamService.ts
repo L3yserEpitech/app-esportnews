@@ -63,6 +63,7 @@ export interface TeamMatchesResponse {
 
 export interface TeamPlacement {
   tournament: string;
+  tournament_id?: number;
   tournament_page: string;
   placement: string;
   date: string;

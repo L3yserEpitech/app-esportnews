@@ -643,7 +643,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                     return (
                       <Link
                         key={p.tournament_page + '_' + i}
-                        href={tournamentHref({ wiki: wiki || (team as EnrichedTeamDetail)?.wiki, id: p.tournament_page })}
+                        href={tournamentHref({ wiki: (team as EnrichedTeamDetail)?.wiki || wiki, id: p.tournament_id || p.tournament_page, name: p.tournament })}
                         className="group relative grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto_auto] gap-2 sm:gap-3 items-center px-4 py-2.5 border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                         style={{ animation: 'fadeSlideIn 0.3s ease both', animationDelay: `${i * 25}ms` }}
                       >

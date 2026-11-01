@@ -163,7 +163,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
               return (
                 <Link
                   key={p.tournament_page + '_' + i}
-                  href={tournamentHref({ wiki, id: p.tournament_page })}
+                  href={tournamentHref({ wiki, id: p.tournament_id || p.tournament_page, name: p.tournament })}
                   className="group relative block border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                   style={{ animation: i < 30 ? 'fadeSlideIn 0.3s ease both' : undefined, animationDelay: i < 30 ? `${i * 20}ms` : undefined }}
                 >
