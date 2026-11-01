@@ -4,6 +4,7 @@ import {
   matchIdFromSegment,
   matchSegment,
   tournamentHref,
+  placementHref,
   tournamentIdFromSegment,
   tournamentSegment,
   teamHref,
@@ -174,5 +175,21 @@ describe('playerHref', () => {
 
   it('fallback legacy /joueur/<pagename> si wiki inconnu', () => {
     expect(playerHref({ pagename: 'Faker' })).toBe('/joueur/Faker');
+  });
+});
+
+describe('placementHref', () => {
+  const placement = { tournament: 'PGL Masters Bucharest 2026', tournament_id: 362800, tournament_page: 'PGL/2026/Masters' };
+
+  it('lie directement l\'URL canonique du tournoi', () => {
+    expect(placementHref('counterstrike', placement)).toBe('/cs/tournois/pgl-masters-bucharest-2026-362800');
+  });
+
+  it('retombe sur le pagename sans tournament_id', () => {
+    expect(placementHref('counterstrike', { ...placement, tournament_id: undefined })).toBe('/cs/tournois/PGL%2F2026%2FMasters');
+  });
+
+  it('ne lie rien quand la page n\'a pas de tournoi', () => {
+    expect(placementHref('counterstrike', { ...placement, tournament_missing: true })).toBeNull();
   });
 });

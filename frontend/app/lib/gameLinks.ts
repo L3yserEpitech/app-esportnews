@@ -114,6 +114,20 @@ export function tournamentHref(t: TournamentLinkInput): string {
     : `/tournois/${encodeURIComponent(String(t.id))}`;
 }
 
+export interface PlacementLinkInput {
+  tournament?: string | null;
+  tournament_id?: number;
+  tournament_page: string;
+  tournament_missing?: boolean;
+}
+
+// placementHref is null when Liquipedia has no tournament on that page: our page
+// would 404. A pageid is only unique within its wiki, so pass the placements' wiki.
+export function placementHref(wiki: string | null | undefined, p: PlacementLinkInput): string | null {
+  if (p.tournament_missing) return null;
+  return tournamentHref({ wiki, id: p.tournament_id || p.tournament_page, name: p.tournament });
+}
+
 export interface TeamLinkInput {
   wiki?: string | null;
   template?: string | null;

@@ -65,6 +65,7 @@ export interface TeamPlacement {
   tournament: string;
   tournament_id?: number;
   tournament_page: string;
+  tournament_missing?: boolean;
   placement: string;
   date: string;
   prize_money: number;

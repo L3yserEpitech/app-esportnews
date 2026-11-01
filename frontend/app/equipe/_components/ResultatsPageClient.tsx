@@ -12,7 +12,8 @@ import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import AdColumn from '../../components/ads/AdColumn';
 import { Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
-import { teamHref, tournamentHref } from '../../lib/gameLinks';
+import { placementHref, teamHref } from '../../lib/gameLinks';
+import PlacementRow from './PlacementRow';
 
 interface ResultatsPageClientProps {
   teamId: string;
@@ -161,9 +162,9 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
                 : '';
 
               return (
-                <Link
+                <PlacementRow
                   key={p.tournament_page + '_' + i}
-                  href={tournamentHref({ wiki, id: p.tournament_id || p.tournament_page, name: p.tournament })}
+                  href={placementHref(wiki, p)}
                   className="group relative block border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                   style={{ animation: i < 30 ? 'fadeSlideIn 0.3s ease both' : undefined, animationDelay: i < 30 ? `${i * 20}ms` : undefined }}
                 >
@@ -260,7 +261,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp }: Resultat
                       </div>
                     </div>
                   </div>
-                </Link>
+                </PlacementRow>
               );
             })}
           </div>

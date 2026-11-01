@@ -18,7 +18,8 @@ import ContentLoader from '../../components/ui/ContentLoader';
 import { PandaMatch, Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
-import { teamResultatsHref, tournamentHref, playerHref } from '../../lib/gameLinks';
+import { placementHref, teamResultatsHref, playerHref } from '../../lib/gameLinks';
+import PlacementRow from './PlacementRow';
 import 'flag-icons/css/flag-icons.min.css';
 import { countryCode } from '../../lib/countryCodes';
 
@@ -641,9 +642,9 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                       : '';
 
                     return (
-                      <Link
+                      <PlacementRow
                         key={p.tournament_page + '_' + i}
-                        href={tournamentHref({ wiki: (team as EnrichedTeamDetail)?.wiki || wiki, id: p.tournament_id || p.tournament_page, name: p.tournament })}
+                        href={placementHref((team as EnrichedTeamDetail)?.wiki || wiki, p)}
                         className="group relative grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto_auto] gap-2 sm:gap-3 items-center px-4 py-2.5 border-b border-[var(--color-border-primary)]/20 transition-colors hover:bg-[var(--color-bg-primary)]/40"
                         style={{ animation: 'fadeSlideIn 0.3s ease both', animationDelay: `${i * 25}ms` }}
                       >
@@ -714,7 +715,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                           {prizeFormatted && <span className="font-bold">{prizeFormatted}</span>}
                           <span className="tabular-nums">{dateFormatted}</span>
                         </div>
-                      </Link>
+                      </PlacementRow>
                     );
                   })}
                 </div>
