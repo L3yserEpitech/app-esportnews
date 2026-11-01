@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { generateListingMetadata } from '@/app/lib/seoHelpers';
 import { gameTitle } from '@/app/lib/seoTitles';
 import { articleHref } from '@/app/lib/articleUrl';
-import { tournamentHref } from '@/app/lib/gameLinks';
+import { matchHref, tournamentHref } from '@/app/lib/gameLinks';
 
 export const revalidate = 3600;
 
@@ -172,7 +172,7 @@ export default async function JeuPage({ params }: { params: Promise<{ game: stri
                 return (
                   <Link
                     key={m.match2id || m.id}
-                    href={`/match/${m.id}`}
+                    href={matchHref(m)}
                     className="flex items-center justify-between rounded-xl border border-white/10 bg-[#091626] px-4 py-3 hover:border-[#F22E62]/40 transition-colors"
                   >
                     <span className="font-medium truncate">{home?.name || '?'}</span>
