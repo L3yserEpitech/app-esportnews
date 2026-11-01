@@ -139,6 +139,12 @@ func TestGetTeamByPageIDUsesWikiHint(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "valorant", hint)
 
+	// The fan-out returns on the first hit while the other wikis' fetches are still
+	// in flight: they would land in the warm lookup's count.
+	require.Eventually(t, func() bool {
+		return int(teamCalls.Load()) == len(svc.getAllWikis())
+	}, 5*time.Second, time.Millisecond)
+
 	// Warm lookup: flush data caches but keep the hint → exactly 1 team call.
 	for _, k := range mr.Keys() {
 		if k != "liq:wikihint:42" {
