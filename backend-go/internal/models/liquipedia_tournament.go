@@ -179,7 +179,7 @@ var videogameIDMap = map[string]int{
 	"callofduty":      23,
 	"rainbowsix":      20,
 	"overwatch":       14,
-	"fifa":            22,
+	"easportsfc":      22,
 	"mobilelegends":   35,
 }
 
@@ -193,7 +193,7 @@ var videogameNameMap = map[string]string{
 	"callofduty":      "Call of Duty",
 	"rainbowsix":      "Rainbow Six Siege",
 	"overwatch":       "Overwatch",
-	"fifa":            "EA FC",
+	"easportsfc":      "EA Sports FC",
 	"mobilelegends":   "Mobile Legends",
 }
 
@@ -207,7 +207,7 @@ var videogameSlugMap = map[string]string{
 	"callofduty":      "codmw",
 	"rainbowsix":      "r6siege",
 	"overwatch":       "ow",
-	"fifa":            "fifa",
+	"easportsfc":      "easportsfc",
 	"mobilelegends":   "mlbb",
 }
 

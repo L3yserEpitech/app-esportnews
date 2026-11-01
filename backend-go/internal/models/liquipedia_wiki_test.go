@@ -30,3 +30,30 @@ func TestResolveWiki(t *testing.T) {
 		}
 	}
 }
+
+func TestVideogameMapsCoverEveryWiki(t *testing.T) {
+	for acronym, wiki := range GameWikiMapping {
+		if videogameIDMap[wiki] == 0 {
+			t.Errorf("%s: no videogame id for wiki %q", acronym, wiki)
+		}
+		if videogameNameMap[wiki] == "" {
+			t.Errorf("%s: no videogame name for wiki %q", acronym, wiki)
+		}
+		if videogameSlugMap[wiki] == "" {
+			t.Errorf("%s: no videogame slug for wiki %q", acronym, wiki)
+		}
+	}
+}
+
+func TestEASportsFCVideogameKeepsItsStoredSlug(t *testing.T) {
+	if got := videogameNameMap["easportsfc"]; got != "EA Sports FC" {
+		t.Errorf("name = %q", got)
+	}
+	// match_subscription.game_acronym already holds this value on mobile.
+	if got := videogameSlugMap["easportsfc"]; got != "easportsfc" {
+		t.Errorf("slug = %q", got)
+	}
+	if wiki, ok := ResolveWiki("easportsfc"); !ok || wiki != "easportsfc" {
+		t.Errorf("ResolveWiki = %q, %v", wiki, ok)
+	}
+}
