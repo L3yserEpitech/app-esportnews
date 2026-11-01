@@ -1,4 +1,5 @@
 import { matchHref } from '../lib/gameLinks';
+import { pastLastmod, uniqueMatches } from '../lib/sitemapEntries';
 
 export const revalidate = 1800;
 
@@ -23,26 +24,19 @@ export async function GET() {
     fetchMatches('/api/matches/past'),
   ]);
 
-  const seen = new Set<string>();
-  const allMatches: any[] = [];
-
-  for (const match of [...running, ...upcoming, ...past]) {
-    if (match.id && !seen.has(String(match.id))) {
-      seen.add(String(match.id));
-      allMatches.push(match);
-    }
-  }
+  const allMatches = uniqueMatches([...running, ...upcoming, ...past]);
 
   const urls = allMatches
-    .map(
-      (m) => `
+    .map((m) => {
+      const lastmod = pastLastmod(m.end_at || m.begin_at);
+      return `
   <url>
-    <loc>${BASE_URL}${matchHref(m)}</loc>
-    <lastmod>${new Date(m.end_at || m.begin_at || Date.now()).toISOString()}</lastmod>
+    <loc>${BASE_URL}${matchHref(m)}</loc>${lastmod ? `
+    <lastmod>${lastmod}</lastmod>` : ''}
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
-  </url>`
-    )
+  </url>`;
+    })
     .join('');
 
   console.log(`[sitemap-matches] ${allMatches.length} matches (${running.length} live, ${upcoming.length} upcoming, ${past.length} past)`);
