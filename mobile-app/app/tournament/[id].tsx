@@ -141,7 +141,6 @@ export default function TournamentDetailScreen() {
             game_acronym: tournament.videogame?.slug || '',
             begin_at: tournament.begin_at || undefined,
             end_at: tournament.end_at || undefined,
-            match_ids: matches.map((m) => m.id),
           }}
           size={24}
           style={styles.iconButton}

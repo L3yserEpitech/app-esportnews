@@ -138,7 +138,7 @@ export default function MatchDetailScreen() {
         </View>
         <SubscribeButton
           type="match"
-          id={Number(id)}
+          id={match.id}
           meta={{
             match_name: match.name || `${team1?.acronym || team1?.name || 'TBD'} vs ${team2?.acronym || team2?.name || 'TBD'}`,
             match2id: match.match2id || undefined,

@@ -40,7 +40,6 @@ export interface SubscribeTournamentMeta {
   game_acronym: string;
   begin_at?: string;
   end_at?: string;
-  match_ids?: number[];
 }
 
 class MatchSubscriptionService {
@@ -51,11 +50,13 @@ class MatchSubscriptionService {
     return res.data;
   }
 
-  async getMatchSubscriptionIds(): Promise<number[]> {
-    const res = await apiClient.get<number[]>('/api/subscriptions/matches/ids');
+  async getSubscribedMatch2Ids(): Promise<string[]> {
+    const res = await apiClient.get<string[]>('/api/subscriptions/matches/match2ids');
     return res.data;
   }
 
+  // matchId is the pageid of the tournament page, shared by all its matches: the
+  // match itself is identified by meta.match2id.
   async subscribeToMatch(matchId: number, meta: SubscribeMatchMeta): Promise<MatchSubscriptionData> {
     const res = await apiClient.post<MatchSubscriptionData>(
       `/api/subscriptions/matches/${matchId}`,
@@ -64,8 +65,8 @@ class MatchSubscriptionService {
     return res.data;
   }
 
-  async unsubscribeFromMatch(matchId: number): Promise<void> {
-    await apiClient.delete(`/api/subscriptions/matches/${matchId}`);
+  async unsubscribeFromMatch(match2id: string): Promise<void> {
+    await apiClient.delete(`/api/subscriptions/matches/${encodeURIComponent(match2id)}`);
   }
 
   // --- Tournament subscriptions ---

@@ -28,8 +28,6 @@ export default function SubscriptionsScreen() {
     loadFullSubscriptions,
     unsubscribeFromMatch,
     unsubscribeFromTournament,
-    matchSubCount,
-    tournamentSubCount,
   } = useMatchSubscriptions();
 
   const [activeTab, setActiveTab] = useState<TabValue>('matches');
@@ -116,7 +114,7 @@ export default function SubscriptionsScreen() {
 
       <TouchableOpacity
         style={styles.unsubButton}
-        onPress={() => unsubscribeFromMatch(item.match_id)}
+        onPress={() => unsubscribeFromMatch(item.match2id)}
         hitSlop={8}
       >
         <Ionicons name="heart" size={22} color={COLORS.primary} />
@@ -217,13 +215,13 @@ export default function SubscriptionsScreen() {
           buttons={[
             {
               value: 'matches',
-              label: `Matchs (${matchSubCount})`,
+              label: `Matchs (${matchSubscriptions.length})`,
               style: activeTab === 'matches' ? styles.tabActive : styles.tabInactive,
               labelStyle: activeTab === 'matches' ? styles.tabLabelActive : styles.tabLabelInactive,
             },
             {
               value: 'tournaments',
-              label: `Tournois (${tournamentSubCount})`,
+              label: `Tournois (${tournamentSubscriptions.length})`,
               style: activeTab === 'tournaments' ? styles.tabActive : styles.tabInactive,
               labelStyle: activeTab === 'tournaments' ? styles.tabLabelActive : styles.tabLabelInactive,
             },

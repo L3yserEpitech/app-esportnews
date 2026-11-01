@@ -26,20 +26,23 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const {
-    subscribedMatchIds,
+    subscribedMatch2Ids,
     subscribedTournamentIds,
     subscribeToMatch,
     unsubscribeFromMatch,
     subscribeToTournament,
     unsubscribeFromTournament,
-    canSubscribeMatch,
     canSubscribeTournament,
   } = useMatchSubscriptions();
 
   const [isLoading, setIsLoading] = useState(false);
 
+  // id is the pageid of the tournament page for a match, shared by all its
+  // matches: only match2id designates this one.
+  const match2id = type === 'match' ? (meta as SubscribeMatchMeta).match2id ?? '' : '';
+
   const isSubscribed = type === 'match'
-    ? subscribedMatchIds.has(id)
+    ? subscribedMatch2Ids.has(match2id)
     : subscribedTournamentIds.has(id);
 
   const handlePress = useCallback(async () => {
@@ -63,23 +66,13 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
       if (isSubscribed) {
         // Unsubscribe
         if (type === 'match') {
-          await unsubscribeFromMatch(id);
+          await unsubscribeFromMatch(match2id);
         } else {
           await unsubscribeFromTournament(id);
         }
       } else {
-        // Check limits before subscribing
-        if (type === 'match' && !canSubscribeMatch) {
-          Alert.alert(
-            'Limite atteinte',
-            'Les utilisateurs gratuits sont limités à 5 abonnements matchs. Passe en Premium pour un accès illimité !',
-            [
-              { text: 'OK', style: 'cancel' },
-              { text: 'Premium', onPress: () => router.push('/profile/subscription' as any) },
-            ]
-          );
-          return;
-        }
+        // Check limits before subscribing. Matches are checked by the backend:
+        // only explicit likes count, which the local set can't tell apart.
         if (type === 'tournament' && !canSubscribeTournament) {
           Alert.alert(
             'Limite atteinte',
@@ -94,20 +87,32 @@ export const SubscribeButton: React.FC<SubscribeButtonProps> = ({
 
         // Subscribe
         if (type === 'match') {
-          await subscribeToMatch(id, meta as SubscribeMatchMeta);
+          await subscribeToMatch(id, match2id, meta as SubscribeMatchMeta);
         } else {
           await subscribeToTournament(id, meta as SubscribeTournamentMeta);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (type === 'match' && error?.response?.status === 403) {
+        Alert.alert(
+          'Limite atteinte',
+          'Les utilisateurs gratuits sont limités à 5 abonnements matchs. Passe en Premium pour un accès illimité !',
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'Premium', onPress: () => router.push('/profile/subscription' as any) },
+          ]
+        );
+        return;
+      }
       console.error(`[SubscribeButton] Failed to ${isSubscribed ? 'unsubscribe' : 'subscribe'}:`, error);
       Alert.alert('Erreur', 'Une erreur est survenue. Réessaie.');
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, isSubscribed, isLoading, type, id, meta, canSubscribeMatch, canSubscribeTournament, subscribeToMatch, unsubscribeFromMatch, subscribeToTournament, unsubscribeFromTournament, router]);
+  }, [isAuthenticated, isSubscribed, isLoading, type, id, match2id, meta, canSubscribeTournament, subscribeToMatch, unsubscribeFromMatch, subscribeToTournament, unsubscribeFromTournament, router]);
 
   if (hideWhenNotSubscribed && !isSubscribed) return null;
+  if (type === 'match' && !match2id) return null;
 
   return (
     <Pressable

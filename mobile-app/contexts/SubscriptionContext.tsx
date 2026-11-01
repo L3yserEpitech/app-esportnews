@@ -8,12 +8,12 @@ import {
   SubscribeTournamentMeta,
 } from '@/services/matchSubscriptionService';
 
-const FREE_MATCH_LIMIT = 5;
 const FREE_TOURNAMENT_LIMIT = 3;
 
 interface SubscriptionContextType {
-  // ID sets for quick lookup (heart icon state)
-  subscribedMatchIds: Set<number>;
+  // ID sets for quick lookup (heart icon state). Matches go by match2id: their
+  // numeric id is the pageid of the tournament page, shared by all its matches.
+  subscribedMatch2Ids: Set<string>;
   subscribedTournamentIds: Set<number>;
 
   // Full subscription data (for profile screen)
@@ -24,18 +24,15 @@ interface SubscriptionContextType {
   error: string | null;
 
   // Actions
-  subscribeToMatch: (matchId: number, meta: SubscribeMatchMeta) => Promise<void>;
-  unsubscribeFromMatch: (matchId: number) => Promise<void>;
+  subscribeToMatch: (matchId: number, match2id: string, meta: SubscribeMatchMeta) => Promise<void>;
+  unsubscribeFromMatch: (match2id: string) => Promise<void>;
   subscribeToTournament: (tournamentId: number, meta: SubscribeTournamentMeta) => Promise<void>;
   unsubscribeFromTournament: (tournamentId: number) => Promise<void>;
   refreshSubscriptions: () => Promise<void>;
   loadFullSubscriptions: () => Promise<void>;
 
   // Limit checks
-  canSubscribeMatch: boolean;
   canSubscribeTournament: boolean;
-  matchSubCount: number;
-  tournamentSubCount: number;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -45,7 +42,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const user = authContext?.user ?? null;
   const isAuthenticated = authContext?.isAuthenticated ?? false;
 
-  const [subscribedMatchIds, setSubscribedMatchIds] = useState<Set<number>>(new Set());
+  const [subscribedMatch2Ids, setSubscribedMatch2Ids] = useState<Set<string>>(new Set());
   const [subscribedTournamentIds, setSubscribedTournamentIds] = useState<Set<number>>(new Set());
   const [matchSubscriptions, setMatchSubscriptions] = useState<MatchSubscriptionData[]>([]);
   const [tournamentSubscriptions, setTournamentSubscriptions] = useState<TournamentSubscriptionData[]>([]);
@@ -53,20 +50,18 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   const isPremium = user?.premium === true;
-  const matchSubCount = subscribedMatchIds.size;
   const tournamentSubCount = subscribedTournamentIds.size;
-  const canSubscribeMatch = isPremium || matchSubCount < FREE_MATCH_LIMIT;
   const canSubscribeTournament = isPremium || tournamentSubCount < FREE_TOURNAMENT_LIMIT;
 
   const loadSubscriptionIds = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [matchIds, tournamentIds] = await Promise.all([
-        matchSubscriptionService.getMatchSubscriptionIds(),
+      const [match2Ids, tournamentIds] = await Promise.all([
+        matchSubscriptionService.getSubscribedMatch2Ids(),
         matchSubscriptionService.getTournamentSubscriptionIds(),
       ]);
-      setSubscribedMatchIds(new Set(matchIds));
+      setSubscribedMatch2Ids(new Set(match2Ids));
       setSubscribedTournamentIds(new Set(tournamentIds));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load subscriptions';
@@ -83,7 +78,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       loadSubscriptionIds();
     } else {
       // Clear state on logout
-      setSubscribedMatchIds(new Set());
+      setSubscribedMatch2Ids(new Set());
       setSubscribedTournamentIds(new Set());
       setMatchSubscriptions([]);
       setTournamentSubscriptions([]);
@@ -108,38 +103,38 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const subscribeToMatch = useCallback(async (matchId: number, meta: SubscribeMatchMeta) => {
+  const subscribeToMatch = useCallback(async (matchId: number, match2id: string, meta: SubscribeMatchMeta) => {
     // Optimistic update
-    setSubscribedMatchIds(prev => new Set(prev).add(matchId));
+    setSubscribedMatch2Ids(prev => new Set(prev).add(match2id));
 
     try {
       await matchSubscriptionService.subscribeToMatch(matchId, meta);
     } catch (error) {
       // Rollback on failure
-      setSubscribedMatchIds(prev => {
+      setSubscribedMatch2Ids(prev => {
         const next = new Set(prev);
-        next.delete(matchId);
+        next.delete(match2id);
         return next;
       });
       throw error;
     }
   }, []);
 
-  const unsubscribeFromMatch = useCallback(async (matchId: number) => {
+  const unsubscribeFromMatch = useCallback(async (match2id: string) => {
     // Optimistic update
-    setSubscribedMatchIds(prev => {
+    setSubscribedMatch2Ids(prev => {
       const next = new Set(prev);
-      next.delete(matchId);
+      next.delete(match2id);
       return next;
     });
-    const removedItem = matchSubscriptions.find(s => s.match_id === matchId);
-    setMatchSubscriptions(prev => prev.filter(s => s.match_id !== matchId));
+    const removedItem = matchSubscriptions.find(s => s.match2id === match2id);
+    setMatchSubscriptions(prev => prev.filter(s => s.match2id !== match2id));
 
     try {
-      await matchSubscriptionService.unsubscribeFromMatch(matchId);
+      await matchSubscriptionService.unsubscribeFromMatch(match2id);
     } catch (error) {
       // Rollback on failure
-      setSubscribedMatchIds(prev => new Set(prev).add(matchId));
+      setSubscribedMatch2Ids(prev => new Set(prev).add(match2id));
       if (removedItem) setMatchSubscriptions(prev => [...prev, removedItem]);
       throw error;
     }
@@ -151,9 +146,6 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       await matchSubscriptionService.subscribeToTournament(tournamentId, meta);
-      // Also refresh match IDs since tournament subscription auto-creates match subs
-      const matchIds = await matchSubscriptionService.getMatchSubscriptionIds();
-      setSubscribedMatchIds(new Set(matchIds));
     } catch (error) {
       // Rollback on failure
       setSubscribedTournamentIds(prev => {
@@ -179,9 +171,9 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     const removedMatches = matchSubscriptions.filter(s => s.from_tournament === tournamentId);
     if (removedMatches.length > 0) {
       setMatchSubscriptions(prev => prev.filter(s => s.from_tournament !== tournamentId));
-      setSubscribedMatchIds(prev => {
+      setSubscribedMatch2Ids(prev => {
         const next = new Set(prev);
-        removedMatches.forEach(m => next.delete(m.match_id));
+        removedMatches.forEach(m => next.delete(m.match2id));
         return next;
       });
     }
@@ -189,17 +181,17 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     try {
       await matchSubscriptionService.unsubscribeFromTournament(tournamentId);
       // Refresh match IDs from server to stay in sync
-      const matchIds = await matchSubscriptionService.getMatchSubscriptionIds();
-      setSubscribedMatchIds(new Set(matchIds));
+      const match2Ids = await matchSubscriptionService.getSubscribedMatch2Ids();
+      setSubscribedMatch2Ids(new Set(match2Ids));
     } catch (error) {
       // Rollback on failure
       setSubscribedTournamentIds(prev => new Set(prev).add(tournamentId));
       if (removedTournament) setTournamentSubscriptions(prev => [...prev, removedTournament]);
       if (removedMatches.length > 0) {
         setMatchSubscriptions(prev => [...prev, ...removedMatches]);
-        setSubscribedMatchIds(prev => {
+        setSubscribedMatch2Ids(prev => {
           const next = new Set(prev);
-          removedMatches.forEach(m => next.add(m.match_id));
+          removedMatches.forEach(m => next.add(m.match2id));
           return next;
         });
       }
@@ -214,7 +206,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   return (
     <SubscriptionContext.Provider
       value={{
-        subscribedMatchIds,
+        subscribedMatch2Ids,
         subscribedTournamentIds,
         matchSubscriptions,
         tournamentSubscriptions,
@@ -226,10 +218,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeFromTournament,
         refreshSubscriptions,
         loadFullSubscriptions,
-        canSubscribeMatch,
         canSubscribeTournament,
-        matchSubCount,
-        tournamentSubCount,
       }}
     >
       {children}

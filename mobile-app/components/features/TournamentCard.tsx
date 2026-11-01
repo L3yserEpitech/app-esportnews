@@ -96,7 +96,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament }) =>
                     game_acronym: tournament.videogame?.slug || '',
                     begin_at: tournament.begin_at || undefined,
                     end_at: tournament.end_at || undefined,
-                    match_ids: tournament.matches?.map(m => m.id) || [],
                   }}
                   size={18}
                   hideWhenNotSubscribed
