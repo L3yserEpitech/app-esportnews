@@ -352,7 +352,7 @@ Goroutine background avec 3 tickers :
 | Ticker | Fréquence | Job |
 |--------|-----------|-----|
 | `mainTicker` | 60 s | `processMatchNotifications` — pour chaque `match_subscription` non encore notifié, vérifie si le match est passé en running dans Redis → envoie push "Match en direct" via Expo → marque `notified_start=true`. Détecte aussi les reschedules (changement de `begin_at`). |
-| `cleanupTicker` | 30 min | Supprime les `match_subscription`/`tournament_subscription` finis depuis +7 jours. |
+| `cleanupTicker` | 30 min | Passe en `finished` les abonnements terminés (`finishEndedSubscriptions`), puis supprime ceux finis depuis +7 jours. |
 | `hydrationTicker` | 10 min | Pour chaque `tournament_subscription` actif, lit les matchs du tournoi via `LiquipediaReader.TournamentMatches`, crée les `match_subscription` manquantes. Déduplique les fetches par tournoi. |
 
 Activable via `NOTIFICATION_SCHEDULER_ENABLED` (cf. section 4).
@@ -494,9 +494,10 @@ Query params communs : `game=valorant` (acronyme), `limit`, `offset`, `sort=date
 | `POST` | `/api/push-tokens` | JWT | Enregistre un token Expo (`ExponentPushToken[xxx]`) |
 | `DELETE` | `/api/push-tokens` | JWT | Désinscrit un token |
 | `GET` | `/api/subscriptions/matches` | JWT | Liste des abonnements matchs |
-| `GET` | `/api/subscriptions/matches/ids` | JWT | Juste les match_id |
-| `POST` | `/api/subscriptions/matches/:matchId` | JWT | S'abonner à un match |
-| `DELETE` | `/api/subscriptions/matches/:matchId` | JWT | Se désabonner |
+| `GET` | `/api/subscriptions/matches/ids` | JWT | Juste les match_id (app publiée : ce sont des pageids, le cœur couvre toute la page) |
+| `GET` | `/api/subscriptions/matches/match2ids` | JWT | Juste les match2id (builds récents) |
+| `POST` | `/api/subscriptions/matches/:matchId` | JWT | S'abonner à un match : `:matchId` = pageid, le match est désigné par `match2id` dans le body |
+| `DELETE` | `/api/subscriptions/matches/:matchId` | JWT | Se désabonner : un `match2id` retire ce match, un nombre (app publiée) retire toute la page |
 | `GET` | `/api/subscriptions/tournaments` | JWT | Liste des abonnements tournois |
 | `GET` | `/api/subscriptions/tournaments/ids` | JWT | Juste les tournament_id |
 | `POST` | `/api/subscriptions/tournaments/:tournamentId` | JWT | S'abonner à un tournoi |
@@ -560,7 +561,9 @@ Champs : `id`, `title`, `position` (1-3), `type` (`image`|`video`), `url` (R2), 
 
 #### `MatchSubscription` — `match_subscription`
 Champs : `id`, `user_id`, `match_id` (ID Liquipedia volatile), `game_acronym`, `match_name`, `tournament_name`, `begin_at`, `status` (`upcoming`|`running`|`finished`|`canceled`), `notified_start`, `notified_schedule`, `from_tournament` (nullable : non-null si auto-créé via `tournament_subscription`).
-Contrainte unique : `(user_id, match_id)`.
+Contrainte unique : `(user_id, match2_id)`, index partiel `idx_user_match2` (`match2_id` non vide), posé au boot par `database.EnsureMatchSubscriptionIdentity`.
+
+> **Ne jamais identifier un match par `match_id`** : c'est le pageid de la page du tournoi, partagé par tous ses matchs (47 matchs pour 11 ids sur Valorant, mesuré le 2026-11-01). Avec l'ancien index `(user_id, match_id)`, un abonné n'avait qu'une ligne par page : une seule alerte pour tout un tournoi, un seul match pris en compte quand il en likait deux. La colonne reste pour le payload push et l'app publiée. **Retour arrière** : un binaire d'avant ce correctif recrée l'ancien index au boot et plante dès que deux lignes partagent un pageid.
 
 #### `TournamentSubscription` — `tournament_subscription`
 Champs : `id`, `user_id`, `tournament_id` (ID Liquipedia volatile), `game_acronym`, `tournament_name`, `begin_at`, `end_at`, `status`.
@@ -710,7 +713,7 @@ docker compose exec -T backend ./seed --data=initial_data/articles_rows.json
 ### Politique de rétention
 * **Persistantes** (users, articles, ads, …) : pas de suppression auto. Soft-delete si besoin.
 * **Volatiles** (matchs, tournois, équipes) : aucune rétention DB, uniquement cache Redis.
-* **Cleanup auto** : `NotificationScheduler.cleanupStaleSubscriptions` supprime les subscriptions finished/canceled depuis +7 jours.
+* **Cleanup auto** : `NotificationScheduler.cleanupStaleSubscriptions` supprime les subscriptions finished/canceled dont le match (ou la fin du tournoi) date de +7 jours.
 
 ---
 
@@ -858,15 +861,16 @@ Voir `notification_scheduler.go` :
 * `processMatchNotifications` (60s) :
   - Charge max 500 `match_subscription` non encore notifiées (`status IN ('upcoming', 'running') AND notified_start = false`)
   - Groupe par `game_acronym`
-  - Pour chaque jeu : `liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusRunning)` → map `match_id → NormalizedMatch`
-  - Pour chaque sub : si le match est dans la map running, envoie push + flag `notified_start=true` + status=`running`
+  - Pour chaque jeu : `liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusRunning)` → map `match2id → NormalizedMatch`
+  - Pour chaque sub : si le match est dans la map running **et a commencé** (le cache running couvre jusqu'à now+6h), envoie push + flag `notified_start=true` + status=`running`
   - Détecte les reschedules : si `match.BeginAt` (RFC3339) ≠ `sub.BeginAt` → update
   - Batch send via `ExpoPushService.SendBatch` → désactive les tokens invalides retournés par Expo
-* `cleanupStaleSubscriptions` (30 min) — supprime les subs `status IN ('finished', 'canceled') AND created_at < now - 7j`
+* `cleanupStaleSubscriptions` (30 min) — appelle d'abord `finishEndedSubscriptions`, puis supprime les subs `status IN ('finished', 'canceled') AND COALESCE(begin_at, created_at) < now - 7j`
+* `finishEndedSubscriptions` — **seul endroit qui passe un match en `finished`**, sans appel Liquipedia : match présent dans le cache `past`, ou commencé depuis +24 h (horizon de la requête running). Un tournoi est clos par l'hydratation (`end_at` dépassé de 48 h **et** plus aucun match à venir, car `end_at` est une copie prise à l'abonnement), avec un filet ici : `end_at` dépassé de 30 j, ou 90 j sans date de fin. Les abonnements terminés restent listés dans le profil mais sortent de `/ids`, `/match2ids` et de la limite gratuite (5 likes de matchs non terminés, 3 tournois non terminés) ; l'app publiée applique cette limite localement sur ces listes.
 * `hydrateTournamentMatches` (10 min) :
   - Charge tous les `tournament_subscription` actifs
   - Pour chaque tournoi unique : `liqService.TournamentMatches(ctx, gameAcronym, tournamentID)` (avec dédup via `matchesByTournament` map)
-  - Pour chaque match du tournoi : crée la `match_subscription` correspondante si elle n'existe pas (avec `from_tournament=tournamentID`)
+  - Pour chaque match du tournoi **à venir, à date exacte, avec deux équipes nommées** (`hydratableTournamentMatch`) : crée la `match_subscription` correspondante si elle n'existe pas (avec `from_tournament=tournamentID`). C'est le seul chemin qui crée ces lignes, le `match_ids` envoyé par l'app publiée est ignoré. Elles ne comptent pas dans la limite gratuite de 5 likes.
 
 ### Push token lifecycle
 * User signup → frontend mobile demande un push token Expo → `POST /api/push-tokens`
@@ -1407,6 +1411,10 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 * **Pas de fichiers .md de planning/decisions** : la conversation suffit
 * **Pas d'emojis** sauf demande explicite
 * **Toujours valider `go build ./...` avant commit**
+
+### Tests
+* Les tests d'abonnement ont besoin d'un vrai Postgres (index partiel) et sont sautés sans `TEST_DATABASE_URL` : `TEST_DATABASE_URL=postgres://... go test -p 1 ./internal/...` (`-p 1` car ils vident les mêmes tables). Jamais la base de prod : ils font des `TRUNCATE`.
+* Les tests d'authentification (`setupTestDB`) visent en dur `postgres://postgres:postgres@localhost:5432/esportnews_test` et sont **sautés sans le dire** si cette base est absente : ils sont restés cassés des mois sans que personne le voie. Les lancer après toute modif de l'auth.
 
 ### Sécurité
 * **JWT_SECRET, STRIPE_SECRET_KEY, LIQUIPEDIA_*_SECRET, GOOGLE_WEBHOOK_TOKEN** : jamais en clair dans les logs, jamais en clair dans le code
