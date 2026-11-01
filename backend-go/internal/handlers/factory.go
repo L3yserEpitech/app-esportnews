@@ -75,17 +75,6 @@ func NewAuthHandler(authService *services.AuthService, storageService *services.
 	}
 }
 
-// NewAuthHandlerWithPool creates a new auth handler with pgxpool (backward compatible)
-func NewAuthHandlerWithPool(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtSecret string) *AuthHandler {
-	return &AuthHandler{
-		BaseHandler: BaseHandler{
-			DB:    db,
-			Cache: redisCache,
-		},
-		JWTSecret: jwtSecret,
-	}
-}
-
 // NewTeamHandler creates a new team handler with Liquipedia service, AuthService, GORM DB and Redis cache
 func NewTeamHandler(liquipediaService *services.LiquipediaService, authService *services.AuthService, gormDB interface{}, redisCache *cache.RedisCache, logger *logrus.Logger) *TeamHandler {
 	return &TeamHandler{

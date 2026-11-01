@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,12 +12,14 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
+	"github.com/esportnews/backend/internal/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,59 +31,65 @@ func testCache(t *testing.T) *cache.RedisCache {
 	return cache.NewRedisClient("redis://" + mr.Addr())
 }
 
-// newTestAuthHandler builds an AuthHandler over the pgx pool (backward-compatible
-// constructor — no StorageService needed for these auth-flow tests).
-func newTestAuthHandler(t *testing.T, db *pgxpool.Pool) *AuthHandler {
-	return NewAuthHandlerWithPool(db, testCache(t), "test-secret")
+// newTestAuthServer serves the real auth routes the way main.go wires them: same
+// constructor, same validator, and Echo's error handler turning a handler's error
+// into its HTTP status.
+func newTestAuthServer(t *testing.T, db *pgxpool.Pool) (*echo.Echo, *services.AuthService) {
+	t.Helper()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	authService := services.NewAuthService(db, testCache(t), "test-secret")
+	e := echo.New()
+	e.Validator = utils.NewEchoValidator()
+	NewAuthHandler(authService, nil, nil, "", logger).RegisterRoutes(e.Group("/api"))
+	return e, authService
+}
+
+func authRequest(e *echo.Echo, method, path string, payload interface{}, token string) *httptest.ResponseRecorder {
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(method, path, bytes.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	if token != "" {
+		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
 }
 
 // TestSignupHandler_Success tests successful user signup
 func TestSignupHandler_Success(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	e, _ := newTestAuthServer(t, db)
 
-	payload := models.CreateUserInput{
+	rec := authRequest(e, http.MethodPost, "/api/auth/signup", models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "signup@example.com",
 		Password: "SecurePass123",
-	}
-	body, _ := json.Marshal(payload)
+	}, "")
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/signup", bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-
-	c := echo.New().NewContext(req, rec)
-	err := newTestAuthHandler(t, db).Signup(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusCreated, rec.Code)
-
-	var user models.User
-	err = json.Unmarshal(rec.Body.Bytes(), &user)
-	require.NoError(t, err)
-	assert.Equal(t, "Test User", user.Name)
-	assert.Equal(t, "signup@example.com", user.Email)
+	var response models.AuthResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	assert.NotEmpty(t, response.AccessToken)
+	assert.NotEmpty(t, response.RefreshToken)
+	require.NotNil(t, response.User)
+	assert.Equal(t, "Test User", response.User.Name)
+	assert.Equal(t, "signup@example.com", response.User.Email)
 }
 
 // TestSignupHandler_WeakPassword tests weak password validation
 func TestSignupHandler_WeakPassword(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	e, _ := newTestAuthServer(t, db)
 
-	payload := models.CreateUserInput{
+	rec := authRequest(e, http.MethodPost, "/api/auth/signup", models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "weak@example.com",
 		Password: "weak",
-	}
-	body, _ := json.Marshal(payload)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/signup", bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-
-	c := echo.New().NewContext(req, rec)
-	_ = newTestAuthHandler(t, db).Signup(c)
+	}, "")
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -89,8 +98,8 @@ func TestSignupHandler_WeakPassword(t *testing.T) {
 func TestLoginHandler_Success(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
 
-	authService := services.NewAuthService(db, testCache(t), "test-secret")
 	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "login@example.com",
@@ -98,24 +107,14 @@ func TestLoginHandler_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	payload := models.LoginInput{
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{
 		Email:    "login@example.com",
 		Password: "SecurePass123",
-	}
-	body, _ := json.Marshal(payload)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-
-	c := echo.New().NewContext(req, rec)
-	_ = newTestAuthHandler(t, db).Login(c)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
+	}, "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	var authResponse models.AuthResponse
-	err = json.Unmarshal(rec.Body.Bytes(), &authResponse)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &authResponse))
 	assert.NotEmpty(t, authResponse.AccessToken)
 	assert.NotEmpty(t, authResponse.RefreshToken)
 }
@@ -124,8 +123,8 @@ func TestLoginHandler_Success(t *testing.T) {
 func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
 
-	authService := services.NewAuthService(db, testCache(t), "test-secret")
 	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "wrongpass@example.com",
@@ -133,42 +132,37 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	payload := models.LoginInput{
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{
 		Email:    "wrongpass@example.com",
 		Password: "WrongPassword123",
-	}
-	body, _ := json.Marshal(payload)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-
-	c := echo.New().NewContext(req, rec)
-	_ = newTestAuthHandler(t, db).Login(c)
+	}, "")
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestGetMeHandler_WithToken tests getting user profile with a user in context
+// TestGetMeHandler_WithToken tests getting the profile of the token's owner
 func TestGetMeHandler_WithToken(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
 
-	authService := services.NewAuthService(db, testCache(t), "test-secret")
-	user, err := authService.Signup(context.Background(), &models.CreateUserInput{
+	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
 		Name:     "Test User",
 		Email:    "getme@example.com",
 		Password: "SecurePass123",
 	})
 	require.NoError(t, err)
+	session, err := authService.Login(context.Background(), &models.LoginInput{
+		Email:    "getme@example.com",
+		Password: "SecurePass123",
+	})
+	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
-	rec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, rec)
-	c.Set("user_id", user.ID) // normally set by middleware
+	rec := authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), "getme@example.com")
 
-	err = newTestAuthHandler(t, db).GetMe(c)
-	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, "").Code)
 }
 
 // setupTestDB connects to the dedicated integration database, skipping when it

@@ -246,15 +246,19 @@ func TestRefreshSession(t *testing.T) {
 	assert.NotEmpty(t, refreshed.RefreshToken)
 	assert.NotEqual(t, authResponse.RefreshToken, refreshed.RefreshToken)
 
-	// The old refresh token is no longer the stored one → refused.
-	_, err = authService.RefreshSession(context.Background(), authResponse.RefreshToken)
-	assert.Error(t, err)
+	// A consumed token replays the same pair for a phone that lost the response
+	// (expiry covered by TestRefreshSessionReplaysLostResponseWithinGrace).
+	replayed, err := authService.RefreshSession(context.Background(), authResponse.RefreshToken)
+	require.NoError(t, err)
+	assert.Equal(t, refreshed.RefreshToken, replayed.RefreshToken)
 
-	// Logging out drops the stored refresh token → no more revival.
+	// Logging out drops the stored refresh token → no more revival, replay included.
 	claims, err := authService.VerifyToken(refreshed.AccessToken)
 	require.NoError(t, err)
 	require.NoError(t, authService.Logout(context.Background(), claims.ID, claims.UserID))
 	_, err = authService.RefreshSession(context.Background(), refreshed.RefreshToken)
+	assert.Error(t, err)
+	_, err = authService.RefreshSession(context.Background(), authResponse.RefreshToken)
 	assert.Error(t, err)
 }
 
