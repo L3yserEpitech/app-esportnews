@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getApiBaseUrl } from '../../lib/apiConfig';
 import { wikiToSlug, isValidSlug } from '../../lib/gameRegistry';
+import { matchHref, type MatchLinkInput } from '../../lib/gameLinks';
 
 interface LegacyMatchProps {
   params: Promise<{ id: string }>;
@@ -8,7 +9,7 @@ interface LegacyMatchProps {
 
 // Legacy resolver for old single-segment /match/<id> URLs (pre game-first
 // routing, possibly still indexed). Resolves the match's wiki and 308-redirects
-// to the canonical /[game]/match/<id>. A bare valid game slug goes to the list.
+// to the canonical /[game]/match/<segment>. A bare valid game slug goes to the list.
 export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) {
   const { id } = await params;
 
@@ -30,7 +31,7 @@ export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) 
     throw new Error(`match ${id} temporarily unavailable (backend ${response.status})`);
   }
 
-  let match: { wiki?: string; match2id?: string; id?: number | string } | null = null;
+  let match: (Omit<MatchLinkInput, 'id'> & { id?: number | string }) | null = null;
   try {
     match = await response.json();
   } catch {
@@ -42,6 +43,5 @@ export default async function LegacyMatchRedirect({ params }: LegacyMatchProps) 
     notFound();
   }
 
-  const canonicalId = match?.match2id || id;
-  permanentRedirect(`/${slug}/match/${canonicalId}`);
+  permanentRedirect(matchHref({ ...match, id: match?.id ?? id }));
 }

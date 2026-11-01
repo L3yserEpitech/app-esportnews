@@ -1,8 +1,9 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { matchService } from '../../../services/matchService';
 import { slugToWiki } from '../../../lib/gameRegistry';
+import { decodeRouteParam, matchIdFromSegment, matchSegment } from '../../../lib/gameLinks';
 import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
 import { brandTitle, matchDescription, matchTitle } from '../../../lib/seoTitles';
 import MatchDetailPageClient from '../../../match/_components/MatchDetailPageClient';
@@ -13,7 +14,8 @@ interface MatchPageProps {
 }
 
 export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
-  const { game, id } = await params;
+  const { game, id: rawSegment } = await params;
+  const id = matchIdFromSegment(decodeRouteParam(rawSegment));
   const wiki = slugToWiki(game);
   if (!wiki) {
     return { title: 'Match | Esport News', description: 'Détails du match en direct' };
@@ -44,7 +46,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
       streamUrl: stream?.raw_url,
     });
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
-    const matchUrl = `${siteUrl}/${game}/match/${id}`;
+    const matchUrl = `${siteUrl}/${game}/match/${matchSegment(match)}`;
 
     // The branded 1200×630 card, not a team logo: Liquipedia logo URLs are
     // hotlinks that social crawlers cannot fetch, and a 200 px logo renders
@@ -74,7 +76,9 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
 }
 
 export default async function MatchDetailPage({ params }: MatchPageProps) {
-  const { game, id } = await params;
+  const { game, id: rawSegment } = await params;
+  const segment = decodeRouteParam(rawSegment);
+  const id = matchIdFromSegment(segment);
   // [game] validity is enforced by app/[game]/layout.tsx.
   const wiki = slugToWiki(game);
   if (!wiki) {
@@ -104,11 +108,16 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
     }
   }
 
+  const canonicalSegment = initialMatch ? matchSegment(initialMatch) : segment;
+  if (initialMatch?.match2id && canonicalSegment !== segment) {
+    permanentRedirect(`/${game}/match/${canonicalSegment}`);
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
   return (
     <>
-      {initialMatch && <MatchJsonLd match={initialMatch} url={`${siteUrl}/${game}/match/${id}`} />}
+      {initialMatch && <MatchJsonLd match={initialMatch} url={`${siteUrl}/${game}/match/${canonicalSegment}`} />}
       <MatchDetailPageClient matchId={id} wiki={wiki} initialMatch={initialMatch} />
     </>
   );

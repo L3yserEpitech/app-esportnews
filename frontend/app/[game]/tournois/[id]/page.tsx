@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { slugToWiki } from '../../../lib/gameRegistry';
-import { decodeRouteParam } from '../../../lib/gameLinks';
+import { decodeRouteParam, tournamentIdFromSegment, tournamentSegment } from '../../../lib/gameLinks';
 import { proxyImageUrl } from '../../../lib/imageProxy';
 import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
 import { brandTitle, tournamentDescription, tournamentTitle } from '../../../lib/seoTitles';
@@ -27,8 +27,8 @@ async function fetchTournament(game: string, id: string): Promise<Response | und
 }
 
 export async function generateMetadata({ params }: TournamentPageProps): Promise<Metadata> {
-  const { game, id: rawId } = await params;
-  const id = decodeRouteParam(rawId);
+  const { game, id: rawSegment } = await params;
+  const id = tournamentIdFromSegment(decodeRouteParam(rawSegment));
 
   const fallback = { title: 'Tournoi | Esport News', description: 'Consultez les tournois esport sur Esport News' };
   const response = await fetchTournament(game, id);
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
   try {
     const tournament = await response.json();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
-    const url = `${siteUrl}/${game}/tournois/${tournament.id}`;
+    const url = `${siteUrl}/${game}/tournois/${tournamentSegment(tournament)}`;
     const seo = {
       name: tournament.name,
       game: tournament.videogame?.name,
@@ -80,8 +80,9 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
 }
 
 export default async function TournamentDetailPage({ params }: TournamentPageProps) {
-  const { game, id: rawId } = await params;
-  const id = decodeRouteParam(rawId);
+  const { game, id: rawSegment } = await params;
+  const segment = decodeRouteParam(rawSegment);
+  const id = tournamentIdFromSegment(segment);
   // [game] validity is enforced by app/[game]/layout.tsx.
   const wiki = slugToWiki(game);
   if (!wiki) {
@@ -105,6 +106,11 @@ export default async function TournamentDetailPage({ params }: TournamentPagePro
     }
   }
 
+  const canonicalSegment = initialTournament?.id ? tournamentSegment(initialTournament) : segment;
+  if (canonicalSegment !== segment) {
+    permanentRedirect(`/${game}/tournois/${canonicalSegment}`);
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
   return (
@@ -112,7 +118,7 @@ export default async function TournamentDetailPage({ params }: TournamentPagePro
       {initialTournament && (
         <TournamentJsonLd
           tournament={initialTournament}
-          url={`${siteUrl}/${game}/tournois/${initialTournament.id ?? id}`}
+          url={`${siteUrl}/${game}/tournois/${canonicalSegment}`}
         />
       )}
       <TournamentDetailPageClient tournamentId={id} wiki={wiki} initialTournament={initialTournament} />
