@@ -139,3 +139,58 @@ func TestSubscribeToMatch_AutoCreatedRowsDoNotCountTowardsFreeLimit(t *testing.T
 	rec = subRequest(t, srv, token, http.MethodPost, "/api/subscriptions/matches/381867", subBody("G85V6AZKJ9_0009"))
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
+
+func subTestUser(t *testing.T, db *gorm.DB) models.User {
+	t.Helper()
+	var user models.User
+	require.NoError(t, db.Where("email = ?", "sub-test@example.com").First(&user).Error)
+	return user
+}
+
+// Un match terminé libère sa place : sans ça la limite gratuite était une limite à vie.
+func TestSubscribeToMatch_FinishedRowsDoNotCountTowardsFreeLimit(t *testing.T) {
+	db, srv, token := subscriptionServer(t)
+	user := subTestUser(t, db)
+	for i := 0; i < FreeMatchSubLimit; i++ {
+		require.NoError(t, db.Create(&models.MatchSubscription{
+			UserID: user.ID, MatchID: 99, Match2ID: fmt.Sprintf("DONE_%d", i), Status: "finished",
+		}).Error)
+	}
+
+	rec := subRequest(t, srv, token, http.MethodPost, "/api/subscriptions/matches/381867", subBody("G85V6AZKJ9_0001"))
+	assert.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+}
+
+// L'app publiée applique la limite localement sur ces listes : y laisser les
+// matchs terminés la garderait bloquée alors que le backend accepte.
+func TestSubscriptionIDs_ExcludeEndedButFullListKeepsThem(t *testing.T) {
+	db, srv, token := subscriptionServer(t)
+	user := subTestUser(t, db)
+	require.NoError(t, db.Create(&models.MatchSubscription{UserID: user.ID, MatchID: 1, Match2ID: "DONE", Status: "finished"}).Error)
+	require.NoError(t, db.Create(&models.MatchSubscription{UserID: user.ID, MatchID: 2, Match2ID: "LIVE", Status: "running"}).Error)
+	require.NoError(t, db.Create(&models.TournamentSubscription{UserID: user.ID, TournamentID: 1, GameAcronym: "cs2", Status: "finished"}).Error)
+	require.NoError(t, db.Create(&models.TournamentSubscription{UserID: user.ID, TournamentID: 2, GameAcronym: "cs2", Status: "running"}).Error)
+
+	get := func(path string) string {
+		rec := subRequest(t, srv, token, http.MethodGet, path, "")
+		require.Equal(t, http.StatusOK, rec.Code)
+		return rec.Body.String()
+	}
+	assert.JSONEq(t, `[2]`, get("/api/subscriptions/matches/ids"))
+	assert.JSONEq(t, `["LIVE"]`, get("/api/subscriptions/matches/match2ids"))
+	assert.JSONEq(t, `[2]`, get("/api/subscriptions/tournaments/ids"))
+	assert.Contains(t, get("/api/subscriptions/matches"), "DONE", "the profile still lists it, as finished")
+}
+
+func TestSubscribeToTournament_FinishedRowsDoNotCountTowardsFreeLimit(t *testing.T) {
+	db, srv, token := subscriptionServer(t)
+	user := subTestUser(t, db)
+	for i := 0; i < FreeTournamentSubLimit; i++ {
+		require.NoError(t, db.Create(&models.TournamentSubscription{
+			UserID: user.ID, TournamentID: int64(i + 1), GameAcronym: "cs2", Status: "finished",
+		}).Error)
+	}
+
+	rec := subRequest(t, srv, token, http.MethodPost, "/api/subscriptions/tournaments/500", `{"tournament_name":"T","game_acronym":"cs2"}`)
+	assert.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+}

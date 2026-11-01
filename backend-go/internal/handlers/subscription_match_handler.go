@@ -138,13 +138,19 @@ func (h *MatchSubHandler) UnregisterPushToken(c echo.Context) error {
 
 // --- Match Subscriptions ---
 
-// liquipediaOnly écarte les abonnements hérités de PandaScore. Ils restent en
-// base — l'app publiée tourne encore sur l'ancien backend et en crée toujours —
-// mais ils n'ont aucun sens ici : leur match_id est un identifiant PandaScore,
-// qui ne résout rien côté Liquipedia. Le match2id est le discriminant : le
+// liquipediaOnly écarte les abonnements hérités de PandaScore, le temps que la
+// purge du scheduler les retire : ils n'ont aucun sens ici, leur match_id est un
+// identifiant PandaScore, qui ne résout rien côté Liquipedia. Le match2id est le discriminant : le
 // backend PandaScore ne l'a jamais écrit, tous nos chemins le renseignent.
 func liquipediaOnly(q *gorm.DB) *gorm.DB {
 	return q.Where("match2_id IS NOT NULL AND match2_id <> ''")
+}
+
+// activeOnly écarte les abonnements terminés : ils restent listés dans le profil
+// le temps de la purge, mais ne comptent plus dans la limite gratuite ni dans les
+// listes d'ids, sur lesquelles l'app publiée applique cette limite localement.
+func activeOnly(q *gorm.DB) *gorm.DB {
+	return q.Where("COALESCE(status, '') NOT IN ?", []string{"finished", "canceled"})
 }
 
 func (h *MatchSubHandler) GetMatchSubscriptions(c echo.Context) error {
@@ -179,8 +185,8 @@ func (h *MatchSubHandler) GetMatchSubscriptionIDs(c echo.Context) error {
 	defer cancel()
 
 	var ids []int64
-	if err := liquipediaOnly(h.getDB().WithContext(ctx).
-		Model(&models.MatchSubscription{})).
+	if err := activeOnly(liquipediaOnly(h.getDB().WithContext(ctx).
+		Model(&models.MatchSubscription{}))).
 		Where("user_id = ?", userID).
 		Pluck("match_id", &ids).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch match subscription IDs")
@@ -203,8 +209,8 @@ func (h *MatchSubHandler) GetMatchSubscriptionMatch2IDs(c echo.Context) error {
 	defer cancel()
 
 	var ids []string
-	if err := liquipediaOnly(h.getDB().WithContext(ctx).
-		Model(&models.MatchSubscription{})).
+	if err := activeOnly(liquipediaOnly(h.getDB().WithContext(ctx).
+		Model(&models.MatchSubscription{}))).
 		Where("user_id = ?", userID).
 		Pluck("match2_id", &ids).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch match subscription IDs")
@@ -346,7 +352,7 @@ func (h *MatchSubHandler) GetTournamentSubscriptionIDs(c echo.Context) error {
 	defer cancel()
 
 	var rows []models.TournamentSubscription
-	if err := h.getDB().WithContext(ctx).
+	if err := activeOnly(h.getDB().WithContext(ctx)).
 		Where("user_id = ?", userID).
 		Find(&rows).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch tournament subscription IDs")
@@ -492,10 +498,10 @@ func (h *MatchSubHandler) checkMatchSubLimit(ctx context.Context, userID int64) 
 		return nil
 	}
 
-	// Only explicit likes count: following a tournament now creates one row per
-	// match, it must not use up the free allowance.
+	// Only explicit likes of matches not yet over count: following a tournament now
+	// creates one row per match, it must not use up the free allowance.
 	var count int64
-	if err := liquipediaOnly(h.getDB().WithContext(ctx).Model(&models.MatchSubscription{})).
+	if err := activeOnly(liquipediaOnly(h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}))).
 		Where("user_id = ? AND from_tournament IS NULL AND from_team IS NULL", userID).
 		Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to count match subscriptions")
@@ -524,7 +530,7 @@ func (h *MatchSubHandler) checkTournamentSubLimit(ctx context.Context, userID in
 	}
 
 	var count int64
-	if err := h.getDB().WithContext(ctx).Model(&models.TournamentSubscription{}).
+	if err := activeOnly(h.getDB().WithContext(ctx).Model(&models.TournamentSubscription{})).
 		Where("user_id = ?", userID).
 		Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to count tournament subscriptions")

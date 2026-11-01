@@ -24,6 +24,17 @@ const (
 	// sending: a scheduler restart or a backfill must never fire a burst of
 	// "starts now" pushes for matches that began hours ago.
 	maxStartNotifLateness = 3 * time.Hour
+	// Same horizon as the poller's running query: a match unfinished on Liquipedia
+	// this long after its start is out of every cache and will never be seen again.
+	matchAbandonedAfter = 24 * time.Hour
+	// Margin past a tournament's end_at before hydration may close it.
+	tournamentEndGrace = 48 * time.Hour
+	// Backstops for the tournaments hydration can't close: unknown wiki (inherited
+	// from PandaScore), repeated upstream failures, no end date.
+	tournamentHardCapAfterEnd   = 30 * 24 * time.Hour
+	tournamentHardCapWithoutEnd = 90 * 24 * time.Hour
+	// A like without a match date (never set by current clients) can't age out by date.
+	matchHardCapWithoutDate = 30 * 24 * time.Hour
 )
 
 // NotificationScheduler dispatches push notifications when subscribed matches
@@ -346,11 +357,13 @@ func matchLabelFromName(name string) string {
 // cleanupStaleSubscriptions deletes subscriptions whose underlying match or
 // tournament has been finished for more than staleFinishedThreshold.
 func (s *NotificationScheduler) cleanupStaleSubscriptions(ctx context.Context) {
+	s.finishEndedSubscriptions(ctx)
+
 	db := s.getDB()
 	threshold := time.Now().Add(-staleFinishedThreshold)
 
 	result := db.WithContext(ctx).
-		Where("status IN ? AND created_at < ?", []string{"finished", "canceled"}, threshold).
+		Where("status IN ? AND COALESCE(begin_at, created_at) < ?", []string{"finished", "canceled"}, threshold).
 		Delete(&models.MatchSubscription{})
 	if result.Error != nil {
 		s.logger.Errorf("[NotifScheduler] Cleanup match subs error: %v", result.Error)
@@ -359,7 +372,7 @@ func (s *NotificationScheduler) cleanupStaleSubscriptions(ctx context.Context) {
 	}
 
 	result = db.WithContext(ctx).
-		Where("status = ? AND end_at < ?", "finished", threshold).
+		Where("status = ? AND COALESCE(end_at, begin_at, created_at) < ?", "finished", threshold).
 		Delete(&models.TournamentSubscription{})
 	if result.Error != nil {
 		s.logger.Errorf("[NotifScheduler] Cleanup tournament subs error: %v", result.Error)
@@ -406,6 +419,16 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 			matchesByTournament[ts.TournamentID] = fetched
 		}
 
+		// nil = the fetch failed for an earlier subscriber: that says nothing.
+		if matches != nil && tournamentIsOver(ts, matches, now) {
+			if err := db.WithContext(ctx).Model(&models.TournamentSubscription{}).
+				Where("id = ?", ts.ID).
+				Update("status", "finished").Error; err != nil {
+				s.logger.Errorf("[NotifScheduler] Failed to close tournament sub %d: %v", ts.ID, err)
+			}
+			continue
+		}
+
 		for _, match := range matches {
 			if !hydratableTournamentMatch(match, now) {
 				continue
@@ -438,6 +461,82 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// finishEndedSubscriptions closes the subscriptions whose match is over, from the
+// poller's past cache (no Liquipedia call) or by age. Without it nothing ever left
+// "running": the profile showed old matches as live, the purge deleted nothing and
+// the free allowance filled up for good.
+func (s *NotificationScheduler) finishEndedSubscriptions(ctx context.Context) {
+	db := s.getDB()
+	now := time.Now().UTC()
+	active := []string{"upcoming", "running"}
+
+	if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
+		Where("status IN ?", active).
+		Where("begin_at < ? OR (begin_at IS NULL AND created_at < ?)", now.Add(-matchAbandonedAfter), now.Add(-matchHardCapWithoutDate)).
+		Update("status", "finished").Error; err != nil {
+		s.logger.Errorf("[NotifScheduler] Failed to close abandoned match subs: %v", err)
+	}
+
+	var started []models.MatchSubscription
+	if err := db.WithContext(ctx).
+		Where("status IN ? AND COALESCE(match2_id, '') <> ''", active).
+		Where("begin_at IS NULL OR begin_at <= ?", now).
+		Find(&started).Error; err != nil {
+		s.logger.Errorf("[NotifScheduler] Failed to fetch started match subs: %v", err)
+	}
+	subsByGame := make(map[string][]models.MatchSubscription)
+	for _, sub := range started {
+		subsByGame[sub.GameAcronym] = append(subsByGame[sub.GameAcronym], sub)
+	}
+	for gameAcronym, gameSubs := range subsByGame {
+		past, err := s.liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusPast)
+		if err != nil {
+			continue // unknown game: the age rule above takes care of it
+		}
+		finished := make(map[string]bool, len(past))
+		for _, m := range past {
+			finished[m.Match2ID] = true
+		}
+		var ids []int64
+		for _, sub := range gameSubs {
+			if finished[sub.Match2ID] {
+				ids = append(ids, sub.ID)
+			}
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
+			Where("id IN ?", ids).
+			Update("status", "finished").Error; err != nil {
+			s.logger.Errorf("[NotifScheduler] Failed to close finished match subs: %v", err)
+		}
+	}
+
+	if err := db.WithContext(ctx).Model(&models.TournamentSubscription{}).
+		Where("status IN ?", active).
+		Where("end_at < ? OR (end_at IS NULL AND COALESCE(begin_at, created_at) < ?)",
+			now.Add(-tournamentHardCapAfterEnd), now.Add(-tournamentHardCapWithoutEnd)).
+		Update("status", "finished").Error; err != nil {
+		s.logger.Errorf("[NotifScheduler] Failed to close old tournament subs: %v", err)
+	}
+}
+
+// tournamentIsOver tells whether nothing is left to alert on. end_at is a snapshot
+// taken at subscription time: the tournament may have been extended since, so its
+// matches have the last word.
+func tournamentIsOver(ts models.TournamentSubscription, matches []models.NormalizedMatch, now time.Time) bool {
+	if ts.EndAt == nil || ts.EndAt.After(now.Add(-tournamentEndGrace)) {
+		return false
+	}
+	for _, m := range matches {
+		if beginAt := matchBeginsAt(m); beginAt != nil && beginAt.After(now) {
+			return false
+		}
+	}
+	return true
 }
 
 // hydratableTournamentMatch keeps the matches a tournament subscriber should be
