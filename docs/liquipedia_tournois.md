@@ -138,12 +138,12 @@ The `conditions` parameter uses a wiki-style syntax:
 
 **Tournaments running (currently active):**
 ```
-conditions=[[status::!finished]] AND [[startdate::<TODAY]] AND [[enddate::>TODAY]]
+conditions=[[startdate::<TODAY]] AND [[enddate::>TODAY]] AND [[status::!cancelled]] AND [[status::!postponed]]
 ```
 
 **Tournaments upcoming (not started):**
 ```
-conditions=[[status::!finished]] AND [[startdate::>TODAY]]
+conditions=[[startdate::>TODAY]] AND [[status::!cancelled]] AND [[status::!postponed]]
 ```
 
 **Tournaments finished (completed):**
@@ -174,7 +174,7 @@ conditions=[[liquipediatier::1]]
 ## Example API Calls
 
 ```
-GET https://api.liquipedia.net/api/v3/tournament?wiki=valorant&limit=50&conditions=[[status::!finished]] AND [[startdate::<2025-02-22]] AND [[enddate::>2025-02-22]]
+GET https://api.liquipedia.net/api/v3/tournament?wiki=valorant&limit=50&conditions=[[startdate::<2025-02-22]] AND [[enddate::>2025-02-22]] AND [[status::!cancelled]] AND [[status::!postponed]]
 Authorization: Apikey <token>
 User-Agent: EsportNews/1.0 (contact@esportnews.fr)
 Accept: application/json

@@ -346,8 +346,8 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 	nextDay := dateTime.Add(24 * time.Hour).Format("2006-01-02")
 	prevDay := dateTime.Add(-24 * time.Hour).Format("2006-01-02")
 	conditions := fmt.Sprintf(
-		"[[startdate::<%s]] AND [[enddate::>%s]] AND [[status::!finished]]",
-		nextDay, prevDay,
+		"[[startdate::<%s]] AND [[enddate::>%s]] AND %s",
+		nextDay, prevDay, services.TournamentNotCalledOff,
 	)
 
 	type wikiResult struct {

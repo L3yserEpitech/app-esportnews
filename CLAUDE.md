@@ -739,7 +739,8 @@ Exemples utilisés :
 * Matchs running : `[[finished::0]] AND [[dateexact::1]] AND [[date::<cutoff]] AND [[date::>past_cutoff]]`
 * Matchs upcoming : `[[finished::0]] AND [[dateexact::1]] AND [[date::>now]]`
 * Matchs past (7j) : `[[finished::1]] AND [[date::>cutoff_7days_ago]]`
-* Tournois running : `[[status::!finished]] AND [[startdate::<tomorrow]] AND [[enddate::>yesterday]]`
+* Tournois running : `[[startdate::<tomorrow]] AND [[enddate::>yesterday]] AND [[status::!cancelled]] AND [[status::!postponed]]`
+* Tournois à venir : `[[startdate::>today]] AND [[status::!cancelled]] AND [[status::!postponed]]`. Ces deux filtres (`TournamentNotCalledOff`) valent aussi pour `by-date` : les listes contenaient des tournois annulés ou reportés jusqu'au 2026-11-01 (4 annulés et 1 reporté sur 139 à venir en CS), le `[[status::!finished]]` d'avant n'excluant rien. `unconfirmed` reste affiché.
 * Tournois finis (31 j) : `[[enddate::<today]] AND [[enddate::>cutoff]] AND [[status::!cancelled]] AND [[status::!postponed]]`. **`[[status::finished]]` ne renvoie jamais rien** : Liquipedia laisse `status` vide sur un tournoi fini et n'y écrit que `cancelled` ou `postponed` (mesuré le 2026-11-01 : 137 tournois CS finis en octobre, 129 vides, 7 `cancelled`, 1 `postponed`). `/api/tournaments/finished` et l'onglet « Terminés » sont restés vides jusqu'à ce correctif. Le `status: finished` de nos réponses est calculé depuis les dates (`ComputeStatus`).
 * Détail match : `[[pageid::<id>]]`
 * Recherche équipe par template : `[[template::<shortname>]]`

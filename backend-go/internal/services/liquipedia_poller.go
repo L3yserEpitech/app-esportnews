@@ -607,16 +607,26 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 	}
 }
 
+// TournamentNotCalledOff keeps tournaments that took or will take place. These
+// are the only two statuses that remove one: Liquipedia leaves status empty on
+// a normal tournament, finished or not, and never writes "finished".
+const TournamentNotCalledOff = "[[status::!cancelled]] AND [[status::!postponed]]"
+
+func runningTournamentsConditions(now time.Time) string {
+	tomorrow := now.UTC().Add(24 * time.Hour).Format("2006-01-02")
+	yesterday := now.UTC().Add(-24 * time.Hour).Format("2006-01-02")
+	return fmt.Sprintf("[[startdate::<%s]] AND [[enddate::>%s]] AND %s", tomorrow, yesterday, TournamentNotCalledOff)
+}
+
+func upcomingTournamentsConditions(now time.Time) string {
+	return fmt.Sprintf("[[startdate::>%s]] AND %s", now.UTC().Format("2006-01-02"), TournamentNotCalledOff)
+}
+
 func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsRunningKey(wiki)
-	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02")
-	yesterday := time.Now().UTC().Add(-24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
-	params.Set("conditions", fmt.Sprintf(
-		"[[status::!finished]] AND [[startdate::<%s]] AND [[enddate::>%s]]",
-		tomorrow, yesterday,
-	))
+	params.Set("conditions", runningTournamentsConditions(time.Now()))
 	params.Set("order", "liquipediatier ASC, startdate ASC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
@@ -632,13 +642,9 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 
 func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsUpcomingKey(wiki)
-	today := time.Now().UTC().Format("2006-01-02")
 
 	params := url.Values{}
-	params.Set("conditions", fmt.Sprintf(
-		"[[status::!finished]] AND [[startdate::>%s]]",
-		today,
-	))
+	params.Set("conditions", upcomingTournamentsConditions(time.Now()))
 	params.Set("order", "startdate ASC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
@@ -653,15 +659,15 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 }
 
 // finishedTournamentsConditions selects on the end date because Liquipedia never
-// sets status to "finished": it stays empty and only ever says cancelled or
-// postponed (137 CS tournaments ended in October 2026, none marked finished).
+// sets status to "finished" (137 CS tournaments ended in October 2026, none so
+// marked).
 // Last 31 days — one day past the handler's J-30 by-date lower bound, so the
 // oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
 // the boundary). Requesting ALL finished tournaments risks timeout.
 func finishedTournamentsConditions(now time.Time) string {
 	today := now.UTC().Format("2006-01-02")
 	cutoff := now.UTC().Add(-31 * 24 * time.Hour).Format("2006-01-02")
-	return fmt.Sprintf("[[enddate::<%s]] AND [[enddate::>%s]] AND [[status::!cancelled]] AND [[status::!postponed]]", today, cutoff)
+	return fmt.Sprintf("[[enddate::<%s]] AND [[enddate::>%s]] AND %s", today, cutoff, TournamentNotCalledOff)
 }
 
 func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki string) {

@@ -27,3 +27,17 @@ func TestFinishedTournamentsConditions(t *testing.T) {
 	want := "[[enddate::<2026-11-01]] AND [[enddate::>2026-10-01]] AND [[status::!cancelled]] AND [[status::!postponed]]"
 	require.Equal(t, want, finishedTournamentsConditions(now))
 }
+
+func TestRunningTournamentsConditionsExcludeCalledOff(t *testing.T) {
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+
+	want := "[[startdate::<2026-11-02]] AND [[enddate::>2026-10-31]] AND [[status::!cancelled]] AND [[status::!postponed]]"
+	require.Equal(t, want, runningTournamentsConditions(now))
+}
+
+func TestUpcomingTournamentsConditionsExcludeCalledOff(t *testing.T) {
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+
+	want := "[[startdate::>2026-11-01]] AND [[status::!cancelled]] AND [[status::!postponed]]"
+	require.Equal(t, want, upcomingTournamentsConditions(now))
+}
