@@ -145,8 +145,12 @@ const TournamentsPage: React.FC = () => {
     [dateRangeOffset, visibleDatesCount]
   );
 
+  // The saved game resolves after mount: only the latest fetch may write, or the unfiltered one can land last.
+  const fetchVersionRef = useRef(0);
+
   // Fetch tournaments
   const loadTournaments = useCallback(async () => {
+    const version = ++fetchVersionRef.current;
     setLoading(true);
     setError(null);
 
@@ -180,13 +184,15 @@ const TournamentsPage: React.FC = () => {
         data = await response.json();
       }
 
+      if (fetchVersionRef.current !== version) return;
       setTournaments(Array.isArray(data) ? data : []);
     } catch (err) {
+      if (fetchVersionRef.current !== version) return;
       console.error('Error loading tournaments:', err);
       setError(t('pages_detail.tournaments.error_loading'));
       setTournaments([]);
     } finally {
-      setLoading(false);
+      if (fetchVersionRef.current === version) setLoading(false);
     }
   }, [status, sortBy, selectedGame, selectedGameData, selectedDate, t]);
 
