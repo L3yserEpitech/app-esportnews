@@ -36,6 +36,7 @@ const (
 	LiqTeamMatchesRecent   = "liq:team:matches:recent:%s:%s"   // %s = wiki, %s = team template
 	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
 	LiqTeamPlacements      = "liq:team:placements:%s:%s"       // %s = wiki, %s = team name
+	LiqPlacementPages      = "liq:placement:pages:%s:%s"       // %s = wiki, %s = sha1 of the pageids
 	LiqPlayer              = "liq:player:%s:%s"                // %s = wiki, %s = player pagename
 	LiqPlayerTransfers     = "liq:player:transfers:%s:%s"      // %s = wiki, %s = player id
 
@@ -218,6 +219,10 @@ func LiqTeamMatchesUpcomingKey(wiki, teamTemplate string) string {
 
 func LiqTeamPlacementsKey(wiki, teamName string) string {
 	return fmt.Sprintf(LiqTeamPlacements, wiki, teamName)
+}
+
+func LiqPlacementPagesKey(wiki, idsHash string) string {
+	return fmt.Sprintf(LiqPlacementPages, wiki, idsHash)
 }
 
 func LiqPlayerKey(wiki, pagename string) string {

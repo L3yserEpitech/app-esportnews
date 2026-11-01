@@ -450,6 +450,7 @@ type NormalizedPlacement struct {
 	Tournament     string  `json:"tournament"`
 	TournamentID   int     `json:"tournament_id"`
 	TournamentPage string  `json:"tournament_page"`
+	NoTournament   bool    `json:"tournament_missing,omitempty"` // Liquipedia has the page, not a tournament row for it
 	Placement      string  `json:"placement"`
 	Date           string  `json:"date"`
 	PrizeMoney     float64 `json:"prize_money"`

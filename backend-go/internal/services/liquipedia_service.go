@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -88,6 +89,7 @@ const (
 	TTLTeam                  = 6 * time.Hour // roster data changes infrequently
 	TTLTeamMatches           = 15 * time.Minute
 	TTLTeamPlacements        = 1 * time.Hour
+	TTLPlacementPages        = 24 * time.Hour
 	TTLStale                 = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
 )
 
@@ -1185,6 +1187,18 @@ func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemp
 	return matches, nil
 }
 
+const (
+	// Every caller shares one cache key, so it always holds the most any of them
+	// may ask for. Rows without a result (upcoming events, first by date) are
+	// dropped afterwards and must not eat into a caller's limit.
+	placementsFetchLimit = 200
+	// Keeps the URL of the tournament lookup a reasonable size.
+	placementTournamentsBatch = 50
+	// The page must not wait on the outbound queue for this: the shared fetch
+	// still lands in cache for the next visitor.
+	placementTournamentsTimeout = 3 * time.Second
+)
+
 // FetchTeamPlacements fetches tournament placements for a team from the Liquipedia /placement endpoint.
 // Returns the most recent placements with actual results (non-empty placement string).
 func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamName string, limit int) ([]models.NormalizedPlacement, error) {
@@ -1198,7 +1212,7 @@ func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamN
 	params := url.Values{}
 	params.Set("conditions", conditions)
 	params.Set("order", "date DESC")
-	params.Set("limit", fmt.Sprintf("%d", limit))
+	params.Set("limit", strconv.Itoa(placementsFetchLimit))
 
 	data, err := s.MakeRequest(ctx, wiki, "placement", params, cacheKey, TTLTeamPlacements)
 	if err != nil {
@@ -1210,8 +1224,11 @@ func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamN
 		return nil, err
 	}
 
-	placements := make([]models.NormalizedPlacement, 0, len(resp.Result))
+	placements := make([]models.NormalizedPlacement, 0, limit)
 	for _, raw := range resp.Result {
+		if len(placements) == limit {
+			break
+		}
 		var p models.LiqPlacement
 		if err := json.Unmarshal(raw, &p); err != nil {
 			continue
@@ -1223,7 +1240,78 @@ func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamN
 		placements = append(placements, models.NormalizeLiqPlacement(p))
 	}
 
+	s.flagPlacementsWithoutTournament(ctx, wiki, placements)
 	return placements, nil
+}
+
+// flagPlacementsWithoutTournament marks the pages Liquipedia has no tournament
+// row for (old ECS series: 2 CS pages out of 105 sampled): their link would 404.
+// Best-effort: if the lookup fails nothing is flagged and the links stay.
+func (s *LiquipediaService) flagPlacementsWithoutTournament(ctx context.Context, wiki string, placements []models.NormalizedPlacement) {
+	ctx, cancel := context.WithTimeout(BackgroundLane(ctx), placementTournamentsTimeout)
+	defer cancel()
+
+	var ids []int
+	seen := make(map[int]bool, len(placements))
+	for _, p := range placements {
+		if p.TournamentID != 0 && !seen[p.TournamentID] {
+			seen[p.TournamentID] = true
+			ids = append(ids, p.TournamentID)
+		}
+	}
+
+	known := make(map[int]bool, len(ids))
+	for start := 0; start < len(ids); start += placementTournamentsBatch {
+		batch := ids[start:min(start+placementTournamentsBatch, len(ids))]
+		found, err := s.tournamentPageIDs(ctx, wiki, batch)
+		if err != nil {
+			s.log.WithError(err).WithField("wiki", wiki).Debug("Placement tournament lookup failed")
+			return
+		}
+		for _, id := range found {
+			known[id] = true
+		}
+	}
+
+	for i := range placements {
+		placements[i].NoTournament = seen[placements[i].TournamentID] && !known[placements[i].TournamentID]
+	}
+}
+
+func (s *LiquipediaService) tournamentPageIDs(ctx context.Context, wiki string, ids []int) ([]int, error) {
+	conditions := make([]string, len(ids))
+	for i, id := range ids {
+		conditions[i] = fmt.Sprintf("[[pageid::%d]]", id)
+	}
+	joined := strings.Join(conditions, " OR ")
+
+	params := url.Values{}
+	params.Set("conditions", joined)
+	params.Set("query", "pageid")
+	params.Set("limit", "5000")
+
+	// Keyed by the ids, not the team: placements rarely change, so this costs
+	// about one call a day, shared by every limit that yields the same first batch.
+	hash := fmt.Sprintf("%x", sha1.Sum([]byte(joined)))
+	data, err := s.MakeRequest(ctx, wiki, "tournament", params, cache.LiqPlacementPagesKey(wiki, hash), TTLPlacementPages)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]int, 0, len(resp.Result))
+	for _, raw := range resp.Result {
+		var row struct {
+			PageID int `json:"pageid"`
+		}
+		if err := json.Unmarshal(raw, &row); err == nil {
+			found = append(found, row.PageID)
+		}
+	}
+	return found, nil
 }
 
 // getAllWikis returns a list of all known Liquipedia wiki names.

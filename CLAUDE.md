@@ -639,7 +639,8 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `liq:team:squad:<wiki>:<pagename>` | `LiqTeamSquadKey` | 6h | On-demand |
 | `liq:team:matches:recent:<wiki>:<template>` | `LiqTeamMatchesRecentKey` | 15 min | On-demand |
 | `liq:team:matches:upcoming:<wiki>:<template>` | `LiqTeamMatchesUpcomingKey` | 15 min | On-demand |
-| `liq:team:placements:<wiki>:<name>` | `LiqTeamPlacementsKey` | 1h | On-demand |
+| `liq:team:placements:<wiki>:<name>` | `LiqTeamPlacementsKey` | 1h | On-demand : toujours 200 lignes, coupées à la limite de l'appelant **après** avoir retiré les lignes sans résultat (tournois à venir, en tête par date) |
+| `liq:placement:pages:<wiki>:<sha1 des pageids>` | `LiqPlacementPagesKey` | 24h | On-demand : quelles pages de placement ont un tournoi (par lots de 50, 3 s max, sinon aucun signalement) ; une page sans tournoi rend `tournament_missing` et sa ligne n'est plus un lien |
 | `liq:wikihint:<id>` | `LiqWikiHintKey` | 24h | Écrit quand un user consulte un tournoi/match (sert à retrouver le wiki depuis l'ID) |
 | `liq:budget:<wiki>:<YYYYMMDDHH>` | `RequestBudget.budgetRedisKey` | 1h + 2min | `RequestBudget.RecordRequest` (best-effort) |
 | `<any_above>:stale` | `StaleKey` | 6h | Copie auto à chaque écriture via `MakeRequest` |
