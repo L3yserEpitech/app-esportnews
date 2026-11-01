@@ -1,6 +1,9 @@
 package services
 
 import (
+	"context"
+	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,4 +43,31 @@ func TestUpcomingTournamentsConditionsExcludeCalledOff(t *testing.T) {
 
 	want := "[[startdate::>2026-11-01]] AND [[status::!cancelled]] AND [[status::!postponed]]"
 	require.Equal(t, want, upcomingTournamentsConditions(now))
+}
+
+func TestTournamentRefreshesSendTheirConditions(t *testing.T) {
+	now := time.Now()
+	refreshes := []struct {
+		name string
+		run  func(*LiquipediaPoller)
+		want string
+	}{
+		{"running", func(p *LiquipediaPoller) { p.refreshTournamentsRunning(context.Background(), "valorant") }, runningTournamentsConditions(now)},
+		{"upcoming", func(p *LiquipediaPoller) { p.refreshTournamentsUpcoming(context.Background(), "valorant") }, upcomingTournamentsConditions(now)},
+		{"finished", func(p *LiquipediaPoller) { p.refreshTournamentsFinished(context.Background(), "valorant") }, finishedTournamentsConditions(now)},
+	}
+
+	for _, r := range refreshes {
+		t.Run(r.name, func(t *testing.T) {
+			var conditions atomic.Value
+			svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				conditions.Store(req.URL.Query().Get("conditions"))
+				_, _ = w.Write([]byte(`{"result":[]}`))
+			}))
+
+			r.run(NewLiquipediaPoller(svc, NewDirtyTracker(), nil, svc.log))
+
+			require.Equal(t, r.want, conditions.Load())
+		})
+	}
 }
