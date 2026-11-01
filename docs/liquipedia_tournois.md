@@ -148,7 +148,7 @@ conditions=[[status::!finished]] AND [[startdate::>TODAY]]
 
 **Tournaments finished (completed):**
 ```
-conditions=[[status::finished]]
+conditions=[[enddate::<TODAY]] AND [[enddate::>CUTOFF]] AND [[status::!cancelled]] AND [[status::!postponed]]
 order=enddate DESC
 ```
 
@@ -181,7 +181,7 @@ Accept: application/json
 ```
 
 ```
-GET https://api.liquipedia.net/api/v3/tournament?wiki=valorant&limit=50&conditions=[[status::finished]]&order=enddate DESC
+GET https://api.liquipedia.net/api/v3/tournament?wiki=valorant&limit=50&conditions=[[enddate::<TODAY]] AND [[enddate::>CUTOFF]] AND [[status::!cancelled]] AND [[status::!postponed]]&order=enddate DESC
 Authorization: Apikey <token>
 User-Agent: EsportNews/1.0 (contact@esportnews.fr)
 Accept: application/json

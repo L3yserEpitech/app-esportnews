@@ -20,3 +20,10 @@ func TestDirtyRefreshGate(t *testing.T) {
 	// After cooldown → allowed again.
 	require.True(t, g.Allow("valorant", "matches_running", 4*time.Minute, now.Add(5*time.Minute)))
 }
+
+func TestFinishedTournamentsConditions(t *testing.T) {
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+
+	want := "[[enddate::<2026-11-01]] AND [[enddate::>2026-10-01]] AND [[status::!cancelled]] AND [[status::!postponed]]"
+	require.Equal(t, want, finishedTournamentsConditions(now))
+}

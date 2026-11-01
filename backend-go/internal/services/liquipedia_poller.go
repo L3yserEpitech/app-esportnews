@@ -652,15 +652,23 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 	}
 }
 
+// finishedTournamentsConditions selects on the end date because Liquipedia never
+// sets status to "finished": it stays empty and only ever says cancelled or
+// postponed (137 CS tournaments ended in October 2026, none marked finished).
+// Last 31 days — one day past the handler's J-30 by-date lower bound, so the
+// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
+// the boundary). Requesting ALL finished tournaments risks timeout.
+func finishedTournamentsConditions(now time.Time) string {
+	today := now.UTC().Format("2006-01-02")
+	cutoff := now.UTC().Add(-31 * 24 * time.Hour).Format("2006-01-02")
+	return fmt.Sprintf("[[enddate::<%s]] AND [[enddate::>%s]] AND [[status::!cancelled]] AND [[status::!postponed]]", today, cutoff)
+}
+
 func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki string) {
 	cacheKey := cache.LiqTournamentsFinishedKey(wiki)
-	// Last 31 days — one day past the handler's J-30 by-date lower bound, so the
-	// oldest in-window calendar day is fully cache-backed (no on-demand fan-out at
-	// the boundary). Requesting ALL finished tournaments risks timeout.
-	cutoff := time.Now().UTC().Add(-31 * 24 * time.Hour).Format("2006-01-02")
 
 	params := url.Values{}
-	params.Set("conditions", fmt.Sprintf("[[status::finished]] AND [[enddate::>%s]]", cutoff))
+	params.Set("conditions", finishedTournamentsConditions(time.Now()))
 	params.Set("order", "enddate DESC")
 	params.Set("limit", "5000")
 	params.Set("query", LiqTournamentQueryFields)
