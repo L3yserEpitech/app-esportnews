@@ -107,8 +107,12 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	db := s.getDB()
 
 	var subs []models.MatchSubscription
+	// A row with neither date nor match2id (old auto-subscriptions) can never fire.
+	// Earliest first: rows for future matches must not push due ones past the limit.
 	if err := db.WithContext(ctx).
 		Where("status IN ? AND notified_start = ?", []string{"upcoming", "running"}, false).
+		Where("begin_at IS NOT NULL OR COALESCE(match2_id, '') <> ''").
+		Order("begin_at ASC NULLS LAST").
 		Limit(maxSubsPerTick).
 		Find(&subs).Error; err != nil {
 		s.logger.Errorf("[NotifScheduler] Failed to fetch subscriptions: %v", err)
@@ -163,7 +167,7 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	}
 
 	for gameAcronym, gameSubs := range subsByGame {
-		runningMap, err := s.runningMatchesByID(ctx, gameAcronym)
+		runningMap, err := s.runningMatchesByMatch2ID(ctx, gameAcronym)
 		if err != nil {
 			s.logger.WithError(err).WithField("game", gameAcronym).
 				Warn("[NotifScheduler] Skipping game — failed to load running matches")
@@ -171,27 +175,29 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 		}
 
 		for _, sub := range gameSubs {
-			match, isRunning := runningMap[sub.MatchID]
-			if !isRunning {
+			match, inCache := runningMap[sub.Match2ID]
+			if !inCache {
 				continue
 			}
 
-			fields := map[string]interface{}{
-				"notified_start": true,
-				"status":         "running",
-			}
-			// Backfill the deep-link id on rows created before we stored it, and
-			// on tournament auto-subscriptions which only carry the numeric id.
-			match2ID := sub.Match2ID
-			if match2ID == "" && match.Match2ID != "" {
-				match2ID = match.Match2ID
-				fields["match2_id"] = match2ID
-			}
-			if newBeginAt := matchBeginsAt(match); newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
+			fields := map[string]interface{}{}
+			newBeginAt := matchBeginsAt(match)
+			if newBeginAt != nil && sub.BeginAt != nil && !newBeginAt.Equal(*sub.BeginAt) {
 				fields["begin_at"] = newBeginAt
 			}
 
-			if msg, ok := s.buildStartNotification(ctx, sub, matchLabel(match, sub.MatchName), match2ID); ok {
+			// The running cache reaches 6 h ahead (poller cutoff): being listed
+			// doesn't mean the match has started.
+			if newBeginAt != nil && newBeginAt.After(now) {
+				if len(fields) > 0 {
+					subsToUpdate = append(subsToUpdate, subUpdate{id: sub.ID, fields: fields})
+				}
+				continue
+			}
+
+			fields["notified_start"] = true
+			fields["status"] = "running"
+			if msg, ok := s.buildStartNotification(ctx, sub, matchLabel(match, sub.MatchName), sub.Match2ID); ok {
 				messages = append(messages, msg)
 			}
 			subsToUpdate = append(subsToUpdate, subUpdate{id: sub.ID, fields: fields})
@@ -224,23 +230,24 @@ func (s *NotificationScheduler) dispatch(ctx context.Context, messages []ExpoPus
 	}
 }
 
-// runningMatchesByID returns the currently running matches for a game, keyed
-// by their numeric MatchID. The key type matches MatchSubscription.MatchID
-// (int64) to avoid conversions at every lookup site.
-func (s *NotificationScheduler) runningMatchesByID(ctx context.Context, gameAcronym string) (map[int64]models.NormalizedMatch, error) {
+// runningMatchesByMatch2ID returns the matches of the running cache for a game,
+// keyed by match2id: their numeric id is shared by the whole tournament page.
+func (s *NotificationScheduler) runningMatchesByMatch2ID(ctx context.Context, gameAcronym string) (map[string]models.NormalizedMatch, error) {
 	matches, err := s.liqService.MatchesByStatus(ctx, gameAcronym, MatchStatusRunning)
 	if err != nil {
 		if errors.Is(err, ErrUnknownGame) {
 			// Stale acronym (e.g. legacy PandaScore data) — treat as empty, never crash.
 			s.logger.WithField("game", gameAcronym).Debug("[NotifScheduler] Skipping unknown game")
-			return map[int64]models.NormalizedMatch{}, nil
+			return map[string]models.NormalizedMatch{}, nil
 		}
 		return nil, err
 	}
 
-	indexed := make(map[int64]models.NormalizedMatch, len(matches))
+	indexed := make(map[string]models.NormalizedMatch, len(matches))
 	for _, m := range matches {
-		indexed[int64(m.ID)] = m
+		if m.Match2ID != "" {
+			indexed[m.Match2ID] = m
+		}
 	}
 	return indexed, nil
 }
@@ -304,6 +311,29 @@ func matchLabel(m models.NormalizedMatch, fallback string) string {
 	return matchLabelFromName(fallback)
 }
 
+// namedOpponents returns the opponent names, without bracket placeholders.
+func namedOpponents(m models.NormalizedMatch) []string {
+	var names []string
+	for _, o := range m.Opponents {
+		if o.Opponent == nil || o.Type == "literal" {
+			continue
+		}
+		if n := strings.TrimSpace(o.Opponent.Name); n != "" && n != "TBD" {
+			names = append(names, n)
+		}
+	}
+	return names
+}
+
+// subscriptionMatchName is the name stored on an auto-created subscription. The
+// normalized match name is often the tournament's, useless in a push body.
+func subscriptionMatchName(m models.NormalizedMatch) string {
+	if names := namedOpponents(m); len(names) >= 2 {
+		return names[0] + " vs " + names[1]
+	}
+	return m.Name
+}
+
 // matchLabelFromName normalizes a stored match name ("A vs B") into the label
 // used in notification bodies.
 func matchLabelFromName(name string) string {
@@ -356,6 +386,7 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 	// Cache the fetched match list once per tournament so multiple subscribers
 	// to the same tournament don't each trigger their own lookup.
 	matchesByTournament := make(map[int64][]models.NormalizedMatch, len(tournamentSubs))
+	now := time.Now().UTC()
 
 	for _, ts := range tournamentSubs {
 		matches, ok := matchesByTournament[ts.TournamentID]
@@ -376,16 +407,15 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 		}
 
 		for _, match := range matches {
-			matchID := int64(match.ID)
-			if matchID == 0 {
+			if !hydratableTournamentMatch(match, now) {
 				continue
 			}
 
 			var count int64
 			if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
-				Where("user_id = ? AND match_id = ?", ts.UserID, matchID).
+				Where("user_id = ? AND match2_id = ?", ts.UserID, match.Match2ID).
 				Count(&count).Error; err != nil {
-				s.logger.Errorf("[NotifScheduler] Failed to count match subs for user %d match %d: %v", ts.UserID, matchID, err)
+				s.logger.Errorf("[NotifScheduler] Failed to count match subs for user %d match %s: %v", ts.UserID, match.Match2ID, err)
 				continue
 			}
 			if count > 0 {
@@ -394,20 +424,32 @@ func (s *NotificationScheduler) hydrateTournamentMatches(ctx context.Context) {
 
 			matchSub := models.MatchSubscription{
 				UserID:         ts.UserID,
-				MatchID:        matchID,
+				MatchID:        int64(match.ID),
 				Match2ID:       match.Match2ID,
 				GameAcronym:    ts.GameAcronym,
-				MatchName:      match.Name,
+				MatchName:      subscriptionMatchName(match),
 				TournamentName: ts.TournamentName,
 				BeginAt:        matchBeginsAt(match),
 				Status:         "upcoming",
 				FromTournament: &ts.TournamentID,
 			}
 			if err := db.WithContext(ctx).Create(&matchSub).Error; err != nil {
-				s.logger.Errorf("[NotifScheduler] Failed to create match sub for user %d match %d: %v", ts.UserID, matchID, err)
+				s.logger.Errorf("[NotifScheduler] Failed to create match sub for user %d match %s: %v", ts.UserID, match.Match2ID, err)
 			}
 		}
 	}
+}
+
+// hydratableTournamentMatch keeps the matches a tournament subscriber should be
+// alerted for. Hydration runs again every 10 min, so a match left out now is
+// picked up as soon as its date and opponents are known. A match that already
+// began stays out: creating its row would fire a late "starts now" push.
+func hydratableTournamentMatch(m models.NormalizedMatch, now time.Time) bool {
+	if m.Match2ID == "" || !m.DateExact || len(namedOpponents(m)) < 2 {
+		return false
+	}
+	beginAt := matchBeginsAt(m)
+	return beginAt != nil && beginAt.After(now)
 }
 
 // --- Helpers ---

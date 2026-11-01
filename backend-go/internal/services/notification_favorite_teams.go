@@ -150,21 +150,20 @@ func (s *NotificationScheduler) hydrateFavoriteTeamMatches(ctx context.Context) 
 					continue
 				}
 
-				matchID := int64(m.ID)
-				if matchID == 0 {
+				if m.Match2ID == "" {
 					continue
 				}
 
 				var count int64
 				if err := db.WithContext(ctx).Model(&models.MatchSubscription{}).
-					Where("user_id = ? AND match_id = ?", u.ID, matchID).
+					Where("user_id = ? AND match2_id = ?", u.ID, m.Match2ID).
 					Count(&count).Error; err != nil {
-					s.logger.Errorf("[FavTeams] Failed to count subs for user %d match %d: %v", u.ID, matchID, err)
+					s.logger.Errorf("[FavTeams] Failed to count subs for user %d match %s: %v", u.ID, m.Match2ID, err)
 					continue
 				}
 				if count > 0 {
 					// Déjà couvert par un autre chemin (abonnement direct ou tournoi).
-					// La contrainte unique (user_id, match_id) garantit une seule notif.
+					// La contrainte unique (user_id, match2_id) garantit une seule notif.
 					continue
 				}
 
@@ -180,17 +179,17 @@ func (s *NotificationScheduler) hydrateFavoriteTeamMatches(ctx context.Context) 
 
 				sub := models.MatchSubscription{
 					UserID:         u.ID,
-					MatchID:        matchID,
+					MatchID:        int64(m.ID),
 					Match2ID:       m.Match2ID,
 					GameAcronym:    gameAcronym,
-					MatchName:      m.Name,
+					MatchName:      subscriptionMatchName(m),
 					TournamentName: tournamentName,
 					BeginAt:        beginAt,
 					Status:         "upcoming",
 					FromTeam:       &teamPageID,
 				}
 				if err := db.WithContext(ctx).Create(&sub).Error; err != nil {
-					s.logger.Errorf("[FavTeams] Failed to create sub for user %d match %d: %v", u.ID, matchID, err)
+					s.logger.Errorf("[FavTeams] Failed to create sub for user %d match %s: %v", u.ID, m.Match2ID, err)
 					continue
 				}
 				created++

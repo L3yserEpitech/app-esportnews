@@ -95,6 +95,11 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 	}
 	log.Info("New table migrations completed (push_token, match_subscription, tournament_subscription)")
 
+	if err := EnsureMatchSubscriptionIdentity(db); err != nil {
+		return nil, fmt.Errorf("failed to ensure match_subscription identity: %w", err)
+	}
+	log.Info("match_subscription identity ensured")
+
 	// Idempotently add the content-notification guard column to the legacy
 	// articles table. In prod the table always exists. On a fresh dev DB the
 	// table may not exist yet (the dev-only AutoMigrate below creates it, with
@@ -157,6 +162,27 @@ func InitGORM(databaseURL string, env string, log *logrus.Logger) (*Database, er
 }
 
 // Close closes the database connection
+// EnsureMatchSubscriptionIdentity moves match_subscription uniqueness from
+// (user_id, match_id) to (user_id, match2_id). match_id is the pageid of the
+// tournament page, shared by all its matches, so the old index allowed a single
+// row per page. A moved page changes its pageid, hence possible duplicates: the
+// row already notified wins, otherwise the user would get a second alert.
+func EnsureMatchSubscriptionIdentity(db *gorm.DB) error {
+	for _, stmt := range []string{
+		`DROP INDEX IF EXISTS idx_user_match`,
+		`DELETE FROM match_subscription a USING match_subscription b
+		 WHERE a.user_id = b.user_id AND a.match2_id = b.match2_id AND a.match2_id <> '' AND a.id <> b.id
+		   AND (COALESCE(b.notified_start, false), -b.id) > (COALESCE(a.notified_start, false), -a.id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_match2 ON match_subscription (user_id, match2_id)
+		 WHERE match2_id IS NOT NULL AND match2_id <> ''`,
+	} {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *Database) Close() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {

@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -62,6 +61,7 @@ func (h *MatchSubHandler) RegisterRoutes(g RouterGroup) {
 	// Match subscriptions
 	g.GET("/subscriptions/matches", h.GetMatchSubscriptions)
 	g.GET("/subscriptions/matches/ids", h.GetMatchSubscriptionIDs)
+	g.GET("/subscriptions/matches/match2ids", h.GetMatchSubscriptionMatch2IDs)
 	g.POST("/subscriptions/matches/:matchId", h.SubscribeToMatch)
 	g.DELETE("/subscriptions/matches/:matchId", h.UnsubscribeFromMatch)
 
@@ -167,6 +167,8 @@ func (h *MatchSubHandler) GetMatchSubscriptions(c echo.Context) error {
 	return c.JSON(http.StatusOK, subs)
 }
 
+// GetMatchSubscriptionIDs sert l'app publiée, qui compare des pageids : le cœur
+// s'y allume pour toute la page. Les builds récents lisent match2ids.
 func (h *MatchSubHandler) GetMatchSubscriptionIDs(c echo.Context) error {
 	userID, err := h.extractUserID(c)
 	if err != nil {
@@ -186,6 +188,30 @@ func (h *MatchSubHandler) GetMatchSubscriptionIDs(c echo.Context) error {
 
 	if ids == nil {
 		ids = []int64{}
+	}
+
+	return c.JSON(http.StatusOK, ids)
+}
+
+func (h *MatchSubHandler) GetMatchSubscriptionMatch2IDs(c echo.Context) error {
+	userID, err := h.extractUserID(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var ids []string
+	if err := liquipediaOnly(h.getDB().WithContext(ctx).
+		Model(&models.MatchSubscription{})).
+		Where("user_id = ?", userID).
+		Pluck("match2_id", &ids).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch match subscription IDs")
+	}
+
+	if ids == nil {
+		ids = []string{}
 	}
 
 	return c.JSON(http.StatusOK, ids)
@@ -241,23 +267,15 @@ func (h *MatchSubHandler) SubscribeToMatch(c echo.Context) error {
 		Status:         "upcoming",
 	}
 
-	// Use ON CONFLICT to avoid duplicates
-	result := h.getDB().WithContext(ctx).
-		Where("user_id = ? AND match_id = ?", userID, matchID).
-		FirstOrCreate(&sub)
-	if result.Error != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to subscribe to match")
+	// The URL carries the pageid of the tournament page, shared by all its
+	// matches: only match2id tells two of them apart. Builds that don't send it
+	// keep their single row per page.
+	existing := h.getDB().WithContext(ctx).Where("user_id = ? AND match2_id = ?", userID, input.Match2ID)
+	if input.Match2ID == "" {
+		existing = h.getDB().WithContext(ctx).Where("user_id = ? AND match_id = ? AND COALESCE(match2_id, '') = ''", userID, matchID)
 	}
-
-	// Existing row (auto-created by a tournament subscription, or predating the
-	// column) — fill in the deep-link id the notification payload needs.
-	if sub.Match2ID == "" && input.Match2ID != "" {
-		sub.Match2ID = input.Match2ID
-		if err := h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}).
-			Where("id = ?", sub.ID).
-			Update("match2_id", input.Match2ID).Error; err != nil {
-			log.Printf("[SUB] failed to backfill match2_id on subscription %d: %v", sub.ID, err)
-		}
+	if err := existing.FirstOrCreate(&sub).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to subscribe to match")
 	}
 
 	return c.JSON(http.StatusCreated, sub)
@@ -269,17 +287,18 @@ func (h *MatchSubHandler) UnsubscribeFromMatch(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
 
-	matchID, err := strconv.ParseInt(c.Param("matchId"), 10, 64)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid match ID")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.getDB().WithContext(ctx).
-		Where("user_id = ? AND match_id = ?", userID, matchID).
-		Delete(&models.MatchSubscription{}).Error; err != nil {
+	// A match2id is never purely numeric. A number comes from the published app,
+	// whose heart covers the whole tournament page: the whole page goes with it.
+	ref := c.Param("matchId")
+	target := h.getDB().WithContext(ctx).Where("user_id = ? AND match2_id = ?", userID, ref)
+	if pageID, err := strconv.ParseInt(ref, 10, 64); err == nil {
+		target = h.getDB().WithContext(ctx).Where("user_id = ? AND match_id = ?", userID, pageID)
+	}
+
+	if err := target.Delete(&models.MatchSubscription{}).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to unsubscribe from match")
 	}
 
@@ -371,7 +390,6 @@ func (h *MatchSubHandler) SubscribeToTournament(c echo.Context) error {
 		GameAcronym    string  `json:"game_acronym"`
 		BeginAt        *string `json:"begin_at"`
 		EndAt          *string `json:"end_at"`
-		MatchIDs       []int64 `json:"match_ids"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
@@ -393,71 +411,21 @@ func (h *MatchSubHandler) SubscribeToTournament(c echo.Context) error {
 		endAt = &t
 	}
 
-	// Check match sub limit for free users when auto-subscribing matches
-	var isPremium bool
-	var currentUser models.User
-	if err := h.getDB().WithContext(ctx).Where("id = ?", userID).First(&currentUser).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch user")
+	// Its matches are created by the scheduler's hydration (10 min tick), the only
+	// path that knows their match2id. The match_ids still sent by the published
+	// app are pageids, which can't tell two matches apart.
+	tournamentSub := models.TournamentSubscription{
+		UserID:         userID,
+		TournamentID:   tournamentID,
+		GameAcronym:    input.GameAcronym,
+		TournamentName: input.TournamentName,
+		BeginAt:        beginAt,
+		EndAt:          endAt,
+		Status:         "running",
 	}
-	isPremium = currentUser.Premium != nil && *currentUser.Premium
-
-	// Use transaction for tournament + match subscriptions
-	err = h.getDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create tournament subscription
-		tournamentSub := models.TournamentSubscription{
-			UserID:         userID,
-			TournamentID:   tournamentID,
-			GameAcronym:    input.GameAcronym,
-			TournamentName: input.TournamentName,
-			BeginAt:        beginAt,
-			EndAt:          endAt,
-			Status:         "running",
-		}
-
-		result := tx.Where("user_id = ? AND tournament_id = ?", userID, tournamentID).
-			FirstOrCreate(&tournamentSub)
-		if result.Error != nil {
-			return result.Error
-		}
-
-		// Auto-subscribe to all matches in the tournament (respecting limits for free users)
-		if len(input.MatchIDs) > 0 {
-			var existingMatchSubCount int64
-			if err := tx.Model(&models.MatchSubscription{}).
-				Where("user_id = ?", userID).
-				Count(&existingMatchSubCount).Error; err != nil {
-				return err
-			}
-
-			for _, matchID := range input.MatchIDs {
-				// Check limit for free users before each creation
-				if !isPremium && existingMatchSubCount >= FreeMatchSubLimit {
-					break
-				}
-
-				matchSub := models.MatchSubscription{
-					UserID:         userID,
-					MatchID:        matchID,
-					GameAcronym:    input.GameAcronym,
-					TournamentName: input.TournamentName,
-					Status:         "upcoming",
-					FromTournament: &tournamentID,
-				}
-				// Skip if already subscribed to this match
-				res := tx.Where("user_id = ? AND match_id = ?", userID, matchID).
-					FirstOrCreate(&matchSub)
-				if res.Error != nil {
-					return res.Error
-				}
-				if res.RowsAffected > 0 {
-					existingMatchSubCount++
-				}
-			}
-		}
-
-		return nil
-	})
-
+	err = h.getDB().WithContext(ctx).
+		Where("user_id = ? AND tournament_id = ?", userID, tournamentID).
+		FirstOrCreate(&tournamentSub).Error
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to subscribe to tournament")
 	}
@@ -524,9 +492,11 @@ func (h *MatchSubHandler) checkMatchSubLimit(ctx context.Context, userID int64) 
 		return nil
 	}
 
+	// Only explicit likes count: following a tournament now creates one row per
+	// match, it must not use up the free allowance.
 	var count int64
-	if err := h.getDB().WithContext(ctx).Model(&models.MatchSubscription{}).
-		Where("user_id = ?", userID).
+	if err := liquipediaOnly(h.getDB().WithContext(ctx).Model(&models.MatchSubscription{})).
+		Where("user_id = ? AND from_tournament IS NULL AND from_team IS NULL", userID).
 		Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to count match subscriptions")
 	}

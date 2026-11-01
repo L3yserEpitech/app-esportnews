@@ -3,14 +3,17 @@ package models
 import "time"
 
 // MatchSubscription stores per-user match subscriptions for push notifications.
-// match_id references a Liquipedia normalized match ID (volatile, stored in Redis only).
+// match2_id identifies the match. match_id is the pageid of its tournament page,
+// shared by every match of that page: it is only kept for the push payload and
+// for the published app, which still addresses subscriptions by it. Uniqueness is
+// a partial index on (user_id, match2_id), see database.EnsureMatchSubscriptionIdentity.
 // Snapshot fields (match_name, tournament_name, begin_at) allow display without Redis lookup.
 type MatchSubscription struct {
 	ID               int64      `json:"id" gorm:"primaryKey"`
 	CreatedAt        time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UserID           int64      `json:"user_id" gorm:"uniqueIndex:idx_user_match;not null;index"`
-	MatchID          int64      `json:"match_id" gorm:"uniqueIndex:idx_user_match;not null"`
-	Match2ID         string     `json:"match2id"` // alphanumeric Liquipedia id — the only one the detail endpoint resolves on-demand
+	UserID           int64      `json:"user_id" gorm:"not null;index"`
+	MatchID          int64      `json:"match_id" gorm:"not null"`
+	Match2ID         string     `json:"match2id"` // alphanumeric Liquipedia id — empty only on rows inherited from PandaScore or very old builds
 	GameAcronym      string     `json:"game_acronym"`
 	MatchName        string     `json:"match_name"`
 	TournamentName   string     `json:"tournament_name"`

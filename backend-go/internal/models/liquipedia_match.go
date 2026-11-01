@@ -159,6 +159,8 @@ type NormalizedMatch struct {
 	// Extra Liquipedia fields for match detail navigation
 	Match2ID string `json:"match2id,omitempty"`
 	Wiki     string `json:"wiki,omitempty"`
+	// False when BeginAt is a placeholder (unscheduled bracket match).
+	DateExact bool `json:"-"`
 
 	// Bracket fields for tournament bracket tree
 	Section         string                 `json:"section,omitempty"`
@@ -457,6 +459,7 @@ func NormalizeLiqMatch(m LiqMatch, wiki string, statusHint string) NormalizedMat
 		Videogame:       vg,
 		Match2ID:        m.Match2ID,
 		Wiki:            wiki,
+		DateExact:       m.DateExact == 1,
 		Section:         m.Section,
 		Match2BracketID: m.Match2BracketID,
 		BracketData:     bracketData,
