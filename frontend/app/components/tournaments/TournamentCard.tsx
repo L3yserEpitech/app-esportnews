@@ -143,9 +143,9 @@ const TournamentCard: React.FC<TournamentCardProps> = ({ tournament, showGameBad
 
         {/* Right side */}
         <div className="flex items-center gap-2.5 md:gap-3 flex-shrink-0">
-          {showGameBadge && tournament.videogame?.slug && (
+          {showGameBadge && tournament.videogame?.name && (
             <span className="hidden md:inline-flex px-2 py-1 rounded-md text-[10px] font-bold text-text-secondary bg-[var(--color-bg-primary)]/50 border border-border-primary/30 uppercase tracking-widest">
-              {tournament.videogame.slug.toUpperCase()}
+              {tournament.videogame.name}
             </span>
           )}
 

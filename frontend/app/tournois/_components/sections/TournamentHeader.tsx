@@ -64,9 +64,9 @@ export default function TournamentHeader({ tournament }: TournamentSectionProps)
                 {status.label}
               </span>
             )}
-            {tournament.videogame?.slug && (
+            {tournament.videogame?.name && (
               <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-[var(--color-text-muted)] bg-[var(--color-bg-hover)] uppercase">
-                {tournament.videogame.slug}
+                {tournament.videogame.name}
               </span>
             )}
           </div>
