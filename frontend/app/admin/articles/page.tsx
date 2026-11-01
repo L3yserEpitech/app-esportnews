@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { adminService, Article } from "@/lib/adminService";
+import { useGame } from "@/app/contexts/GameContext";
 import { articleHref } from "@/app/lib/articleUrl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,8 @@ export default function ArticlesListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [articleToDelete, setArticleToDelete] = useState<Article | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const { games } = useGame();
+  const gamesById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
 
   useEffect(() => {
     loadArticles();
@@ -41,17 +44,22 @@ export default function ArticlesListPage() {
 
   useEffect(() => {
     if (searchQuery) {
-      const filtered = articles.filter(
-        (article) =>
-          article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          article.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          article.category?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const q = searchQuery.toLowerCase();
+      const filtered = articles.filter((article) => {
+        const game = article.game_id != null ? gamesById.get(article.game_id) : undefined;
+        return (
+          article.title.toLowerCase().includes(q) ||
+          article.author?.toLowerCase().includes(q) ||
+          article.category?.toLowerCase().includes(q) ||
+          game?.name?.toLowerCase().includes(q) ||
+          game?.full_name?.toLowerCase().includes(q)
+        );
+      });
       setFilteredArticles(filtered);
     } else {
       setFilteredArticles(articles);
     }
-  }, [searchQuery, articles]);
+  }, [searchQuery, articles, gamesById]);
 
   const loadArticles = async () => {
     try {
@@ -112,7 +120,7 @@ export default function ArticlesListPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
             type="text"
-            placeholder="Rechercher par titre, auteur ou catégorie..."
+            placeholder="Rechercher par titre, auteur, catégorie ou jeu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-[#091626] border-[#182859] text-white placeholder:text-gray-500"
@@ -128,13 +136,16 @@ export default function ArticlesListPage() {
               <TableHead className="text-gray-300">Titre</TableHead>
               <TableHead className="text-gray-300">Auteur</TableHead>
               <TableHead className="text-gray-300">Catégorie</TableHead>
+              <TableHead className="text-gray-300">Jeu</TableHead>
               <TableHead className="text-gray-300">Vues</TableHead>
               <TableHead className="text-gray-300">Date</TableHead>
               <TableHead className="text-right text-gray-300">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredArticles.map((article) => (
+            {filteredArticles.map((article) => {
+              const game = article.game_id != null ? gamesById.get(article.game_id) : undefined;
+              return (
               <TableRow key={article.id} className="border-[#182859] hover:bg-[#182859]/20">
                 <TableCell className="font-medium text-white">
                   <Link
@@ -150,6 +161,15 @@ export default function ArticlesListPage() {
                 <TableCell>
                   {article.category ? (
                     <Badge variant="outline" className="border-[#182859] text-[#F22E62]">{article.category}</Badge>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {game ? (
+                    <Badge variant="outline" title={game.full_name} className="border-[#182859] text-white">
+                      {game.name}
+                    </Badge>
                   ) : (
                     <span className="text-gray-400">—</span>
                   )}
@@ -176,7 +196,8 @@ export default function ArticlesListPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
 
