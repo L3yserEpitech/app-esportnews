@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TiptapEditor } from "@/components/admin/TiptapEditor";
+import { GameSelect } from "@/components/admin/GameSelect";
 import { ArrowLeft, Save, Upload } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export default function NewArticlePage() {
     videoUrl: "",
     videoType: "",
     credit: "",
+    game_id: null as number | null,
     tags: [] as string[],
   });
 
@@ -81,6 +83,7 @@ export default function NewArticlePage() {
       if (formData.description?.trim()) cleanedData.description = formData.description;
       if (formData.featuredImage?.trim()) cleanedData.featuredImage = formData.featuredImage;
       if (formData.credit?.trim()) cleanedData.credit = formData.credit;
+      if (formData.game_id !== null) cleanedData.game_id = formData.game_id;
       if (formData.tags.length > 0) cleanedData.tags = formData.tags;
 
       // Don't send videoUrl/videoType if empty (backend constraint)
@@ -258,6 +261,11 @@ export default function NewArticlePage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <GameSelect
+                value={formData.game_id}
+                onChange={(gameId) => setFormData({ ...formData, game_id: gameId })}
+              />
 
               <div>
                 <Label htmlFor="credit" className="text-gray-300 mb-2">Crédit / Source</Label>

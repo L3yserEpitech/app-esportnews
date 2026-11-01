@@ -63,6 +63,7 @@ export interface NewsItem {
   views: number;
   videoUrl?: string; // URL de la vidéo de couverture (YouTube, Vimeo, ou MP4)
   videoType?: 'youtube' | 'vimeo' | 'mp4'; // Type de vidéo
+  game_id?: number | null; // jeu associé (games.id), null = aucun
 }
 
 export interface Article extends NewsItem {
@@ -92,6 +93,7 @@ export interface SupabaseArticle {
   featuredImage: string;
   videoUrl?: string;
   videoType?: 'youtube' | 'vimeo' | 'mp4';
+  game_id?: number | null;
 }
 
 // User types

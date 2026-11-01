@@ -22,6 +22,7 @@ export interface Article {
   videoUrl?: string;
   videoType?: string;
   credit?: string;
+  game_id?: number | null;
   read_time?: number;
 }
 
@@ -37,6 +38,7 @@ export interface CreateArticleInput {
   videoUrl?: string;
   videoType?: string;
   credit?: string;
+  game_id?: number;
 }
 
 export interface UpdateArticleInput {
@@ -51,6 +53,7 @@ export interface UpdateArticleInput {
   videoUrl?: string;
   videoType?: string;
   credit?: string;
+  game_id?: number; // 0 = détacher le jeu
 }
 
 export interface Ad {
