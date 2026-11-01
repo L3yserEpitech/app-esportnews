@@ -740,6 +740,7 @@ Exemples utilisés :
 * Matchs upcoming : `[[finished::0]] AND [[dateexact::1]] AND [[date::>now]]`
 * Matchs past (7j) : `[[finished::1]] AND [[date::>cutoff_7days_ago]]`
 * Tournois running : `[[status::!finished]] AND [[startdate::<tomorrow]] AND [[enddate::>yesterday]]`
+* Tournois finis (31 j) : `[[enddate::<today]] AND [[enddate::>cutoff]] AND [[status::!cancelled]] AND [[status::!postponed]]`. **`[[status::finished]]` ne renvoie jamais rien** : Liquipedia laisse `status` vide sur un tournoi fini et n'y écrit que `cancelled` ou `postponed` (mesuré le 2026-11-01 : 137 tournois CS finis en octobre, 129 vides, 7 `cancelled`, 1 `postponed`). `/api/tournaments/finished` et l'onglet « Terminés » sont restés vides jusqu'à ce correctif. Le `status: finished` de nos réponses est calculé depuis les dates (`ComputeStatus`).
 * Détail match : `[[pageid::<id>]]`
 * Recherche équipe par template : `[[template::<shortname>]]`
 * Matchs d'une équipe : `[[opponent::<teamTemplate>]] AND [[finished::1]]` (recent) ou `AND [[date::>now]]` (upcoming)
@@ -931,6 +932,12 @@ Issu de l'audit du 2026-10-28 (doc « Audit SEO esportnews.fr »), appliqué le 
 * **Redirections** : `/tournois/<id>` résout le tournoi puis **308** vers `/<jeu>/tournois/<id>` (ne rend le client que sur erreur transitoire, 404 sur 404 backend) ; `/live` → `/match` en 308 (`next.config.ts`) ; `/match/<id>` legacy faisait déjà 308. L'apex `esportnews.fr` → `www` est une redirection de domaine Vercel (dashboard, pas le code) : 307 au 2026-10-29, à passer en 308. HSTS (`max-age=63072000`) est servi par Vercel, rien à ajouter.
 * **JSON-LD** : `SportsTeam` (équipes) et `Person` (joueurs) dans `components/seo/entityJsonLd.tsx`, émis par les pages serveur. Le fil d'Ariane des matchs, tournois, équipes et joueurs passe par la page jeu (`Accueil › <jeu> › …`, `/jeux/<acronyme>`), et le pied de page liste les 10 pages jeux : ce sont les seules pages de catégorie du site, sinon atteignables uniquement via le sélecteur.
 * **alt** : les logos d'équipe des cartes par game et l'icône/bannière du header tournoi portent le nom (`alt={team?.name || ''}`), plus de `alt=""` muet sur ces images.
+
+### Sitemaps (`lib/sitemapEntries.ts`)
+* **Matchs** : dédoublonnés sur `match2id`. `match.id` est le pageid du tournoi, partagé par tous ses matchs (jusqu'à 73) : dédoublonner dessus ne gardait qu'un match par page, soit 221 URL pour 2 859 matchs jusqu'au 2026-11-01.
+* **Tournois** : en cours, à venir et finis (31 j), dédoublonnés sur `wiki:id` (un pageid n'est unique que dans son wiki).
+* **`lastmod`** : jamais dans le futur (`pastLastmod`, 82 URL sur 221 l'étaient), absent plutôt que deviné. `sitemap.ts` n'en pose aucun : la date de génération sur des pages statiques ne dit rien.
+* **Charge** : un match du sitemap est servi depuis le cache du poller, mais un détail tournoi coûte 3-4 appels Liquipedia hors cache, sur une capacité de 40 appels/min (§5.1). Si Googlebot crawle plus fort, regarder `[BUDGET]` et les 503.
 
 ### URLs lisibles des matchs et tournois (`lib/gameLinks.ts`, 2026-11-01)
 Format : `/cs/match/donstu-esports-vs-misa-esports-71Kxd1YC9K_0004` et `/cs/tournois/blast-frequent-flyers-program-2026-377513`. **Le titre est décoratif, seul l'ID résout la page** : `matchIdFromSegment`/`tournamentIdFromSegment` l'extraient, le backend ne voit jamais le titre et ne change pas. Toute autre forme (ID nu, ancien titre, pagename) repart en **308** vers `matchSegment`/`tournamentSegment`, depuis la page serveur et sans appel Liquipedia en plus (même clé de fetch). Sur un 503, pas de redirection : le client refait l'appel.
