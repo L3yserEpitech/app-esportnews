@@ -297,7 +297,10 @@ Fonctionnalités principales :
 * **`RequestBudget` par wiki** : compteur in-memory + persistance Redis (`liq:budget:<wiki>:<YYYYMMDDHH>`). Reset à chaque heure pleine. **Survit aux redémarrages** dans l'heure courante.
 * **Backoff sur 429** : 5 min → 10 → 20, capé à 30 min. Reset automatique à l'heure suivante. N'épuise PAS le budget horaire (seul le timer de backoff bloque, puis expire).
 * **Stale-while-revalidate** : à chaque écriture fraîche, une copie est stockée avec le suffixe `:stale` (TTL 6 h). En cas d'erreur ou budget épuisé, on retourne le stale plutôt qu'une erreur.
-* **Singleflight** : N requêtes concurrentes pour la même clé cache → 1 seul appel API (`golang.org/x/sync/singleflight`, `DoChan`). Le fetch partagé tourne sur un contexte détaché (`sharedFetchTimeout` 35 s) — l'annulation du premier caller ne fait pas échouer les autres et le résultat atterrit en cache pour la tentative suivante. **Chaque caller n'attend que ce que son propre contexte autorise** (`select` sur `ctx.Done()`) : le timeout d'un handler est réel. Avant (`Do` bloquant), un handler à 10 s pouvait bloquer 35 s par appel. Corollaire : le détail tournoi (3-4 appels séquentiels) a un timeout de 20 s, les autres handlers 10-15 s. **Contrat d'échec** : `GET /api/matches/:id` et `GET /api/tournaments/:id` rendent **503** (jamais 404) dès que l'entité ou, pour un tournoi, sa liste de matchs n'a pas pu être récupérée (429, budget, réseau, deadline, stale absent), avec ou sans `?wiki=` ; jamais de 200 partiel mis en cache public. Les rosters d'un tournoi restent best-effort (vides si leur fetch échoue). Les pages SSR game-first rendent alors le composant client, qui refait l'appel (souvent sur cache chaud) ; la route legacy `/match/[id]` lève une erreur (5xx, pas 404) ; le mobile affiche une erreur sans retenter. `by-template` rend 404 sur toute erreur (pas d'enjeu SEO).
+* **Singleflight** : N requêtes concurrentes pour la même clé cache → 1 seul appel API (`golang.org/x/sync/singleflight`, `DoChan`). Le fetch partagé tourne sur un contexte détaché (`sharedFetchTimeout` 35 s) — l'annulation du premier caller ne fait pas échouer les autres et le résultat atterrit en cache pour la tentative suivante. **Chaque caller n'attend que ce que son propre contexte autorise** (`select` sur `ctx.Done()`) : le timeout d'un handler est réel. Avant (`Do` bloquant), un handler à 10 s pouvait bloquer 35 s par appel. Corollaire : le détail tournoi (3-4 appels séquentiels) a un timeout de 20 s, les autres handlers 10-15 s. **Contrat d'échec** : `GET /api/matches/:id` et `GET /api/tournaments/:id` rendent **503** (jamais 404) dès que l'entité ou, pour un tournoi, sa liste de matchs n'a pas pu être récupérée (429, budget, réseau, deadline, stale absent), avec ou sans `?wiki=` ; jamais de 200 partiel mis en cache public. Les rosters d'un tournoi restent best-effort (vides si leur fetch échoue). Les pages SSR game-first (match, tournoi, équipe, joueur) rendent alors le composant client au visiteur, qui refait l'appel (souvent sur cache chaud), et **répondent en 5xx aux moteurs de recherche** (`lib/crawlerFailure.ts`, liste explicite `isSearchEngineCrawler` de `lib/crawlers.ts` : Googlebot, Google-InspectionTool, GoogleOther, Bingbot…) : Google garde ce qu'il a indexé et ralentit, là où un 200 remplacerait la page par une coquille vide et un `noindex` la désindexerait. Les aperçus de liens (facebookexternalhit, Twitterbot, WhatsApp…) gardent un 200 : pas `isBot` de `next/server`, qui les inclut. Next rejoue le rendu après une erreur ou une redirection, `generateMetadata` compris : 2 appels backend par échec, non réductible côté page. Leurs métadonnées posent quand même le canonical de l'URL demandée et un titre lu dans le segment (`matchTitleFromSegment`, `tournamentTitleFromSegment`), jamais de nom deviné sur un ID nu. La route legacy `/match/[id]` lève une erreur (5xx, pas 404) ; le mobile affiche une erreur sans retenter. `GET /api/teams/by-template` et `/api/teams/:id/detail` suivent le même contrat depuis le 2026-11-02 : 404 si Liquipedia a répondu vide (`ErrTeamNotFound`), wiki inconnu ou pageid hors plage, 503 sinon, y compris si le roster n'a pas pu être lu (pas de 200 partiel, le SSR le garderait 30 min). Un scan de plusieurs wikis (`/teams/:id/detail`, match et tournoi sans `?wiki=`) s'arrête au premier échec. `/api/teams/:id` (sans `/detail`) rend encore 404 sur toute erreur : aucune page SSR ne s'en sert.
+  * **Listes du poller périmées** : le poller rafraîchit moins souvent que le TTL de ses clés (écarts mesurés le 2026-11-01 : running 13-41 min pour 13 de TTL, upcoming 29-80 pour 28, past 25-163 pour 55). `findMatchInCache` lit donc aussi, **seulement si la clé fraîche manque**, la copie `:stale` de `past` et celle d'`upcoming` pour un match à plus de 6 h (une marge : plus près, un match avancé serait servi `not_started`, et un match avancé de plus de 6 h le serait quand même ; 95 % des matchs à venir restent couverts) ; le détail tournoi celle de `finished`. Jamais celle de `running` : un score vieux de plusieurs heures vaut moins qu'un appel.
+  * **Réponses inutilisables** : `MakeRequest` ne stocke pas un 200 qui n'est pas une réponse (HTML Cloudflare, `result` absent, `result` vide avec `error`, équipe aux lignes toutes illisibles) : il retombe sur le stale, sans écraser la copie saine.
+  * **Copies des équipes et joueurs** : les clés en `TTLTeam` (fiche d'équipe, roster, joueur) gardent leur copie `:stale` 48 h (`TTLEntityStale`), car leur clé fraîche dure déjà 6 h, et **jamais une réponse vide** : gardée 48 h, elle ferait un 404 pendant une panne. La recherche d'équipes et les rosters de tournoi, plus courts, gardent 6 h et le comportement habituel. Une fiche supprimée finit en 404 dès que Liquipedia répond ; pendant une panne de moins de 48 h, elle reste servie.
 * **Méthode publique principale** : `MakeRequest(ctx, wiki, endpoint, params, cacheKey, ttl)` — fait tout le cycle (cache hit / singleflight / budget / HTTP / cache write).
 * **Helpers métier** : `SearchTeams`, `GetTeamByPageID`, `GetTeamByTemplate`, `GetTeamsByPageIDs`, `GetTeamDetailByPageID`, `FetchBatchSquadPlayers`, `FetchTeamMatches`, `FetchTeamPlacements`, `MapAcronymToWiki`, `GetBudgetStatus`, `ParseResponse`.
 
@@ -314,11 +317,11 @@ Chaque goroutine de wiki :
 
 | Type | Intervalle | TTL associée | req/h |
 |------|------------|--------------|-------|
-| `matches_running` | 8 min | 10 min | 7.5 |
-| `matches_upcoming` | 20 min | 22 min | 3 |
-| `matches_past` (7 derniers jours) | 45 min | 50 min | 1.3 |
-| `tournaments_running` | 20 min | 22 min | 3 |
-| `tournaments_upcoming` | 30 min | 35 min | 2 |
+| `matches_running` | 8 min | 13 min | 7.5 |
+| `matches_upcoming` | 20 min | 28 min | 3 |
+| `matches_past` (8 derniers jours) | 45 min | 55 min | 1.3 |
+| `tournaments_running` | 20 min | 45 min | 3 |
+| `tournaments_upcoming` | 30 min | 45 min | 2 |
 | `tournaments_finished` (30 derniers jours) | 90 min | 100 min | 0.7 |
 | **Total background** | | | **~17.5 req/wiki/h** |
 
@@ -470,7 +473,7 @@ Query params communs : `game=valorant` (acronyme), `limit`, `offset`, `sort=date
 | Méthode | Route | Auth | Description |
 |---------|-------|------|-------------|
 | `GET` | `/api/teams/search?q=` | – | Recherche d'équipes (parallèle sur 10 wikis) |
-| `GET` | `/api/teams/by-template?wiki=&template=` | – | Équipe par shortname |
+| `GET` | `/api/teams/by-template?wiki=&template=[&name=][&detail=1]` | – | Équipe par shortname, 404 seulement si Liquipedia répond vide, 503 sinon. Avec `name` : un seul appel `[[template::…]] OR [[name::…]]`, aucun si le template est déjà connu |
 | `GET` | `/api/teams/:id` | – | Équipe par pageid |
 | `GET` | `/api/teams/:id/detail` | – | Détails enrichis (roster, achievements) |
 | `GET` | `/api/teams/:id/matches?type=recent\|upcoming` | – | Matchs récents/à venir de l'équipe |
@@ -625,20 +628,21 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 
 | Pattern | Helper | TTL | Source d'écriture |
 |---------|--------|-----|-------------------|
-| `liq:matches:running:<wiki>` | `LiqMatchesRunningKey` | 10 min | Poller (8 min) ou webhook dirty |
-| `liq:matches:upcoming:<wiki>` | `LiqMatchesUpcomingKey` | 22 min | Poller (20 min) ou webhook dirty |
-| `liq:matches:past:<wiki>` | `LiqMatchesPastKey` | 50 min | Poller (45 min) ou webhook dirty |
+| `liq:matches:running:<wiki>` | `LiqMatchesRunningKey` | 13 min | Poller (8 min) ou webhook dirty |
+| `liq:matches:upcoming:<wiki>` | `LiqMatchesUpcomingKey` | 28 min | Poller (20 min) ou webhook dirty |
+| `liq:matches:past:<wiki>` | `LiqMatchesPastKey` | 55 min | Poller (45 min) ou webhook dirty |
 | `liq:matches:date:<wiki>:<YYYY-MM-DD>` | `LiqMatchesByDateKey` | 6h (passé) / 10 min (auj.+futur) | On-demand (cache-aside) |
-| `liq:match:<wiki>:<id>` | `LiqMatchKey` | 5 min ou 24h (finished) | On-demand |
-| `liq:tournaments:running:<wiki>` | `LiqTournamentsRunningKey` | 22 min | Poller (20 min) |
-| `liq:tournaments:upcoming:<wiki>` | `LiqTournamentsUpcomingKey` | 35 min | Poller (30 min) |
+| `liq:match:<wiki>:<id>` | `LiqMatchKey` | 5 min ou 24h (finished) | On-demand. Le rendu serveur de la page match est en `cache: 'no-store'` : le cache de données de Next servait au premier visiteur une copie sans limite d'âge. Un match en direct répond `Cache-Control: no-store`, sinon le polling à 45 s restait jusqu'à 3 min en retard |
+| `liq:tournaments:running:<wiki>` | `LiqTournamentsRunningKey` | 45 min | Poller (20 min) |
+| `liq:tournaments:upcoming:<wiki>` | `LiqTournamentsUpcomingKey` | 45 min | Poller (30 min) |
 | `liq:tournaments:finished:<wiki>` | `LiqTournamentsFinishedKey` | 100 min | Poller (90 min) |
 | `liq:tournaments:date:<wiki>:<date>` | `LiqTournamentsByDateKey` | 10 min | On-demand |
 | `liq:tournament:<wiki>:<id>` | `LiqTournamentKey` | 10 min | On-demand (`GET /tournaments/:id`) |
 | `liq:tournament:matches:<wiki>:<pagename>` | `LiqTournamentMatchesKey` | 10 min | On-demand (hydration scheduler) |
 | `liq:tournament:squads:<wiki>:<pagename>` | `LiqTournamentSquadsKey` | 10 min | On-demand |
 | `liq:teams:search:<wiki>:<query>` | `LiqTeamSearchKey` | 30 min | On-demand (`/teams/search`) |
-| `liq:team:<wiki>:<id\|template>` | `LiqTeamKey` | 6h | On-demand |
+| `liq:team:<wiki>:id:<pageid>` | `LiqTeamPageIDKey` | 6h | On-demand |
+| `liq:team:<wiki>:tpl:<template>:name:<nom>` | `LiqTeamLookupKey` | 6h | On-demand. Valeurs échappées : un paramètre forgé ne peut pas poser une réponse sous la clé d'un vrai lien ou d'un pageid. La plupart des opposants n'ont pas de fiche : ce vide est mis en cache aussi. Une équipe trouvée sur son template écrit aussi la clé sans nom, pour qu'aucun `name` ne coûte plus d'appel |
 | `liq:team:squad:<wiki>:<pagename>` | `LiqTeamSquadKey` | 6h | On-demand |
 | `liq:team:matches:recent:<wiki>:<template>` | `LiqTeamMatchesRecentKey` | 15 min | On-demand |
 | `liq:team:matches:upcoming:<wiki>:<template>` | `LiqTeamMatchesUpcomingKey` | 15 min | On-demand |
@@ -646,7 +650,7 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `liq:placement:pages:<wiki>:<sha1 des pageids>` | `LiqPlacementPagesKey` | 24h | On-demand : quelles pages de placement ont un tournoi (par lots de 50, 3 s max, sinon aucun signalement) ; une page sans tournoi rend `tournament_missing` et sa ligne n'est plus un lien |
 | `liq:wikihint:<id>` | `LiqWikiHintKey` | 24h | Écrit quand un user consulte un tournoi/match (sert à retrouver le wiki depuis l'ID) |
 | `liq:budget:<wiki>:<YYYYMMDDHH>` | `RequestBudget.budgetRedisKey` | 1h + 2min | `RequestBudget.RecordRequest` (best-effort) |
-| `<any_above>:stale` | `StaleKey` | 6h | Copie auto à chaque écriture via `MakeRequest` |
+| `<any_above>:stale` | `StaleKey` | 6h, 48h pour les clés en `TTLTeam` (jamais vide) | Copie auto à chaque écriture via `MakeRequest` |
 
 ### Règle d'or
 **Aucun handler HTTP ne fait d'appel direct à Liquipedia.** Soit il lit le cache, soit il passe par `LiquipediaService.MakeRequest` (qui gère cache-aside + budget + singleflight + stale).
@@ -749,6 +753,9 @@ Exemples utilisés :
 * Détail match : `[[pageid::<id>]]`
 * Recherche équipe par template : `[[template::<shortname>]]`
 * Matchs d'une équipe : `[[opponent::<teamTemplate>]] AND [[finished::1]]` (recent) ou `AND [[date::>now]]` (upcoming)
+
+### Valeurs venues d'une URL
+LPDB n'a pas d'échappement : `]]` ferme la condition, `!`, `<`, `>` en font une comparaison (`[[name::!x]]` a rendu des équipes sans rapport le 2026-11-02, 50 lignes, soit la limite de la requête et non un total), et une condition mal formée répond **HTTP 404** avec un champ `error`, pas un vide. `services.SafeConditionValue` les refuse, même précédés d'espaces (tabulation et espaces Unicode compris), avec `||` et plus de 255 caractères (un vrai pagename en fait 102) : template, match2id, pagename de tournoi ou de joueur refusés valent absence sans appel, `name` est ignoré. Le `OR` entre deux conditions marche sur le vrai `team` (2026-11-02 : équipe normale 1 ligne, renommée 1 ligne, sans fiche 0 ligne, deux fiches 2 lignes dans un ordre qui n'est pas celui de la condition, d'où `pickTeamRow`, qui préfère la ligne du template).
 
 ### Quotas et fallback
 * Budget par wiki tracké par `RequestBudget` (in-memory + Redis).
@@ -950,8 +957,12 @@ Format : `/cs/match/donstu-esports-vs-misa-esports-71Kxd1YC9K_0004` et `/cs/tour
 * **Ne pas retirer l'ID** : il faudrait une table titre → ID permanente (aucune donnée esport en base), le lookup par `slug` du backend ne marche que tant que le tournoi est dans un cache poller (404 ensuite), et 4,5 % des matchs partagent la même affiche dans un même jeu (mesuré sur 2 877 matchs).
 * **Relecture de l'ID** : 46 % des `match2id` contiennent un tiret (`dfuZ0CbS5V_R01-M010`), on ne coupe donc jamais au dernier tiret. Le repère est le `_`, précédé de 10 caractères alphanumériques (format observé sur 100 % de l'échantillon, non documenté par Liquipedia). Un ID hors de ce format n'a pas de titre, sinon il ne serait plus relisible. Un `pagename` de tournoi garde sa forme encodée, sans titre, et ne passe pas pour le nouveau format (majuscules, `/`, `_`).
 * **Titres** : `slugifyTitle` translittère ce que NFKD ne décompose pas (`Đ`, `ø`, `ß`…), coupe sur une fin de mot (28 c. par équipe pour garder les deux, 60 c. par tournoi). Une équipe sans caractère latin, absente ou `TBD` donne l'ID seul ; le 308 pose le titre dès qu'il existe.
+* **Fiche équipe** (`/<jeu>/equipe/<template|pageid>`, `resultats`) : vrai 404 sur une absence confirmée. Exception : un lien qui porte `?name=` garde la page en 200 et `noindex`, car la majorité des opposants de petits tournois n'ont pas de fiche Liquipedia (722 réponses vides sur 883 recherches d'équipe, heure du 2026-11-01 16Z) et leurs liens existent partout sur le site. `resultats` suit la même règle, et résout l'équipe même si le lien porte `?name=` : le nom de la fiche passe avant celui de l'URL. Une équipe trouvée sous un autre identifiant (template daté, renommée, URL forgée, pageid) part en **308** vers `/<jeu>/equipe/<template>`, **dans le même jeu** (`teamHomePath`) ; canonical, og:url et JSON-LD suivent ce template. Un pageid n'étant unique que dans son wiki, une fiche d'un autre jeu vaut absence côté page, l'API gardant son balayage pour les clients sans `?wiki=`. Une fiche sans URL à elle (pas de template, template numérique) reste en 200 et `noindex, follow`, sans canonical. Le repli sur le template sans suffixe de date n'a lieu en SSR (`fetchTeamDetail`) qu'après un 404, jamais après un 503 ; le client (`TeamDetailPageClient`), lui, le retente sur toute erreur. Un 400 du backend (`Infinity`, 20 chiffres) vaut absence.
 * **Piège** : un `loading.tsx` ou une `Suspense` autour de ces pages ferait partir le flux avant la redirection, et Next enverrait alors un `meta refresh` au lieu du 308.
 * Le mobile n'est pas concerné (pas de liens universels, il passe l'ID brut à l'API).
+
+### Hydratation : dates et fuseaux (`hooks/useHydrated.ts`)
+`/match` et `/tournois` sont statiques (○ au build) : leur HTML contenait le jour du déploiement, d'où l'erreur React #418 à chaque chargement tout autre jour. `useHydrated()` y masque le calendrier jusqu'à l'hydratation (cases gardées, pas de décalage). Les pages SSR tournent en UTC sur Vercel et hydratent dans le fuseau du visiteur : toute heure affichée passe par `useDisplayTimeZone()`, qui rend `Europe/Paris` côté serveur et au premier rendu client, puis le fuseau du navigateur. **Une date sans fuseau de Liquipedia (`2018-10-08 00:00:00`, `2026-01-01`, le `begin_at` d'un tournoi) est un jour de calendrier : `formatCalendarDate` (`lib/calendarDate.ts`), sans conversion**, sinon le jour change avec le fuseau. Ce qui dépend de l'horloge attend l'hydratation : « Aujourd'hui » et le statut d'un tournoi (celui du backend jusque-là ; le dernier jour compte en entier, car `end_at` vaut minuit UTC ce jour-là). Les tournois de l'accueil se comptent en jours UTC (`todayCalendarDay`) ; le calendrier de `/tournois` reste en jour local. **Ne jamais formater une date sans ce fuseau dans un composant qui reçoit des données SSR**, ni utiliser `suppressHydrationWarning`, qui garderait l'heure UTC à l'écran. Testé par `lib/hydration.test.ts` (même HTML dans plusieurs fuseaux, plusieurs dates).
 
 ### Rendu Googlebot : relance des chunks (`lib/chunkRetry.ts`)
 Diagnostic du 2026-10-30 : la home était indexée **vide** (lien-titre réduit à « Esport News », aucun extrait, « Termes manquants : scores » dans la SERP). Cause : le renderer de Google échoue par intermittence à charger **un** des ~17 `<script async>` Turbopack de la page (timeout à 30 s, « Autre erreur » dans l'outil d'inspection ; vu sur l'exploration indexée du 29/10 22:44 et sur un test en direct sur deux). Quand un chunk échoue **après** le début de l'hydratation, le runtime lève `Failed to load chunk … from module 64644` (le client Flight), React démonte la racine et **le `<body>` est vidé**, markup SSR compris (reproduit avec Playwright : échec immédiat → contenu conservé, échec à 5 s ou 30 s → `body` vide). Parade : `CHUNK_RETRY_SCRIPT`, script inline du `<head>` (`layout.tsx`) qui capte l'événement `error` des `<script src="/_next/static/chunks/…">` en phase de capture (avant l'écouteur du runtime), le stoppe et réinjecte le chunk avec `&chunkretry=N` (2 tentatives). Le runtime identifie un chunk par son chemin **sans query** (`getAttribute("src")` relatif, jamais `.src` absolu) et résout l'attente dès que le script relancé s'enregistre : relance réussie → hydratation normale ; échecs répétés → la page reste en SSR non hydratée (lisible, jamais vide). Testé dans `lib/chunkRetry.test.ts` (DOM factice, vitest sans jsdom). Vérification après déploiement : Search Console › Inspection d'URL › « Tester l'URL active » › Page testée › Capture d'écran + « Plus d'infos » (ressources non chargées, console JS) ; le Rich Results Test fait pareil sans login.
@@ -1018,6 +1029,7 @@ components/tournament-detail/{tournamentSections.ts, sections/…}
 * `GET /api/teams/:id/placements` exige `wiki`+`name` (nom d'équipe).
 * `GET /api/teams/search` = params `query`+`page_size`. Favoris (`/api/users/favorite-teams`) **plafonnés à 3** (400 au 4ᵉ).
 * `GET /api/players/:pagename` exige `?wiki=` (pas de fan-out).
+* `by-template` rend **503** sur une panne (404 seulement si Liquipedia répond vide). Les clients web et mobile retentent le template sans date sur toute erreur et affichent ensuite leur état d'erreur : à garder si on distingue un jour les deux cas.
 * Les résultats de recherche (`NormalizedTeam`) **ne portent pas** `wiki` — seul `TeamDetail` l'a. Mobile mappe `current_videogame.slug` (slug interne cs2/codmw…) → wiki via `utils/gameRegistry.ts` (miroir de `videogameSlugMap`) comme hint ; l'écran résout le wiki faisant autorité depuis `detail.wiki`.
 * **⚠️ L'`id` d'une équipe dans un match ou un tournoi est un `hashStringToInt(nom)`, PAS un pageid** (`normalizeOpponents`, `liquipedia_match.go`). `GET /api/teams/:id` et `/detail` ne résolvent que des pageids : **depuis le 2026-10-26, un id au-dessus du plafond MediaWiki (`page_id` 32 bits non signé) rend 404 immédiatement, sans appel** — avant, il balayait les 10 wikis (13,8 s, 10 appels vides) et ces balayages, déclenchés par les crawlers JS, mangeaient 50 % du débit sortant. Un vrai pageid absent de tous les wikis coûte toujours 10 appels. Depuis un match/tournoi, il faut passer par `GET /api/teams/by-template?template=&wiki=&detail=1` (**3 s**, détail enrichi en un appel) — c'est ce que fait le web via `teamHref()`. Seuls la recherche et les favoris portent de vrais pageids.
 * Les templates traînent souvent un **suffixe de date** (`wopa esport 2026`, `heroic sep 2024`) qui ne résout pas : repli obligatoire sur la base (`wopa esport`), côté web comme mobile.
@@ -1079,6 +1091,9 @@ REDIS_URL=<same as prod — Upstash>
 JWT_SECRET=<same as prod si les sessions doivent être valides cross-env>
 ... (Stripe et IAP idéalement en test/sandbox)
 ```
+
+### Ordre de déploiement
+Le front interprète un 404 de `by-template` comme une absence : **backend d'abord**, Railway vert, puis front. Dans l'autre ordre, un front neuf sur un backend ancien transforme une saturation en 404 sur les équipes.
 
 ### Custom domain Railway
 1. Railway → projet → Settings → Networking → Custom Domain
@@ -1233,8 +1248,8 @@ curl -H "Authorization: Bearer <jwt_admin>" \
 
 **Composant principal** : `frontend/app/match/MatchPageClient.tsx`. Service : `matchService.getMatchesByDate(date, gameAcronym)`. **Important** : utiliser `URLSearchParams` (pas `FormData`) pour le body, `Content-Type: application/x-www-form-urlencoded`.
 
-#### Politique 404 sur entités absentes (SEO — pas de redirect)
-Les pages détail `match/[id]` et `tournois/[id]` **fetchent côté serveur** et appellent `notFound()` (vrai HTTP 404) quand le backend renvoie 404 — jamais de soft-404 (HTTP 200 + contenu "non trouvé"), qui garderait l'URL indexée. **Aucun redirect** : il n'existe aucun mapping ancien ID PandaScore (numérique) → ID Liquipedia, donc on laisse les vieilles URLs indexées tomber proprement en 404 (Google dé-indexe). **404 uniquement sur un 404 explicite du backend** : une erreur transitoire (timeout/réseau) laisse rendre le client pour ne pas dé-indexer une entité valide. Côté backend, les chemins **avec et sans** `?wiki=` rendent 503 dès qu'un appel amont a échoué (testé dans `handlers/detail_transient_test.go`) ; seule une réponse vide de Liquipedia donne 404. Côté backend, `GET /api/matches/:id` **skip le scan on-demand 10-wikis pour un ID numérique** (un `match2id` Liquipedia est alphanumérique ; un ID numérique ne peut être qu'un `pageid` déjà couvert par le cache, ou un vieil ID PandaScore) → 404 immédiat, budget API préservé.
+#### Politique 404 sur match et tournoi absents (SEO — pas de redirect)
+Les pages détail `match/[id]` et `tournois/[id]` **fetchent côté serveur** et appellent `notFound()` (vrai HTTP 404) quand le backend renvoie 404 — jamais de soft-404 (HTTP 200 + contenu "non trouvé"), qui garderait l'URL indexée. **Aucun redirect sur ces pages match et tournoi pour une entité absente** : il n'existe aucun mapping ancien ID PandaScore (numérique) → ID Liquipedia, donc on laisse les vieilles URLs indexées tomber proprement en 404 (Google dé-indexe). **404 uniquement sur un 404 explicite du backend** : une erreur transitoire (timeout/réseau) laisse rendre le client pour ne pas dé-indexer une entité valide. Sur une erreur transitoire, un robot reçoit un 5xx (§5.1). Côté backend, les chemins **avec et sans** `?wiki=` rendent 503 dès qu'un appel amont a échoué (testé dans `handlers/detail_transient_test.go`) ; seule une réponse vide de Liquipedia donne 404. Côté backend, `GET /api/matches/:id` **skip le scan on-demand 10-wikis pour un ID numérique** (un `match2id` Liquipedia est alphanumérique ; un ID numérique ne peut être qu'un `pageid` déjà couvert par le cache, ou un vieil ID PandaScore) → 404 immédiat, budget API préservé.
 
 ### 18.2 Panel Admin — Gestion des publicités (`/admin/ads`)
 
@@ -1291,7 +1306,7 @@ sections/
 * **Scoreboard** (façon vlr.gg) : un tableau par équipe, header logo + acronyme, portrait d'agent à côté du joueur, tri **ACS décroissant**, colonnes K/D/A séparées, **+/- calculé (K−D)** vert/rose selon signe, KAST arrondi en %, texte 13px, zebra rows. Côte à côte en `xl:` seulement.
 * **Header de match épuré** : pills réduites (statut + BO + rescheduled), scoreboard central, une seule ligne d'info (tournoi + date + badge Liquipedia en fin). Fond : splash de la map de la game 1 en **grayscale `opacity-[0.16]`** + dégradé vertical fondu vers `--color-bg-primary` (jeux sans assets : fond uni actuel).
 * **Équipes cliquables partout** : bloc logo + nom = `<Link>` via `teamHref()` (`lib/gameLinks.ts`), hover nom → accent. Le score reste hors du lien.
-* **Rosters de la page match** (`RostersPanel`) : résolus par `loadOpponentTeams()` (`match/_components/opponentTeams.ts`, testé) = **un seul appel `by-template?template=&wiki=&name=` par opposant**, le backend enchaînant lui-même `[[template::…]]` puis `[[name::…]]`. Pas de second essai côté client, jamais de lookup par id hashé, opposants `solo` ignorés.
+* **Rosters de la page match** (`RostersPanel`) : résolus par `loadOpponentTeams()` (`match/_components/opponentTeams.ts`, testé) = **un seul appel `by-template?template=&wiki=&name=` par opposant**, le backend demandant `[[template::…]] OR [[name::…]]` d'un coup. Pas de second essai côté client, jamais de lookup par id hashé, opposants `solo` ignorés.
 
 **Assets externes par jeu** (CDN publics, pas de CORS, hotlink prévu — mapping statique nom → id dans `<jeu>Assets.ts`, fallback null → dégradé navy, rien ne casse) :
 | Jeu | Source | Contenu |

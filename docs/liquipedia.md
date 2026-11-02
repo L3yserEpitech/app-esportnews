@@ -126,7 +126,7 @@ Pipeline complet :
    - `429` → `budget.Record429()` (backoff) + fallback stale.
    - autre non-200 → log + fallback stale.
    - body > `maxLiqResponseSize` (20 MB) → **refus de cacher** (évite un JSON tronqué corrompu) + fallback stale.
-   - `200` OK → lecture body (cap 20 MB), `budget.RecordRequest()`, écriture cache **frais (`cacheTTL`)** + **copie `:stale` (TTL 6 h)**.
+   - `200` OK → lecture body (cap 20 MB), `budget.RecordRequest()`, écriture cache **frais (`cacheTTL`)** + **copie `:stale` (TTL 6 h ; 48 h pour les clés en `TTLTeam`, jamais vide)**. Un 200 qui n'est pas une réponse (HTML, `result` absent, `result` vide avec `error`, équipe aux lignes toutes illisibles) n'est pas stocké et retombe sur le stale.
 
 ### Méthodes publiques principales
 
@@ -160,7 +160,7 @@ Un `RequestBudget` par wiki.
 - **Persistance Redis** : clé `liq:budget:<wiki>:<YYYYMMDDHH>`, rechargée au démarrage (`loadFromRedis`) → un redémarrage dans la même heure ne remet pas le compteur à zéro. Écriture best-effort async.
 - **Reset** : à chaque heure pleine (`maybeReset`), efface aussi le backoff 429.
 - **Backoff 429** (`Record429`) : 5 min au 1er 429, puis ×2 sur 429 consécutifs, **plafonné à 30 min**. Un 429 transitoire ≠ quota épuisé : il bloque brièvement la wiki puis expire seul (n'attend pas le reset horaire).
-- **Fallback** (`getStaleOrError`) : renvoie `<cacheKey>:stale` (TTL 6 h) si dispo, sinon erreur `no data available`.
+- **Fallback** (`getStaleOrError`) : renvoie `<cacheKey>:stale` (TTL 6 h, 48 h pour les clés en `TTLTeam`) si dispo, sinon erreur `no data available`.
 
 ---
 
@@ -236,7 +236,8 @@ Toutes les clés sont construites via `internal/cache/patterns.go`. Variante sta
 | `LiqTournamentMatchesKey` | `liq:tournament:matches:<wiki>:<pagename>` | 10 min | On-demand |
 | `LiqTournamentSquadsKey` | `liq:tournament:squads:<wiki>:<pagename>` | **10 min** (`TTLTournamentDetail`) | On-demand (enrichissement détail tournoi) |
 | `LiqTeamSearchKey` | `liq:teams:search:<wiki>:<query>` | 30 min | On-demand |
-| `LiqTeamKey` | `liq:team:<wiki>:<id\|template>` | 6 h | On-demand |
+| `LiqTeamPageIDKey` | `liq:team:<wiki>:id:<pageid>` | 6 h (copie `:stale` 48 h) | On-demand |
+| `LiqTeamLookupKey` | `liq:team:<wiki>:tpl:<template>:name:<nom>` | 6 h (copie `:stale` 48 h) | On-demand, valeurs échappées |
 | `LiqTeamSquadKey` | `liq:team:squad:<wiki>:<pagename>` | 6 h | On-demand |
 | `LiqTeamMatchesRecentKey` | `liq:team:matches:recent:<wiki>:<template>` | 15 min | On-demand |
 | `LiqTeamMatchesUpcomingKey` | `liq:team:matches:upcoming:<wiki>:<template>` | 15 min | On-demand |
