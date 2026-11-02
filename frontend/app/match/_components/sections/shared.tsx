@@ -40,11 +40,11 @@ export const getRoleBadgeStyle = (role?: string | null): string => {
   return 'text-text-secondary bg-[var(--color-bg-tertiary)]/30 border-[var(--color-border-primary)]/40';
 };
 
-export const formatDate = (dateString: string): string =>
-  new Date(dateString).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+export const formatDate = (dateString: string, timeZone?: string): string =>
+  new Date(dateString).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone });
 
-export const formatTime = (dateString: string): string =>
-  new Date(dateString).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+export const formatTime = (dateString: string, timeZone?: string): string =>
+  new Date(dateString).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone });
 
 export const formatDuration = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);

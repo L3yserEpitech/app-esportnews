@@ -9,13 +9,7 @@ import { PandaTournament } from '../../types';
 import TournamentCard from './TournamentCard';
 import ContentLoader from '../ui/ContentLoader';
 import { Trophy } from 'lucide-react';
-
-const formatDateToYYYYMMDD = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { todayCalendarDay } from '../../lib/calendarDate';
 
 const TIER_ORDER: Record<string, number> = { s: 0, a: 1, b: 2, c: 3, d: 4 };
 
@@ -48,7 +42,7 @@ const RunningTournaments: React.FC = () => {
     setError(null);
 
     try {
-      const today = formatDateToYYYYMMDD(new Date());
+      const today = todayCalendarDay();
       const tournamentsData = await tournamentService.getTournamentsByDate(today, gameAcronym);
       setTournaments(sortByTier(Array.isArray(tournamentsData) ? tournamentsData : []));
     } catch (err) {

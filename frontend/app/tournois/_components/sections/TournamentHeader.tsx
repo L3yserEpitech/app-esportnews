@@ -5,12 +5,13 @@ import { useTranslations } from 'next-intl';
 import { Calendar, Trophy, Globe } from 'lucide-react';
 import LiquipediaBadge from '../../../components/common/LiquipediaBadge';
 import { proxyImageUrl } from '../../../lib/imageProxy';
+import { formatCalendarDate } from '../../../lib/calendarDate';
+import { useHydrated } from '../../../hooks/useHydrated';
+import { useIsDarkTheme, pickThemeLogo } from '../../../hooks/useIsDarkTheme';
 import type { TournamentSectionProps } from './shared';
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-};
+const formatDate = (dateString: string) =>
+  formatCalendarDate(dateString, { day: '2-digit', month: 'long', year: 'numeric' });
 
 const getTierColor = (tier: string) => {
   const colors: Record<string, string> = {
@@ -26,17 +27,24 @@ const getTierColor = (tier: string) => {
 export default function TournamentHeader({ tournament }: TournamentSectionProps) {
   const t = useTranslations('pages_detail.tournament_detail');
   const [bannerError, setBannerError] = useState(false);
+  const hydrated = useHydrated();
+  const isDark = useIsDarkTheme();
 
-  const bannerUrl = tournament.banner_dark_url || tournament.banner_url;
+  const bannerUrl = pickThemeLogo(isDark, tournament.banner_url, tournament.banner_dark_url);
   const hasBanner = bannerUrl && !bannerError;
 
   const status = (() => {
     if (!tournament.begin_at) return null;
-    const now = new Date();
-    const begin = new Date(tournament.begin_at);
-    const end = new Date(tournament.end_at || tournament.begin_at);
-    if (now < begin) return { label: t('status_upcoming'), color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
-    if (now > end) return { label: t('status_finished'), color: 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-muted)] border-[var(--color-text-muted)]/30' };
+    // Until hydrated, the backend's status: the server and the browser may not agree
+    // on the time, and both must render the same thing.
+    const now = hydrated ? Date.now() : null;
+    const begin = new Date(tournament.begin_at).getTime();
+    const end = new Date(tournament.end_at || tournament.begin_at).getTime();
+    const upcoming = now === null ? tournament.status === 'upcoming' : now < begin;
+    // end_at is midnight UTC on the last day, and that whole day still counts as running.
+    const finished = now === null ? tournament.status === 'finished' : now >= end + 86_400_000;
+    if (upcoming) return { label: t('status_upcoming'), color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+    if (finished) return { label: t('status_finished'), color: 'bg-[var(--color-text-muted)]/20 text-[var(--color-text-muted)] border-[var(--color-text-muted)]/30' };
     return { label: t('status_running'), color: 'bg-red-500/20 text-red-400 border-red-500/30' };
   })();
 

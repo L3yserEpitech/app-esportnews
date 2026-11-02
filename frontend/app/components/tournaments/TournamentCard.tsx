@@ -7,6 +7,7 @@ import { Trophy, ChevronRight } from 'lucide-react';
 import { PandaTournament } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
 import { tournamentHref } from '../../lib/gameLinks';
+import { formatCalendarDate } from '../../lib/calendarDate';
 
 interface TournamentCardProps {
   tournament: PandaTournament;
@@ -20,13 +21,8 @@ const tierVar = (tier: string | null | undefined): string => {
     : 'var(--color-tier-d)';
 };
 
-const formatDateCompact = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-  });
-};
+const formatDateCompact = (dateString: string) =>
+  formatCalendarDate(dateString, { day: 'numeric', month: 'short' });
 
 // Les noms de ligue Liquipedia sont des pagenames ("BLAST_Premier")
 const cleanLeagueName = (name: string) => name.replace(/_/g, ' ');

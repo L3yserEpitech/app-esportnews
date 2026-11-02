@@ -1,6 +1,7 @@
 'use client';
 
 import { PandaTournament, PandaMatch, NewsItem } from '../../../types';
+import { formatCalendarDate } from '../../../lib/calendarDate';
 
 export interface MatchDateGroup {
   dateKey: string;
@@ -17,8 +18,17 @@ export interface TournamentSectionProps {
   relatedArticles: NewsItem[];
 }
 
-/** Group matches by date string (YYYY-MM-DD) preserving order */
-export function groupMatchesByDate(matches: PandaMatch[]): MatchDateGroup[] {
+function dayKey(date: Date, timeZone: string | undefined): string {
+  const parts = new Intl.DateTimeFormat('en', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/**
+ * Group matches by date string (YYYY-MM-DD) preserving order. relativeLabels off
+ * during hydration: "today" depends on a clock the server and the browser may not share.
+ */
+export function groupMatchesByDate(matches: PandaMatch[], timeZone?: string, relativeLabels = true): MatchDateGroup[] {
   const groups = new Map<string, PandaMatch[]>();
   const order: string[] = [];
 
@@ -28,7 +38,7 @@ export function groupMatchesByDate(matches: PandaMatch[]): MatchDateGroup[] {
     if (raw) {
       const d = new Date(raw);
       if (!isNaN(d.getTime()) && d.getFullYear() >= 2000) {
-        dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        dateKey = dayKey(d, timeZone);
       }
     }
     if (!groups.has(dateKey)) {
@@ -38,30 +48,25 @@ export function groupMatchesByDate(matches: PandaMatch[]): MatchDateGroup[] {
     groups.get(dateKey)!.push(m);
   }
 
+  const today = dayKey(new Date(), timeZone);
+  const shifted = (days: number) => {
+    const [y, mo, d] = today.split('-').map(Number);
+    return new Date(Date.UTC(y, mo - 1, d + days)).toISOString().slice(0, 10);
+  };
+
   return order.map(dateKey => {
     let label: string;
     if (dateKey === 'unknown') {
       label = 'Date inconnue';
+    } else if (relativeLabels && dateKey === today) {
+      label = "Aujourd'hui";
+    } else if (relativeLabels && dateKey === shifted(-1)) {
+      label = 'Hier';
+    } else if (relativeLabels && dateKey === shifted(1)) {
+      label = 'Demain';
     } else {
-      const [y, mo, d] = dateKey.split('-').map(Number);
-      const date = new Date(y, mo - 1, d);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      if (date.getTime() === today.getTime()) {
-        label = "Aujourd'hui";
-      } else if (date.getTime() === yesterday.getTime()) {
-        label = 'Hier';
-      } else if (date.getTime() === tomorrow.getTime()) {
-        label = 'Demain';
-      } else {
-        label = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        label = label.charAt(0).toUpperCase() + label.slice(1);
-      }
+      label = formatCalendarDate(dateKey, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      label = label.charAt(0).toUpperCase() + label.slice(1);
     }
     return { dateKey, label, matches: groups.get(dateKey)! };
   });

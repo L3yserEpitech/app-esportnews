@@ -13,6 +13,7 @@ import { Trophy } from 'lucide-react';
 import AdColumn from '@/app/components/ads/AdColumn';
 import ContentLoader from '@/app/components/ui/ContentLoader';
 import { prewarmFromData } from '@/app/lib/imageProxy';
+import { useDisplayTimeZone } from '@/app/hooks/useHydrated';
 import { resolveSections, type SectionId } from './tournamentSections';
 import { groupMatchesByDate, type TournamentSectionProps } from './sections/shared';
 import TournamentHeader from './sections/TournamentHeader';
@@ -43,6 +44,7 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
   const router = useRouter();
   const { showToast } = useToast();
   const hasRedirected = useRef(false);
+  const timeZone = useDisplayTimeZone();
   const [tournament, setTournament] = useState<PandaTournament | null>(initialTournament || null);
 
   useEffect(() => {
@@ -145,10 +147,10 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
 
     return {
       liveMatches: live,
-      matchesByDate: groupMatchesByDate(sorted),
+      matchesByDate: groupMatchesByDate(sorted, timeZone, timeZone === undefined),
       totalMatches: matches.length,
     };
-  }, [tournament?.matches]);
+  }, [tournament?.matches, timeZone]);
 
   if (loading || !tournament) {
     return (

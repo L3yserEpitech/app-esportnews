@@ -15,6 +15,7 @@ import { advertisementService } from '../../services/advertisementService';
 import { Advertisement, PandaMatch } from '../../types';
 import { proxyImageUrl, prewarmFromData } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
+import { formatCalendarDate } from '../../lib/calendarDate';
 import { teamHref } from '../../lib/gameLinks';
 import { getRoleBadgeStyle, SectionHeader } from '../../match/_components/sections/shared';
 import { valorantAgentIcon } from '../../match/_components/sections/valorant/valorantAssets';
@@ -422,9 +423,7 @@ export default function PlayerDetailPageClient({ pagename, wiki, initialPlayer }
                   {player.transfers.map((tr, i) => {
                     const fromUrl = tr.from_team_template ? teamHref({ wiki, template: tr.from_team_template, name: tr.from_team }) : null;
                     const toUrl = tr.to_team_template ? teamHref({ wiki, template: tr.to_team_template, name: tr.to_team }) : null;
-                    const dateFormatted = tr.date
-                      ? new Date(tr.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-                      : '';
+                    const dateFormatted = formatCalendarDate(tr.date, { day: '2-digit', month: 'short', year: 'numeric' });
                     return (
                       <div
                         key={`${tr.date}_${i}`}

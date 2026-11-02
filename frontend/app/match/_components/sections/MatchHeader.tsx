@@ -14,10 +14,12 @@ import { dotaHeaderBackdropHero } from './dota2/DotaGameCards';
 import { r6MapImage } from './rainbowsix/r6Assets';
 import { owMapImage } from './overwatch/owAssets';
 import { TeamLogo, parseGameWinner, formatDate, formatTime, type MatchSectionProps } from './shared';
+import { useDisplayTimeZone } from '../../../hooks/useHydrated';
 
 export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps) {
   const t = useTranslations('pages_detail.match_detail');
   const dotaMaps = useDotaAssets();
+  const timeZone = useDisplayTimeZone();
 
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
@@ -201,9 +203,9 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
               <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-accent/50" />
-                <span>{formatDate(match.begin_at)}</span>
+                <span>{formatDate(match.begin_at, timeZone)}</span>
                 <span className="text-text-muted/40">/</span>
-                <span>{formatTime(match.begin_at)}</span>
+                <span>{formatTime(match.begin_at, timeZone)}</span>
               </div>
             </>
           )}
@@ -212,7 +214,7 @@ export default function MatchHeader({ match, isLive, isDark }: MatchSectionProps
               <span className="w-0.5 h-0.5 rounded-full bg-text-muted/40" />
               <div className="flex items-center gap-1 text-[var(--color-status-upcoming)]">
                 <RefreshCw className="w-3 h-3" />
-                <span className="line-through opacity-50">{formatDate(match.original_scheduled_at)} {formatTime(match.original_scheduled_at)}</span>
+                <span className="line-through opacity-50">{formatDate(match.original_scheduled_at, timeZone)} {formatTime(match.original_scheduled_at, timeZone)}</span>
               </div>
             </>
           )}

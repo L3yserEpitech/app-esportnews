@@ -9,6 +9,7 @@ import { Trophy } from 'lucide-react';
 import { PandaMatch } from '../../types';
 import { proxyImageUrl } from '../../lib/imageProxy';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
+import { useDisplayTimeZone } from '../../hooks/useHydrated';
 
 interface TournamentMatchCardProps {
   match: PandaMatch;
@@ -17,6 +18,7 @@ interface TournamentMatchCardProps {
 export default function TournamentMatchCard({ match }: TournamentMatchCardProps) {
   const router = useRouter();
   const isDark = useIsDarkTheme();
+  const timeZone = useDisplayTimeZone();
   const homeTeam = match.opponents?.[0]?.opponent;
   const awayTeam = match.opponents?.[1]?.opponent;
 
@@ -28,15 +30,12 @@ export default function TournamentMatchCard({ match }: TournamentMatchCardProps)
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone });
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yy = String(date.getFullYear()).slice(-2);
-    return `${dd}/${mm}/${yy}`;
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone });
   };
 
   const dateStr = match.begin_at || match.scheduled_at;
