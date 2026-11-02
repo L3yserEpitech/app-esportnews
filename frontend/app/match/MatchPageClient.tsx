@@ -15,6 +15,8 @@ import GameSelector from '../components/games/GameSelector';
 import AdColumn from '../components/ads/AdColumn';
 import { prewarmImages, matchLogoUrls } from '../lib/imageProxy';
 import { matchesForLocalDate } from './matchListFilter';
+import { useHydrated } from '../hooks/useHydrated';
+import { calendarCellVisibility } from '../lib/calendarRange';
 import {
   Dialog,
   DialogContent,
@@ -107,6 +109,8 @@ const generateDateRange = (centerDate: Date, offset: number = 0, visibleCount: n
 const MatchPage: React.FC = () => {
   const t = useTranslations();
   const locale = useLocale();
+  // This page is prerendered: its HTML must not hold the day of the deployment.
+  const hydrated = useHydrated();
   const { selectedGame, games, isLoadingGames, setSelectedGame, getSelectedGameData } = useGame();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
 
@@ -483,7 +487,7 @@ const MatchPage: React.FC = () => {
                   {/* Left: selected date display */}
                   <div className="flex items-center">
                     <span className="text-xs text-[#F22E62] font-medium">
-                      {selectedDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {hydrated ? selectedDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '\u00a0'}
                     </span>
                   </div>
 
@@ -576,11 +580,7 @@ const MatchPage: React.FC = () => {
                         date.getFullYear() === selectedDate.getFullYear();
                       const isTodayDate = isToday(date);
 
-                      const hiddenClasses = [
-                        index >= 5 && 'hidden sm:flex',
-                        index >= 7 && 'sm:hidden md:flex',
-                        index >= 9 && 'md:hidden lg:flex'
-                      ].filter(Boolean).join(' ');
+                      const hiddenClasses = calendarCellVisibility(index);
 
                       return (
                         <button
@@ -598,13 +598,13 @@ const MatchPage: React.FC = () => {
                           `}
                         >
                           <span className="text-xs uppercase mb-1">
-                            {getDayName(date, locale)}
+                            {hydrated ? getDayName(date, locale) : '\u00a0'}
                           </span>
                           <span className="text-lg font-bold">
-                            {date.getDate()}
+                            {hydrated ? date.getDate() : '\u00a0'}
                           </span>
                           <span className="text-xs capitalize">
-                            {getMonthName(date, locale)}
+                            {hydrated ? getMonthName(date, locale) : '\u00a0'}
                           </span>
                         </button>
                       );

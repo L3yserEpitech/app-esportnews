@@ -8,6 +8,8 @@ import { useGame } from '../contexts/GameContext';
 import LiquipediaBadge from '../components/common/LiquipediaBadge';
 import { PandaTournament, Advertisement } from '../types';
 import { advertisementService } from '../services/advertisementService';
+import { useHydrated } from '../hooks/useHydrated';
+import { calendarCellVisibility } from '../lib/calendarRange';
 import { tournamentService } from '../services/tournamentService';
 import { prewarmFromData } from '../lib/imageProxy';
 import TournamentCard from '../components/tournaments/TournamentCard';
@@ -118,6 +120,8 @@ const TournamentsPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'tier' | '-tier' | 'begin_at' | '-begin_at'>('tier');
 
   // Date calendar
+  // This page is prerendered: its HTML must not hold the day of the deployment.
+  const hydrated = useHydrated();
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [dateRangeOffset, setDateRangeOffset] = useState(0);
   const visibleDatesCount = useVisibleDatesCount();
@@ -344,7 +348,7 @@ const TournamentsPage: React.FC = () => {
                 </div>
 
                 {/* Status tabs + Actions */}
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   {/* Left: Status tabs with underline */}
                   <div className="flex items-center">
                     {(['running', 'upcoming', 'finished'] as const).map((s) => {
@@ -366,7 +370,7 @@ const TournamentsPage: React.FC = () => {
                     })}
                     {selectedDate && (
                       <span className="ml-2 text-xs text-[#F22E62] font-medium">
-                        {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {hydrated ? selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '\u00a0'}
                       </span>
                     )}
                   </div>
@@ -511,11 +515,7 @@ const TournamentsPage: React.FC = () => {
                       const isSelected = selectedDate !== null && isSameDay(date, selectedDate);
                       const isTodayDate = isToday(date);
 
-                      const hiddenClasses = [
-                        index >= 5 && 'hidden sm:flex',
-                        index >= 7 && 'sm:hidden md:flex',
-                        index >= 9 && 'md:hidden lg:flex'
-                      ].filter(Boolean).join(' ');
+                      const hiddenClasses = calendarCellVisibility(index);
 
                       return (
                         <button
@@ -533,13 +533,13 @@ const TournamentsPage: React.FC = () => {
                           `}
                         >
                           <span className="text-xs uppercase mb-1">
-                            {getDayName(date, 'fr')}
+                            {hydrated ? getDayName(date, 'fr') : '\u00a0'}
                           </span>
                           <span className="text-lg font-bold">
-                            {date.getDate()}
+                            {hydrated ? date.getDate() : '\u00a0'}
                           </span>
                           <span className="text-xs capitalize">
-                            {getMonthName(date, 'fr')}
+                            {hydrated ? getMonthName(date, 'fr') : '\u00a0'}
                           </span>
                         </button>
                       );
