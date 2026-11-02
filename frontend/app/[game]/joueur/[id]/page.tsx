@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { gameByWiki, slugToWiki } from '../../../lib/gameRegistry';
 import { decodeRouteParam } from '../../../lib/gameLinks';
-import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { failForCrawlers } from '../../../lib/crawlerFailure';
+import { DEFAULT_OG_IMAGE, unavailablePageMetadata } from '../../../lib/seoHelpers';
 import { brandTitle } from '../../../lib/seoTitles';
 import { PlayerJsonLd } from '../../../components/seo/entityJsonLd';
 import PlayerDetailPageClient from '../../../joueur/_components/PlayerDetailPageClient';
@@ -29,7 +30,14 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
   const { game, id: rawId } = await params;
   const id = decodeRouteParam(rawId);
 
-  const fallback = { title: 'Joueur | Esport News', description: 'Profils des joueurs esport sur Esport News' };
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+  const url = `${siteUrl}/${game}/joueur/${encodeURIComponent(id)}`;
+  const gameName = gameByWiki(slugToWiki(game) || '')?.name;
+  const fallback = unavailablePageMetadata(
+    brandTitle(`${id.replace(/_/g, ' ')} – Joueur ${gameName || 'esport'}`),
+    'Profils des joueurs esport sur Esport News',
+    url,
+  );
   const response = await fetchPlayer(game, id);
   if (!response?.ok) {
     return response?.status === 404
@@ -39,10 +47,7 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
 
   try {
     const player = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
-    const url = `${siteUrl}/${game}/joueur/${encodeURIComponent(id)}`;
     const realName = [player.first_name, player.last_name].filter(Boolean).join(' ') || player.name;
-    const gameName = gameByWiki(slugToWiki(game) || '')?.name;
     const team = player.team_pagename?.replace(/_/g, ' ');
     const title = `${player.id} – Joueur ${gameName || 'esport'}`;
     const description = `Profil de ${player.id}${realName && realName !== player.id ? ` (${realName})` : ''}, joueur ${gameName || 'esport'}${team ? ` chez ${team}` : ''} : équipe, carrière, gains, matchs et statistiques.`;
@@ -84,6 +89,10 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     } catch {
       // Malformed body — client handles the error state.
     }
+  }
+
+  if (!initialPlayer) {
+    await failForCrawlers();
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';

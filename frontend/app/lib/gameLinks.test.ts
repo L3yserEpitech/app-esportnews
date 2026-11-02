@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   matchHref,
   matchIdFromSegment,
+  matchTitleFromSegment,
+  tournamentTitleFromSegment,
   matchSegment,
   tournamentHref,
   placementHref,
@@ -191,5 +193,24 @@ describe('placementHref', () => {
 
   it('ne lie rien quand la page n\'a pas de tournoi', () => {
     expect(placementHref('counterstrike', { ...placement, tournament_missing: true })).toBeNull();
+  });
+});
+
+describe('titres lus dans le segment', () => {
+  it('lit les équipes d\'un segment de match', () => {
+    expect(matchTitleFromSegment('vendetta-vs-lyon-AMERS2NHPL_R04-M001')).toBe('Vendetta vs Lyon');
+  });
+
+  it('n\'invente rien sur un id de match nu', () => {
+    expect(matchTitleFromSegment('AMERS2NHPL_R04-M001')).toBeNull();
+  });
+
+  it('lit le nom d\'un segment de tournoi', () => {
+    expect(tournamentTitleFromSegment('blast-frequent-flyers-program-2026-377513')).toBe('Blast Frequent Flyers Program 2026');
+  });
+
+  it('n\'invente rien sur un id de tournoi nu ou un pagename', () => {
+    expect(tournamentTitleFromSegment('377513')).toBeNull();
+    expect(tournamentTitleFromSegment('Project_Blender/2025/Phase_4')).toBeNull();
   });
 });

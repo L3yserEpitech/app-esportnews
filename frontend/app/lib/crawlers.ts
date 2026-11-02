@@ -6,6 +6,15 @@
 // previews. The backend mirrors this list in internal/middleware/botblock.go.
 export const BLOCKED_CRAWLERS = ['Baiduspider', 'meta-externalagent', 'Bytespider', 'PetalBot', 'Amazonbot', 'GPTBot', 'CCBot'] as const;
 
+// The engines whose index a degraded page could damage. Not isBot from next/server:
+// it also covers link previews (facebookexternalhit, Twitterbot, WhatsApp…), which
+// are better served a card read from the URL than an error.
+const SEARCH_ENGINE_CRAWLERS = /googlebot|google-inspectiontool|googleother|storebot-google|bingbot|duckduckbot|yandexbot|applebot|qwant|slurp/i;
+
+export function isSearchEngineCrawler(userAgent: string | null | undefined): boolean {
+  return !!userAgent && SEARCH_ENGINE_CRAWLERS.test(userAgent);
+}
+
 const needles = BLOCKED_CRAWLERS.map((name) => name.toLowerCase());
 
 export function isBlockedCrawler(userAgent: string | null | undefined): boolean {

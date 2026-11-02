@@ -2,9 +2,10 @@ import { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
 import { slugToWiki } from '../../../lib/gameRegistry';
-import { decodeRouteParam, tournamentIdFromSegment, tournamentSegment } from '../../../lib/gameLinks';
+import { decodeRouteParam, tournamentIdFromSegment, tournamentSegment, tournamentTitleFromSegment } from '../../../lib/gameLinks';
+import { failForCrawlers } from '../../../lib/crawlerFailure';
 import { proxyImageUrl } from '../../../lib/imageProxy';
-import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { DEFAULT_OG_IMAGE, unavailablePageMetadata } from '../../../lib/seoHelpers';
 import { brandTitle, tournamentDescription, tournamentTitle } from '../../../lib/seoTitles';
 import TournamentDetailPageClient from '../../../tournois/_components/TournamentDetailPageClient';
 import { TournamentJsonLd } from '../../../components/seo/entityJsonLd';
@@ -28,9 +29,16 @@ async function fetchTournament(game: string, id: string): Promise<Response | und
 
 export async function generateMetadata({ params }: TournamentPageProps): Promise<Metadata> {
   const { game, id: rawSegment } = await params;
-  const id = tournamentIdFromSegment(decodeRouteParam(rawSegment));
+  const segment = decodeRouteParam(rawSegment);
+  const id = tournamentIdFromSegment(segment);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
-  const fallback = { title: 'Tournoi | Esport News', description: 'Consultez les tournois esport sur Esport News' };
+  const titleFromUrl = tournamentTitleFromSegment(segment);
+  const fallback = unavailablePageMetadata(
+    titleFromUrl ? brandTitle(`${titleFromUrl} – Tournoi`) : 'Tournoi | Esport News',
+    'Consultez les tournois esport sur Esport News',
+    `${siteUrl}/${game}/tournois/${encodeURIComponent(segment)}`,
+  );
   const response = await fetchTournament(game, id);
   if (!response?.ok) {
     return response?.status === 404
@@ -40,7 +48,6 @@ export async function generateMetadata({ params }: TournamentPageProps): Promise
 
   try {
     const tournament = await response.json();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const url = `${siteUrl}/${game}/tournois/${tournamentSegment(tournament)}`;
     const seo = {
       name: tournament.name,
@@ -104,6 +111,10 @@ export default async function TournamentDetailPage({ params }: TournamentPagePro
     } catch {
       // Malformed body — client handles the error state.
     }
+  }
+
+  if (!initialTournament) {
+    await failForCrawlers();
   }
 
   const canonicalSegment = initialTournament?.id ? tournamentSegment(initialTournament) : segment;

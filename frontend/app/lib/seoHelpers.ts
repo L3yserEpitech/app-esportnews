@@ -14,6 +14,19 @@ export const DEFAULT_OG_IMAGE = {
   alt: 'Esport News',
 };
 
+// The page may exist but the backend could not describe it. What visitors and link
+// previews see while search engines get a 5xx (lib/crawlerFailure.ts): the canonical
+// comes from the requested URL, and the title from what that URL says.
+export function unavailablePageMetadata(title: string, description: string, url: string): Metadata {
+  return {
+    title,
+    description,
+    openGraph: { title, description, url, type: 'website', images: [DEFAULT_OG_IMAGE] },
+    twitter: { card: 'summary_large_image', title, description, images: [DEFAULT_OG_IMAGE.url] },
+    alternates: { canonical: url },
+  };
+}
+
 /**
  * Générer des métadonnées cohérentes pour les pages listing
  */

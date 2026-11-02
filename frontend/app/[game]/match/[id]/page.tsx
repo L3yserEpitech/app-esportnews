@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getApiBaseUrl } from '../../../lib/apiConfig';
-import { matchService } from '../../../services/matchService';
 import { slugToWiki } from '../../../lib/gameRegistry';
-import { decodeRouteParam, matchIdFromSegment, matchSegment } from '../../../lib/gameLinks';
-import { DEFAULT_OG_IMAGE } from '../../../lib/seoHelpers';
+import { decodeRouteParam, matchIdFromSegment, matchSegment, matchTitleFromSegment } from '../../../lib/gameLinks';
+import { failForCrawlers } from '../../../lib/crawlerFailure';
+import { DEFAULT_OG_IMAGE, unavailablePageMetadata } from '../../../lib/seoHelpers';
 import { brandTitle, matchDescription, matchTitle } from '../../../lib/seoTitles';
 import MatchDetailPageClient from '../../../match/_components/MatchDetailPageClient';
 import { MatchJsonLd } from '../../../components/seo/entityJsonLd';
@@ -13,23 +13,48 @@ interface MatchPageProps {
   params: Promise<{ game: string; id: string }>;
 }
 
+// Not through Next's data cache: past its revalidate time it hands its old copy to
+// the first visitor, so a live page opened after a quiet hour showed that hour's score.
+async function fetchMatch(wiki: string, id: string): Promise<Response | undefined> {
+  try {
+    return await fetch(
+      `${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}?wiki=${encodeURIComponent(wiki)}`,
+      { cache: 'no-store' }
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
   const { game, id: rawSegment } = await params;
-  const id = matchIdFromSegment(decodeRouteParam(rawSegment));
+  const segment = decodeRouteParam(rawSegment);
+  const id = matchIdFromSegment(segment);
   const wiki = slugToWiki(game);
   if (!wiki) {
     return { title: 'Match | Esport News', description: 'Détails du match en direct' };
   }
 
-  try {
-    const match = await matchService.getMatchById(id, wiki);
-    if (!match) {
-      return {
-        title: 'Match non trouvé',
-        description: 'Le match que vous recherchez n\'existe pas.',
-      };
-    }
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
+  const unavailable = unavailablePageMetadata(
+    brandTitle(matchTitleFromSegment(segment) ?? 'Match'),
+    'Détails du match en direct',
+    `${siteUrl}/${game}/match/${encodeURIComponent(segment)}`,
+  );
 
+  const response = await fetchMatch(wiki, id);
+  if (response?.status === 404) {
+    return {
+      title: 'Match non trouvé',
+      description: 'Le match que vous recherchez n\'existe pas.',
+    };
+  }
+  if (!response?.ok) {
+    return unavailable;
+  }
+
+  try {
+    const match = await response.json();
     const seo = {
       home: match.opponents?.[0]?.opponent?.name,
       away: match.opponents?.[1]?.opponent?.name,
@@ -38,14 +63,13 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
       beginAt: match.begin_at,
     };
     const title = matchTitle(seo);
-    const stream = match.streams_list?.find((s) => s.main) ?? match.streams_list?.[0];
+    const stream = match.streams_list?.find((s: { main?: boolean }) => s.main) ?? match.streams_list?.[0];
     const description = matchDescription({
       ...seo,
       stage: match.section,
       bestOf: match.number_of_games,
       streamUrl: stream?.raw_url,
     });
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
     const matchUrl = `${siteUrl}/${game}/match/${matchSegment(match)}`;
 
     // The branded 1200×630 card, not a team logo: Liquipedia logo URLs are
@@ -71,7 +95,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
     };
   } catch (error) {
     console.error('Error generating metadata for match:', error);
-    return { title: 'Match | Esport News', description: 'Détails du match en direct' };
+    return unavailable;
   }
 }
 
@@ -85,16 +109,9 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
     notFound();
   }
 
-  let response: Response | undefined;
-  try {
-    response = await fetch(
-      `${getApiBaseUrl()}/api/matches/${encodeURIComponent(id)}?wiki=${encodeURIComponent(wiki)}`,
-      { next: { revalidate: 60 } }
-    );
-  } catch {
-    // Network/transient error — let the client component retry.
-  }
+  const response = await fetchMatch(wiki, id);
 
+  // 404 only on an explicit backend 404: transient errors let the client retry.
   if (response?.status === 404) {
     notFound();
   }
@@ -106,6 +123,10 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
     } catch {
       // Malformed body — client handles the error state.
     }
+  }
+
+  if (!initialMatch) {
+    await failForCrawlers();
   }
 
   const canonicalSegment = initialMatch ? matchSegment(initialMatch) : segment;

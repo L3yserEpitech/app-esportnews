@@ -89,6 +89,21 @@ export function matchHref(match: MatchLinkInput): string {
     : `/match/${match.match2id || String(match.id)}`;
 }
 
+// The readable part of a segment, for when the backend could not say what the
+// page holds. Lossy (lowercase, ASCII) but it comes from the URL, nothing invented.
+export function titleFromSlug(slug: string): string {
+  return slug
+    .split(/[-\s_]+/)
+    .filter(Boolean)
+    .map((word) => (word === 'vs' ? word : word[0].toUpperCase() + word.slice(1)))
+    .join(' ');
+}
+
+export function matchTitleFromSegment(segment: string): string | null {
+  const id = matchIdFromSegment(segment);
+  return id === segment ? null : titleFromSlug(segment.slice(0, -(id.length + 1)));
+}
+
 const isPageId = (id: number | string) => /^\d+$/.test(String(id));
 
 // tournamentSegment is "<name>-<pageid>". The id may instead be a Liquipedia
@@ -104,6 +119,11 @@ export function tournamentSegment(t: TournamentLinkInput): string {
 // slug (foo_bar_2026) is left whole for the backend to resolve.
 export function tournamentIdFromSegment(segment: string): string {
   return /^[a-z0-9-]+-(\d+)$/.exec(segment)?.[1] ?? segment;
+}
+
+export function tournamentTitleFromSegment(segment: string): string | null {
+  const id = tournamentIdFromSegment(segment);
+  return id === segment ? null : titleFromSlug(segment.slice(0, -(id.length + 1)));
 }
 
 // tournamentHref builds the game-first /<slug>/tournois/<segment>, same fallback.
