@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -115,4 +116,23 @@ func TestGetTournamentReturns503WhenMatchesCannotBeFetched(t *testing.T) {
 
 	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	require.Empty(t, rec.Header().Get("Cache-Control"))
+}
+
+// During an outage the unscoped scan used to ask all ten wikis on every request.
+func TestUnscopedLookupsStopAtTheFirstFailure(t *testing.T) {
+	var calls atomic.Int32
+	failing := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	th, mh, _ := newDetailHandlers(t, failing)
+
+	rec := getDetail(t, context.Background(), th.GetTournament, "/api/tournaments/424242", "424242")
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.EqualValues(t, 1, calls.Load())
+
+	calls.Store(0)
+	rec = getDetail(t, context.Background(), mh.GetMatch, "/api/matches/aB3dE5fG7h_0001", "aB3dE5fG7h_0001")
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.EqualValues(t, 1, calls.Load())
 }

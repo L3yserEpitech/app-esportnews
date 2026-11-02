@@ -147,23 +147,41 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 
 	// Helper: search tournament in poller caches for a given wiki
 	findInCache := func(wiki string) (*models.NormalizedTournament, bool) {
-		for _, keyFunc := range []func(string) string{
-			cache.LiqTournamentsRunningKey,
-			cache.LiqTournamentsUpcomingKey,
-			cache.LiqTournamentsFinishedKey,
-		} {
-			data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+		search := func(key string) (*models.NormalizedTournament, bool) {
+			data, err := h.redisCache.Get(ctx, key)
 			if err != nil || data == "" {
-				continue
+				return nil, false
 			}
 			tournaments, err := parseTournaments([]byte(data), wiki)
 			if err != nil {
-				continue
+				return nil, false
 			}
-			for _, t := range tournaments {
+			for i := range tournaments {
+				t := &tournaments[i]
 				if t.PageName == decodedID || t.Slug == decodedID || fmt.Sprintf("%d", t.ID) == decodedID {
-					return &t, true
+					return t, true
 				}
+			}
+			return nil, true
+		}
+		var finishedFresh bool
+		for _, key := range []string{
+			cache.LiqTournamentsRunningKey(wiki),
+			cache.LiqTournamentsUpcomingKey(wiki),
+			cache.LiqTournamentsFinishedKey(wiki),
+		} {
+			t, listed := search(key)
+			if t != nil {
+				return t, true
+			}
+			finishedFresh = listed
+		}
+		// tournaments_finished is only refreshed by the poller's safety net, well
+		// past its TTL, and a finished tournament no longer changes. A fresh list
+		// without the tournament knows better than its older copy.
+		if !finishedFresh {
+			if t, _ := search(cache.StaleKey(cache.LiqTournamentsFinishedKey(wiki))); t != nil {
+				return t, true
 			}
 		}
 		return nil, false
@@ -173,6 +191,9 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 	// when at least one upstream call failed (429 backoff, budget, network,
 	// deadline) — the tournament may exist but be temporarily unreachable.
 	fetchOnDemand := func(wiki string) (t *models.NormalizedTournament, found bool, transient bool) {
+		if !services.SafeConditionValue(decodedID) {
+			return nil, false, false
+		}
 		condition := fmt.Sprintf("[[pagename::%s]]", decodedID)
 		if _, err := strconv.Atoi(decodedID); err == nil {
 			condition = fmt.Sprintf("[[pageid::%s]]", decodedID)
@@ -186,12 +207,15 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 			return nil, false, true
 		}
 		resp, err := services.ParseResponse(data)
-		if err != nil || len(resp.Result) == 0 {
+		if err != nil {
+			return nil, false, true
+		}
+		if len(resp.Result) == 0 {
 			return nil, false, false
 		}
 		var liqT models.LiqTournament
 		if err := json.Unmarshal(resp.Result[0], &liqT); err != nil {
-			return nil, false, false
+			return nil, false, true
 		}
 		normalized := models.NormalizeLiqTournament(liqT, wiki)
 		return &normalized, true, false
@@ -267,7 +291,10 @@ func (h *TournamentHandler) GetTournament(c echo.Context) error {
 		if found {
 			return returnTournament(*t, wiki)
 		}
-		anyTransient = anyTransient || transient
+		// One failure settles it: asking the other wikis during an outage only adds to it.
+		if transient {
+			return tournamentUnavailable(c)
+		}
 	}
 
 	if anyTransient {
@@ -330,8 +357,10 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 			}
 			h.log.WithFields(logrus.Fields{"wiki": w, "date": date, "count": len(cached)}).Info("[BYDATE] served from poller cache")
 			for _, t := range cached {
-				if !globalSeen[t.PageName] {
-					globalSeen[t.PageName] = true
+				// A pagename is only unique within its wiki (SwitzerLAN, see below).
+				key := t.Wiki + ":" + t.PageName
+				if !globalSeen[key] {
+					globalSeen[key] = true
 					allTournaments = append(allTournaments, t)
 				}
 			}
@@ -383,7 +412,7 @@ func (h *TournamentHandler) ListTournamentsByDate(c echo.Context) error {
 			continue
 		}
 		for _, t := range res.tournaments {
-			key := t.PageName
+			key := t.Wiki + ":" + t.PageName
 			if !globalSeen[key] {
 				globalSeen[key] = true
 				allTournaments = append(allTournaments, t)
@@ -702,6 +731,9 @@ func (h *TournamentHandler) readTournamentsFromCache(ctx context.Context, keyFun
 				if k == "" {
 					k = t.Slug
 				}
+				// A pagename is only unique within its wiki: SwitzerLAN is on both
+				// the Overwatch and the Valorant wikis under the same one.
+				k = w + ":" + k
 				if !seen[k] {
 					seen[k] = true
 					allTournaments = append(allTournaments, t)

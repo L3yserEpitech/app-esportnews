@@ -325,7 +325,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		// on-demand fetch (and its 429/budget failure mode) for already-cached matches.
 		if m, found := h.findMatchInCache(ctx, wiki, matchID); found {
 			_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
-			setPublicCache(c, 60, 120)
+			setMatchCache(c, m.Status)
 			return c.JSON(http.StatusOK, *m)
 		}
 
@@ -341,7 +341,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 		}
 		// Store wiki hint for future lookups
 		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
-		setPublicCache(c, 60, 120)
+		setMatchCache(c, normalized.Status)
 		return c.JSON(http.StatusOK, normalized)
 	}
 
@@ -373,7 +373,7 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 	// Helper: return match + store wiki hint for future lookups
 	returnMatch := func(m models.NormalizedMatch, wiki string) error {
 		_ = h.redisCache.Set(ctx, cache.LiqWikiHintKey(matchID), wiki, 24*time.Hour)
-		setPublicCache(c, 60, 120)
+		setMatchCache(c, m.Status)
 		return c.JSON(http.StatusOK, m)
 	}
 
@@ -405,6 +405,10 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 			if m, found := fetchOnDemand(wiki); found {
 				return returnMatch(*m, wiki)
 			}
+			// One failure settles it: asking the other wikis during an outage only adds to it.
+			if anyTransient {
+				break
+			}
 		}
 	}
 
@@ -418,6 +422,9 @@ func (h *MatchHandler) GetMatch(c echo.Context) error {
 // match2id is the unique identifier for each match (e.g. "BAS26LCQD6_0001").
 // Uses adaptive TTL: finished matches are cached for 24h, others for 5min.
 func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matchID string) (*models.NormalizedMatch, error) {
+	if !services.SafeConditionValue(matchID) {
+		return nil, fmt.Errorf("%w in wiki %s", errMatchNotFound, wiki)
+	}
 	cacheKey := cache.LiqMatchKey(wiki, matchID)
 	params := url.Values{}
 	params.Set("wiki", wiki)
@@ -436,7 +443,10 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 	}
 
 	resp, err := services.ParseResponse(data)
-	if err != nil || len(resp.Result) == 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Result) == 0 {
 		return nil, fmt.Errorf("%w in wiki %s", errMatchNotFound, wiki)
 	}
 
@@ -459,27 +469,71 @@ func (h *MatchHandler) fetchMatchFromWiki(ctx context.Context, wiki string, matc
 // upcoming/past caches for a wiki — zero API calls. Used cache-first before any
 // on-demand fetch so cached matches serve instantly and don't burn API budget.
 func (h *MatchHandler) findMatchInCache(ctx context.Context, wiki, matchID string) (*models.NormalizedMatch, bool) {
-	for _, keyFunc := range []func(string) string{
-		cache.LiqMatchesRunningKey,
-		cache.LiqMatchesUpcomingKey,
-		cache.LiqMatchesPastKey,
-	} {
-		data, err := h.redisCache.Get(ctx, keyFunc(wiki))
+	// lookup reports whether the list exists at all, which is what decides if its
+	// :stale copy may be read: a fresh list without the match knows better.
+	lookup := func(key string) (*models.LiqMatch, bool) {
+		data, err := h.redisCache.Get(ctx, key)
 		if err != nil || data == "" {
-			continue
+			return nil, false
 		}
 		matches, err := parseAndFilterMatches([]byte(data), nil)
 		if err != nil {
-			continue
+			return nil, false
 		}
-		for _, m := range matches {
-			if m.Match2ID == matchID || fmt.Sprintf("%d", m.PageID) == matchID {
-				normalized := models.NormalizeLiqMatch(m, wiki, "")
-				return &normalized, true
+		for i := range matches {
+			if matches[i].Match2ID == matchID || fmt.Sprintf("%d", matches[i].PageID) == matchID {
+				return &matches[i], true
+			}
+		}
+		return nil, true
+	}
+	found := func(m *models.LiqMatch) (*models.NormalizedMatch, bool) {
+		normalized := models.NormalizeLiqMatch(*m, wiki, "")
+		return &normalized, true
+	}
+
+	if m, _ := lookup(cache.LiqMatchesRunningKey(wiki)); m != nil {
+		return found(m)
+	}
+	upcoming, upcomingFresh := lookup(cache.LiqMatchesUpcomingKey(wiki))
+	if upcoming != nil {
+		return found(upcoming)
+	}
+	past, pastFresh := lookup(cache.LiqMatchesPastKey(wiki))
+	if past != nil {
+		return found(past)
+	}
+
+	// The poller refreshes these lists less often than their TTL, so the fresh keys
+	// are gone part of the time. Their :stale copies spare a Liquipedia call where
+	// they are very unlikely to be wrong: a finished match no longer changes, and 6 h
+	// is a margin against a match moved forward since the copy, not a certainty: one
+	// moved by more would show as not started. That still covers 95 % of upcoming
+	// matches (2026-11-02). Never the running list, whose scores would be old.
+	if !pastFresh {
+		if m, _ := lookup(cache.StaleKey(cache.LiqMatchesPastKey(wiki))); m != nil {
+			return found(m)
+		}
+	}
+	if !upcomingFresh {
+		if m, _ := lookup(cache.StaleKey(cache.LiqMatchesUpcomingKey(wiki))); m != nil {
+			if begin, err := m.ParsedDate(); err == nil && begin.After(time.Now().Add(services.TTLStale)) {
+				return found(m)
 			}
 		}
 	}
 	return nil, false
+}
+
+// setMatchCache lets browsers hold a match, except a live one: its page polls
+// every 45 s, and 60 s of cache plus 120 s of stale-while-revalidate kept it up to
+// 3 min behind the /match list.
+func setMatchCache(c echo.Context, status *string) {
+	if status != nil && *status == "running" {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		return
+	}
+	setPublicCache(c, 60, 120)
 }
 
 // matchesForDateFromPollerCache reads the three poller caches of a wiki and
