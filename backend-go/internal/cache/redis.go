@@ -59,6 +59,21 @@ func (rc *RedisCache) Del(ctx context.Context, keys ...string) error {
 	return rc.client.Del(ctx, keys...).Err()
 }
 
+// MGet reads several keys in one round trip; a missing key comes back empty.
+func (rc *RedisCache) MGet(ctx context.Context, keys ...string) ([]string, error) {
+	raw, err := rc.client.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+	values := make([]string, len(raw))
+	for i, v := range raw {
+		if str, ok := v.(string); ok {
+			values[i] = str
+		}
+	}
+	return values, nil
+}
+
 // DelPattern deletes every key matching a glob pattern. Uses SCAN so it
 // stays cheap on large keyspaces (KEYS would block the server). Errors
 // from individual DELs are swallowed — invalidation is best-effort and a

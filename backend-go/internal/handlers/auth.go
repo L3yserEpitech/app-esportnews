@@ -86,6 +86,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 
 	response, err := h.authService.Login(ctx, &input)
+	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
@@ -347,11 +350,6 @@ func (h *AuthHandler) DeleteAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Password is required")
 	}
 
-	// Blacklist the access token before deleting the user (prevents race window)
-	if err := h.authService.Logout(ctx, claims.ID, claims.UserID); err != nil {
-		c.Logger().Warnf("Failed to blacklist JWT for user %d during account deletion: %v", claims.UserID, err)
-	}
-
 	if err := h.authService.DeleteAccount(ctx, claims.UserID, input.Password); err != nil {
 		if err.Error() == "incorrect password" {
 			return echo.NewHTTPError(http.StatusUnauthorized, "Incorrect password")
@@ -443,6 +441,9 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	}
 
 	response, err := h.authService.ResetPassword(ctx, input.Token, input.Password)
+	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "8 caractères") {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())

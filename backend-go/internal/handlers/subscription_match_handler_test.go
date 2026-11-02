@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
@@ -23,6 +25,9 @@ import (
 )
 
 const subTestSecret = "test-secret"
+
+// Set by subscriptionServer, for the tests that end its session.
+var subTestCache *cache.RedisCache
 
 // Sauté sans TEST_DATABASE_URL : ces chemins reposent sur l'index partiel Postgres.
 func subscriptionServer(t *testing.T) (*gorm.DB, http.Handler, string) {
@@ -40,11 +45,14 @@ func subscriptionServer(t *testing.T) (*gorm.DB, http.Handler, string) {
 
 	user := models.User{Email: "sub-test@example.com", Password: "x"}
 	require.NoError(t, db.Create(&user).Error)
-	token, _, err := utils.GenerateJWT(user.ID, user.Email, false, subTestSecret, time.Hour)
+	token, tokenID, err := utils.GenerateJWT(user.ID, user.Email, false, subTestSecret, time.Hour)
 	require.NoError(t, err)
+	rc := testCache(t)
+	subTestCache = rc
+	require.NoError(t, rc.Set(context.Background(), cache.JWTKey(tokenID), "refresh-id", time.Hour))
 
 	e := echo.New()
-	auth := services.NewAuthService(nil, testCache(t), subTestSecret)
+	auth := services.NewAuthService(nil, rc, subTestSecret)
 	NewMatchSubHandler(auth, db).RegisterRoutes(e.Group("/api"))
 	return db, e, token
 }
@@ -193,4 +201,26 @@ func TestSubscribeToTournament_FinishedRowsDoNotCountTowardsFreeLimit(t *testing
 
 	rec := subRequest(t, srv, token, http.MethodPost, "/api/subscriptions/tournaments/500", `{"tournament_name":"T","game_acronym":"cs2"}`)
 	assert.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+}
+
+// The app fires this DELETE alongside its logout: arriving second must still
+// retire the push token, or the phone keeps getting alerts for that account.
+func TestUnregisterPushTokenWorksOnEndedSession(t *testing.T) {
+	db, srv, token := subscriptionServer(t)
+	require.NoError(t, db.AutoMigrate(&models.PushToken{}))
+	claims, err := utils.VerifyJWT(token, subTestSecret)
+	require.NoError(t, err)
+	push := models.PushToken{UserID: claims.UserID, Token: "ExponentPushToken[unregister-test]", Platform: "ios", Active: true}
+	require.NoError(t, db.Where("token = ?", push.Token).Delete(&models.PushToken{}).Error)
+	require.NoError(t, db.Create(&push).Error)
+
+	sessionKey := cache.JWTKey(claims.ID)
+	require.NoError(t, subTestCache.Del(context.Background(), sessionKey))
+
+	assert.Equal(t, http.StatusUnauthorized, subRequest(t, srv, token, http.MethodGet, "/api/subscriptions/matches/ids", "").Code)
+	rec := subRequest(t, srv, token, http.MethodDelete, "/api/push-tokens", `{"token":"`+push.Token+`"}`)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	require.NoError(t, db.First(&push, push.ID).Error)
+	assert.False(t, push.Active)
 }

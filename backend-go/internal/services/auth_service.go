@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/esportnews/backend/internal/cache"
@@ -41,6 +42,9 @@ const (
 	// mid-refresh) retries with the token it still holds instead of being
 	// logged out. Nothing new is minted on that path.
 	refreshReplayGrace = time.Hour
+	// Bounds the pool wait and the dial. A read on a stalled connection still
+	// takes go-redis' own 3 s, on every authenticated request.
+	sessionCheckTimeout = time.Second
 )
 
 var (
@@ -49,6 +53,7 @@ var (
 	// Redis unreachable: the token can't be judged, so the caller must not
 	// read the failure as "session over".
 	ErrSessionStoreUnavailable = errors.New("session store unavailable")
+	ErrSessionRevoked          = errors.New("session revoked")
 )
 
 // ErrEmailAlreadyRegistered is returned when signup hits the users.email UNIQUE constraint.
@@ -215,8 +220,12 @@ func (s *AuthService) issueSession(user *models.User) (*models.AuthResponse, err
 	defer cancel()
 	// The access token remembers its refresh token so a logout can unregister
 	// this device alone.
-	s.Cache.Set(cacheCtx, cache.JWTKey(accessID), refreshID, accessTokenTTL)
-	s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID, refreshID), "1", refreshTokenTTL)
+	if err := s.Cache.Set(cacheCtx, cache.JWTKey(accessID), refreshID, accessTokenTTL); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
+	}
+	if err := s.Cache.Set(cacheCtx, cache.RefreshTokenKey(user.ID, refreshID), "1", refreshTokenTTL); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
+	}
 
 	return &models.AuthResponse{
 		AccessToken:  accessToken,
@@ -249,9 +258,62 @@ func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*mod
 	return s.issueSession(user)
 }
 
-// VerifyToken validates JWT and returns claims
+// VerifyToken is VerifyTokenStrict for ordinary routes: with Redis unreachable
+// only the signature can be judged, and refusing would sign every client out
+// over a store outage.
 func (s *AuthService) VerifyToken(tokenString string) (*utils.JWTClaims, error) {
+	claims, err := utils.VerifyJWT(tokenString, s.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkSession(claims); err != nil {
+		if !errors.Is(err, ErrSessionStoreUnavailable) {
+			return nil, err
+		}
+		logrus.Warnf("session check skipped, signature only (user %d): %v", claims.UserID, err)
+	}
+	return claims, nil
+}
+
+// VerifyTokenStrict accepts a live access token only, and answers
+// ErrSessionStoreUnavailable when that can't be established.
+func (s *AuthService) VerifyTokenStrict(tokenString string) (*utils.JWTClaims, error) {
+	claims, err := utils.VerifyJWT(tokenString, s.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkSession(claims); err != nil {
+		return nil, err
+	}
+	return claims, nil
+}
+
+// VerifySignature ignores the session. Only for acts that a token whose session
+// just ended may still do on its own account: the app retires its push token
+// alongside the logout, and either request can arrive first.
+func (s *AuthService) VerifySignature(tokenString string) (*utils.JWTClaims, error) {
 	return utils.VerifyJWT(tokenString, s.JWTSecret)
+}
+
+// checkSession: still registered (a logout removes the key, a refresh token never
+// had one) and issued after the user's last RevokeAllSessions.
+func (s *AuthService) checkSession(claims *utils.JWTClaims) error {
+	cacheCtx, cancel := context.WithTimeout(context.Background(), sessionCheckTimeout)
+	defer cancel()
+
+	values, err := s.Cache.MGet(cacheCtx, cache.JWTKey(claims.ID), cache.SessionsRevokedBeforeKey(claims.UserID))
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
+	}
+	if values[0] == "" || issuedBeforeRevocation(claims, values[1]) {
+		return ErrSessionRevoked
+	}
+	return nil
+}
+
+func issuedBeforeRevocation(claims *utils.JWTClaims, revokedBefore string) bool {
+	millis, err := strconv.ParseInt(revokedBefore, 10, 64)
+	return err == nil && claims.IssuedAtMillis() < millis
 }
 
 // RefreshSession exchanges a refresh token for a brand new token pair. It takes
@@ -261,7 +323,7 @@ func (s *AuthService) VerifyToken(tokenString string) (*utils.JWTClaims, error) 
 // device: a logout or a password reset unregisters it, a login on another
 // device leaves it alone.
 func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (*models.AuthResponse, error) {
-	claims, err := s.VerifyToken(refreshToken)
+	claims, err := utils.VerifyJWT(refreshToken, s.JWTSecret)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrRefreshTokenInvalid, err)
 	}
@@ -270,11 +332,14 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	defer cancel()
 
 	deviceKey := cache.RefreshTokenKey(claims.UserID, claims.ID)
-	live, err := s.Cache.Exists(cacheCtx, deviceKey)
+	values, err := s.Cache.MGet(cacheCtx, deviceKey, cache.SessionsRevokedBeforeKey(claims.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
 	}
-	if !live {
+	if issuedBeforeRevocation(claims, values[1]) {
+		return nil, fmt.Errorf("%w (user %d)", ErrRefreshTokenRevoked, claims.UserID)
+	}
+	if values[0] == "" {
 		if resp, ok := s.replayRefresh(ctx, cacheCtx, claims); ok {
 			return resp, nil
 		}
@@ -312,7 +377,7 @@ func (s *AuthService) replayRefresh(ctx, cacheCtx context.Context, claims *utils
 	if json.Unmarshal([]byte(raw), &pair) != nil {
 		return nil, false
 	}
-	next, err := s.VerifyToken(pair.RefreshToken)
+	next, err := utils.VerifyJWT(pair.RefreshToken, s.JWTSecret)
 	if err != nil {
 		return nil, false
 	}
@@ -432,7 +497,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	// Single use, and every session dies with the password.
 	s.Cache.Del(cacheCtx, cache.PasswordResetKey(tokenHash))
 	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))
-	s.RevokeAllSessions(ctx, userID)
+	s.revokeAllSessionsOrLog(ctx, userID)
 
 	return s.issueSession(user)
 }
@@ -472,15 +537,25 @@ func (s *AuthService) Logout(ctx context.Context, tokenID string, userID int64) 
 	return s.Cache.Del(cacheCtx, keys...)
 }
 
-// RevokeAllSessions signs a user out of every device.
+// RevokeAllSessions signs a user out of every device. The timestamp is what does
+// it: access tokens can't be listed by user, and the sweep below walks the whole
+// keyspace within its deadline, so it may leave refresh keys behind. Those are
+// refused anyway, the sweep is only cleanup. Kept for as long as any token lives.
 func (s *AuthService) RevokeAllSessions(ctx context.Context, userID int64) error {
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	if err := s.Cache.DelPattern(cacheCtx, cache.RefreshTokenPattern(userID)); err != nil {
-		return err
+	return errors.Join(
+		s.Cache.Set(cacheCtx, cache.SessionsRevokedBeforeKey(userID), time.Now().UnixMilli(), refreshTokenTTL),
+		s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(userID)),
+		s.Cache.DelPattern(cacheCtx, cache.RefreshTokenPattern(userID)),
+	)
+}
+
+func (s *AuthService) revokeAllSessionsOrLog(ctx context.Context, userID int64) {
+	if err := s.RevokeAllSessions(ctx, userID); err != nil {
+		logrus.Errorf("revoke sessions (user %d): %v", userID, err)
 	}
-	return s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(userID))
 }
 
 // GetUser retrieves user by ID (type-safe with GORM)
@@ -675,7 +750,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password 
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
 
-		s.RevokeAllSessions(ctx, userID)
+		s.revokeAllSessionsOrLog(ctx, userID)
 
 		return nil
 	}
@@ -706,7 +781,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password 
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	s.RevokeAllSessions(ctx, userID)
+	s.revokeAllSessionsOrLog(ctx, userID)
 
 	return nil
 }

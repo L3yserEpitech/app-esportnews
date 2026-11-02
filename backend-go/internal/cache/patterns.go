@@ -48,6 +48,7 @@ const (
 	LiqStaleSuffix = ":stale"
 
 	// Auth
+	// Only access tokens have this key: no key, no Bearer access.
 	AuthJWT = "auth:jwt:%s" // value = id of the refresh token issued with it
 	// One key per device: a login elsewhere must not end this session.
 	AuthRefresh       = "auth:refresh:%d:%s"     // %d = user id, %s = refresh token id
@@ -55,6 +56,8 @@ const (
 	// Pre-2026-10-28 layout: the token itself under a per-user key. Drop once
 	// every such token has expired, i.e. after 2027-01-26.
 	AuthRefreshLegacy = "auth:refresh:%d"
+	// Unix milliseconds: every token of this user issued earlier is dead.
+	AuthRevokedBefore = "auth:revoked_before:%d"
 	// Password reset — keyed by the SHA-256 of the token, never the token
 	// itself: a Redis dump must not hand out working reset links.
 	AuthPasswordReset         = "auth:reset:%s"          // %s = sha256(token)
@@ -126,6 +129,10 @@ func RefreshTokenPattern(userID int64) string {
 
 func RefreshReplayKey(tokenID string) string {
 	return fmt.Sprintf(AuthRefreshReplay, tokenID)
+}
+
+func SessionsRevokedBeforeKey(userID int64) string {
+	return fmt.Sprintf(AuthRevokedBefore, userID)
 }
 
 func LegacyRefreshTokenKey(userID int64) string {

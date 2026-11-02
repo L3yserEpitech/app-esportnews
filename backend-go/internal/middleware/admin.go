@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -27,7 +28,12 @@ func RequireAdmin(authService *services.AuthService) echo.MiddlewareFunc {
 			tokenString := auth[7:] // Remove "Bearer " prefix
 
 			// Verify token and get claims
-			claims, err := authService.VerifyToken(tokenString)
+			// Strict: a route this sensitive doesn't run on the signature alone
+			// when Redis is down.
+			claims, err := authService.VerifyTokenStrict(tokenString)
+			if errors.Is(err, services.ErrSessionStoreUnavailable) {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable")
+			}
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 			}

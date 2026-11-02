@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -16,7 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
+
 	"github.com/esportnews/backend/internal/cache"
+	"github.com/esportnews/backend/internal/database"
 	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 	"github.com/esportnews/backend/internal/utils"
@@ -210,4 +216,124 @@ func createTestTables(t *testing.T, db *pgxpool.Pool) {
 	if _, err := db.Exec(context.Background(), "DELETE FROM public.users;"); err != nil {
 		t.Logf("Could not clean test tables: %v", err)
 	}
+}
+
+func loginForTokens(t *testing.T, e *echo.Echo, email, password string) models.AuthResponse {
+	t.Helper()
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: email, Password: password}, "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var session models.AuthResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &session))
+	return session
+}
+
+// Over the real routes: what a thief holding each kind of token can still do.
+func TestBearerRoutesRefuseEndedSessions(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
+		Name: "Test User", Email: "bearer@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "bearer@example.com", "SecurePass123")
+
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.RefreshToken).Code,
+		"a refresh token is not a Bearer token")
+
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodPost, "/api/auth/logout", nil, session.AccessToken).Code)
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code,
+		"an access token dies with its logout")
+}
+
+func TestResetPasswordEndsEveryPreviousSession(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	stolen := loginForTokens(t, e, "reset@example.com", "SecurePass123")
+
+	time.Sleep(2 * time.Millisecond)
+	resetToken, _, err := authService.RequestPasswordReset(ctx, "reset@example.com")
+	require.NoError(t, err)
+	fresh, err := authService.ResetPassword(ctx, resetToken, "AnotherPass456")
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, stolen.AccessToken).Code)
+	_, err = authService.RefreshSession(ctx, stolen.RefreshToken)
+	assert.Error(t, err)
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, fresh.AccessToken).Code)
+}
+
+// A mistyped password must not cost the session.
+func TestDeleteAccountWrongPasswordKeepsTheSession(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
+		Name: "Test User", Email: "delete@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "delete@example.com", "SecurePass123")
+
+	rec := authRequest(e, http.MethodDelete, "/api/auth/account", models.DeleteAccountInput{Password: "wrong-password"}, session.AccessToken)
+	require.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
+
+	rec = authRequest(e, http.MethodDelete, "/api/auth/account", models.DeleteAccountInput{Password: "SecurePass123"}, session.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
+}
+
+// Production builds the service on GORM, the other tests go through pgx.
+func TestDeleteAccountOnGORMEndsTheSession(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.User{}))
+	const email = "delete-gorm@example.com"
+	require.NoError(t, db.Exec(`DELETE FROM users WHERE email = ?`, email).Error)
+	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE email = ?`, email) })
+
+	svc := services.NewAuthServiceWithGORM(&database.Database{DB: db}, testCache(t), "test-secret")
+	ctx := context.Background()
+	user, err := svc.Signup(ctx, &models.CreateUserInput{Name: "Test User", Email: email, Password: "SecurePass123"})
+	require.NoError(t, err)
+	session, err := svc.LoginAfterSignup(ctx, user)
+	require.NoError(t, err)
+
+	require.NoError(t, svc.DeleteAccount(ctx, user.ID, "SecurePass123"))
+
+	_, err = svc.VerifyToken(session.AccessToken)
+	assert.ErrorIs(t, err, services.ErrSessionRevoked)
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	assert.ErrorIs(t, err, services.ErrRefreshTokenRevoked)
+}
+
+// With Redis down the password may be right, but no session can be recorded:
+// a 503 the client retries, not a "wrong password".
+func TestLoginAnswers503WhenSessionStoreIsDown(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	mr := miniredis.RunT(t)
+	svc := services.NewAuthService(db, cache.NewRedisClient("redis://"+mr.Addr()), "test-secret")
+	e := echo.New()
+	e.Validator = utils.NewEchoValidator()
+	NewAuthHandler(svc, nil, nil, "", logger).RegisterRoutes(e.Group("/api"))
+	_, err := svc.Signup(context.Background(), &models.CreateUserInput{Name: "Test User", Email: "outage@example.com", Password: "SecurePass123"})
+	require.NoError(t, err)
+
+	mr.Close()
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: "outage@example.com", Password: "SecurePass123"}, "")
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
 }

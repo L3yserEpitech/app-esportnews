@@ -113,10 +113,11 @@ func (h *MatchSubHandler) RegisterPushToken(c echo.Context) error {
 }
 
 func (h *MatchSubHandler) UnregisterPushToken(c echo.Context) error {
-	userID, err := h.extractUserID(c)
+	claims, err := h.authService.VerifySignature(extractToken(c))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
+	userID := claims.UserID
 
 	var input struct {
 		Token string `json:"token"`
