@@ -253,9 +253,9 @@ class TeamService {
    * Résout une équipe par template ET renvoie le détail enrichi en un seul appel
    * (?detail=1). Évite le round trip by-template → /detail (2 appels → 1).
    */
-  async getTeamDetailByTemplate(template: string, wiki: string): Promise<EnrichedTeamDetail> {
+  async getTeamDetailByTemplate(template: string, wiki: string, name?: string): Promise<EnrichedTeamDetail> {
     const response = await fetch(
-      `${API_BASE_URL}/api/teams/by-template?template=${encodeURIComponent(template)}&wiki=${encodeURIComponent(wiki)}&detail=1`,
+      `${API_BASE_URL}/api/teams/by-template?template=${encodeURIComponent(template)}&wiki=${encodeURIComponent(wiki)}&detail=1${name ? `&name=${encodeURIComponent(name)}` : ''}`,
       { method: 'GET', headers: { 'Accept': 'application/json' } }
     );
     if (!response.ok) {

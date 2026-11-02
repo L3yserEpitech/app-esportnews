@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { wikiToSlug } from '../../../lib/gameRegistry';
+import { decodeRouteParam } from '../../../lib/gameLinks';
 
 // Legacy resolver for old /equipe/<id>/resultats?wiki=<wiki> URLs → 308-redirect
 // to the canonical game-first /[game]/equipe/<id>/resultats.
@@ -10,7 +11,8 @@ export default async function LegacyResultatsRedirect({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string>>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = decodeRouteParam(rawId);
   const sp = await searchParams;
 
   const slug = sp.wiki ? wikiToSlug(sp.wiki) : undefined;

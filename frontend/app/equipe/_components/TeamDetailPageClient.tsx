@@ -20,6 +20,7 @@ import { advertisementService } from '../../services/advertisementService';
 import { useIsDarkTheme, pickThemeLogo } from '../../hooks/useIsDarkTheme';
 import { placementHref, teamResultatsHref, playerHref } from '../../lib/gameLinks';
 import PlacementRow from './PlacementRow';
+import { formatCalendarDate } from '../../lib/calendarDate';
 import 'flag-icons/css/flag-icons.min.css';
 import { countryCode } from '../../lib/countryCodes';
 
@@ -245,7 +246,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
 
         if (wiki && isNaN(Number(decodedId))) {
           const fetchByTemplate = (template: string): Promise<EnrichedTeamDetail> =>
-            teamService.getTeamDetailByTemplate(template, wiki);
+            teamService.getTeamDetailByTemplate(template, wiki, urlName || undefined);
           try {
             data = await fetchByTemplate(decodedId);
           } catch {
@@ -479,7 +480,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                   {enrichedTeam.create_date && (
                     <div className="flex items-center gap-1.5 text-[var(--color-text-secondary)]">
                       <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#F22E62' }} />
-                      <span className="font-medium">Fondée en {new Date(enrichedTeam.create_date).getFullYear()}</span>
+                      <span className="font-medium">Fondée en {formatCalendarDate(enrichedTeam.create_date, { year: 'numeric' })}</span>
                     </div>
                   )}
                   {enrichedTeam.earnings && (
@@ -630,13 +631,7 @@ export default function TeamDetailPageClient({ teamId, wiki: wikiProp, initialTe
                   {podiums.map((p, i) => {
                     const isTop3 = p.placement === '1' || p.placement === '2' || p.placement === '3';
                     const placementColor = p.placement === '1' ? '#fbbf24' : p.placement === '2' ? '#94a3b8' : p.placement === '3' ? '#cd7f32' : 'var(--color-text-secondary)';
-                    const dateFormatted = p.date ? (() => {
-                      const d = new Date(p.date);
-                      const dd = String(d.getDate()).padStart(2, '0');
-                      const mm = String(d.getMonth() + 1).padStart(2, '0');
-                      const yy = String(d.getFullYear()).slice(-2);
-                      return `${dd}/${mm}/${yy}`;
-                    })() : '';
+                    const dateFormatted = formatCalendarDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' });
                     const prizeFormatted = p.prize_money > 0
                       ? `$${Math.round(p.prize_money).toLocaleString('en-US')}`
                       : '';

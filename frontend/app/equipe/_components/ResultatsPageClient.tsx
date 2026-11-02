@@ -14,6 +14,7 @@ import { Advertisement } from '../../types';
 import { advertisementService } from '../../services/advertisementService';
 import { placementHref, teamHref } from '../../lib/gameLinks';
 import PlacementRow from './PlacementRow';
+import { formatCalendarDate } from '../../lib/calendarDate';
 
 interface ResultatsPageClientProps {
   teamId: string;
@@ -27,9 +28,9 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp, team }: Re
   const isDark = useIsDarkTheme();
 
   const wiki = wikiProp || searchParams.get('wiki') || '';
-  const name = searchParams.get('name') || team?.name || decodeURIComponent(teamId);
-  const acronym = searchParams.get('acronym') || team?.acronym || '';
-  const logo = searchParams.get('logo') || pickThemeLogo(isDark, team?.image_url, team?.dark_mode_image_url) || '';
+  const name = team?.name || searchParams.get('name') || decodeURIComponent(teamId);
+  const acronym = team?.acronym || searchParams.get('acronym') || '';
+  const logo = pickThemeLogo(isDark, team?.image_url, team?.dark_mode_image_url) || searchParams.get('logo') || '';
 
   const [placements, setPlacements] = useState<TeamPlacement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,13 +152,7 @@ export default function ResultatsPageClient({ teamId, wiki: wikiProp, team }: Re
             {placements.map((p, i) => {
               const isTop3 = p.placement === '1' || p.placement === '2' || p.placement === '3';
               const placementColor = p.placement === '1' ? '#fbbf24' : p.placement === '2' ? '#94a3b8' : p.placement === '3' ? '#cd7f32' : 'var(--color-text-secondary)';
-              const dateFormatted = p.date ? (() => {
-                const d = new Date(p.date);
-                const dd = String(d.getDate()).padStart(2, '0');
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const yy = String(d.getFullYear()).slice(-2);
-                return `${dd}/${mm}/${yy}`;
-              })() : '';
+              const dateFormatted = formatCalendarDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' });
               const prizeFormatted = p.prize_money > 0
                 ? `$${Math.round(p.prize_money).toLocaleString('en-US')}`
                 : '';

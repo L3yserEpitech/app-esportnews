@@ -3,8 +3,8 @@ import type { Team } from '../../services/teamService';
 
 export type TeamLookup = (template: string, wiki: string, name?: string) => Promise<Team>;
 
-// Resolves each opponent's team page in ONE backend call. The backend already
-// tries [[template::…]] then [[name::…]], so the old client-side retries
+// Resolves each opponent's team page in ONE backend call. The backend asks
+// [[template::…]] OR [[name::…]] at once, so the old client-side retries
 // (lowercased name, then the hashed opponent id, which never was a pageid) are
 // gone: they cost two extra backend requests and up to ten Liquipedia calls per
 // opponent for crawlers rendering the page.
