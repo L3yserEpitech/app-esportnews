@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -103,8 +104,9 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 	}
 
 	// Resolve wiki name if acronym was passed
-	if resolved, ok := models.GameWikiMapping[wiki]; ok {
-		wiki = resolved
+	wiki, ok := models.ResolveWiki(wiki)
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 15*time.Second)
@@ -119,7 +121,7 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 	if c.QueryParam("detail") == "1" {
 		detail, err := h.liquipediaService.GetTeamDetailByTemplate(ctx, wiki, template, name)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+			return teamLookupError(err)
 		}
 		setPublicCache(c, 300, 600)
 		return c.JSON(http.StatusOK, detail)
@@ -127,11 +129,21 @@ func (h *TeamHandler) GetTeamByTemplate(c echo.Context) error {
 
 	team, err := h.liquipediaService.GetTeamByTemplate(ctx, wiki, template, name)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+		return teamLookupError(err)
 	}
 
 	setPublicCache(c, 300, 600)
 	return c.JSON(http.StatusOK, team)
+}
+
+// teamLookupError keeps a 404 for a team Liquipedia says does not exist: the team
+// page turns it into a real HTTP 404, which must not de-index a valid team on a
+// 429, an exhausted budget or a deadline.
+func teamLookupError(err error) error {
+	if errors.Is(err, services.ErrTeamNotFound) {
+		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+	}
+	return echo.NewHTTPError(http.StatusServiceUnavailable, "Team temporarily unavailable")
 }
 
 // GetTeam retrieves a single team by pageid with roster.
@@ -164,12 +176,21 @@ func (h *TeamHandler) GetTeamDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid team ID")
 	}
 
+	wiki := c.QueryParam("wiki")
+	if wiki != "" {
+		resolved, ok := models.ResolveWiki(wiki)
+		if !ok {
+			return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+		}
+		wiki = resolved
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 20*time.Second)
 	defer cancel()
 
-	detail, err := h.liquipediaService.GetTeamDetailByPageID(ctx, pageID, c.QueryParam("wiki"))
+	detail, err := h.liquipediaService.GetTeamDetailByPageID(ctx, pageID, wiki)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Team not found")
+		return teamLookupError(err)
 	}
 
 	setPublicCache(c, 300, 600)

@@ -157,7 +157,7 @@ func TestGetTeamByPageIDUsesWikiHint(t *testing.T) {
 	require.Equal(t, int32(1), teamCalls.Load())
 }
 
-func TestGetTeamDetailByTemplateFallsBackToName(t *testing.T) {
+func TestGetTeamDetailByTemplateFindsARenamedTeamByNameInOneCall(t *testing.T) {
 	var conditions []string
 	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/team" {
@@ -168,7 +168,7 @@ func TestGetTeamDetailByTemplateFallsBackToName(t *testing.T) {
 		conditions = append(conditions, cond)
 		// A renamed team: the historical template no longer matches its record,
 		// only the display name does.
-		if cond == "[[name::BRION]]" {
+		if cond == "[[template::brion 2023]] OR [[name::BRION]]" {
 			_, _ = w.Write([]byte(`{"result":[{"pageid":36302,"pagename":"BRION","name":"BRION","template":"brion esports","status":"active"}]}`))
 			return
 		}
@@ -179,24 +179,7 @@ func TestGetTeamDetailByTemplateFallsBackToName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 36302, detail.ID)
 	require.Equal(t, "brion esports", detail.Template)
-	require.Equal(t, []string{"[[template::brion 2023]]", "[[name::BRION]]"}, conditions)
-}
-
-func TestGetTeamDetailByTemplateSkipsNameWhenTemplateMatches(t *testing.T) {
-	var teamCalls atomic.Int32
-	svc, _ := newTestService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/team" {
-			_, _ = w.Write([]byte(`{"result":[]}`))
-			return
-		}
-		teamCalls.Add(1)
-		_, _ = w.Write([]byte(`{"result":[{"pageid":24057,"pagename":"Hanwha_Life_Esports","name":"Hanwha Life Esports","template":"hanwha life esports","status":"active"}]}`))
-	}))
-
-	detail, err := svc.GetTeamDetailByTemplate(context.Background(), "leagueoflegends", "hanwha life esports", "Hanwha Life Esports")
-	require.NoError(t, err)
-	require.Equal(t, 24057, detail.ID)
-	require.Equal(t, int32(1), teamCalls.Load()) // no second lookup by name
+	require.Equal(t, []string{"[[template::brion 2023]] OR [[name::BRION]]"}, conditions)
 }
 
 // Opponent ids in match payloads are hashStringToInt(name) (up to 19 digits),

@@ -43,6 +43,9 @@ func ucFirst(s string) string {
 }
 
 func (s *LiquipediaService) fetchPlayerRecord(ctx context.Context, wiki, pagename string) (*models.LiqPlayer, error) {
+	if !SafeConditionValue(pagename) {
+		return nil, ErrPlayerNotFound
+	}
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf("[[pagename::%s]]", pagename))
 	params.Set("limit", "1")

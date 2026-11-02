@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
@@ -90,7 +93,8 @@ const (
 	TTLTeamMatches           = 15 * time.Minute
 	TTLTeamPlacements        = 1 * time.Hour
 	TTLPlacementPages        = 24 * time.Hour
-	TTLStale                 = 6 * time.Hour // stale-while-revalidate fallback (survives rate limit periods)
+	TTLStale                 = 6 * time.Hour  // stale-while-revalidate fallback (survives rate limit periods)
+	TTLEntityStale           = 48 * time.Hour // what lasts TTLTeam: its fresh copy lasts as long as TTLStale, so it needs a longer net
 )
 
 // RequestBudget tracks API usage per wiki (game) to enforce the 60 req/hour limit.
@@ -561,9 +565,27 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 			}).Warn("[BUDGET] ⚠️ 80% of the hourly budget used — on-demand calls fall back to stale at the limit")
 		}
 
+		// A 200 is not an answer by itself (Cloudflare HTML, {"error":[…]}, rows we cannot
+		// read): stored, it would last the whole TTL and replace the healthy stale copy.
+		reason := unusableBody(body)
+		if reason == "" && endpoint == "team" {
+			if _, err := pickTeamRow(body, ""); err != nil && !errors.Is(err, ErrTeamNotFound) {
+				reason = "no readable team row"
+			}
+		}
+		if reason != "" {
+			s.log.WithFields(logrus.Fields{
+				"wiki":     wiki,
+				"endpoint": endpoint,
+				"key":      cacheKey,
+				"reason":   reason,
+			}).Error("[MAKEREQ] Unusable 200 — not caching it, falling back to stale")
+			return s.getStaleOrError(ctx, cacheKey, wiki, reason)
+		}
+
 		// Store in cache (fresh + stale copy)
 		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
-		_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), TTLStale)
+		s.storeStaleCopy(ctx, cacheKey, body, cacheTTL)
 
 		s.log.WithFields(logrus.Fields{
 			"wiki":             wiki,
@@ -587,6 +609,50 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// storeStaleCopy keeps what an outage may fall back on. What lasts TTLTeam (team
+// records, rosters, players) keeps it longer than its fresh copy, and never an empty
+// answer: kept 48 h, it would turn an outage into a 404 for a team that merely had no
+// row at that time. Team searches and tournament rosters hit the same endpoints with a
+// shorter TTL: they keep the usual copy.
+func (s *LiquipediaService) storeStaleCopy(ctx context.Context, cacheKey string, body []byte, cacheTTL time.Duration) {
+	ttl := TTLStale
+	if cacheTTL == TTLTeam {
+		resp, err := ParseResponse(body)
+		if err != nil || len(resp.Result) == 0 {
+			return
+		}
+		ttl = TTLEntityStale
+	}
+	_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), ttl)
+}
+
+// unusableBody says why a 200 from Liquipedia cannot be stored, or "" if it can: not
+// JSON, no result array, an empty result with an error list, or an error given as a
+// plain string, which is refused even with rows beside it.
+func unusableBody(body []byte) string {
+	var parsed struct {
+		Result []json.RawMessage `json:"result"`
+		Error  []json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		var withStringError struct {
+			Result []json.RawMessage `json:"result"`
+			Error  string            `json:"error"`
+		}
+		if json.Unmarshal(body, &withStringError) != nil {
+			return "response is not the expected JSON"
+		}
+		return "response carries an error"
+	}
+	if parsed.Result == nil {
+		return "response has no result"
+	}
+	if len(parsed.Result) == 0 && len(parsed.Error) > 0 {
+		return "empty result with an error"
+	}
+	return ""
 }
 
 // getStaleOrError returns stale cached data, or an error carrying the real failure cause.
@@ -664,6 +730,32 @@ func (s *LiquipediaService) GetCache() *cache.RedisCache {
 
 // TTLTeamSearch is the cache TTL for team search results.
 const TTLTeamSearch = 30 * time.Minute
+
+// ErrTeamNotFound is returned when Liquipedia answered and has no such team.
+var ErrTeamNotFound = errors.New("team not found")
+
+// teamLookupLimit keeps the template's row within reach when many teams share a name.
+const teamLookupLimit = "50"
+
+// SafeConditionValue says whether a value from a URL can go inside a [[field::value]]
+// condition. LPDB has no escaping: `]]` closes the condition, `!`, `<` and `>` turn
+// it into a comparison (`[[name::!x]]` answers with unrelated teams, measured on the
+// real API), `||` adds an alternative.
+func SafeConditionValue(v string) bool {
+	if utf8.RuneCountInString(v) > 255 {
+		return false
+	}
+	trimmed := strings.TrimLeftFunc(v, unicode.IsSpace)
+	if trimmed == "" || strings.ContainsAny(trimmed[:1], "!<>") {
+		return false
+	}
+	for _, forbidden := range []string{"[[", "]]", "||", "\n", "\r"} {
+		if strings.Contains(v, forbidden) {
+			return false
+		}
+	}
+	return true
+}
 
 // SearchTeams searches teams across all wikis matching the query string.
 // Since Liquipedia doesn't support partial text search, we fetch active teams
@@ -806,7 +898,7 @@ func (s *LiquipediaService) GetTeamByPageID(ctx context.Context, pageID int64, w
 // fetchTeamFromWiki returns the team with roster from one wiki, or nil when
 // the wiki doesn't have it.
 func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, pageID int64) *models.NormalizedTeam {
-	cacheKey := cache.LiqTeamKey(wiki, fmt.Sprintf("%d", pageID))
+	cacheKey := cache.LiqTeamPageIDKey(wiki, fmt.Sprintf("%d", pageID))
 	params := url.Values{}
 	params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
 	params.Set("limit", "1")
@@ -823,7 +915,8 @@ func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, 
 	if err := json.Unmarshal(resp.Result[0], &team); err != nil {
 		return nil
 	}
-	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	// Favorites and /teams/:id: a team without its roster beats no team at all.
+	players, _ := s.fetchSquadPlayers(ctx, wiki, team.PageName)
 	normalized := models.NormalizeLiqTeam(team, wiki, players)
 	return &normalized
 }
@@ -835,40 +928,84 @@ func (s *LiquipediaService) fetchTeamFromWiki(ctx context.Context, wiki string, 
 // fetchTeamRecord resolves a team on a wiki from its template, falling back to
 // its display name. Match and tournament opponents carry the template that was
 // in use back then ("brion 2023"), which stops matching the team record once a
-// team is renamed — its name still does.
+// team is renamed — its name still does. Both are asked in one call: most
+// opponents have no team page, and that miss cost two calls before. A team already
+// known by its template costs nothing, whatever name the link carries. A value
+// that cannot go into a condition is refused (template) or ignored (name).
+// ErrTeamNotFound only when Liquipedia answered; any other error means it could
+// not be asked.
 func (s *LiquipediaService) fetchTeamRecord(ctx context.Context, wiki, template, name string) (*models.LiqTeam, error) {
-	type attempt struct{ cacheKey, condition string }
-
-	attempts := make([]attempt, 0, 2)
-	if template != "" {
-		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, template), fmt.Sprintf("[[template::%s]]", template)})
-	}
-	if name != "" {
-		attempts = append(attempts, attempt{cache.LiqTeamKey(wiki, "name:"+name), fmt.Sprintf("[[name::%s]]", name)})
+	notFound := fmt.Errorf("%w: %q (name %q) in wiki %s", ErrTeamNotFound, template, name, wiki)
+	if !SafeConditionValue(template) {
+		return nil, notFound
 	}
 
-	for _, a := range attempts {
-		params := url.Values{}
-		params.Set("wiki", wiki)
-		params.Set("conditions", a.condition)
-		params.Set("limit", "1")
+	templateKey := cache.LiqTeamLookupKey(wiki, template, "")
+	cacheKey, condition, limit := templateKey, fmt.Sprintf("[[template::%s]]", template), "1"
+	if SafeConditionValue(name) {
+		if cached, err := s.cache.Get(ctx, templateKey); err == nil && cached != "" {
+			if team, err := pickTeamRow([]byte(cached), template); err == nil {
+				return team, nil
+			}
+		}
+		cacheKey = cache.LiqTeamLookupKey(wiki, template, name)
+		condition = fmt.Sprintf("[[template::%s]] OR [[name::%s]]", template, name)
+		limit = teamLookupLimit
+	}
 
-		data, err := s.MakeRequest(ctx, wiki, "team", params, a.cacheKey, TTLTeam)
-		if err != nil {
-			continue
+	params := url.Values{}
+	params.Set("wiki", wiki)
+	params.Set("conditions", condition)
+	params.Set("limit", limit)
+
+	data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
+	if err != nil {
+		return nil, err
+	}
+	team, err := pickTeamRow(data, template)
+	if errors.Is(err, ErrTeamNotFound) {
+		return nil, notFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if cacheKey != templateKey && strings.EqualFold(team.Template, template) {
+		if raw, err := json.Marshal(team); err == nil {
+			row := `{"result":[` + string(raw) + `]}`
+			_ = s.cache.Set(ctx, templateKey, row, TTLTeam)
+			_ = s.cache.Set(ctx, cache.StaleKey(templateKey), row, TTLEntityStale)
 		}
-		resp, err := ParseResponse(data)
-		if err != nil || len(resp.Result) == 0 {
-			continue
-		}
+	}
+	return team, nil
+}
+
+// pickTeamRow prefers the row matching the template. A row it cannot read is
+// skipped: only when none is readable is the answer unusable.
+func pickTeamRow(data []byte, template string) (*models.LiqTeam, error) {
+	resp, err := ParseResponse(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Result) == 0 {
+		return nil, ErrTeamNotFound
+	}
+	var chosen *models.LiqTeam
+	for _, raw := range resp.Result {
 		var team models.LiqTeam
-		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
+		if err := json.Unmarshal(raw, &team); err != nil {
 			continue
 		}
-		return &team, nil
+		if strings.EqualFold(team.Template, template) {
+			return &team, nil
+		}
+		if chosen == nil {
+			chosen = &team
+		}
 	}
-
-	return nil, fmt.Errorf("team %q (name %q) not found in wiki %s", template, name, wiki)
+	if chosen == nil {
+		return nil, errors.New("no readable team row")
+	}
+	return chosen, nil
 }
 
 func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, template string, name string) (*models.NormalizedTeam, error) {
@@ -878,7 +1015,10 @@ func (s *LiquipediaService) GetTeamByTemplate(ctx context.Context, wiki string, 
 	}
 	team := *record
 
-	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	players, err := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	if err != nil {
+		return nil, err
+	}
 	normalized := models.NormalizeLiqTeam(team, wiki, players)
 	return &normalized, nil
 }
@@ -895,7 +1035,10 @@ func (s *LiquipediaService) GetTeamDetailByTemplate(ctx context.Context, wiki st
 	}
 	team := *record
 
-	players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	players, err := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+	if err != nil {
+		return nil, err
+	}
 	detail := models.NormalizeLiqTeamDetail(team, wiki, players)
 	return &detail, nil
 }
@@ -933,8 +1076,9 @@ func (s *LiquipediaService) GetTeamsByPageIDs(ctx context.Context, pageIDs []int
 	return results
 }
 
-// fetchSquadPlayers fetches the active roster for a team from /squadplayer.
-func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPageName string) []models.NormalizedPlayer {
+// fetchSquadPlayers fetches the active roster for a team from /squadplayer. An
+// error means it could not be asked, not that the team has no roster.
+func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPageName string) ([]models.NormalizedPlayer, error) {
 	cacheKey := cache.LiqTeamSquadKey(wiki, teamPageName)
 	params := url.Values{}
 	params.Set("wiki", wiki)
@@ -947,12 +1091,12 @@ func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPag
 			"wiki": wiki,
 			"team": teamPageName,
 		}).Debug("Failed to fetch squad players")
-		return []models.NormalizedPlayer{}
+		return []models.NormalizedPlayer{}, err
 	}
 
 	resp, err := ParseResponse(data)
 	if err != nil {
-		return []models.NormalizedPlayer{}
+		return []models.NormalizedPlayer{}, err
 	}
 
 	var squadPlayers []models.LiqSquadPlayer
@@ -964,7 +1108,7 @@ func (s *LiquipediaService) fetchSquadPlayers(ctx context.Context, wiki, teamPag
 		squadPlayers = append(squadPlayers, sp)
 	}
 
-	return models.NormalizeLiqSquadPlayers(squadPlayers)
+	return models.NormalizeLiqSquadPlayers(squadPlayers), nil
 }
 
 // FetchBatchSquadPlayers fetches squad players for multiple teams in a single API call.
@@ -1066,8 +1210,8 @@ func (s *LiquipediaService) FetchBatchSquadPlayers(ctx context.Context, wiki str
 // wikiHint (from the caller's game context, may be empty) is tried first to
 // avoid the sequential all-wikis walk.
 func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID int64, wikiHint string) (*models.EnrichedTeamDetail, error) {
-	if pageID > maxLiquipediaPageID {
-		return nil, fmt.Errorf("pageid %d exceeds MediaWiki range", pageID)
+	if pageID <= 0 || pageID > maxLiquipediaPageID {
+		return nil, fmt.Errorf("%w: pageid %d outside MediaWiki range", ErrTeamNotFound, pageID)
 	}
 	pageIDStr := fmt.Sprintf("%d", pageID)
 
@@ -1091,41 +1235,47 @@ func (s *LiquipediaService) GetTeamDetailByPageID(ctx context.Context, pageID in
 	}
 
 	for _, wiki := range wikis {
-		cacheKey := cache.LiqTeamKey(wiki, pageIDStr)
+		cacheKey := cache.LiqTeamPageIDKey(wiki, pageIDStr)
 		params := url.Values{}
 		params.Set("conditions", fmt.Sprintf("[[pageid::%d]]", pageID))
 		params.Set("limit", "1")
 
+		// One failure settles it: the team may be on that wiki, and asking the
+		// others during an outage only adds to it.
 		data, err := s.MakeRequest(ctx, wiki, "team", params, cacheKey, TTLTeam)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
-		resp, err := ParseResponse(data)
-		if err != nil || len(resp.Result) == 0 {
+		team, err := pickTeamRow(data, "")
+		if errors.Is(err, ErrTeamNotFound) {
 			continue
 		}
-
-		var team models.LiqTeam
-		if err := json.Unmarshal(resp.Result[0], &team); err != nil {
-			continue
+		if err != nil {
+			return nil, err
 		}
 
 		// Fetch roster (cached 2h via TTLTeam)
-		players := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+		players, err := s.fetchSquadPlayers(ctx, wiki, team.PageName)
+		if err != nil {
+			return nil, err
+		}
 
-		detail := models.NormalizeLiqTeamDetail(team, wiki, players)
+		detail := models.NormalizeLiqTeamDetail(*team, wiki, players)
 		_ = s.cache.Set(ctx, hintKey, wiki, 24*time.Hour)
 		return &detail, nil
 	}
 
-	return nil, fmt.Errorf("team with pageid %d not found", pageID)
+	return nil, fmt.Errorf("%w: pageid %d", ErrTeamNotFound, pageID)
 }
 
 // FetchTeamMatches fetches recent or upcoming matches for a team from Liquipedia.
 // matchType: "recent" (finished, desc) or "upcoming" (not started, asc).
 // Uses [[opponent::teamTemplate]] condition to filter by team.
 func (s *LiquipediaService) FetchTeamMatches(ctx context.Context, wiki, teamTemplate, matchType string) ([]models.NormalizedMatch, error) {
+	if !SafeConditionValue(teamTemplate) {
+		return []models.NormalizedMatch{}, nil
+	}
 	var conditions string
 	var order string
 	var cacheKey string
@@ -1204,6 +1354,9 @@ const (
 func (s *LiquipediaService) FetchTeamPlacements(ctx context.Context, wiki, teamName string, limit int) ([]models.NormalizedPlacement, error) {
 	if limit <= 0 {
 		limit = 20
+	}
+	if !SafeConditionValue(teamName) {
+		return []models.NormalizedPlacement{}, nil
 	}
 
 	cacheKey := cache.LiqTeamPlacementsKey(wiki, teamName)

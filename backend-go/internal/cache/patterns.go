@@ -3,6 +3,7 @@ package cache
 import (
 	"crypto/sha1"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ const (
 	LiqTournamentMatches   = "liq:tournament:matches:%s:%s"    // %s = wiki, %s = tournament pagename
 	LiqTournamentSquads    = "liq:tournament:squads:%s:%s"     // %s = wiki, %s = tournament pagename
 	LiqTeamSearch          = "liq:teams:search:%s:%s"          // %s = wiki, %s = query
-	LiqTeam                = "liq:team:%s:%s"                  // %s = wiki, %s = team id/page
+	LiqTeam                = "liq:team:%s:%s"                  // %s = wiki, %s = LiqTeamPageIDKey | LiqTeamLookupKey
 	LiqTeamSquad           = "liq:team:squad:%s:%s"            // %s = wiki, %s = team pagename
 	LiqTeamMatchesRecent   = "liq:team:matches:recent:%s:%s"   // %s = wiki, %s = team template
 	LiqTeamMatchesUpcoming = "liq:team:matches:upcoming:%s:%s" // %s = wiki, %s = team template
@@ -201,8 +202,15 @@ func LiqTeamSearchKey(wiki, query string) string {
 	return fmt.Sprintf(LiqTeamSearch, wiki, query)
 }
 
-func LiqTeamKey(wiki, teamID string) string {
-	return fmt.Sprintf(LiqTeam, wiki, teamID)
+// LiqTeamPageIDKey and LiqTeamLookupKey live in separate spaces and escape their
+// values: these come from the query string, and a crafted one must not be able to
+// plant an answer under the key of a real link or of a pageid.
+func LiqTeamPageIDKey(wiki, pageID string) string {
+	return fmt.Sprintf(LiqTeam, wiki, "id:"+url.QueryEscape(pageID))
+}
+
+func LiqTeamLookupKey(wiki, template, name string) string {
+	return fmt.Sprintf(LiqTeam, wiki, "tpl:"+url.QueryEscape(template)+":name:"+url.QueryEscape(name))
 }
 
 func LiqTeamSquadKey(wiki, teamPageName string) string {
