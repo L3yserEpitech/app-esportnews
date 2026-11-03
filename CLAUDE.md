@@ -163,14 +163,14 @@
 * **Push notifications** : Expo Push Notifications API
 
 ### Infrastructure
-* **Base de données** : PostgreSQL (Supabase managed) — partagée entre prod et preview Railway
+* **Base de données** : PostgreSQL (Supabase managed)
 * **Cache** : Redis (managed Railway)
 * **Object storage** : Cloudflare R2 (`pub-aadef8fdc55f44388929f1cafa8d7293.r2.dev`) pour les images d'articles, ads, avatars
-* **Déploiement** : Railway (2 projets : prod + preview)
+* **Déploiement** : Railway, projet `creative-reverence`. Seul le service `app-esportnews` tourne, cf. §15
 * **CDN frontend** : Vercel (esportnews.fr)
 * **Domaines** :
-  - Prod : `https://www.esportnews.fr` (frontend) + `https://app-esportnews-production.up.railway.app` (backend Railway prod, branche `main`) — c'est aussi l'URL que tape l'app mobile
-  - Preview R&D : `https://www.blitchapp.online` + `https://app-esportnews-preview-production.up.railway.app` (backend Railway preview, branche `liquipedia`)
+  - Prod : `https://www.esportnews.fr` (frontend) + `https://app-esportnews-production.up.railway.app` (backend Railway prod, branche `main`) — c'est aussi l'URL que tape l'app mobile. `https://www.blitchapp.online` pointe aussi sur ce service
+  - Preview et staging : éteints depuis le 2026-11-03, cf. §15
 
 ### Paiements
 * **Web** : Stripe (Checkout + Customer Portal + webhooks)
@@ -227,7 +227,7 @@ Durées hardcodées (`auth_service.go`) : **access token 7 jours**, **refresh to
 ### Background services
 | Variable | Type | Défaut | Rôle | Pourquoi |
 |----------|------|--------|------|----------|
-| `NOTIFICATION_SCHEDULER_ENABLED` | bool | `true` | Lance le NotificationScheduler au boot | **Doit être `false`** sur l'env preview pour éviter d'envoyer 2× les push notifs (preview partage la DB de prod) |
+| `NOTIFICATION_SCHEDULER_ENABLED` | bool | `true` | Lance le NotificationScheduler au boot | **Doit être `false`** sur tout service autre que la prod branché sur la même base, sinon push en double |
 
 ### Stripe
 | Variable | Type | Défaut | Rôle |
@@ -862,7 +862,7 @@ if cfg.NotificationSchedulerEnabled {
 }
 ```
 
-**Important** : doit être `false` sur l'env preview parce que la DB est partagée avec la prod. Sans ça, prod + preview enverraient chacun leur push → notifications dupliquées et race conditions sur `match_subscription.notified_start`.
+**Important** : doit être `false` sur tout autre service branché sur la même base parce que la DB est partagée avec la prod. Sans ça, prod + preview enverraient chacun leur push → notifications dupliquées et race conditions sur `match_subscription.notified_start`.
 
 ### Architecture interne
 Voir `notification_scheduler.go` :
@@ -1007,7 +1007,7 @@ Layout responsive Tailwind. Important : **éviter le basculement prématuré ver
 
 ### 14.1) Migration Liquipedia mobile — port frontend (branche `liquipedia`)
 
-> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia`. **Depuis le 2026-08-15, `main` est sur Liquipedia** (merge `74131468`) : le backend de prod sert `wiki`/`match2id`, et `eas.json` repointe les profils `preview`/`production` sur `https://app-esportnews-production.up.railway.app`. Le profil `development` vise le backend de preview (`https://app-esportnews-preview-production.up.railway.app`).
+> **Principe** : le backend Go est **partagé** et sert déjà du Liquipedia (`NormalizedMatch`/`NormalizedTournament`) aux mêmes endpoints que l'app appelait. La « migration » mobile est donc un **port frontend pur** (types + rendu per-game + nouveaux écrans), pas un changement de source de données. Réalisée en 18 commits sur `liquipedia`. **Depuis le 2026-08-15, `main` est sur Liquipedia** (merge `74131468`) : le backend de prod sert `wiki`/`match2id`, et `eas.json` repointe les profils `preview`/`production` sur `https://app-esportnews-production.up.railway.app`. Le profil `development` vise aussi la prod depuis l'extinction de la preview (2026-11-03) : un build de dev écrit donc dans les vraies données.
 
 **Archi détail modulaire (miroir du web §18.3/18.4)** — composants colocalisés **hors `app/`** (Expo Router route tout ce qui est sous `app/`) :
 ```
@@ -1044,12 +1044,15 @@ components/tournament-detail/{tournamentSections.ts, sections/…}
 
 ## 15) Déploiement Railway (prod + preview)
 
-### Deux projets Railway
+### Services Railway (projet `creative-reverence`, environnement `production`)
+
+> **État au 2026-11-03 : seul `app-esportnews` tourne.** `app-esportnews-preview` (branche `liquipedia`) et `app-esportnews-staging` (branche `dev`, code PandaScore de mars 2026) ont été éteints avec `railway down` : aucun trafic réel sur 7 jours, pas de contrôle de session sur les Bearer (§4), et tous deux sur la base et le Redis de prod. Staging y supprimait encore des abonnements via son scheduler. Les services et leurs variables existent toujours et **un push sur `liquipedia` ou `dev` peut les relancer**. Avant d'en rallumer un : y fusionner `main`, lui donner un `JWT_SECRET` différent de la prod et couper ses tâches de fond. La suite de cette section décrit la preview telle qu'elle tournait.
 
 | Projet | Frontend | Backend | DB | Redis | Domain |
 |--------|----------|---------|----|----|--------|
 | **Prod** | Vercel (esportnews.fr) | Railway prod | Supabase (partagée) | **Upstash (partagé)** | `https://www.esportnews.fr` |
-| **Preview R&D** | (pas de frontend dédié) | Railway preview | **Supabase (même qu'en prod)** | **Upstash (même qu'en prod)** | `https://www.blitchapp.online` (custom domain en cours) + `https://app-esportnews-preview-production.up.railway.app` |
+| **Preview R&D (éteinte)** | (pas de frontend dédié) | Railway preview | **Supabase (même qu'en prod)** | **Upstash (même qu'en prod)** | `https://app-esportnews-preview-production.up.railway.app` |
+| **Staging (éteint)** | (pas de frontend dédié) | Railway staging | **Supabase (même qu'en prod)** | **Upstash (même qu'en prod)** | `https://app-esportnews-staging.up.railway.app` |
 
 > **DB et Redis sont partagés entre prod et preview** (`hot-insect-57031.upstash.io`). Toute écriture en base ou toute purge de cache touche la prod immédiatement — vérifié le 2026-08-08.
 
@@ -1162,7 +1165,7 @@ Idempotent (`ON CONFLICT (slug) DO NOTHING`).
 curl -X DELETE -H "Authorization: Bearer <jwt_admin>" https://<domain>/api/admin/games/cache
 
 # Le cache Liquipedia (purge complète) — redis-cli local + variables distantes
-railway run --service app-esportnews-preview sh -c \
+railway run --service app-esportnews sh -c \
   'redis-cli -u "$REDIS_URL" --no-auth-warning KEYS "liq:*" | xargs redis-cli -u "$REDIS_URL" --no-auth-warning DEL'
 ```
 **Attention** : la purge `liq:*` redémarre le warmup au prochain boot (~3.3 min pour 10 wikis).
@@ -1170,14 +1173,14 @@ railway run --service app-esportnews-preview sh -c \
 Utiliser `railway run` (exécute en local avec les variables distantes) et **pas** `railway ssh` : l'image du conteneur n'embarque ni `redis-cli` ni `curl`.
 
 ### Interroger l'API Liquipedia quand notre IP est bannie
-Le poste de dev prend des **429 Cloudflare** sur `api.liquipedia.net` comme sur `liquipedia.net`. Le conteneur Railway, lui, n'est pas bloqué :
+Le poste de dev prend des **429 Cloudflare** sur `api.liquipedia.net` comme sur `liquipedia.net`. On passe donc par le proxy sortant, avec les variables de la prod et des appels espacés (même IP que le poller) :
 ```bash
-railway ssh --service app-esportnews-preview \
-  'wget -qO- --header="Authorization: Apikey $LIQUIPEDIA_API_KEY" \
-   --header="User-Agent: EsportNews/1.0 (contact@esportnews.fr)" \
+railway run --service app-esportnews sh -c \
+  'curl -s -x "$LIQUIPEDIA_HTTP_PROXY" -H "Authorization: Apikey $LIQUIPEDIA_API_KEY" \
+   -H "User-Agent: EsportNews/1.0 (contact@esportnews.fr)" \
    "https://api.liquipedia.net/api/v3/match?wiki=<wiki>&limit=3"'
 ```
-`wget` uniquement (pas de `curl` dans l'image). Indispensable pour trancher « bug chez nous » vs « donnée absente chez Liquipedia » — c'est ce qui a permis d'établir que Smash n'avait aucun match.
+Indispensable pour trancher « bug chez nous » vs « donnée absente chez Liquipedia » — c'est ce qui a permis d'établir que Smash n'avait aucun match.
 
 ### Monitorer le budget API
 ```bash
