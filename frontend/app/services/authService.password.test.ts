@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, authService } from './authService';
+import { ApiError, WrongCurrentPasswordError, authService } from './authService';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -49,10 +49,44 @@ describe('authService.changePassword', () => {
     respondWith(json(401, { message: 'current password is incorrect' }));
     const error = await authService.changePassword('wrong', 'next-pass-123').catch((e) => e);
 
-    expect(error).toBeInstanceOf(ApiError);
-    expect(error.status).toBe(401);
+    expect(error).toBeInstanceOf(WrongCurrentPasswordError);
     expect(calls).toHaveLength(1);
     expect(stored.get('authToken')).toBe('old-access');
+  });
+
+  // Password changed on the phone, tab left open here: the session is what failed.
+  it.each([
+    ['refused', json(401, {}), 401],
+    ['down', json(503, {}), 503],
+  ])('does not blame the password when the renewal is %s', async (_name, refreshResponse, status) => {
+    respondWith(json(401, { message: 'Invalid token' }), refreshResponse);
+    const error = await authService.changePassword('current-pass', 'next-pass-123').catch((e) => e);
+
+    expect(error).not.toBeInstanceOf(WrongCurrentPasswordError);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(status);
+  });
+
+  it('does not blame the password when the session is refused even after renewing', async () => {
+    respondWith(
+      json(401, { message: 'Invalid token' }),
+      json(200, { access_token: 'renewed-access', refresh_token: 'renewed-refresh' }),
+      json(401, { message: 'Invalid token' }),
+    );
+    const error = await authService.changePassword('current-pass', 'next-pass-123').catch((e) => e);
+
+    expect(error).not.toBeInstanceOf(WrongCurrentPasswordError);
+    expect(error.status).toBe(401);
+  });
+
+  it('does blame the password when it is wrong after renewing', async () => {
+    respondWith(
+      json(401, { message: 'Invalid token' }),
+      json(200, { access_token: 'renewed-access', refresh_token: 'renewed-refresh' }),
+      json(401, { message: 'current password is incorrect' }),
+    );
+    const error = await authService.changePassword('wrong', 'next-pass-123').catch((e) => e);
+    expect(error).toBeInstanceOf(WrongCurrentPasswordError);
   });
 
   it('renews an expired access token once, then retries', async () => {

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Lock, Check, X, Eye, EyeOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { ApiError, authService } from '@/app/services/authService';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { ApiError, WrongCurrentPasswordError, authService } from '@/app/services/authService';
 
 interface SecuritySectionProps {
   onUpdate: () => void;
@@ -11,6 +12,7 @@ interface SecuritySectionProps {
 
 export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
   const t = useTranslations();
+  const { logout } = useAuth();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -80,8 +82,14 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
         confirmPassword: '',
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
+      if (error instanceof WrongCurrentPasswordError) {
         setErrors((prev) => ({ ...prev, currentPassword: t('profile.security_section.mot_de_passe_actuel_incorrect') }));
+        return;
+      }
+      // Session finie (mot de passe changé ailleurs, par exemple) : la page profil
+      // renvoie vers la connexion.
+      if (error instanceof ApiError && error.status === 401) {
+        logout();
         return;
       }
       setMessage({ type: 'error', text: t('profile.security_section.erreur_modification') });

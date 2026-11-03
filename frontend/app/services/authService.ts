@@ -16,6 +16,13 @@ export class ApiError extends Error {
   }
 }
 
+export class WrongCurrentPasswordError extends ApiError {
+  constructor() {
+    super('Mot de passe actuel incorrect', 401);
+    this.name = 'WrongCurrentPasswordError';
+  }
+}
+
 const browserStore: TokenStore = {
   get: (key) => (typeof window !== 'undefined' ? localStorage.getItem(key) : null),
   set: (key, value) => {
@@ -143,16 +150,22 @@ class AuthService {
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
 
+    const message401 = async (answer: Response): Promise<string> =>
+      answer.status === 401 ? (await answer.clone().json().catch(() => null))?.message ?? '' : '';
+
     let response = await send();
-    // Le même 401 dit « mauvais mot de passe » ou « access token expiré » : seul le
-    // second se rattrape en renouvelant la session.
-    if (response.status === 401) {
-      const { message } = await response.clone().json().catch(() => ({ message: '' }));
-      if (message === 'Invalid token' && (await this.refreshSession()) === 'renewed') {
-        response = await send();
-      }
+    // Le même 401 dit « mauvais mot de passe » ou « session finie » : seule la
+    // seconde se rattrape, en renouvelant la session.
+    if ((await message401(response)) === 'Invalid token') {
+      const outcome = await this.refreshSession();
+      if (outcome === 'rejected') throw new ApiError('Session terminée', 401);
+      if (outcome !== 'renewed') throw new ApiError('Impossible de renouveler la session', 503);
+      response = await send();
     }
 
+    if ((await message401(response)) === 'current password is incorrect') {
+      throw new WrongCurrentPasswordError();
+    }
     if (!response.ok) {
       throw new ApiError('Impossible de changer le mot de passe', response.status);
     }
