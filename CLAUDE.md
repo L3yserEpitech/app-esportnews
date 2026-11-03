@@ -408,7 +408,7 @@ Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `
 | `POST` | `/api/auth/avatar` | JWT | Upload avatar (URL) — web |
 | `POST` | `/api/auth/avatar/upload` | JWT | Upload avatar (fichier multipart) — mobile |
 | `DELETE` | `/api/auth/avatar` | JWT | Supprimer l'avatar |
-| `POST` | `/api/auth/change-password` | JWT | Changer le mot de passe : met fin à **toutes** les sessions, celle de l'appelant comprise, et renvoie `{message, access_token, refresh_token, user}`. Le client doit garder cette paire (build mobile > 1.1.2 ; les versions d'avant l'ignorent et repassent par la connexion). Redis injoignable = 503, mot de passe inchangé |
+| `POST` | `/api/auth/change-password` | JWT | Changer le mot de passe : met fin à **toutes** les sessions, celle de l'appelant comprise, et renvoie `{message, access_token, refresh_token, user}`. Le client doit garder cette paire (l'app la garde depuis `1238122c` ; les builds d'avant l'ignorent et repassent par la connexion). Le formulaire du site n'appelle pas cette route. Redis injoignable = 503, mot de passe inchangé |
 | `POST` | `/api/auth/logout` | JWT | Logout (révoque le refresh token) |
 | `POST` | `/api/auth/refresh` | – | Renouvelle le JWT |
 | `DELETE` | `/api/auth/account` | JWT | Suppression définitive du compte |
