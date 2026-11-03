@@ -86,8 +86,8 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 
 	response, err := h.authService.Login(ctx, &input)
-	if errors.Is(err, services.ErrSessionStoreUnavailable) {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	if isStoreOutage(err) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Service temporarily unavailable").SetInternal(err)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
@@ -106,8 +106,11 @@ func (h *AuthHandler) GetMe(c echo.Context) error {
 	}
 
 	user, err := h.authService.GetUser(ctx, userID)
-	if err != nil {
+	if errors.Is(err, services.ErrUserNotFound) {
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	if err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Service temporarily unavailable").SetInternal(err)
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -325,9 +328,9 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 	// Deliberately no Authorization check: this route exists to renew a session
 	// whose access token has already expired.
 	resp, err := h.authService.RefreshSession(ctx, req.RefreshToken)
-	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+	if isStoreOutage(err) {
 		// Nothing could be checked: a 401 here would sign the client out.
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Service temporarily unavailable").SetInternal(err)
 	}
 	if err != nil {
 		// The client only learns that the session is over; the reason (expired,
@@ -369,6 +372,12 @@ func (h *AuthHandler) DeleteAccount(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Account deleted successfully"})
+}
+
+// isStoreOutage: Redis or Postgres couldn't answer, so nothing is known about the
+// credentials. Any verdict (401, 404) would be false, and a 401 signs clients out.
+func isStoreOutage(err error) bool {
+	return errors.Is(err, services.ErrSessionStoreUnavailable) || errors.Is(err, services.ErrUserStoreUnavailable)
 }
 
 // Helper functions
@@ -452,8 +461,8 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	}
 
 	response, err := h.authService.ResetPassword(ctx, input.Token, input.Password)
-	if errors.Is(err, services.ErrSessionStoreUnavailable) {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	if isStoreOutage(err) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Service temporarily unavailable").SetInternal(err)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "8 caractères") {

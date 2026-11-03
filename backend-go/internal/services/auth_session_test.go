@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -398,4 +399,63 @@ func TestVerifySignatureAcceptsEndedSessionOnly(t *testing.T) {
 	require.NoError(t, err)
 	_, err = svc.VerifySignature(forged)
 	assert.Error(t, err)
+}
+
+// A Postgres outage says nothing about the session: answering "revoked" would
+// sign the phone out for good, 401 being the only thing it logs out on.
+func TestRefreshSessionReportsUserStoreOutage(t *testing.T) {
+	svc, _, _ := newSessionService(t)
+	ctx := context.Background()
+	session, err := svc.issueSession(&models.User{ID: 7, Email: "user@example.com"})
+	require.NoError(t, err)
+
+	healthy := svc.LookupUser
+	svc.LookupUser = func(context.Context, int64) (*models.User, error) { return nil, errors.New("connection refused") }
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	require.ErrorIs(t, err, ErrUserStoreUnavailable)
+	assert.NotErrorIs(t, err, ErrRefreshTokenRevoked)
+
+	svc.LookupUser = healthy
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	assert.NoError(t, err, "the same token works once Postgres is back")
+}
+
+func TestRefreshSessionReplayReportsUserStoreOutage(t *testing.T) {
+	svc, _, _ := newSessionService(t)
+	ctx := context.Background()
+	session, err := svc.issueSession(&models.User{ID: 7, Email: "user@example.com"})
+	require.NoError(t, err)
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	require.NoError(t, err)
+
+	svc.LookupUser = func(context.Context, int64) (*models.User, error) { return nil, errors.New("connection refused") }
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	assert.ErrorIs(t, err, ErrUserStoreUnavailable)
+}
+
+func TestRefreshSessionLegacyTokenSurvivesUserStoreOutage(t *testing.T) {
+	svc, rc, _ := newSessionService(t)
+	ctx := context.Background()
+	token, _, err := utils.GenerateJWT(7, "user@example.com", false, "test-secret", time.Hour)
+	require.NoError(t, err)
+	require.NoError(t, rc.Set(ctx, cache.LegacyRefreshTokenKey(7), token, time.Hour))
+
+	healthy := svc.LookupUser
+	svc.LookupUser = func(context.Context, int64) (*models.User, error) { return nil, errors.New("connection refused") }
+	_, err = svc.RefreshSession(ctx, token)
+	require.ErrorIs(t, err, ErrUserStoreUnavailable)
+
+	svc.LookupUser = healthy
+	_, err = svc.RefreshSession(ctx, token)
+	assert.NoError(t, err, "the single-use legacy key isn't spent on an outage")
+}
+
+func TestRefreshSessionDeletedAccountIsRevoked(t *testing.T) {
+	svc, _, _ := newSessionService(t)
+	session, err := svc.issueSession(&models.User{ID: 7, Email: "user@example.com"})
+	require.NoError(t, err)
+
+	svc.LookupUser = func(context.Context, int64) (*models.User, error) { return nil, ErrUserNotFound }
+	_, err = svc.RefreshSession(context.Background(), session.RefreshToken)
+	assert.ErrorIs(t, err, ErrRefreshTokenRevoked)
 }

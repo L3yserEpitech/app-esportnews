@@ -123,7 +123,7 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*models
 			Where("email = ?", email).
 			First(&user).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				return nil, fmt.Errorf("user not found")
+				return nil, ErrUserNotFound
 			}
 			return nil, fmt.Errorf("failed to query user: %w", err)
 		}
@@ -138,8 +138,11 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*models
 		email,
 	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &hashedPassword, &user.Avatar, &user.Admin, &user.Age)
 
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("failed to query user: %w", err)
 	}
 
 	// For pgxpool, we need to handle password separately, so store it in the user struct
@@ -251,8 +254,11 @@ func (s *AuthService) Login(ctx context.Context, input *models.LoginInput) (*mod
 
 	// Find user by email (use type-safe method)
 	user, err := s.GetUserByEmail(ctx, email)
-	if err != nil {
+	if errors.Is(err, ErrUserNotFound) {
 		return nil, fmt.Errorf("invalid email or password")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
 	}
 
 	// Verify password
@@ -364,20 +370,34 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	if issuedBeforeRevocation(claims, values[1]) {
 		return nil, fmt.Errorf("%w (user %d)", ErrRefreshTokenRevoked, claims.UserID)
 	}
+
+	var replay *issuedPair
+	legacy := false
 	if values[0] == "" {
-		if resp, ok := s.replayRefresh(ctx, cacheCtx, claims); ok {
-			return resp, nil
-		}
-		if !s.consumeLegacyRefresh(cacheCtx, claims.UserID, refreshToken) {
+		replay = s.replayablePair(cacheCtx, claims)
+		legacy = replay == nil && s.matchesLegacyRefresh(cacheCtx, claims.UserID, refreshToken)
+		if replay == nil && !legacy {
 			return nil, fmt.Errorf("%w (user %d)", ErrRefreshTokenRevoked, claims.UserID)
 		}
 	}
 
 	// Re-read the user so the new token and the response carry current claims
-	// (admin flag, premium status…) rather than a 3-month-old snapshot.
+	// (admin flag, premium status…) rather than a 3-month-old snapshot. Done
+	// before anything is spent: an outage must leave the token usable, and must
+	// not read as a revocation, the one answer that signs a client out.
 	user, err := s.LookupUser(ctx, claims.UserID)
-	if err != nil {
+	if errors.Is(err, ErrUserNotFound) {
 		return nil, fmt.Errorf("%w (user %d not found)", ErrRefreshTokenRevoked, claims.UserID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
+	}
+
+	if replay != nil {
+		return &models.AuthResponse{AccessToken: replay.AccessToken, RefreshToken: replay.RefreshToken, User: user}, nil
+	}
+	if legacy {
+		s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(claims.UserID))
 	}
 
 	resp, err := s.issueSession(user)
@@ -390,43 +410,35 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	return resp, nil
 }
 
-// replayRefresh answers a token consumed less than refreshReplayGrace ago with
-// the pair it was rotated into, as long as that pair is itself still
-// registered — a logout or a password reset in between closes the window.
-func (s *AuthService) replayRefresh(ctx, cacheCtx context.Context, claims *utils.JWTClaims) (*models.AuthResponse, bool) {
+// replayablePair is the pair a token consumed less than refreshReplayGrace ago
+// was rotated into, as long as that pair is itself still registered — a logout
+// or a password reset in between closes the window.
+func (s *AuthService) replayablePair(cacheCtx context.Context, claims *utils.JWTClaims) *issuedPair {
 	raw, err := s.Cache.Get(cacheCtx, cache.RefreshReplayKey(claims.ID))
 	if err != nil {
-		return nil, false
+		return nil
 	}
 	var pair issuedPair
 	if json.Unmarshal([]byte(raw), &pair) != nil {
-		return nil, false
+		return nil
 	}
 	next, err := utils.VerifyJWT(pair.RefreshToken, s.JWTSecret)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 	if live, _ := s.Cache.Exists(cacheCtx, cache.RefreshTokenKey(next.UserID, next.ID)); !live {
-		return nil, false
+		return nil
 	}
-	user, err := s.LookupUser(ctx, claims.UserID)
-	if err != nil {
-		return nil, false
-	}
-	return &models.AuthResponse{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken, User: user}, true
+	return &pair
 }
 
-// consumeLegacyRefresh accepts a token stored whole under the pre-2026-10-28
-// per-user key and retires that key, so sessions opened before per-device
-// tokens migrate on their next refresh instead of being logged out. Remove
-// once every such token has expired (2027-01-26).
-func (s *AuthService) consumeLegacyRefresh(cacheCtx context.Context, userID int64, token string) bool {
+// matchesLegacyRefresh recognises a token stored whole under the pre-2026-10-28
+// per-user key, so sessions opened before per-device tokens migrate on their next
+// refresh instead of being logged out. Remove once every such token has expired
+// (2027-01-26).
+func (s *AuthService) matchesLegacyRefresh(cacheCtx context.Context, userID int64, token string) bool {
 	stored, err := s.Cache.Get(cacheCtx, cache.LegacyRefreshTokenKey(userID))
-	if err != nil || subtle.ConstantTimeCompare([]byte(stored), []byte(token)) != 1 {
-		return false
-	}
-	s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(userID))
-	return true
+	return err == nil && subtle.ConstantTimeCompare([]byte(stored), []byte(token)) == 1
 }
 
 // sha256Hex is used to key reset tokens and throttle entries without ever
@@ -466,11 +478,8 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (t
 	token = base64.RawURLEncoding.EncodeToString(raw)
 	tokenHash := sha256Hex(token)
 
-	// Retire the previous link: a user who asks twice should not end up with
-	// two working tokens.
-	if previous, err := s.Cache.Get(cacheCtx, cache.PasswordResetUserKey(user.ID)); err == nil && previous != "" {
-		s.Cache.Del(cacheCtx, cache.PasswordResetKey(previous))
-	}
+	// A user who asks twice should not end up with two working tokens.
+	s.retirePasswordResetLink(cacheCtx, user.ID)
 
 	if err := s.Cache.Set(cacheCtx, cache.PasswordResetKey(tokenHash), fmt.Sprintf("%d", user.ID), passwordResetTTL); err != nil {
 		return "", nil, fmt.Errorf("failed to store reset token: %w", err)
@@ -491,23 +500,25 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return nil, fmt.Errorf("invalid or expired reset link")
 	}
 
-	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelRead()
 
-	tokenHash := sha256Hex(token)
-	stored, err := s.Cache.Get(cacheCtx, cache.PasswordResetKey(tokenHash))
-	if err != nil || stored == "" {
-		return nil, fmt.Errorf("invalid or expired reset link")
+	tokenKey := cache.PasswordResetKey(sha256Hex(token))
+	values, err := s.Cache.MGet(readCtx, tokenKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
 	}
-
-	userID, err := strconv.ParseInt(stored, 10, 64)
+	userID, err := strconv.ParseInt(values[0], 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired reset link")
 	}
 
 	user, err := s.GetUser(ctx, userID)
-	if err != nil {
+	if errors.Is(err, ErrUserNotFound) {
 		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
 	}
 
 	hashedPassword, err := utils.HashPassword(newPassword)
@@ -515,16 +526,34 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	// The token is spent here, atomically, after all that could fail for reasons
+	// unrelated to it: of several requests carrying it, one alone gets past this.
+	// Its own deadline: bcrypt may have used up the one above under load.
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	claimed, err := s.Cache.GetDel(cacheCtx, tokenKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
+	}
+	if claimed == "" {
+		return nil, fmt.Errorf("invalid or expired reset link")
+	}
+
 	if err := s.updatePassword(ctx, userID, hashedPassword); err != nil {
 		return nil, err
 	}
 
-	// Single use, and every session dies with the password.
-	s.Cache.Del(cacheCtx, cache.PasswordResetKey(tokenHash))
 	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))
 	s.revokeAllSessionsOrLog(ctx, userID)
 
 	return s.issueSession(user)
+}
+
+// retirePasswordResetLink voids the link currently out for this user, if any.
+func (s *AuthService) retirePasswordResetLink(cacheCtx context.Context, userID int64) {
+	if pending, err := s.Cache.Get(cacheCtx, cache.PasswordResetUserKey(userID)); err == nil && pending != "" {
+		s.Cache.Del(cacheCtx, cache.PasswordResetKey(pending), cache.PasswordResetUserKey(userID))
+	}
 }
 
 // updatePassword writes a bcrypt hash for a user, through whichever DB handle
@@ -648,6 +677,13 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}
 
+		// A link sent to the previous address must not outlive it. The clients
+		// resend the address on every save, so this also fires when it's unchanged:
+		// worst case, a pending link has to be requested again.
+		if input.Email != nil {
+			s.retirePasswordResetLinkNow(userID)
+		}
+
 		return user, nil
 	}
 
@@ -667,6 +703,7 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 			}
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}
+		s.retirePasswordResetLinkNow(userID)
 	} else if input.Name != nil {
 		err := s.db.QueryRow(ctx,
 			`UPDATE public.users SET name = $1 WHERE id = $2
@@ -719,8 +756,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 			return nil, fmt.Errorf("failed to update password: %w", err)
 		}
 
-		s.revokeAllSessionsOrLog(ctx, userID)
-		return s.issueSession(&user)
+		return s.closeSessionsAfterPasswordChange(ctx, &user)
 	}
 
 	// Fallback to pgxpool
@@ -759,8 +795,19 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 	if err != nil {
 		return nil, err
 	}
-	s.revokeAllSessionsOrLog(ctx, userID)
+	return s.closeSessionsAfterPasswordChange(ctx, user)
+}
+
+func (s *AuthService) closeSessionsAfterPasswordChange(ctx context.Context, user *models.User) (*models.AuthResponse, error) {
+	s.retirePasswordResetLinkNow(user.ID)
+	s.revokeAllSessionsOrLog(ctx, user.ID)
 	return s.issueSession(user)
+}
+
+func (s *AuthService) retirePasswordResetLinkNow(userID int64) {
+	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	s.retirePasswordResetLink(cacheCtx, userID)
 }
 
 // DeleteAccount permanently deletes a user account after password verification

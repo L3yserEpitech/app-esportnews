@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -481,4 +482,142 @@ func TestChangePasswordOnGORMEndsEverySession(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
 	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, fresh.AccessToken).Code)
+}
+
+func resetRequest(token, password string) map[string]string {
+	return map[string]string{"token": token, "password": password}
+}
+
+// A leaked link must not open several sessions: "single use" has to hold when
+// the requests land together, not only one after the other.
+func TestResetPasswordLinkWorksOnceUnderConcurrency(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset-race@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	token, _, err := authService.RequestPasswordReset(ctx, "reset-race@example.com")
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	const attempts = 6
+	codes := make([]int, attempts)
+	var start, done sync.WaitGroup
+	start.Add(1)
+	for i := 0; i < attempts; i++ {
+		done.Add(1)
+		go func(i int) {
+			defer done.Done()
+			start.Wait()
+			codes[i] = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "AnotherPass456"), "").Code
+		}(i)
+	}
+	start.Done()
+	done.Wait()
+
+	wins := 0
+	for _, code := range codes {
+		if code == http.StatusOK {
+			wins++
+		} else {
+			assert.Equal(t, http.StatusBadRequest, code)
+		}
+	}
+	assert.Equal(t, 1, wins, "codes: %v", codes)
+}
+
+// The victim changed the password or the address because something was wrong:
+// a link sent before that must not outlive it.
+func TestPendingResetLinkDiesWithPasswordChange(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset-change@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "reset-change@example.com", "SecurePass123")
+	token, _, err := authService.RequestPasswordReset(ctx, "reset-change@example.com")
+	require.NoError(t, err)
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("SecurePass123", "AnotherPass456"), session.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "ThirdPass789012"), "")
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+}
+
+func TestPendingResetLinkDiesWithEmailChange(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset-email@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "reset-email@example.com", "SecurePass123")
+	token, _, err := authService.RequestPasswordReset(ctx, "reset-email@example.com")
+	require.NoError(t, err)
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/me", map[string]string{"name": "Test User", "email": "reset-email2@example.com"}, session.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "ThirdPass789012"), "")
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+}
+
+func TestResetPasswordLinkStillWorksWhenUntouched(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset-ok@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	token, _, err := authService.RequestPasswordReset(ctx, "reset-ok@example.com")
+	require.NoError(t, err)
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "short"), "")
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	rec = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "AnotherPass456"), "")
+	require.Equal(t, http.StatusOK, rec.Code, "a rejected password doesn't spend the link: %s", rec.Body.String())
+	loginForTokens(t, e, "reset-ok@example.com", "AnotherPass456")
+
+	rec = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "ThirdPass789012"), "")
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// Postgres down is not "wrong password" nor "no such user": a 401 or a 404 here
+// tells the client something false about the account.
+func TestAuthRoutesAnswer503WhenDatabaseIsDown(t *testing.T) {
+	db := setupTestDB(t)
+	e, authService := newTestAuthServer(t, db)
+	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
+		Name: "Test User", Email: "dbdown@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "dbdown@example.com", "SecurePass123")
+
+	db.Close()
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: "dbdown@example.com", Password: "SecurePass123"}, "")
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	rec = authRequest(e, http.MethodPost, "/api/auth/refresh", map[string]string{"refresh_token": session.RefreshToken}, "")
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	rec = authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+}
+
+func TestLoginUnknownAccountStaysUnauthorized(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, _ := newTestAuthServer(t, db)
+	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: "nobody@example.com", Password: "SecurePass123"}, "")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
 }

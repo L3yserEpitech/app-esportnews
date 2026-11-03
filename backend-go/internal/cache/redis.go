@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -72,6 +73,15 @@ func (rc *RedisCache) MGet(ctx context.Context, keys ...string) ([]string, error
 		}
 	}
 	return values, nil
+}
+
+// GetDel reads and removes a key atomically; a missing key comes back empty.
+func (rc *RedisCache) GetDel(ctx context.Context, key string) (string, error) {
+	value, err := rc.client.GetDel(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	return value, err
 }
 
 // DelPattern deletes every key matching a glob pattern. Uses SCAN so it
