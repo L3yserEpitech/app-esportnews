@@ -14,7 +14,9 @@ export function StructuredData({ data }: StructuredDataProps) {
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(data),
+        // Names come from Liquipedia, a wiki anyone edits: `</script>` in one would
+        // end this tag. \\u003c reads back as `<` for a JSON-LD parser.
+        __html: JSON.stringify(data).replace(/</g, '\\u003c'),
       }}
     />
   );
