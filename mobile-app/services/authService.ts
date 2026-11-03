@@ -192,15 +192,18 @@ class AuthService {
   }
 
   /**
-   * Changement de mot de passe
+   * Changement de mot de passe. Le backend met fin à toutes les sessions, celle-ci
+   * comprise : la paire renvoyée est ce qui garde cet appareil connecté.
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     try {
-      const response = await apiClient.post('/api/auth/change-password', {
+      const { data } = await apiClient.post('/api/auth/change-password', {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      return response.data;
+      if (data?.access_token && data?.refresh_token) {
+        await tokenManager.setTokens(data.access_token, data.refresh_token);
+      }
     } catch (error: any) {
       const message = error.response?.data?.message || error.response?.data?.error || 'Impossible de changer le mot de passe';
       throw new Error(message);
