@@ -363,7 +363,8 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	defer cancel()
 
 	deviceKey := cache.RefreshTokenKey(claims.UserID, claims.ID)
-	values, err := s.Cache.MGet(cacheCtx, deviceKey, cache.SessionsRevokedBeforeKey(claims.UserID))
+	legacyKey := cache.LegacyRefreshTokenKey(claims.UserID)
+	values, err := s.Cache.MGet(cacheCtx, deviceKey, cache.SessionsRevokedBeforeKey(claims.UserID), cache.RefreshReplayKey(claims.ID), legacyKey)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
 	}
@@ -372,10 +373,15 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	}
 
 	var replay *issuedPair
+	// Stored whole under the pre-2026-10-28 per-user key: such sessions migrate on
+	// their next refresh instead of being logged out. Remove once every such token
+	// has expired (2027-01-26).
 	legacy := false
 	if values[0] == "" {
-		replay = s.replayablePair(cacheCtx, claims)
-		legacy = replay == nil && s.matchesLegacyRefresh(cacheCtx, claims.UserID, refreshToken)
+		if replay, err = s.replayablePair(cacheCtx, values[2]); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
+		}
+		legacy = replay == nil && subtle.ConstantTimeCompare([]byte(values[3]), []byte(refreshToken)) == 1
 		if replay == nil && !legacy {
 			return nil, fmt.Errorf("%w (user %d)", ErrRefreshTokenRevoked, claims.UserID)
 		}
@@ -396,13 +402,12 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	if replay != nil {
 		return &models.AuthResponse{AccessToken: replay.AccessToken, RefreshToken: replay.RefreshToken, User: user}, nil
 	}
-	if legacy {
-		s.Cache.Del(cacheCtx, cache.LegacyRefreshTokenKey(claims.UserID))
-	}
-
 	resp, err := s.issueSession(user)
 	if err != nil {
 		return nil, err
+	}
+	if legacy {
+		s.Cache.Del(cacheCtx, legacyKey)
 	}
 	pair, _ := json.Marshal(issuedPair{AccessToken: resp.AccessToken, RefreshToken: resp.RefreshToken})
 	s.Cache.Set(cacheCtx, cache.RefreshReplayKey(claims.ID), pair, refreshReplayGrace)
@@ -410,35 +415,27 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	return resp, nil
 }
 
-// replayablePair is the pair a token consumed less than refreshReplayGrace ago
-// was rotated into, as long as that pair is itself still registered — a logout
-// or a password reset in between closes the window.
-func (s *AuthService) replayablePair(cacheCtx context.Context, claims *utils.JWTClaims) *issuedPair {
-	raw, err := s.Cache.Get(cacheCtx, cache.RefreshReplayKey(claims.ID))
-	if err != nil {
-		return nil
-	}
+// replayablePair is the pair a token consumed less than refreshReplayGrace ago was
+// rotated into (raw is empty past that), as long as that pair is itself still
+// registered — a logout or a password reset in between closes the window. An error
+// is Redis failing, not an answer.
+func (s *AuthService) replayablePair(cacheCtx context.Context, raw string) (*issuedPair, error) {
 	var pair issuedPair
-	if json.Unmarshal([]byte(raw), &pair) != nil {
-		return nil
+	if raw == "" || json.Unmarshal([]byte(raw), &pair) != nil {
+		return nil, nil
 	}
 	next, err := utils.VerifyJWT(pair.RefreshToken, s.JWTSecret)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	if live, _ := s.Cache.Exists(cacheCtx, cache.RefreshTokenKey(next.UserID, next.ID)); !live {
-		return nil
+	live, err := s.Cache.Exists(cacheCtx, cache.RefreshTokenKey(next.UserID, next.ID))
+	if err != nil {
+		return nil, err
 	}
-	return &pair
-}
-
-// matchesLegacyRefresh recognises a token stored whole under the pre-2026-10-28
-// per-user key, so sessions opened before per-device tokens migrate on their next
-// refresh instead of being logged out. Remove once every such token has expired
-// (2027-01-26).
-func (s *AuthService) matchesLegacyRefresh(cacheCtx context.Context, userID int64, token string) bool {
-	stored, err := s.Cache.Get(cacheCtx, cache.LegacyRefreshTokenKey(userID))
-	return err == nil && subtle.ConstantTimeCompare([]byte(stored), []byte(token)) == 1
+	if !live {
+		return nil, nil
+	}
+	return &pair, nil
 }
 
 // sha256Hex is used to key reset tokens and throttle entries without ever
@@ -461,8 +458,13 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (t
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	throttleKey := cache.PasswordResetThrottleKey(sha256Hex(email))
-	if v, err := s.Cache.Get(cacheCtx, throttleKey); err == nil && v != "" {
+	// Claimed first and atomically: requests landing together would otherwise each
+	// mint a link. Taken for unknown addresses too, which answer the same anyway.
+	claimed, err := s.Cache.SetNX(cacheCtx, cache.PasswordResetThrottleKey(sha256Hex(email)), "1", passwordResetThrottle)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to throttle reset request: %w", err)
+	}
+	if !claimed {
 		return "", nil, nil
 	}
 
@@ -485,7 +487,6 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (t
 		return "", nil, fmt.Errorf("failed to store reset token: %w", err)
 	}
 	s.Cache.Set(cacheCtx, cache.PasswordResetUserKey(user.ID), tokenHash, passwordResetTTL)
-	s.Cache.Set(cacheCtx, throttleKey, "1", passwordResetThrottle)
 
 	return token, user, nil
 }
@@ -531,6 +532,9 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	// Its own deadline: bcrypt may have used up the one above under load.
 	cacheCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
+	}
 	claimed, err := s.Cache.GetDel(cacheCtx, tokenKey)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrSessionStoreUnavailable, err)
@@ -540,7 +544,9 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	}
 
 	if err := s.updatePassword(ctx, userID, hashedPassword); err != nil {
-		return nil, err
+		// The password didn't move: the link is still owed to its owner.
+		s.Cache.Set(cacheCtx, tokenKey, claimed, passwordResetTTL)
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
 	}
 
 	s.Cache.Del(cacheCtx, cache.PasswordResetUserKey(userID))

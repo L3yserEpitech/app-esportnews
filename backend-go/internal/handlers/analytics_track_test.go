@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -53,6 +54,23 @@ func TestTrackPageViewStoresNoSecretAndNoForeignIdentity(t *testing.T) {
 	assert.Nil(t, row.UserID, "a public route can't attribute a view to someone by taking their word for it")
 	assert.LessOrEqual(t, len(row.UserAgent), 512)
 	assert.True(t, strings.ToValidUTF8(row.UserAgent, "") == row.UserAgent, "cut on a rune boundary")
+
+	// Echo also decodes XML: the field must not be reachable at all.
+	require.NoError(t, db.Exec(`DELETE FROM page_views WHERE visitor_id = ?`, visitor).Error)
+	xml := httptest.NewRequest(http.MethodPost, "/api/analytics/track", strings.NewReader(
+		`<TrackPageViewInput><VisitorID>`+visitor+`</VisitorID><UserID>42</UserID><Path>/xml</Path></TrackPageViewInput>`))
+	xml.Header.Set(echo.HeaderContentType, echo.MIMEApplicationXML)
+	xmlRec := httptest.NewRecorder()
+	e.ServeHTTP(xmlRec, xml)
+	if xmlRec.Code == http.StatusCreated {
+		var spoofed models.PageView
+		require.NoError(t, db.Where("visitor_id = ?", visitor).First(&spoofed).Error)
+		assert.Nil(t, spoofed.UserID)
+	}
+
+	// Postgres refuses NUL in text: not a reason for a 500.
+	rec = authRequest(e, http.MethodPost, "/api/analytics/track", map[string]any{"visitor_id": visitor, "path": "/a\x00b", "user_agent": "x\x00y"}, "")
+	assert.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 
 	rec = authRequest(e, http.MethodPost, "/api/analytics/track", map[string]any{"visitor_id": "not-a-uuid", "path": "/"}, "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())

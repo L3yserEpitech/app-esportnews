@@ -621,3 +621,68 @@ func TestLoginUnknownAccountStaysUnauthorized(t *testing.T) {
 	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: "nobody@example.com", Password: "SecurePass123"}, "")
 	assert.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
 }
+
+// Requests landing together must not each get past the throttle with a link of
+// their own: one would survive a reset made with another.
+func TestForgotPasswordMintsOneLinkUnderConcurrency(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	_, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "forgot-race@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+
+	const attempts = 8
+	tokens := make([]string, attempts)
+	var start, done sync.WaitGroup
+	start.Add(1)
+	for i := 0; i < attempts; i++ {
+		done.Add(1)
+		go func(i int) {
+			defer done.Done()
+			start.Wait()
+			tokens[i], _, _ = authService.RequestPasswordReset(ctx, "forgot-race@example.com")
+		}(i)
+	}
+	start.Done()
+	done.Wait()
+
+	minted := 0
+	for _, token := range tokens {
+		if token != "" {
+			minted++
+		}
+	}
+	assert.Equal(t, 1, minted)
+}
+
+// An outage isn't the link's fault: the user is told to retry, and the same link works.
+func TestResetPasswordOutageKeepsTheLink(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "reset-outage@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	token, _, err := authService.RequestPasswordReset(ctx, "reset-outage@example.com")
+	require.NoError(t, err)
+
+	_, err = db.Exec(ctx, `
+		CREATE OR REPLACE FUNCTION refuse_update() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'down'; END $$ LANGUAGE plpgsql;
+		CREATE TRIGGER refuse_update BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION refuse_update();`)
+	require.NoError(t, err)
+	drop := func() { db.Exec(ctx, `DROP TRIGGER IF EXISTS refuse_update ON public.users`) }
+	defer drop()
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "AnotherPass456"), "")
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	loginForTokens(t, e, "reset-outage@example.com", "SecurePass123")
+
+	drop()
+	rec = authRequest(e, http.MethodPost, "/api/auth/reset-password", resetRequest(token, "AnotherPass456"), "")
+	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+}

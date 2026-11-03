@@ -84,6 +84,11 @@ func (rc *RedisCache) GetDel(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
+// SetNX stores a key only if it doesn't exist, and reports whether it did the storing.
+func (rc *RedisCache) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
+	return rc.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 // DelPattern deletes every key matching a glob pattern. Uses SCAN so it
 // stays cheap on large keyspaces (KEYS would block the server). Errors
 // from individual DELs are swallowed — invalidation is best-effort and a

@@ -44,7 +44,10 @@ func TestBodyLimit(t *testing.T) {
 	assert.Equal(t, http.StatusRequestEntityTooLarge, post("/api/webhooks/stripe", io.MultiReader(bytes.NewReader(make([]byte, big)))))
 	assert.LessOrEqual(t, read, int64(publicBodyLimitBytes+32*1024))
 
-	// Both authenticate before reading a byte, and legitimately carry files.
+	// Authenticates before reading a byte, and legitimately carries files.
 	assert.Equal(t, http.StatusOK, post("/api/admin/articles", bytes.NewReader(make([]byte, big))))
+
+	// Any free account can reach this one: above what an avatar may weigh, no read.
 	assert.Equal(t, http.StatusOK, post("/api/auth/avatar/upload", bytes.NewReader(make([]byte, big))))
+	assert.Equal(t, http.StatusRequestEntityTooLarge, post("/api/auth/avatar/upload", bytes.NewReader(make([]byte, 12<<20))))
 }

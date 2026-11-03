@@ -9,6 +9,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -458,4 +459,57 @@ func TestRefreshSessionDeletedAccountIsRevoked(t *testing.T) {
 	svc.LookupUser = func(context.Context, int64) (*models.User, error) { return nil, ErrUserNotFound }
 	_, err = svc.RefreshSession(context.Background(), session.RefreshToken)
 	assert.ErrorIs(t, err, ErrRefreshTokenRevoked)
+}
+
+// failCommand makes the next `times` calls to one Redis command fail.
+type failCommand struct {
+	name  string
+	times int
+}
+
+func (f *failCommand) DialHook(next redis.DialHook) redis.DialHook { return next }
+func (f *failCommand) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return next
+}
+func (f *failCommand) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		if cmd.Name() == f.name && f.times > 0 {
+			f.times--
+			return errors.New("i/o timeout")
+		}
+		return next(ctx, cmd)
+	}
+}
+
+// Redis failing halfway through must not read as a revocation either.
+func TestRefreshSessionReplayCheckReportsStoreOutage(t *testing.T) {
+	svc, rc, _ := newSessionService(t)
+	ctx := context.Background()
+	session, err := svc.issueSession(&models.User{ID: 7, Email: "user@example.com"})
+	require.NoError(t, err)
+	rotated, err := svc.RefreshSession(ctx, session.RefreshToken)
+	require.NoError(t, err)
+
+	rc.GetClient().AddHook(&failCommand{name: "exists", times: 1})
+	_, err = svc.RefreshSession(ctx, session.RefreshToken)
+	require.ErrorIs(t, err, ErrSessionStoreUnavailable)
+
+	again, err := svc.RefreshSession(ctx, session.RefreshToken)
+	require.NoError(t, err)
+	assert.Equal(t, rotated.RefreshToken, again.RefreshToken)
+}
+
+func TestRefreshKeepsTheLegacyTokenWhenTheNewPairCannotBeRecorded(t *testing.T) {
+	svc, rc, _ := newSessionService(t)
+	ctx := context.Background()
+	token, _, err := utils.GenerateJWT(7, "user@example.com", false, "test-secret", time.Hour)
+	require.NoError(t, err)
+	require.NoError(t, rc.Set(ctx, cache.LegacyRefreshTokenKey(7), token, time.Hour))
+
+	rc.GetClient().AddHook(&failCommand{name: "set", times: 1})
+	_, err = svc.RefreshSession(ctx, token)
+	require.ErrorIs(t, err, ErrSessionStoreUnavailable)
+
+	_, err = svc.RefreshSession(ctx, token)
+	assert.NoError(t, err)
 }

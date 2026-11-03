@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/esportnews/backend/internal/cache"
@@ -59,8 +60,13 @@ const (
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
 var errProxyUnavailable = errors.New("image upstream unavailable")
 
-// errImageMissing is an answer from upstream, not an outage: worth remembering.
-var errImageMissing = errors.New("image not found upstream")
+// errImageMissing: upstream says the file doesn't exist. Worth remembering, unlike
+// errUpstreamRefused (5xx, 403, an HTML challenge page), which says nothing about
+// the file. Both count towards the pause: to its edge, both look like the same flood.
+var (
+	errImageMissing    = errors.New("image not found upstream")
+	errUpstreamRefused = errors.New("upstream refused the image")
+)
 
 // allowedHosts restricts which domains can be proxied (security).
 var allowedHosts = map[string]bool{
@@ -204,8 +210,10 @@ func (h *ImageProxyHandler) servePlaceholder(c echo.Context) error {
 //     404 en masse and look like scraping.
 //   - /commons/Special:FilePath/... — a MediaWiki PHP redirect (not a static file).
 //
-// Dot segments would reach those same pages past the prefix check, and any query
-// but the wiki hint would give one file endless cache keys, hence endless fetches.
+// Dot segments would reach those same pages past the prefix check. Any query but
+// the wiki hint, an escaped letter or a host in capitals would give one file many
+// cache keys, hence many fetches. The key stays the raw URL: normalising it would
+// orphan every image already in Redis and R2.
 func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	if !strings.HasPrefix(rawURL, "https://") || strings.ContainsAny(rawURL, "#\\") {
 		return "", false
@@ -215,8 +223,7 @@ func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	if slashIdx < 0 {
 		return "", false
 	}
-	host := strings.ToLower(hostPart[:slashIdx])
-	if !allowedHosts[host] {
+	if !allowedHosts[hostPart[:slashIdx]] {
 		return "", false
 	}
 	path, query, hasQuery := strings.Cut(hostPart[slashIdx:], "?")
@@ -232,7 +239,14 @@ func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(rawURL))), true
 }
 
+// needlessEscape matches an escaped letter, digit or -._~, which no encoder writes,
+// and an escape in lowercase hex, which ours don't (url.PathEscape, MediaWiki).
+var needlessEscape = regexp.MustCompile(`%(?:[46][1-9A-Fa-f]|[57][0-9Aa]|3[0-9]|2[DEde]|5[Ff]|7[Ee])|%[0-9A-Fa-f]?[a-f]`)
+
 func plainPathSegments(path string) bool {
+	if needlessEscape.MatchString(path) {
+		return false
+	}
 	for _, segment := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
 		decoded, err := url.PathUnescape(segment)
 		if err != nil || decoded == "" || decoded == "." || decoded == ".." || strings.ContainsAny(decoded, "/\\") {
@@ -437,8 +451,11 @@ func (h *ImageProxyHandler) noteUpstreamMiss() {
 	if now-start >= int64(upstreamMissWindow/time.Second) && h.missWindowStart.CompareAndSwap(start, now) {
 		h.missWindowCount.Store(0)
 	}
-	if h.missWindowCount.Add(1) >= upstreamMissLimit {
+	if count := h.missWindowCount.Add(1); count >= upstreamMissLimit {
 		h.throttledUntil.Store(time.Now().Add(throttleBackoff).Unix())
+		if count == upstreamMissLimit {
+			logrus.Warnf("[IMAGE] %d images refused or missing upstream in %s, no fetch for %s", count, upstreamMissWindow, throttleBackoff)
+		}
 	}
 }
 
@@ -516,6 +533,9 @@ func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKe
 	if errors.Is(err, errImageMissing) {
 		h.rememberMiss(cacheKey)
 	}
+	if errors.Is(err, errImageMissing) || errors.Is(err, errUpstreamRefused) {
+		h.noteUpstreamMiss()
+	}
 	return img, err
 }
 
@@ -525,7 +545,7 @@ func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey stri
 		if time.Now().Unix() < ts {
 			return nil, errProxyUnavailable
 		}
-		h.throttledUntil.Store(0)
+		h.throttledUntil.CompareAndSwap(ts, 0)
 	}
 
 	select {
@@ -566,15 +586,16 @@ func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey stri
 		h.throttledUntil.Store(time.Now().Add(throttleBackoff).Unix())
 		return nil, errProxyUnavailable
 	}
-	if resp.StatusCode != http.StatusOK {
-		h.noteUpstreamMiss()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 		return nil, errImageMissing
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errUpstreamRefused
 	}
 
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "image/") {
-		h.noteUpstreamMiss()
-		return nil, errImageMissing
+		return nil, errUpstreamRefused
 	}
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, proxyMaxBytes))

@@ -43,21 +43,22 @@ func withoutQuery(value string) string {
 	return value
 }
 
-func truncateUTF8(value string, maxBytes int) string {
-	if len(value) <= maxBytes {
-		return value
+// storableText: bounded, and free of what Postgres refuses in a text column.
+func storableText(value string, maxBytes int) string {
+	value = strings.ReplaceAll(value, "\x00", "")
+	if len(value) > maxBytes {
+		value = value[:maxBytes]
 	}
-	return strings.ToValidUTF8(value[:maxBytes], "")
+	return strings.ToValidUTF8(value, "")
 }
 
 // RecordPageView enregistre une nouvelle page view en base de données
 func (s *AnalyticsService) RecordPageView(ctx context.Context, input models.TrackPageViewInput) error {
 	pageView := models.PageView{
 		VisitorID: input.VisitorID,
-		UserID:    input.UserID,
-		Path:      truncateUTF8(withoutQuery(input.Path), pageViewPathMaxBytes),
-		Referer:   truncateUTF8(withoutQuery(input.Referer), pageViewPathMaxBytes),
-		UserAgent: truncateUTF8(input.UserAgent, pageViewUserAgentMaxBytes),
+		Path:      storableText(withoutQuery(input.Path), pageViewPathMaxBytes),
+		Referer:   storableText(withoutQuery(input.Referer), pageViewPathMaxBytes),
+		UserAgent: storableText(input.UserAgent, pageViewUserAgentMaxBytes),
 		CreatedAt: time.Now(),
 	}
 

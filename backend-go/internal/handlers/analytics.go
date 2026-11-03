@@ -51,11 +51,6 @@ func (h *AnalyticsHandler) TrackPageView(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "visitor_id and path are required")
 	}
 
-	// Récupérer le user_id depuis le contexte si l'utilisateur est connecté
-	if userID, ok := c.Get("user_id").(int64); ok {
-		input.UserID = &userID
-	}
-
 	// Récupérer le User-Agent depuis les headers
 	if input.UserAgent == "" {
 		input.UserAgent = c.Request().UserAgent()

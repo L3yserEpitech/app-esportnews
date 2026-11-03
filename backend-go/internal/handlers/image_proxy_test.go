@@ -61,6 +61,11 @@ func TestValidateImageURL(t *testing.T) {
 		{"encoded slash", "https://liquipedia.net/commons/images/..%2F..%2Fcounterstrike/Main_Page", false},
 		{"backslash", "https://liquipedia.net/commons/images/..\\..\\x.png", false},
 		{"lone dot segment", "https://liquipedia.net/commons/images/./a.png", false},
+		// Same file under another spelling: another key, another fetch.
+		{"escaped letter", "https://liquipedia.net/commons/images/a/ab/%4Cogo.png", false},
+		{"escaped dot", "https://liquipedia.net/commons/images/a/ab/Logo%2Epng", false},
+		{"lowercase escape", "https://liquipedia.net/commons/images/a/ab/Team_%c3%a9.png", false},
+		{"uppercase host", "https://LIQUIPEDIA.net/commons/images/a/ab/Logo.png", false},
 		{"every game wiki hint", "https://liquipedia.net/commons/images/a/ab/Logo.png?w=counterstrike", true},
 		{"encoded file name", "https://liquipedia.net/commons/images/a/ab/Team_%28old%29_%C3%A9.png", true},
 		{"dots inside a file name", "https://liquipedia.net/commons/images/a/ab/T1..lightmode.png", true},
@@ -212,5 +217,70 @@ func TestRedirectsStayOnLiquipediaMedia(t *testing.T) {
 		if err := check(target); err == nil {
 			t.Fatalf("redirect to %s followed", target)
 		}
+	}
+}
+
+// A maintenance window or a Cloudflare block says nothing about the file.
+func TestPassingUpstreamFailureIsNotRememberedAsMissing(t *testing.T) {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusServiceUnavailable, http.StatusForbidden} {
+		h, stub := newStubbedProxy(status)
+		const raw = "https://liquipedia.net/commons/images/a/ab/Logo.png"
+		key, _ := validateImageURL(raw)
+		if _, err := h.fetchAndStore(t.Context(), raw, key); err == nil {
+			t.Fatalf("%d: expected an error", status)
+		}
+		if h.recentlyMissed(key) {
+			t.Fatalf("%d remembered as a missing file", status)
+		}
+		stub.status = http.StatusOK
+		if _, err := h.fetchAndStore(t.Context(), raw, key); err != nil {
+			t.Fatalf("%d: not asked again once upstream is back: %v", status, err)
+		}
+	}
+}
+
+func TestAnHtmlAnswerIsNotRememberedAsMissing(t *testing.T) {
+	h := NewImageProxyHandler(nil, nil)
+	h.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/html"}}, Body: io.NopCloser(strings.NewReader("<html>"))}, nil
+	})
+	const raw = "https://liquipedia.net/commons/images/a/ab/Logo.png"
+	key, _ := validateImageURL(raw)
+	if _, err := h.fetchAndStore(t.Context(), raw, key); err == nil {
+		t.Fatal("expected an error")
+	}
+	if h.recentlyMissed(key) {
+		t.Fatal("a challenge page remembered as a missing file")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// Thumb then original is two calls for one missing logo.
+func TestMissingThumbCountsOnceTowardsThePause(t *testing.T) {
+	h, stub := newStubbedProxy(http.StatusNotFound)
+	const raw = "https://liquipedia.net/commons/images/thumb/a/ab/L.png/48px-L.png"
+	key, _ := validateImageURL(raw)
+	if _, err := h.fetchAndStore(t.Context(), raw, key); err == nil {
+		t.Fatal("expected an error")
+	}
+	if got := stub.calls.Load(); got != 2 {
+		t.Fatalf("upstream called %d times, want 2", got)
+	}
+	if got := h.missWindowCount.Load(); got != 1 {
+		t.Fatalf("counted %d misses, want 1", got)
+	}
+}
+
+func TestExpiredPauseDoesNotEraseANewerOne(t *testing.T) {
+	h, _ := newStubbedProxy(http.StatusOK)
+	h.throttledUntil.Store(time.Now().Add(-time.Second).Unix())
+	if _, err := h.fetchOnce(t.Context(), "https://liquipedia.net/commons/images/a/ab/L.png", "k"); err != nil {
+		t.Fatalf("expired pause still applied: %v", err)
+	}
+	if h.throttledUntil.Load() != 0 {
+		t.Fatal("expired pause not cleared")
 	}
 }

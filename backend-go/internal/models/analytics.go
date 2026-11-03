@@ -23,7 +23,6 @@ func (PageView) TableName() string {
 // TrackPageViewInput is the input for recording a page view
 type TrackPageViewInput struct {
 	VisitorID string `json:"visitor_id" validate:"required,uuid"`
-	UserID    *int64 `json:"-"` // public route: the body can't speak for a user
 	Path      string `json:"path" validate:"required"`
 	Referer   string `json:"referer,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
