@@ -22,19 +22,31 @@ import (
 
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/imagecache"
+	"github.com/esportnews/backend/internal/models"
 	"github.com/esportnews/backend/internal/services"
 )
 
 const (
-	proxyUserAgent     = "EsportNews/1.0 (contact@esportnews.fr)"
-	proxyMaxBytes      = 5 * 1024 * 1024 // 5 MB max
-	proxyCacheSecs     = 604800          // 7 days browser cache — logos rarely change
-	proxyTimeout       = 10 * time.Second
-	maxConcurrentProxy = 3                      // gentle: parallel full-size bursts get the egress IP 429-blocked for image files too
-	memoryCacheMaxSize = 500                    // max images to keep in memory cache
-	throttleBackoff    = 60 * time.Second       // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
-	fetchInterval      = 500 * time.Millisecond // per-fetch pacing — concurrency cap alone still tripped the per-IP throttle (bans du 2026-07-05/07) ; L1/L2/R2 rendent les fetches upstream rares
-	semaphoreWait      = 15 * time.Second       // max time to wait for semaphore before returning placeholder
+	proxyUserAgent      = "EsportNews/1.0 (contact@esportnews.fr)"
+	proxyMaxBytes       = 5 * 1024 * 1024 // 5 MB max
+	proxyCacheSecs      = 604800          // 7 days browser cache — logos rarely change
+	proxyTimeout        = 10 * time.Second
+	maxConcurrentProxy  = 3                      // gentle: parallel full-size bursts get the egress IP 429-blocked for image files too
+	memoryCacheMaxBytes = 64 << 20               // L1 budget: an evicted image is one Redis read away
+	throttleBackoff     = 60 * time.Second       // backoff when upstream returns 429 (their edge DOES throttle images under bursts)
+	fetchInterval       = 500 * time.Millisecond // per-fetch pacing — concurrency cap alone still tripped the per-IP throttle (bans du 2026-07-05/07) ; L1/L2/R2 rendent les fetches upstream rares
+	semaphoreWait       = 15 * time.Second       // max time to wait for semaphore before returning placeholder
+	prewarmMaxURLs      = 400                    // what the web client collects per payload (collectLiquipediaUrls)
+	prewarmMaxInFlight  = 16
+
+	// A file Liquipedia doesn't have is asked for once an hour at most. Names
+	// nobody has asked for yet escape that memory, so past this many misses per
+	// window upstream is left alone for throttleBackoff: unknown names in bulk
+	// is what its edge reads as scraping. Half the paced capacity (fetchInterval).
+	missMemory         = time.Hour
+	missMemoryMaxItems = 10000
+	upstreamMissLimit  = 60
+	upstreamMissWindow = time.Minute
 
 	// Cessez-le-feu levé 2026-07-16 : la cause du ban était le fallback
 	// Special:FilePath (redirect PHP MediaWiki), retiré ci-dessous — pas le thumb
@@ -46,6 +58,9 @@ const (
 
 // errProxyUnavailable signals the caller (GET handler) to serve the placeholder.
 var errProxyUnavailable = errors.New("image upstream unavailable")
+
+// errImageMissing is an answer from upstream, not an outage: worth remembering.
+var errImageMissing = errors.New("image not found upstream")
 
 // allowedHosts restricts which domains can be proxied (security).
 var allowedHosts = map[string]bool{
@@ -68,15 +83,22 @@ type cachedImage struct {
 //	GET  /api/proxy/image?url=https://liquipedia.net/commons/...
 //	POST /api/proxy/prewarm   { "urls": [ ... ] }   — parallel cache warm-up
 type ImageProxyHandler struct {
-	semaphore      chan struct{}
-	cache          sync.Map          // url hash → *cachedImage (L1)
-	redisCache     *cache.RedisCache // L2 (optional)
-	throttledUntil atomic.Int64      // unix timestamp — if set, all fetches are paused
-	lastFetch      atomic.Int64      // unix nanos of last upstream fetch (rate pacing)
-	fetchMu        sync.Mutex        // serializes upstream fetches for pacing
-	httpClient     *http.Client      // shared client with IPv6-preferred dialer
-	fetchGroup     singleflight.Group
-	storage        *services.StorageService // L3: R2, permanent — survives Redis TTL + Liquipedia blocks
+	semaphore       chan struct{}
+	cache           sync.Map          // url hash → *cachedImage (L1)
+	redisCache      *cache.RedisCache // L2 (optional)
+	throttledUntil  atomic.Int64      // unix timestamp — if set, all fetches are paused
+	lastFetch       atomic.Int64      // unix nanos of last upstream fetch (rate pacing)
+	fetchMu         sync.Mutex        // serializes upstream fetches for pacing
+	httpClient      *http.Client      // shared client with IPv6-preferred dialer
+	fetchGroup      singleflight.Group
+	storage         *services.StorageService // L3: R2, permanent — survives Redis TTL + Liquipedia blocks
+	l1Bytes         atomic.Int64             // total image bytes held in cache
+	r2Backfilled    sync.Map                 // url hash → struct{}: L3 already written since boot
+	misses          sync.Map                 // url hash → unix expiry: upstream has no such file
+	missEntries     atomic.Int64             // size of misses
+	missWindowStart atomic.Int64             // unix start of the current miss-counting window
+	missWindowCount atomic.Int64             // upstream misses in that window
+	prewarmSlots    chan struct{}            // upstream-bound prewarm goroutines, all requests together
 }
 
 func NewImageProxyHandler(redisCache *cache.RedisCache, storage *services.StorageService) *ImageProxyHandler {
@@ -102,12 +124,14 @@ func NewImageProxyHandler(redisCache *cache.RedisCache, storage *services.Storag
 	}
 
 	return &ImageProxyHandler{
-		semaphore:  make(chan struct{}, maxConcurrentProxy),
-		redisCache: redisCache,
-		storage:    storage,
+		semaphore:    make(chan struct{}, maxConcurrentProxy),
+		prewarmSlots: make(chan struct{}, prewarmMaxInFlight),
+		redisCache:   redisCache,
+		storage:      storage,
 		httpClient: &http.Client{
-			Timeout:   proxyTimeout,
-			Transport: transport,
+			Timeout:       proxyTimeout,
+			Transport:     transport,
+			CheckRedirect: followImageRedirect,
 		},
 	}
 }
@@ -179,8 +203,11 @@ func (h *ImageProxyHandler) servePlaceholder(c echo.Context) error {
 //     tournament.url hyperlinks the frontend accidentally sent to /prewarm; they
 //     404 en masse and look like scraping.
 //   - /commons/Special:FilePath/... — a MediaWiki PHP redirect (not a static file).
+//
+// Dot segments would reach those same pages past the prefix check, and any query
+// but the wiki hint would give one file endless cache keys, hence endless fetches.
 func validateImageURL(rawURL string) (cacheKey string, ok bool) {
-	if !strings.HasPrefix(rawURL, "https://") {
+	if !strings.HasPrefix(rawURL, "https://") || strings.ContainsAny(rawURL, "#\\") {
 		return "", false
 	}
 	hostPart := strings.TrimPrefix(rawURL, "https://")
@@ -192,10 +219,39 @@ func validateImageURL(rawURL string) (cacheKey string, ok bool) {
 	if !allowedHosts[host] {
 		return "", false
 	}
-	if !strings.HasPrefix(hostPart[slashIdx:], "/commons/images/") {
+	path, query, hasQuery := strings.Cut(hostPart[slashIdx:], "?")
+	if !strings.HasPrefix(path, "/commons/images/") || !plainPathSegments(path) {
 		return "", false
 	}
+	if hasQuery {
+		wiki, isHint := strings.CutPrefix(query, "w=")
+		if _, known := models.WikiToAcronym[wiki]; !isHint || !known {
+			return "", false
+		}
+	}
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(rawURL))), true
+}
+
+func plainPathSegments(path string) bool {
+	for _, segment := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
+		decoded, err := url.PathUnescape(segment)
+		if err != nil || decoded == "" || decoded == "." || decoded == ".." || strings.ContainsAny(decoded, "/\\") {
+			return false
+		}
+	}
+	return true
+}
+
+// followImageRedirect holds a redirect to what a request would have to satisfy
+// in the first place: otherwise upstream decides where our egress IP goes.
+func followImageRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 3 {
+		return errProxyUnavailable
+	}
+	if _, ok := validateImageURL(req.URL.String()); !ok {
+		return errProxyUnavailable
+	}
+	return nil
 }
 
 func (h *ImageProxyHandler) ProxyImage(c echo.Context) error {
@@ -218,14 +274,17 @@ func (h *ImageProxyHandler) ProxyImage(c echo.Context) error {
 
 	// L2 (Redis, shared + persistent)
 	if img := h.redisGet(ctx, cacheKey); img != nil {
-		h.cache.Store(cacheKey, img) // promote to L1
-		h.r2Store(cacheKey, img)     // backfill L3 (once per image per boot — idempotent)
+		h.l1Store(cacheKey, img) // promote to L1
+		// Backfill L3 once per image per boot: L1 evictions bring images back here.
+		if _, done := h.r2Backfilled.LoadOrStore(cacheKey, struct{}{}); !done {
+			h.r2Store(cacheKey, img)
+		}
 		return h.serveImage(c, img, "HIT-L2")
 	}
 
 	// L3 (R2, permanent — immune to Liquipedia throttling)
 	if img := h.r2Get(ctx, cacheKey); img != nil {
-		h.cache.Store(cacheKey, img)
+		h.l1Store(cacheKey, img)
 		h.redisStore(ctx, cacheKey, img)
 		return h.serveImage(c, img, "HIT-R2")
 	}
@@ -252,40 +311,39 @@ func (h *ImageProxyHandler) Prewarm(c echo.Context) error {
 	ctx := c.Request().Context()
 	var warmed, cached, failed int32
 	var wg sync.WaitGroup
-	seen := make(map[string]bool, len(body.URLs))
 
-	for _, u := range body.URLs {
-		cacheKey, ok := validateImageURL(u)
-		if !ok || seen[cacheKey] {
-			continue
-		}
-		seen[cacheKey] = true
-
-		if h.l1Get(cacheKey) != nil {
+	for _, item := range prewarmBatch(body.URLs) {
+		if h.l1Get(item.key) != nil {
 			cached++
 			continue
 		}
-		if img := h.redisGet(ctx, cacheKey); img != nil {
-			h.cache.Store(cacheKey, img)
+		if img := h.redisGet(ctx, item.key); img != nil {
+			h.l1Store(item.key, img)
 			cached++
 			continue
 		}
-		if img := h.r2Get(ctx, cacheKey); img != nil {
-			h.cache.Store(cacheKey, img)
-			h.redisStore(ctx, cacheKey, img)
+		if img := h.r2Get(ctx, item.key); img != nil {
+			h.l1Store(item.key, img)
+			h.redisStore(ctx, item.key, img)
 			cached++
 			continue
 		}
 
+		select {
+		case h.prewarmSlots <- struct{}{}:
+		case <-ctx.Done():
+			continue
+		}
 		wg.Add(1)
 		go func(url, key string) {
 			defer wg.Done()
+			defer func() { <-h.prewarmSlots }()
 			if _, err := h.fetchAndStore(ctx, url, key); err != nil {
 				atomic.AddInt32(&failed, 1)
 			} else {
 				atomic.AddInt32(&warmed, 1)
 			}
-		}(u, cacheKey)
+		}(item.url, item.key)
 	}
 
 	wg.Wait()
@@ -294,6 +352,25 @@ func (h *ImageProxyHandler) Prewarm(c echo.Context) error {
 		"cached": int(cached),
 		"failed": int(failed),
 	})
+}
+
+type prewarmItem struct{ url, key string }
+
+func prewarmBatch(urls []string) []prewarmItem {
+	seen := make(map[string]bool)
+	var batch []prewarmItem
+	for _, u := range urls {
+		if len(batch) == prewarmMaxURLs {
+			break
+		}
+		key, ok := validateImageURL(u)
+		if !ok || seen[key] {
+			continue
+		}
+		seen[key] = true
+		batch = append(batch, prewarmItem{url: u, key: key})
+	}
+	return batch
 }
 
 func (h *ImageProxyHandler) serveImage(c echo.Context, img *cachedImage, xcache string) error {
@@ -312,10 +389,57 @@ func (h *ImageProxyHandler) l1Get(cacheKey string) *cachedImage {
 	}
 	img := cached.(*cachedImage)
 	if time.Since(img.cachedAt) >= 7*24*time.Hour {
-		h.cache.Delete(cacheKey)
+		h.l1Evict(cacheKey)
 		return nil
 	}
 	return img
+}
+
+// l1Store keeps L1 within memoryCacheMaxBytes, evicting whatever Range yields
+// first: anything evicted is still in Redis and R2.
+func (h *ImageProxyHandler) l1Store(cacheKey string, img *cachedImage) {
+	if previous, loaded := h.cache.Swap(cacheKey, img); loaded {
+		h.l1Bytes.Add(-int64(len(previous.(*cachedImage).data)))
+	}
+	if h.l1Bytes.Add(int64(len(img.data))) <= memoryCacheMaxBytes {
+		return
+	}
+	h.cache.Range(func(key, _ any) bool {
+		if key != cacheKey {
+			h.l1Evict(key.(string))
+		}
+		return h.l1Bytes.Load() > memoryCacheMaxBytes
+	})
+}
+
+func (h *ImageProxyHandler) l1Evict(cacheKey string) {
+	if evicted, loaded := h.cache.LoadAndDelete(cacheKey); loaded {
+		h.l1Bytes.Add(-int64(len(evicted.(*cachedImage).data)))
+	}
+}
+
+func (h *ImageProxyHandler) rememberMiss(cacheKey string) {
+	if h.missEntries.Add(1) > missMemoryMaxItems {
+		h.misses.Clear()
+		h.missEntries.Store(1)
+	}
+	h.misses.Store(cacheKey, time.Now().Add(missMemory).Unix())
+}
+
+func (h *ImageProxyHandler) recentlyMissed(cacheKey string) bool {
+	expiry, ok := h.misses.Load(cacheKey)
+	return ok && time.Now().Unix() < expiry.(int64)
+}
+
+func (h *ImageProxyHandler) noteUpstreamMiss() {
+	now := time.Now().Unix()
+	start := h.missWindowStart.Load()
+	if now-start >= int64(upstreamMissWindow/time.Second) && h.missWindowStart.CompareAndSwap(start, now) {
+		h.missWindowCount.Store(0)
+	}
+	if h.missWindowCount.Add(1) >= upstreamMissLimit {
+		h.throttledUntil.Store(time.Now().Add(throttleBackoff).Unix())
+	}
 }
 
 func (h *ImageProxyHandler) redisGet(ctx context.Context, cacheKey string) *cachedImage {
@@ -349,7 +473,7 @@ func (h *ImageProxyHandler) redisStore(ctx context.Context, cacheKey string, img
 // populates both cache tiers. The shared fetch runs on a detached context so
 // one caller aborting doesn't fail the others.
 func (h *ImageProxyHandler) fetchAndStore(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
-	if imageUpstreamDisabled {
+	if imageUpstreamDisabled || h.recentlyMissed(cacheKey) {
 		return nil, errProxyUnavailable
 	}
 
@@ -386,14 +510,13 @@ func (h *ImageProxyHandler) doFetchAndStore(ctx context.Context, rawURL, cacheKe
 	}
 
 	img, err := h.fetchOnce(ctx, fetchURL, cacheKey)
-	if err == nil {
-		return img, nil
+	if m := thumbRe.FindStringSubmatch(fetchURL); err != nil && m != nil {
+		img, err = h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey)
 	}
-	m := thumbRe.FindStringSubmatch(fetchURL)
-	if m == nil {
-		return nil, err
+	if errors.Is(err, errImageMissing) {
+		h.rememberMiss(cacheKey)
 	}
-	return h.fetchOnce(ctx, m[1]+"/images/"+m[2], cacheKey)
+	return img, err
 }
 
 func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey string) (*cachedImage, error) {
@@ -444,12 +567,14 @@ func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey stri
 		return nil, errProxyUnavailable
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errProxyUnavailable
+		h.noteUpstreamMiss()
+		return nil, errImageMissing
 	}
 
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "image/") {
-		return nil, errProxyUnavailable
+		h.noteUpstreamMiss()
+		return nil, errImageMissing
 	}
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, proxyMaxBytes))
@@ -458,7 +583,7 @@ func (h *ImageProxyHandler) fetchOnce(ctx context.Context, rawURL, cacheKey stri
 	}
 
 	img := &cachedImage{contentType: ct, data: data, cachedAt: time.Now()}
-	h.cache.Store(cacheKey, img)     // L1
+	h.l1Store(cacheKey, img)         // L1
 	h.redisStore(ctx, cacheKey, img) // L2 (best-effort)
 	h.r2Store(cacheKey, img)         // L3 (async, permanent)
 	return img, nil
