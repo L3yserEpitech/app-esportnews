@@ -125,6 +125,7 @@ func main() {
 
 	// Rate limiting middleware
 	e.Use(mw.RateLimitMiddleware(redisClient))
+	e.Use(mw.BodyLimit())
 
 	// Health check
 	e.GET("/health", func(c echo.Context) error {
