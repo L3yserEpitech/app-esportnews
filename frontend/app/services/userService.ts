@@ -5,7 +5,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:40
 export interface UpdateProfileData {
   name?: string;
   email?: string;
-  password?: string;
   avatar?: string;
 }
 

@@ -299,6 +299,8 @@
       "confirmer_mot_de_passe": "Passwort bestätigen",
       "mots_de_passe_ne_correspondent": "Passwörter stimmen nicht überein",
       "mot_de_passe_modifie": "Passwort erfolgreich geändert",
+      "mot_de_passe_actuel_incorrect": "Das aktuelle Passwort ist falsch",
+      "erreur_modification": "Das Passwort kann gerade nicht geändert werden, bitte versuche es gleich noch einmal",
       "modifier_mot_de_passe": "Passwort ändern",
       "enregistrement": "Speichern...",
       "info_securite": "Verwenden Sie ein eindeutiges Passwort mit mindestens 8 Zeichen, das Groß- und Kleinbuchstaben, Zahlen und Sonderzeichen kombiniert."

@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { Lock, Check, X, Eye, EyeOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { authService } from '@/app/services/authService';
-import { userService } from '@/app/services/userService';
+import { ApiError, authService } from '@/app/services/authService';
 
 interface SecuritySectionProps {
   onUpdate: () => void;
@@ -68,14 +67,7 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
       setIsLoading(true);
       setMessage(null);
 
-      const token = authService.getToken();
-      if (!token) {
-        throw new Error('Non authentifié');
-      }
-
-      await userService.updateProfile(token, {
-        password: formData.newPassword,
-      });
+      await authService.changePassword(formData.currentPassword, formData.newPassword);
 
       onUpdate();
 
@@ -88,8 +80,11 @@ export default function SecuritySection({ onUpdate }: SecuritySectionProps) {
         confirmPassword: '',
       });
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erreur lors de la mise à jour' });
+      if (error instanceof ApiError && error.status === 401) {
+        setErrors((prev) => ({ ...prev, currentPassword: t('profile.security_section.mot_de_passe_actuel_incorrect') }));
+        return;
+      }
+      setMessage({ type: 'error', text: t('profile.security_section.erreur_modification') });
     } finally {
       setIsLoading(false);
     }

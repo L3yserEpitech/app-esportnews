@@ -297,6 +297,8 @@
       "confirmer_mot_de_passe": "Confirmar contraseña",
       "mots_de_passe_ne_correspondent": "Las contraseñas no coinciden",
       "mot_de_passe_modifie": "Contraseña cambiada correctamente",
+      "mot_de_passe_actuel_incorrect": "La contraseña actual es incorrecta",
+      "erreur_modification": "No se puede cambiar la contraseña en este momento, inténtalo de nuevo en unos instantes",
       "modifier_mot_de_passe": "Cambiar contraseña",
       "enregistrement": "Guardando...",
       "info_securite": "Usa una contraseña única de al menos 8 caracteres que combine mayúsculas, minúsculas, números y caracteres especiales."

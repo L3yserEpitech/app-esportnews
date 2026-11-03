@@ -297,6 +297,8 @@
       "confirmer_mot_de_passe": "Confirm password",
       "mots_de_passe_ne_correspondent": "Passwords do not match",
       "mot_de_passe_modifie": "Password changed successfully",
+      "mot_de_passe_actuel_incorrect": "The current password is incorrect",
+      "erreur_modification": "The password can't be changed right now, please try again shortly",
       "modifier_mot_de_passe": "Change password",
       "enregistrement": "Saving...",
       "info_securite": "Use a unique password of at least 8 characters combining uppercase, lowercase, numbers and special characters."

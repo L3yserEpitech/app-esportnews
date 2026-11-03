@@ -111,6 +111,9 @@ class AuthService {
       body: JSON.stringify(data),
     });
 
+    if (response.status >= 500) {
+      throw new Error('Service momentanément indisponible, réessayez dans un instant');
+    }
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || 'Email ou mot de passe incorrect');
@@ -123,6 +126,39 @@ class AuthService {
       refreshToken: result.refresh_token,
       user: result.user,
     };
+  }
+
+  /**
+   * Changement de mot de passe. Le backend met fin à toutes les sessions, celle-ci
+   * comprise : la paire renvoyée est ce qui garde ce navigateur connecté.
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const send = () =>
+      fetch(`${API_BASE_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getToken()}`,
+        },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+
+    let response = await send();
+    // Le même 401 dit « mauvais mot de passe » ou « access token expiré » : seul le
+    // second se rattrape en renouvelant la session.
+    if (response.status === 401) {
+      const { message } = await response.clone().json().catch(() => ({ message: '' }));
+      if (message === 'Invalid token' && (await this.refreshSession()) === 'renewed') {
+        response = await send();
+      }
+    }
+
+    if (!response.ok) {
+      throw new ApiError('Impossible de changer le mot de passe', response.status);
+    }
+
+    const result: AuthResponse = await response.json();
+    this.setTokens(result.access_token, result.refresh_token);
   }
 
   /**
