@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
@@ -54,6 +55,10 @@ var (
 	// read the failure as "session over".
 	ErrSessionStoreUnavailable = errors.New("session store unavailable")
 	ErrSessionRevoked          = errors.New("session revoked")
+	ErrUserNotFound            = errors.New("user not found")
+	// The role couldn't be read: neither a green light nor a verdict.
+	ErrUserStoreUnavailable = errors.New("user store unavailable")
+	ErrAdminRequired        = errors.New("admin access required")
 )
 
 // ErrEmailAlreadyRegistered is returned when signup hits the users.email UNIQUE constraint.
@@ -76,9 +81,9 @@ type AuthService struct {
 	gormDB    *database.Database // For GORM queries
 	Cache     *cache.RedisCache  // Exported for handler access
 	JWTSecret string             // Exported for handler access
-	// lookupUser is GetUser, swapped by tests so the session paths run
+	// LookupUser is GetUser, swapped by tests so the session paths run
 	// without Postgres.
-	lookupUser func(ctx context.Context, userID int64) (*models.User, error)
+	LookupUser func(ctx context.Context, userID int64) (*models.User, error)
 }
 
 // issuedPair is what a consumed refresh token can be replayed into.
@@ -94,7 +99,7 @@ func NewAuthService(db *pgxpool.Pool, redisCache *cache.RedisCache, jwtSecret st
 		Cache:     redisCache,
 		JWTSecret: jwtSecret,
 	}
-	s.lookupUser = s.GetUser
+	s.LookupUser = s.GetUser
 	return s
 }
 
@@ -105,7 +110,7 @@ func NewAuthServiceWithGORM(gormDB *database.Database, redisCache *cache.RedisCa
 		Cache:     redisCache,
 		JWTSecret: jwtSecret,
 	}
-	s.lookupUser = s.GetUser
+	s.LookupUser = s.GetUser
 	return s
 }
 
@@ -288,6 +293,26 @@ func (s *AuthService) VerifyTokenStrict(tokenString string) (*utils.JWTClaims, e
 	return claims, nil
 }
 
+// VerifyAdminToken takes the role from the database, never from the token: the
+// claim is a snapshot up to 7 days old, which would keep a demoted admin in.
+func (s *AuthService) VerifyAdminToken(ctx context.Context, tokenString string) (*models.User, error) {
+	claims, err := s.VerifyTokenStrict(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.LookupUser(ctx, claims.UserID)
+	if errors.Is(err, ErrUserNotFound) {
+		return nil, ErrSessionRevoked
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)
+	}
+	if !user.Admin {
+		return nil, ErrAdminRequired
+	}
+	return user, nil
+}
+
 // VerifySignature ignores the session. Only for acts that a token whose session
 // just ended may still do on its own account: the app retires its push token
 // alongside the logout, and either request can arrive first.
@@ -350,7 +375,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 
 	// Re-read the user so the new token and the response carry current claims
 	// (admin flag, premium status…) rather than a 3-month-old snapshot.
-	user, err := s.lookupUser(ctx, claims.UserID)
+	user, err := s.LookupUser(ctx, claims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("%w (user %d not found)", ErrRefreshTokenRevoked, claims.UserID)
 	}
@@ -384,7 +409,7 @@ func (s *AuthService) replayRefresh(ctx, cacheCtx context.Context, claims *utils
 	if live, _ := s.Cache.Exists(cacheCtx, cache.RefreshTokenKey(next.UserID, next.ID)); !live {
 		return nil, false
 	}
-	user, err := s.lookupUser(ctx, claims.UserID)
+	user, err := s.LookupUser(ctx, claims.UserID)
 	if err != nil {
 		return nil, false
 	}
@@ -567,7 +592,7 @@ func (s *AuthService) GetUser(ctx context.Context, userID int64) (*models.User, 
 			Where("id = ?", userID).
 			First(&user).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				return nil, fmt.Errorf("user not found")
+				return nil, ErrUserNotFound
 			}
 			return nil, fmt.Errorf("failed to query user: %w", err)
 		}
@@ -581,8 +606,11 @@ func (s *AuthService) GetUser(ctx context.Context, userID int64) (*models.User, 
 		userID,
 	).Scan(&user.ID, &user.CreatedAt, &user.Name, &user.Email, &user.Avatar, &user.Admin, &user.Age)
 
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("failed to query user: %w", err)
 	}
 
 	return &user, nil
@@ -654,11 +682,12 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, input *mo
 	return &user, nil
 }
 
-// ChangePassword updates user password after verifying current password
-func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *models.ChangePasswordInput) error {
+// ChangePassword ends every session, a thief's included, and hands the caller
+// a new pair so this device carries on.
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *models.ChangePasswordInput) (*models.AuthResponse, error) {
 	// Validate new password strength (must match signup minimum)
 	if len(input.NewPassword) < 8 {
-		return fmt.Errorf("new password must be at least 8 characters")
+		return nil, fmt.Errorf("new password must be at least 8 characters")
 	}
 
 	// Use GORM if available
@@ -666,20 +695,20 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 		var user models.User
 		if err := s.gormDB.WithContext(ctx).First(&user, userID).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				return fmt.Errorf("user not found")
+				return nil, ErrUserNotFound
 			}
-			return fmt.Errorf("failed to query user: %w", err)
+			return nil, fmt.Errorf("failed to query user: %w", err)
 		}
 
 		// Verify current password
 		if err := utils.VerifyPassword(user.Password, input.CurrentPassword); err != nil {
-			return fmt.Errorf("current password is incorrect")
+			return nil, fmt.Errorf("current password is incorrect")
 		}
 
 		// Hash new password
 		hashedPassword, err := utils.HashPassword(input.NewPassword)
 		if err != nil {
-			return fmt.Errorf("failed to hash password: %w", err)
+			return nil, fmt.Errorf("failed to hash password: %w", err)
 		}
 
 		// Update password
@@ -687,10 +716,11 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 			Model(&models.User{}).
 			Where("id = ?", userID).
 			Update("password", hashedPassword).Error; err != nil {
-			return fmt.Errorf("failed to update password: %w", err)
+			return nil, fmt.Errorf("failed to update password: %w", err)
 		}
 
-		return nil
+		s.revokeAllSessionsOrLog(ctx, userID)
+		return s.issueSession(&user)
 	}
 
 	// Fallback to pgxpool
@@ -701,18 +731,18 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 	).Scan(&currentHashedPassword)
 
 	if err != nil {
-		return fmt.Errorf("user not found")
+		return nil, ErrUserNotFound
 	}
 
 	// Verify current password
 	if err := utils.VerifyPassword(currentHashedPassword, input.CurrentPassword); err != nil {
-		return fmt.Errorf("current password is incorrect")
+		return nil, fmt.Errorf("current password is incorrect")
 	}
 
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(input.NewPassword)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	// Update password
@@ -722,10 +752,15 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, input *m
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
+		return nil, fmt.Errorf("failed to update password: %w", err)
 	}
 
-	return nil
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.revokeAllSessionsOrLog(ctx, userID)
+	return s.issueSession(user)
 }
 
 // DeleteAccount permanently deletes a user account after password verification

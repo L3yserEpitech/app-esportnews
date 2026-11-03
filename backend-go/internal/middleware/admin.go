@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -27,26 +29,26 @@ func RequireAdmin(authService *services.AuthService) echo.MiddlewareFunc {
 
 			tokenString := auth[7:] // Remove "Bearer " prefix
 
-			// Verify token and get claims
 			// Strict: a route this sensitive doesn't run on the signature alone
 			// when Redis is down.
-			claims, err := authService.VerifyTokenStrict(tokenString)
-			if errors.Is(err, services.ErrSessionStoreUnavailable) {
+			ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
+			defer cancel()
+			user, err := authService.VerifyAdminToken(ctx, tokenString)
+			switch {
+			case errors.Is(err, services.ErrSessionStoreUnavailable):
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable")
-			}
-			if err != nil {
+			case errors.Is(err, services.ErrUserStoreUnavailable):
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "User store unavailable").SetInternal(err)
+			case errors.Is(err, services.ErrAdminRequired):
+				return echo.NewHTTPError(http.StatusForbidden, "Admin access required")
+			case err != nil:
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 			}
 
-			// Check if user is admin
-			if !claims.Admin {
-				return echo.NewHTTPError(http.StatusForbidden, "Admin access required")
-			}
-
 			// Store user info in context for handlers to use
-			c.Set("user_id", claims.UserID)
-			c.Set("user_email", claims.Email)
-			c.Set("is_admin", claims.Admin)
+			c.Set("user_id", user.ID)
+			c.Set("user_email", user.Email)
+			c.Set("is_admin", user.Admin)
 
 			return next(c)
 		}

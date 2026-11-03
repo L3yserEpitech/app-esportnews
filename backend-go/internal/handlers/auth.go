@@ -254,7 +254,12 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	userID, err := h.extractUserID(c)
+	// Strict: with Redis down the other sessions couldn't be ended, so the
+	// password doesn't move either.
+	claims, err := h.authService.VerifyTokenStrict(extractToken(c))
+	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 	}
@@ -267,15 +272,21 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 		return err
 	}
 
-	// Change password via service
-	if err := h.authService.ChangePassword(ctx, userID, &input); err != nil {
+	session, err := h.authService.ChangePassword(ctx, claims.UserID, &input)
+	if errors.Is(err, services.ErrSessionStoreUnavailable) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Session store unavailable").SetInternal(err)
+	}
+	if err != nil {
 		if err.Error() == "current password is incorrect" {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Password changed successfully"})
+	return c.JSON(http.StatusOK, struct {
+		Message string `json:"message"`
+		*models.AuthResponse
+	}{"Password changed successfully", session})
 }
 
 func (h *AuthHandler) Logout(c echo.Context) error {

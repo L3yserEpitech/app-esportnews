@@ -23,7 +23,7 @@ func newSessionService(t *testing.T) (*AuthService, *cache.RedisCache, *miniredi
 	mr := miniredis.RunT(t)
 	rc := cache.NewRedisClient("redis://" + mr.Addr())
 	svc := NewAuthService(nil, rc, "test-secret")
-	svc.lookupUser = func(_ context.Context, userID int64) (*models.User, error) {
+	svc.LookupUser = func(_ context.Context, userID int64) (*models.User, error) {
 		return &models.User{ID: userID, Email: "user@example.com"}, nil
 	}
 	return svc, rc, mr
@@ -354,8 +354,8 @@ func TestRefreshKeepsTheTokenWhenTheNewPairCannotBeRecorded(t *testing.T) {
 	session, err := svc.issueSession(&models.User{ID: 7, Email: "user@example.com"})
 	require.NoError(t, err)
 
-	stub := svc.lookupUser
-	svc.lookupUser = func(ctx context.Context, userID int64) (*models.User, error) {
+	stub := svc.LookupUser
+	svc.LookupUser = func(ctx context.Context, userID int64) (*models.User, error) {
 		mr.SetError("LOADING")
 		return stub(ctx, userID)
 	}
@@ -363,7 +363,7 @@ func TestRefreshKeepsTheTokenWhenTheNewPairCannotBeRecorded(t *testing.T) {
 	assert.ErrorIs(t, err, ErrSessionStoreUnavailable)
 
 	mr.SetError("")
-	svc.lookupUser = stub
+	svc.LookupUser = stub
 	_, err = svc.RefreshSession(ctx, session.RefreshToken)
 	assert.NoError(t, err, "the token that could not be rotated still works")
 }

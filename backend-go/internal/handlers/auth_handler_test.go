@@ -337,3 +337,148 @@ func TestLoginAnswers503WhenSessionStoreIsDown(t *testing.T) {
 	rec := authRequest(e, http.MethodPost, "/api/auth/login", models.LoginInput{Email: "outage@example.com", Password: "SecurePass123"}, "")
 	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
 }
+
+func changePasswordRequest(current, next string) models.ChangePasswordInput {
+	return models.ChangePasswordInput{CurrentPassword: current, NewPassword: next}
+}
+
+// The stolen session is the point: it must not survive the change, while the
+// device that made it carries on with the pair it gets back.
+func TestChangePasswordEndsEverySessionAndHandsBackANewOne(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "change@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	phone := loginForTokens(t, e, "change@example.com", "SecurePass123")
+	stolen := loginForTokens(t, e, "change@example.com", "SecurePass123")
+
+	time.Sleep(2 * time.Millisecond)
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("SecurePass123", "AnotherPass456"), phone.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var fresh models.AuthResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &fresh))
+	require.NotEmpty(t, fresh.AccessToken)
+	require.NotEmpty(t, fresh.RefreshToken)
+	assert.Contains(t, rec.Body.String(), `"message"`, "the published app reads no more than this")
+
+	for _, old := range []models.AuthResponse{phone, stolen} {
+		assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, old.AccessToken).Code)
+		_, err = authService.RefreshSession(ctx, old.RefreshToken)
+		assert.Error(t, err)
+	}
+
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, fresh.AccessToken).Code)
+	_, err = authService.RefreshSession(ctx, fresh.RefreshToken)
+	assert.NoError(t, err)
+
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodPost, "/api/auth/login",
+		models.LoginInput{Email: "change@example.com", Password: "SecurePass123"}, "").Code)
+	loginForTokens(t, e, "change@example.com", "AnotherPass456")
+}
+
+// A token whose refresh was consumed just before the change must not replay
+// its way back in.
+func TestChangePasswordClosesTheRefreshReplayWindow(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "replay@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "replay@example.com", "SecurePass123")
+	rotated, err := authService.RefreshSession(ctx, session.RefreshToken)
+	require.NoError(t, err)
+
+	time.Sleep(2 * time.Millisecond)
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("SecurePass123", "AnotherPass456"), rotated.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	_, err = authService.RefreshSession(ctx, session.RefreshToken)
+	assert.Error(t, err)
+	_, err = authService.RefreshSession(ctx, rotated.RefreshToken)
+	assert.Error(t, err)
+}
+
+func TestChangePasswordWrongCurrentKeepsTheSession(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	e, authService := newTestAuthServer(t, db)
+	_, err := authService.Signup(context.Background(), &models.CreateUserInput{
+		Name: "Test User", Email: "wrongcurrent@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "wrongcurrent@example.com", "SecurePass123")
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("nope-nope-nope", "AnotherPass456"), session.AccessToken)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
+	loginForTokens(t, e, "wrongcurrent@example.com", "SecurePass123")
+}
+
+// With Redis down the sessions couldn't be ended: the password must not move.
+func TestChangePasswordRefusedWhenSessionStoreIsDown(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	mr := miniredis.RunT(t)
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	authService := services.NewAuthService(db, cache.NewRedisClient("redis://"+mr.Addr()), "test-secret")
+	e := echo.New()
+	e.Validator = utils.NewEchoValidator()
+	NewAuthHandler(authService, nil, nil, "", logger).RegisterRoutes(e.Group("/api"))
+	ctx := context.Background()
+	_, err := authService.Signup(ctx, &models.CreateUserInput{
+		Name: "Test User", Email: "storedown@example.com", Password: "SecurePass123",
+	})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, "storedown@example.com", "SecurePass123")
+	mr.Close()
+
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("SecurePass123", "AnotherPass456"), session.AccessToken)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+
+	var hash string
+	require.NoError(t, db.QueryRow(ctx, `SELECT password FROM public.users WHERE email = $1`, "storedown@example.com").Scan(&hash))
+	assert.NoError(t, utils.VerifyPassword(hash, "SecurePass123"))
+}
+
+// Production builds the service on GORM, the other tests go through pgx.
+func TestChangePasswordOnGORMEndsEverySession(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.User{}))
+	const email = "change-gorm@example.com"
+	require.NoError(t, db.Exec(`DELETE FROM users WHERE email = ?`, email).Error)
+	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE email = ?`, email) })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	authService := services.NewAuthServiceWithGORM(&database.Database{DB: db}, testCache(t), "test-secret")
+	e := echo.New()
+	e.Validator = utils.NewEchoValidator()
+	NewAuthHandler(authService, nil, nil, "", logger).RegisterRoutes(e.Group("/api"))
+
+	ctx := context.Background()
+	_, err = authService.Signup(ctx, &models.CreateUserInput{Name: "Test User", Email: email, Password: "SecurePass123"})
+	require.NoError(t, err)
+	session := loginForTokens(t, e, email, "SecurePass123")
+
+	time.Sleep(2 * time.Millisecond)
+	rec := authRequest(e, http.MethodPost, "/api/auth/change-password", changePasswordRequest("SecurePass123", "AnotherPass456"), session.AccessToken)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var fresh models.AuthResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &fresh))
+
+	assert.Equal(t, http.StatusUnauthorized, authRequest(e, http.MethodGet, "/api/auth/me", nil, session.AccessToken).Code)
+	assert.Equal(t, http.StatusOK, authRequest(e, http.MethodGet, "/api/auth/me", nil, fresh.AccessToken).Code)
+}
