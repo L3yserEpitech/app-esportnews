@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { analyticsService } from '@/lib/analyticsService';
+import { withoutQuery } from '@/app/lib/pageViewUrl';
+
+export function trackedPageView(pathname: string, referrer: string) {
+  return { path: pathname, referer: withoutQuery(referrer) || undefined };
+}
 
 /**
  * PageViewTracker
@@ -11,7 +16,6 @@ import { analyticsService } from '@/lib/analyticsService';
  */
 export function PageViewTracker() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Ne pas tracker en mode développement (optionnel)
@@ -30,27 +34,19 @@ export function PageViewTracker() {
           return;
         }
 
-        // Construire le path complet avec query params
-        const fullPath = searchParams.toString() 
-          ? `${pathname}?${searchParams.toString()}`
-          : pathname;
-
         // Envoyer le tracking
         await analyticsService.trackPageView({
           visitor_id: visitorId,
-          path: fullPath,
-          referer: document.referrer || undefined,
+          ...trackedPageView(pathname, document.referrer),
           user_agent: navigator.userAgent,
         });
-
-        // console.log('[Analytics] Page view tracked:', fullPath);
       } catch (error) {
         console.error('[Analytics] Failed to track page view:', error);
       }
     };
 
     trackView();
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   // Ce composant ne rend rien
   return null;

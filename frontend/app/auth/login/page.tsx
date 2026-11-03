@@ -7,10 +7,13 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import DynamicLogo from '@/app/components/common/DynamicLogo';
+import { useHydrated } from '@/app/hooks/useHydrated';
 
 export default function LoginPage() {
   const router = useRouter();
   const t = useTranslations();
+  // Avant l'hydratation, le formulaire partirait en envoi natif, sans handleSubmit.
+  const hydrated = useHydrated();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -168,7 +171,7 @@ export default function LoginPage() {
               <p className="text-text-secondary">{t('pages.login.acces_compte')}</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} method="post" className="space-y-5">
               {errors.general && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 animate-fade-in">
                   <p className="text-red-600 text-sm">{errors.general}</p>
@@ -246,7 +249,7 @@ export default function LoginPage() {
               {/* Bouton de soumission */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !hydrated}
                 className="w-full bg-gradient-to-r from-[#F22E62] to-pink-400 text-white font-semibold py-4 px-4 rounded-xl hover:from-[#F22E62]/90 hover:to-pink-400/90 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 focus:ring-offset-2 focus:ring-offset-bg-secondary transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#F22E62]/20 group mt-6"
               >
                 {isLoading ? (

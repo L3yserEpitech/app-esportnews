@@ -6,9 +6,12 @@ import { useTranslations } from 'next-intl';
 import { Mail, ArrowRight, ArrowLeft, MailCheck } from 'lucide-react';
 import DynamicLogo from '@/app/components/common/DynamicLogo';
 import { authService } from '@/app/services/authService';
+import { useHydrated } from '@/app/hooks/useHydrated';
 
 export default function ForgotPasswordPage() {
   const t = useTranslations();
+  // Avant l'hydratation, le formulaire partirait en envoi natif, sans handleSubmit.
+  const hydrated = useHydrated();
 
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -78,7 +81,7 @@ export default function ForgotPasswordPage() {
                 <p className="text-text-secondary">{t('pages.forgot_password.subtitle')}</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 {error && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
                     <p className="text-red-600 text-sm">{error}</p>
@@ -114,7 +117,7 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !hydrated}
                   className="w-full bg-gradient-to-r from-[#F22E62] to-pink-400 text-white font-semibold py-4 px-4 rounded-xl hover:from-[#F22E62]/90 hover:to-pink-400/90 focus:outline-none focus:ring-2 focus:ring-[#F22E62]/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#F22E62]/20 group mt-2"
                 >
                   {isLoading ? (
