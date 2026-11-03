@@ -47,12 +47,8 @@ func (h *AnalyticsHandler) TrackPageView(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
 
-	// Validation basique
-	if input.VisitorID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "visitor_id is required")
-	}
-	if input.Path == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "path is required")
+	if err := c.Validate(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "visitor_id and path are required")
 	}
 
 	// Récupérer le user_id depuis le contexte si l'utilisateur est connecté

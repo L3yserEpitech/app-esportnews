@@ -28,14 +28,36 @@ func NewAnalyticsService(gormDB *database.Database, redis *cache.RedisCache) *An
 	}
 }
 
+const (
+	pageViewPathMaxBytes      = 1024
+	pageViewUserAgentMaxBytes = 512
+)
+
+// withoutQuery: a query can hold a password (form sent before hydration) or a
+// reset token, and this table keeps them forever. Clients on an old bundle still
+// send it, so stripping it in the tracker isn't enough.
+func withoutQuery(value string) string {
+	if i := strings.IndexAny(value, "?#"); i >= 0 {
+		return value[:i]
+	}
+	return value
+}
+
+func truncateUTF8(value string, maxBytes int) string {
+	if len(value) <= maxBytes {
+		return value
+	}
+	return strings.ToValidUTF8(value[:maxBytes], "")
+}
+
 // RecordPageView enregistre une nouvelle page view en base de données
 func (s *AnalyticsService) RecordPageView(ctx context.Context, input models.TrackPageViewInput) error {
 	pageView := models.PageView{
 		VisitorID: input.VisitorID,
 		UserID:    input.UserID,
-		Path:      input.Path,
-		Referer:   input.Referer,
-		UserAgent: input.UserAgent,
+		Path:      truncateUTF8(withoutQuery(input.Path), pageViewPathMaxBytes),
+		Referer:   truncateUTF8(withoutQuery(input.Referer), pageViewPathMaxBytes),
+		UserAgent: truncateUTF8(input.UserAgent, pageViewUserAgentMaxBytes),
 		CreatedAt: time.Now(),
 	}
 
