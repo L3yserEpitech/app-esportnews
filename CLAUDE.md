@@ -427,9 +427,9 @@ Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `
 ### Articles (`articles.go`)
 | Méthode | Route | Auth | Description |
 |---------|-------|------|-------------|
-| `GET` | `/api/articles` | – | Liste paginée (`category`, `excludeNews`, `limit`, `offset`, `author=<nom>,<alias>,…` — comparaison casse/espaces insensible, accents conservés, header `X-Total-Count`) |
+| `GET` | `/api/articles` | – | Liste paginée (`category`, `excludeNews`, `limit`, `offset`, `author=<nom>,<alias>,…` — comparaison casse/espaces insensible, accents conservés, `game_id=<games.id>` — mal formé (`abc`, `0`, négatif) = 400, id inconnu = 200 avec liste vide, valeur vide = pas de filtre, header `X-Total-Count`) |
 | `GET` | `/api/articles/search` | – | Full-text search |
-| `GET` | `/api/count-articles` | – | Compte total (pour pagination) |
+| `GET` | `/api/count-articles` | – | Compte total (pour pagination), mêmes filtres que `/api/articles`, `game_id` compris |
 | `GET` | `/api/articles/:slug` | – | Article par slug |
 | `GET` | `/api/articles/:slug/similar` | – | Articles similaires (tags) |
 | `POST` | `/api/articles/:slug/view` | – | Incrémente le compteur de vues |
@@ -563,7 +563,7 @@ Champs clés : `id`, `email` (unique), `password` (jamais exposé), `avatar`, `a
 #### `Article` — `articles`
 Champs : `id`, `slug` (unique), `tags` (`text[]`), `title`, `views`, `author`, `content` (markdown ?), `article_content` (HTML brut moderne), `category`, `subtitle`, `description`, `content_black`/`content_white` (variants thème), `featuredImage`, `videoUrl`, `videoType`, `credit`, `seo_title` (NULL = titre éditorial), `game_id` (FK nullable vers `games.id`, `ON DELETE SET NULL`, NULL = aucun jeu).
 
-> `game_id` : choisi dans l'admin (dropdown « Jeu », option « Aucun jeu ») à la création et à la modification. En `PUT`, la valeur `0` détache le jeu (stockée NULL) : un pointeur Go ne distingue pas un JSON `null` d'un champ absent. Un id inconnu de la table `games` rend **400**. Exposé tel quel (`game_id`) dans toutes les réponses articles, sans objet `game` imbriqué : la liste des jeux est statique et déjà en cache côté front (`GameContext`).
+> `game_id` : choisi dans l'admin (dropdown « Jeu », option « Aucun jeu ») à la création et à la modification. En `PUT`, la valeur `0` détache le jeu (stockée NULL) : un pointeur Go ne distingue pas un JSON `null` d'un champ absent. Un id inconnu de la table `games` rend **400**. Exposé tel quel (`game_id`) dans toutes les réponses articles, sans objet `game` imbriqué : la liste des jeux est statique et déjà en cache côté front (`GameContext`). La page `/news` filtre dessus via `GameSelector` sur desktop et `MobileGameSelector` sur mobile (sélection partagée et persistée de `GameContext`) : un article à `game_id` NULL n'apparaît que sans jeu sélectionné, et une sélection absente de `games` est ignorée par la page. Sans sélection enregistrée, `/news` n'attend pas `/api/games` ; une sélection enregistrée attend sa validation par cette liste. La recherche ⌘K reste sur toutes les actus.
 
 #### `Ad` — `ads`
 Champs : `id`, `title`, `position` (1-3), `type` (`image`|`video`), `url` (R2), `redirect_link`.
@@ -1442,6 +1442,8 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 * **Toujours valider `go build ./...` avant commit**
 
 ### Tests
+* `internal/testdb.Open` est la seule porte d'entrée des tests Go qui vident une table : sauté sans `TEST_DATABASE_URL`, `t.Fatalf` si l'hôte n'est pas local ou si le nom de la base ne contient pas `test`.
+* Les tests de composants tournent en jsdom + testing-library (`// @vitest-environment jsdom` en tête de fichier).
 * Les tests d'abonnement ont besoin d'un vrai Postgres (index partiel) et sont sautés sans `TEST_DATABASE_URL` : `TEST_DATABASE_URL=postgres://... go test -p 1 ./internal/...` (`-p 1` car ils vident les mêmes tables). Jamais la base de prod : ils font des `TRUNCATE`.
 * Les tests d'authentification (`setupTestDB`) visent en dur `postgres://postgres:postgres@localhost:5432/esportnews_test` et sont **sautés sans le dire** si cette base est absente : ils sont restés cassés des mois sans que personne le voie. Les lancer après toute modif de l'auth.
 
