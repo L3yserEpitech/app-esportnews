@@ -629,7 +629,7 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `auth:refresh:<user_id>:<jti>` | 90j | `AuthService` (une clé par appareil) | Logout de l'appareil / rotation au refresh / `RevokeAllSessions` |
 | `auth:refresh:replay:<jti>` | 1h | `AuthService.RefreshSession` | Paire rendue à un token consommé dont la réponse s'est perdue |
 | `auth:refresh:<user_id>` | 90j | ancien schéma (avant 2026-10-28) | consommé puis supprimé au premier refresh ; code à retirer après 2027-01-26 |
-| `ratelimit:<ip>` | sliding window | `RateLimitMiddleware` | – |
+| `ratelimit:<ip>:<minute Unix>` | 2 min | `RateLimitMiddleware` : un `INCR` par requête, l'échéance n'est posée qu'à la création (500 req/min/IP) | – |
 
 ### Clés Liquipedia (préfixe `liq:`)
 
@@ -658,6 +658,14 @@ Patterns centralisés dans `backend-go/internal/cache/patterns.go`. Toutes les c
 | `liq:wikihint:<id>` | `LiqWikiHintKey` | 24h | Écrit quand un user consulte un tournoi/match (sert à retrouver le wiki depuis l'ID) |
 | `liq:budget:<wiki>:<YYYYMMDDHH>` | `RequestBudget.budgetRedisKey` | 1h + 2min | `RequestBudget.RecordRequest` (best-effort) |
 | `<any_above>:stale` | `StaleKey` | 6h, 48h pour les clés en `TTLTeam` (jamais vide) | Copie auto à chaque écriture via `MakeRequest` |
+
+### Coût Redis (facture Upstash, correctifs du 2026-11-12)
+Upstash facturait à la commande et au Go lu : ~48 $/mois, moitié commandes, moitié bande passante (350 Go en 12 jours). Trois règles en découlent, à garder même sur un Redis au forfait (elles évitent aussi de relire et transférer des Mo pour rien) :
+* **Les listes du poller vivent aussi en mémoire** (`cache/local.go`) : `liq:matches:{running,upcoming,past}:*`, `liq:tournaments:{running,upcoming,finished}:*` et leurs `:stale`. `RedisCache.Set` garde ce qu'il vient d'écrire avec la même échéance, `Get` le rend sans appeler Redis ; une liste relue depuis Redis (après un redémarrage) est gardée pour son TTL restant exact, jamais plus, car le poller ne rafraîchit une liste qu'une fois sa clé expirée. **Valable tant qu'une seule instance du backend fait tourner le poller** : un second écrivain laisserait cette copie en retard jusqu'à son échéance. Toute écriture de ces clés doit passer par `RedisCache` (jamais `GetClient()`).
+* **Pas de commande Redis par élément dans une boucle de fond** : le préchauffage d'images retient 24 h les images vues en cache (`ImageWarmer.known`) au lieu d'un `EXISTS` par URL à chaque rafraîchissement.
+* **Pas de lecture de contrôle après une écriture** dans un chemin par requête (l'ancien limiteur faisait `INCR` + `TTL`).
+
+Mesurer : flux `/monitor` de l'API REST Upstash (Bearer = mot de passe de `REDIS_URL`) via `railway run`, agrégé par commande et préfixe de clé. Un échantillon pris juste après un déploiement est dominé par le réchauffage (`EXISTS liq:img:*`).
 
 ### Règle d'or
 **Aucun handler HTTP ne fait d'appel direct à Liquipedia.** Soit il lit le cache, soit il passe par `LiquipediaService.MakeRequest` (qui gère cache-aside + budget + singleflight + stale).
