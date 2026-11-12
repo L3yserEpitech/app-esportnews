@@ -12,6 +12,7 @@ import (
 
 type RedisCache struct {
 	client *redis.Client
+	local  *localStore
 }
 
 func NewRedisClient(redisURL string) *RedisCache {
@@ -42,21 +43,60 @@ func NewRedisClient(redisURL string) *RedisCache {
 		logrus.Info("Redis connected successfully")
 	}
 
-	return &RedisCache{client: client}
+	return &RedisCache{client: client, local: newLocalStore()}
 }
 
 // Get retrieves a value from Redis
 func (rc *RedisCache) Get(ctx context.Context, key string) (string, error) {
-	return rc.client.Get(ctx, key).Result()
+	if !keptLocally(key) {
+		return rc.client.Get(ctx, key).Result()
+	}
+	if value, ok := rc.local.get(key); ok {
+		return value, nil
+	}
+	value, err := rc.client.Get(ctx, key).Result()
+	if err == nil {
+		// Keep it exactly as long as Redis will: the poller only refreshes a list
+		// once its key is gone, so a copy outliving it would delay the refresh.
+		if ttl, ttlErr := rc.client.TTL(ctx, key).Result(); ttlErr == nil && ttl > 0 {
+			rc.local.put(key, value, ttl)
+		}
+	}
+	return value, err
 }
 
 // Set stores a value in Redis with expiration
 func (rc *RedisCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	return rc.client.Set(ctx, key, value, expiration).Err()
+	err := rc.client.Set(ctx, key, value, expiration).Err()
+	if keptLocally(key) {
+		rc.keepLocally(key, value, expiration, err)
+	}
+	return err
+}
+
+// keepLocally mirrors a list just written to Redis. Anything it cannot mirror
+// exactly drops the copy, so a read never returns what Redis no longer holds.
+func (rc *RedisCache) keepLocally(key string, value interface{}, expiration time.Duration, writeErr error) {
+	var text string
+	switch v := value.(type) {
+	case string:
+		text = v
+	case []byte:
+		text = string(v)
+	default:
+		rc.local.drop(key)
+		return
+	}
+	if writeErr != nil || expiration <= 0 {
+		rc.local.drop(key)
+		return
+	}
+	rc.local.put(key, text, expiration)
 }
 
 // Del deletes one or more keys
 func (rc *RedisCache) Del(ctx context.Context, keys ...string) error {
+	rc.local.drop(keys...)
 	return rc.client.Del(ctx, keys...).Err()
 }
 
@@ -94,6 +134,7 @@ func (rc *RedisCache) SetNX(ctx context.Context, key string, value interface{}, 
 // from individual DELs are swallowed — invalidation is best-effort and a
 // stale entry will expire on its own TTL anyway.
 func (rc *RedisCache) DelPattern(ctx context.Context, pattern string) error {
+	rc.local.clear()
 	iter := rc.client.Scan(ctx, 0, pattern, 100).Iterator()
 	var batch []string
 	for iter.Next(ctx) {

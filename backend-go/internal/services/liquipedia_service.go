@@ -584,8 +584,11 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		}
 
 		// Store in cache (fresh + stale copy)
-		_ = s.cache.Set(ctx, cacheKey, string(body), cacheTTL)
-		s.storeStaleCopy(ctx, cacheKey, body, cacheTTL)
+		// One string for both keys: the cache keeps the poller lists in memory,
+		// and two conversions would hold each of them twice.
+		text := string(body)
+		_ = s.cache.Set(ctx, cacheKey, text, cacheTTL)
+		s.storeStaleCopy(ctx, cacheKey, text, cacheTTL)
 
 		s.log.WithFields(logrus.Fields{
 			"wiki":             wiki,
@@ -616,16 +619,16 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 // answer: kept 48 h, it would turn an outage into a 404 for a team that merely had no
 // row at that time. Team searches and tournament rosters hit the same endpoints with a
 // shorter TTL: they keep the usual copy.
-func (s *LiquipediaService) storeStaleCopy(ctx context.Context, cacheKey string, body []byte, cacheTTL time.Duration) {
+func (s *LiquipediaService) storeStaleCopy(ctx context.Context, cacheKey, body string, cacheTTL time.Duration) {
 	ttl := TTLStale
 	if cacheTTL == TTLTeam {
-		resp, err := ParseResponse(body)
+		resp, err := ParseResponse([]byte(body))
 		if err != nil || len(resp.Result) == 0 {
 			return
 		}
 		ttl = TTLEntityStale
 	}
-	_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), string(body), ttl)
+	_ = s.cache.Set(ctx, cache.StaleKey(cacheKey), body, ttl)
 }
 
 // unusableBody says why a 200 from Liquipedia cannot be stored, or "" if it can: not
