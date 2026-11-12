@@ -297,10 +297,11 @@ func (s *AnalyticsService) invalidateVisitorCache() {
 	timelines := []string{"24h", "week", "month", "year"}
 	today := time.Now().Format("2006-01-02")
 
+	keys := make([]string, 0, len(timelines))
 	for _, tl := range timelines {
-		key := fmt.Sprintf("analytics:visitors:%s:%s", tl, today)
-		s.redis.Del(context.Background(), key)
+		keys = append(keys, fmt.Sprintf("analytics:visitors:%s:%s", tl, today))
 	}
+	s.redis.Del(context.Background(), keys...)
 }
 
 // GetAgeDistribution retourne la répartition des âges des utilisateurs
