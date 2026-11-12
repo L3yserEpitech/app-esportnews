@@ -41,33 +41,38 @@ func NewArticleServiceWithGORM(gormDB *database.Database, redisCache *cache.Redi
 	}
 }
 
-// GetArticles retrieves articles with pagination and optional category filter
-// If category is empty, returns all articles
-func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, category string, excludeNews ...bool) ([]*models.Article, error) {
-	return s.GetArticlesByAuthor(ctx, limit, offset, category, nil, excludeNews...)
+// ArticleFilter narrows a listing; its zero value matches every article.
+// Authors holds every spelling of one byline (free text typed in the back-office,
+// see authorMatchSQL) and GameID 0 means any game.
+type ArticleFilter struct {
+	Category    string
+	Authors     []string
+	GameID      int64
+	ExcludeNews bool
 }
 
-// GetArticlesByAuthor is GetArticles narrowed to a byline. Bylines are free
-// text typed in the back-office, so the same person appears under several
-// spellings ("Samuel C", "Samuel Cohen", "Kenan Altarac ") — every alias is
-// matched after trim + lower-case.
-func (s *ArticleService) GetArticlesByAuthor(ctx context.Context, limit int, offset int, category string, authors []string, excludeNews ...bool) ([]*models.Article, error) {
+func (f ArticleFilter) apply(query *gorm.DB) *gorm.DB {
+	if f.Category != "" {
+		query = query.Where("category = ?", f.Category)
+	} else if f.ExcludeNews {
+		query = query.Where("category != ?", "Actus")
+	}
+	if len(f.Authors) > 0 {
+		query = query.Where(authorMatchSQL, normalizeAuthors(f.Authors))
+	}
+	if f.GameID != 0 {
+		query = query.Where("game_id = ?", f.GameID)
+	}
+	return query
+}
+
+func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int, filter ArticleFilter) ([]*models.Article, error) {
 	// Use GORM if available, otherwise fall back to pgxpool
 	if s.gormDB != nil {
-		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
 		var articles []*models.Article
-		query := s.gormDB.WithContext(ctx).Order("created_at DESC")
-
-		if category != "" {
-			// Filter by specific category
-			query = query.Where("category = ?", category)
-		} else if shouldExcludeNews {
-			// Exclude "Actus" when excludeNews is true
-			query = query.Where("category != ?", "Actus")
-		}
-		if len(authors) > 0 {
-			query = query.Where(authorMatchSQL, normalizeAuthors(authors))
-		}
+		// id breaks date ties: the featured article and each grid page are separate
+		// queries, so an unstable order would show an article twice and its twin never.
+		query := filter.apply(s.gormDB.WithContext(ctx).Order("created_at DESC, id DESC"))
 
 		if err := query.Limit(limit).Offset(offset).Find(&articles).Error; err != nil {
 			return nil, fmt.Errorf("failed to query articles: %w", err)
@@ -83,18 +88,18 @@ func (s *ArticleService) GetArticlesByAuthor(ctx context.Context, limit int, off
 	}
 
 	// Fallback to pgxpool
-	if len(authors) > 0 {
-		return nil, fmt.Errorf("author filter requires GORM")
+	if len(filter.Authors) > 0 || filter.GameID != 0 {
+		return nil, fmt.Errorf("author and game filters require GORM")
 	}
 	var rows pgx.Rows
 	var err error
 
-	if category != "" {
+	if filter.Category != "" {
 		rows, err = s.db.Query(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
 					content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
 			 FROM public.articles WHERE category = $3 ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-			limit, offset, category,
+			limit, offset, filter.Category,
 		)
 	} else {
 		rows, err = s.db.Query(ctx,
@@ -125,28 +130,10 @@ func (s *ArticleService) GetArticlesByAuthor(ctx context.Context, limit int, off
 	return articles, nil
 }
 
-// CountArticles counts articles with optional category filter
-// If category is empty, counts all articles
-func (s *ArticleService) CountArticles(ctx context.Context, category string, excludeNews ...bool) (int64, error) {
-	return s.CountArticlesByAuthor(ctx, category, nil, excludeNews...)
-}
-
-func (s *ArticleService) CountArticlesByAuthor(ctx context.Context, category string, authors []string, excludeNews ...bool) (int64, error) {
+func (s *ArticleService) CountArticles(ctx context.Context, filter ArticleFilter) (int64, error) {
 	if s.gormDB != nil {
-		shouldExcludeNews := len(excludeNews) > 0 && excludeNews[0]
 		var count int64
-		query := s.gormDB.WithContext(ctx).Model(&models.Article{})
-
-		if category != "" {
-			// Count specific category
-			query = query.Where("category = ?", category)
-		} else if shouldExcludeNews {
-			// Exclude "Actus" when excludeNews is true
-			query = query.Where("category != ?", "Actus")
-		}
-		if len(authors) > 0 {
-			query = query.Where(authorMatchSQL, normalizeAuthors(authors))
-		}
+		query := filter.apply(s.gormDB.WithContext(ctx).Model(&models.Article{}))
 
 		if err := query.Count(&count).Error; err != nil {
 			return 0, fmt.Errorf("failed to count articles: %w", err)
@@ -155,14 +142,14 @@ func (s *ArticleService) CountArticlesByAuthor(ctx context.Context, category str
 	}
 
 	// Fallback to pgxpool
-	if len(authors) > 0 {
-		return 0, fmt.Errorf("author filter requires GORM")
+	if len(filter.Authors) > 0 || filter.GameID != 0 {
+		return 0, fmt.Errorf("author and game filters require GORM")
 	}
 	var count int64
 	var err error
 
-	if category != "" {
-		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE category = $1", category).Scan(&count)
+	if filter.Category != "" {
+		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE category = $1", filter.Category).Scan(&count)
 	} else {
 		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles").Scan(&count)
 	}

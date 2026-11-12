@@ -60,8 +60,6 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 
 	limit := 20
 	offset := 0
-	category := c.QueryParam("category")
-	excludeNews := c.QueryParam("excludeNews") == "true"
 
 	if l := c.QueryParam("limit"); l != "" {
 		if lim, err := strconv.Atoi(l); err == nil && lim > 0 && lim <= 100 {
@@ -74,16 +72,18 @@ func (h *ArticleHandler) ListArticles(c echo.Context) error {
 		}
 	}
 
-	// `author` carries every known spelling of one byline, comma-separated.
-	authors := splitAuthors(c.QueryParam("author"))
+	filter, err := articleFilterFromQuery(c)
+	if err != nil {
+		return err
+	}
 
 	// Get total count for pagination
-	totalCount, err := h.service.CountArticlesByAuthor(ctx, category, authors, excludeNews)
+	totalCount, err := h.service.CountArticles(ctx, filter)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	articles, err := h.service.GetArticlesByAuthor(ctx, limit, offset, category, authors, excludeNews)
+	articles, err := h.service.GetArticles(ctx, limit, offset, filter)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -99,11 +99,12 @@ func (h *ArticleHandler) CountArticles(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	category := c.QueryParam("category")
-	excludeNews := c.QueryParam("excludeNews") == "true"
-	authors := splitAuthors(c.QueryParam("author"))
+	filter, err := articleFilterFromQuery(c)
+	if err != nil {
+		return err
+	}
 
-	count, err := h.service.CountArticlesByAuthor(ctx, category, authors, excludeNews)
+	count, err := h.service.CountArticles(ctx, filter)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -409,6 +410,25 @@ func (h *ArticleHandler) IncrementViews(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+// articleFilterFromQuery reads the filters shared by the list and its count, so
+// that X-Total-Count can never describe another selection than the rows.
+func articleFilterFromQuery(c echo.Context) (services.ArticleFilter, error) {
+	filter := services.ArticleFilter{
+		Category: c.QueryParam("category"),
+		// `author` carries every known spelling of one byline, comma-separated.
+		Authors:     splitAuthors(c.QueryParam("author")),
+		ExcludeNews: c.QueryParam("excludeNews") == "true",
+	}
+	if raw := c.QueryParam("game_id"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || id <= 0 {
+			return filter, echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+		}
+		filter.GameID = id
+	}
+	return filter, nil
 }
 
 func splitAuthors(raw string) []string {
