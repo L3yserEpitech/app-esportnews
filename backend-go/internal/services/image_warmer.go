@@ -17,6 +17,12 @@ import (
 
 const warmMaxConcurrent = 16
 
+// warmRecheck is how long an image seen in Redis is taken as still there. The
+// poller hands over the same few thousand URLs at every refresh, and asking
+// Redis about each one was 22 % of its commands (2026-11-12). An image that
+// left Redis in between is only fetched on demand by the proxy.
+const warmRecheck = 24 * time.Hour
+
 // ImageWarmer fetches Liquipedia images into the shared Redis cache ahead of
 // time, so the image proxy serves them as instant L2 hits — including on a
 // user's very first visit. Writes use the same key/format as the proxy reader
@@ -26,6 +32,9 @@ type ImageWarmer struct {
 	httpClient *http.Client
 	sem        chan struct{}
 	log        *logrus.Logger
+
+	mu    sync.Mutex
+	known map[string]time.Time
 }
 
 func NewImageWarmer(redis *cache.RedisCache, logger *logrus.Logger) *ImageWarmer {
@@ -41,6 +50,7 @@ func NewImageWarmer(redis *cache.RedisCache, logger *logrus.Logger) *ImageWarmer
 		httpClient: &http.Client{Timeout: 15 * time.Second, Transport: transport},
 		sem:        make(chan struct{}, warmMaxConcurrent),
 		log:        logger,
+		known:      make(map[string]time.Time),
 	}
 }
 
@@ -65,7 +75,11 @@ func (w *ImageWarmer) WarmURLs(ctx context.Context, urls []string) {
 		}
 		seen[key] = true
 
+		if w.knownCached(key) {
+			continue
+		}
 		if exists, _ := w.redis.Exists(ctx, imagecache.RedisKey(key)); exists {
+			w.markCached(key)
 			continue
 		}
 
@@ -81,6 +95,26 @@ func (w *ImageWarmer) WarmURLs(ctx context.Context, urls []string) {
 	if warmed > 0 {
 		w.log.WithField("count", warmed).Debug("[IMG-WARM] warmed image cache")
 	}
+}
+
+func (w *ImageWarmer) knownCached(key string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	until, ok := w.known[key]
+	if !ok {
+		return false
+	}
+	if time.Now().After(until) {
+		delete(w.known, key)
+		return false
+	}
+	return true
+}
+
+func (w *ImageWarmer) markCached(key string) {
+	w.mu.Lock()
+	w.known[key] = time.Now().Add(warmRecheck)
+	w.mu.Unlock()
 }
 
 func (w *ImageWarmer) fetchAndStore(ctx context.Context, url, key string) {
@@ -116,5 +150,7 @@ func (w *ImageWarmer) fetchAndStore(ctx context.Context, url, key string) {
 
 	storeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 	defer cancel()
-	_ = w.redis.Set(storeCtx, imagecache.RedisKey(key), imagecache.Encode(ct, data), imagecache.RedisTTL)
+	if err := w.redis.Set(storeCtx, imagecache.RedisKey(key), imagecache.Encode(ct, data), imagecache.RedisTTL); err == nil {
+		w.markCached(key)
+	}
 }
