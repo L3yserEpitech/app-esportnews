@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const baseUrl = SITE_URL;
-  const siteTitle = 'Esport News — Actus esport & scores en direct';
+  const siteTitle = 'Esport News - Actus esport & scores en direct';
   const siteDescription = 'Actus esport et scores en direct. Résultats, classements, analyses, interviews et agenda des tournois';
   const feedUrl = `${baseUrl}/feed.xml`;
 

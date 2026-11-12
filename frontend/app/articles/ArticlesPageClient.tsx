@@ -65,14 +65,13 @@ export default function ArticlesPageClient() {
     try {
       setIsLoadingArticles(true);
       const offset = 1 + (currentPage - 1) * ARTICLES_PER_PAGE; // Skip featured article
-      const fetchedArticles = await articleService.getAllArticles({
+      const { articles: fetchedArticles, total: totalCount } = await articleService.getArticlesPage({
         limit: ARTICLES_PER_PAGE,
         offset: offset,
         category: selectedCategory || undefined,
         excludeNews: true, // Exclure les articles "Actus" sur la page Articles
       });
 
-      const totalCount = articleService.getLastTotalCount();
       setArticles(fetchedArticles);
       setTotalArticles(totalCount);
 
@@ -80,6 +79,7 @@ export default function ArticlesPageClient() {
       console.log(`📊 Total articles: ${totalCount}`);
     } catch (error) {
       console.error('Erreur lors du chargement des articles:', error);
+      setArticles([]);
     } finally {
       setIsLoadingArticles(false);
     }

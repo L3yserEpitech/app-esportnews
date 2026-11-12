@@ -428,6 +428,11 @@
     "news": {
       "aucune_actualite": "No hay noticias disponibles",
       "revenez_decouvrir": "¡Vuelve pronto para descubrir las últimas noticias de esports!",
+      "no_news_for_game": "No hay noticias de {game}",
+      "see_all_games": "Ver todos los juegos",
+      "remove_game_filter": "Quitar el filtro {game}",
+      "load_error": "No se han podido cargar las noticias",
+      "retry": "Reintentar",
       "h1": "Noticias de esports"
     },
     "articles": {

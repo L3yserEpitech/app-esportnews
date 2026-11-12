@@ -40,68 +40,61 @@ export function toNewsItem(item: SupabaseArticle): NewsItem {
   };
 }
 
+interface ArticleListOptions {
+  limit?: number;
+  offset?: number;
+  category?: string;
+  excludeNews?: boolean;
+  author?: string;
+  gameId?: string;
+}
+
 class ArticleService {
   private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-  private lastTotalCount: number = 0; // Cache for X-Total-Count header
-
-  async getAllArticles(options?: { limit?: number; offset?: number; category?: string; excludeNews?: boolean; author?: string }): Promise<NewsItem[]> {
+  // Sitemaps, feeds and the home page treat a failure as an empty list.
+  async getAllArticles(options?: ArticleListOptions): Promise<NewsItem[]> {
     try {
-      const params = new URLSearchParams();
-      if (options?.limit) params.append('limit', options.limit.toString());
-      if (options?.offset) params.append('offset', options.offset.toString());
-      if (options?.category) params.append('category', options.category);
-      if (options?.excludeNews) params.append('excludeNews', 'true');
-      if (options?.author) params.append('author', options.author);
-
-      const url = `${this.baseUrl}/api/articles${params.toString() ? `?${params.toString()}` : ''}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch articles: ${response.status}`);
-      }
-
-      // Read X-Total-Count header for pagination
-      const totalCountHeader = response.headers.get('X-Total-Count');
-      if (totalCountHeader) {
-        this.lastTotalCount = parseInt(totalCountHeader, 10);
-      }
-
-      const data: SupabaseArticle[] = await response.json();
-
-      console.log('[ArticleService] Raw API response:', {
-        url,
-        dataLength: data?.length || 0,
-        isArray: Array.isArray(data),
-        totalCountHeader: totalCountHeader,
-        lastTotalCount: this.lastTotalCount,
-      });
-
-      // Transformer les données API vers le format NewsItem
-      if (!data || !Array.isArray(data)) {
-        console.warn('[ArticleService] Invalid data format:', data);
-        return [];
-      }
-
-      const transformed = data.map(toNewsItem);
-
-      console.log('[ArticleService] Transformed articles:', transformed.length);
-      return transformed;
-
+      return (await this.getArticlesPage(options)).articles;
     } catch (error) {
       console.error('Error fetching articles:', error);
       return [];
     }
   }
 
-  getLastTotalCount(): number {
-    return this.lastTotalCount;
+  // Throws on failure, so that a page can tell an outage from an empty list.
+  async getArticlesPage(options?: ArticleListOptions): Promise<{ articles: NewsItem[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+    if (options?.category) params.append('category', options.category);
+    if (options?.excludeNews) params.append('excludeNews', 'true');
+    if (options?.author) params.append('author', options.author);
+    if (options?.gameId) params.append('game_id', options.gameId);
+
+    const url = `${this.baseUrl}/api/articles${params.toString() ? `?${params.toString()}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch articles: ${response.status}`);
+    }
+
+    const data: SupabaseArticle[] = await response.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error('Failed to fetch articles: the response is not a list');
+    }
+
+    return {
+      articles: data.map(toNewsItem),
+      total: Number(response.headers.get('X-Total-Count')) || 0,
+    };
   }
 
   async getLatestArticle(): Promise<NewsItem | null> {

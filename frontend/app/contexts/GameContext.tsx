@@ -7,6 +7,7 @@ import { gameService } from '../services/gameService';
 interface GameContextType {
   games: Game[];
   selectedGame: string | null;
+  isSelectionRestored: boolean;
   isLoadingGames: boolean;
   setSelectedGame: (gameId: string | null) => void;
   getSelectedGameData: () => Game | null;
@@ -21,6 +22,7 @@ interface GameProviderProps {
 export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGameState] = useState<string | null>(null);
+  const [isSelectionRestored, setIsSelectionRestored] = useState(false);
   const [isLoadingGames, setIsLoadingGames] = useState(true);
 
   // Charger la sélection de jeu depuis localStorage au démarrage
@@ -31,6 +33,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         setSelectedGameState(savedGame);
       }
     }
+    setIsSelectionRestored(true);
   }, []);
 
   // Charger les jeux depuis l'API
@@ -104,6 +107,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const value: GameContextType = {
     games,
     selectedGame,
+    isSelectionRestored,
     isLoadingGames,
     setSelectedGame,
     getSelectedGameData,

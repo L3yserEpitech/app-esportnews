@@ -15,9 +15,8 @@ const PAGE_SIZE = 24;
 
 type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
 
-// Own fetch rather than articleService.getAllArticles: the total comes from the
-// X-Total-Count header, which the singleton service stashes in shared mutable
-// state — unsafe across concurrent server renders.
+// Own fetch rather than articleService.getArticlesPage: this server render needs
+// `next.revalidate`, which the service does not pass on to fetch.
 async function fetchAuthorArticles(query: string, page: number): Promise<{ items: NewsItem[]; total: number }> {
   const params = new URLSearchParams({
     author: query,
