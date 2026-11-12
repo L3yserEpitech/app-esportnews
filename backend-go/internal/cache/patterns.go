@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Cache key patterns
@@ -65,7 +66,7 @@ const (
 	AuthPasswordResetThrottle = "auth:reset:throttle:%s" // %s = sha256(email)
 
 	// Rate limiting
-	RateLimit = "ratelimit:%s"
+	RateLimit = "ratelimit:%s:%d" // %s = IP, %d = minute Unix
 )
 
 // Key builders
@@ -139,8 +140,8 @@ func LegacyRefreshTokenKey(userID int64) string {
 	return fmt.Sprintf(AuthRefreshLegacy, userID)
 }
 
-func RateLimitKey(ip string) string {
-	return fmt.Sprintf(RateLimit, ip)
+func RateLimitKey(ip string, at time.Time) string {
+	return fmt.Sprintf(RateLimit, ip, at.Unix()/60)
 }
 
 func PasswordResetKey(tokenHash string) string {

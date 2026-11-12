@@ -36,21 +36,16 @@ func RateLimitMiddleware(redisCache *cache.RedisCache) echo.MiddlewareFunc {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			key := cache.RateLimitKey(ip)
+			// One key per IP and per minute: a single INCR per request. The key is
+			// never reused, so its expiry only needs setting once, on creation.
+			key := cache.RateLimitKey(ip, time.Now())
 			count, err := redisCache.Incr(ctx, key)
 			if err != nil {
 				// If Redis fails, allow request
 				return next(c)
 			}
-
-			// Always ensure the key has a TTL (guards against keys stuck without expiry)
 			if count == 1 {
-				redisCache.Expire(ctx, key, 1*time.Minute)
-			} else {
-				ttl, ttlErr := redisCache.TTL(ctx, key)
-				if ttlErr == nil && ttl < 0 {
-					redisCache.Expire(ctx, key, 1*time.Minute)
-				}
+				redisCache.Expire(ctx, key, 2*time.Minute)
 			}
 
 			if count > RateLimitPerMinute {
