@@ -135,6 +135,9 @@ export type EventStatus = 'EventScheduled' | 'EventCancelled' | 'EventPostponed'
 // the page itself, which carries the stream and the scores. `onSite` marks an
 // event also held in a venue we cannot name. No nested event (superEvent):
 // Google's test counts it as a second item, itself without date or location.
+// Google's Event result only covers events with a street address: with a
+// virtual location it reads no event at all here, which is what clears the
+// report. The markup stays for other schema.org readers.
 export function eventPlace(url: string, onSite = false) {
   return {
     eventAttendanceMode: `https://schema.org/${onSite ? 'Mixed' : 'Online'}EventAttendanceMode`,
