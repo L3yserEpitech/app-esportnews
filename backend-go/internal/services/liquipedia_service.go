@@ -114,8 +114,12 @@ type RequestBudget struct {
 	warned bool
 
 	// Redis persistence (optional — best-effort)
-	redisCache *cache.RedisCache
+	redisCache  *cache.RedisCache
+	persistedAt time.Time
 }
+
+// budgetPersistEvery spaces the Redis copies of a wiki's counter.
+const budgetPersistEvery = 30 * time.Second
 
 // budgetRedisKey returns the Redis key for this wiki's current hour budget.
 func (b *RequestBudget) budgetRedisKey() string {
@@ -186,8 +190,11 @@ func (b *RequestBudget) RecordRequest() bool {
 	if warn {
 		b.warned = true
 	}
-	// Persist to Redis (best-effort, async)
-	if b.redisCache != nil {
+	// Persist to Redis (best-effort, async). The copy only serves a restart
+	// within the hour: writing it at every call was a SET per Liquipedia
+	// request, and a restart forgetting the last seconds costs a few units.
+	if b.redisCache != nil && time.Since(b.persistedAt) >= budgetPersistEvery {
+		b.persistedAt = time.Now()
 		key := b.budgetRedisKey()
 		used := b.Used
 		go func() {
