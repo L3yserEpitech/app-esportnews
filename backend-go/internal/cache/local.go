@@ -29,8 +29,15 @@ func keptLocally(key string) bool {
 	return false
 }
 
+// localMissTTL is how long a list found absent from Redis is taken as still
+// absent. In webhook mode the poller lets a list expire for minutes before it
+// refreshes it, and every request in between asked Redis again. Writing the
+// list (this process is its only writer) ends the wait at once.
+const localMissTTL = 30 * time.Second
+
 type localCopy struct {
 	value   string
+	missing bool
 	expires time.Time
 }
 
@@ -43,18 +50,25 @@ func newLocalStore() *localStore {
 	return &localStore{items: make(map[string]localCopy)}
 }
 
-func (s *localStore) get(key string) (string, bool) {
+// get returns the copy of key; missing means Redis was just seen without it.
+func (s *localStore) get(key string) (value string, missing, ok bool) {
 	s.mu.RLock()
-	item, ok := s.items[key]
+	item, found := s.items[key]
 	s.mu.RUnlock()
-	if !ok {
-		return "", false
+	if !found {
+		return "", false, false
 	}
 	if time.Now().After(item.expires) {
 		s.drop(key)
-		return "", false
+		return "", false, false
 	}
-	return item.value, true
+	return item.value, item.missing, true
+}
+
+func (s *localStore) putMissing(key string) {
+	s.mu.Lock()
+	s.items[key] = localCopy{missing: true, expires: time.Now().Add(localMissTTL)}
+	s.mu.Unlock()
 }
 
 func (s *localStore) put(key, value string, ttl time.Duration) {

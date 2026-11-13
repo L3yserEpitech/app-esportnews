@@ -51,10 +51,16 @@ func (rc *RedisCache) Get(ctx context.Context, key string) (string, error) {
 	if !keptLocally(key) {
 		return rc.client.Get(ctx, key).Result()
 	}
-	if value, ok := rc.local.get(key); ok {
+	if value, missing, ok := rc.local.get(key); ok {
+		if missing {
+			return "", redis.Nil
+		}
 		return value, nil
 	}
 	value, err := rc.client.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		rc.local.putMissing(key)
+	}
 	if err == nil {
 		// Keep it exactly as long as Redis will: the poller only refreshes a list
 		// once its key is gone, so a copy outliving it would delay the refresh.

@@ -131,3 +131,24 @@ func TestOtherKeysAlwaysReadRedis(t *testing.T) {
 		}
 	}
 }
+
+func TestAbsentListIsAskedOnce(t *testing.T) {
+	rc, mr := newTestCache(t)
+	ctx := context.Background()
+	key := LiqMatchesRunningKey("valorant")
+
+	before := mr.CommandCount()
+	for i := 0; i < 5; i++ {
+		if _, err := rc.Get(ctx, key); !errors.Is(err, redis.Nil) {
+			t.Fatalf("absent list: err = %v, want redis.Nil", err)
+		}
+	}
+	if sent := mr.CommandCount() - before; sent != 1 {
+		t.Fatalf("5 reads of an absent list sent %d Redis commands, want 1", sent)
+	}
+
+	_ = rc.Set(ctx, key, "payload", 10*time.Minute)
+	if got, err := rc.Get(ctx, key); err != nil || got != "payload" {
+		t.Fatalf("after the write: Get = %q, %v", got, err)
+	}
+}
