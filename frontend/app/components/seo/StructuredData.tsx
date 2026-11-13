@@ -128,6 +128,19 @@ export function AuthorSchema({
   return <StructuredData data={schema} />;
 }
 
+export type EventStatus = 'EventScheduled' | 'EventCancelled' | 'EventPostponed' | 'EventRescheduled';
+
+// Google refuses an Event without a location (1 466 items on 2026-11-11), and
+// Liquipedia gives us no venue. What we do know is where the event is followed:
+// the page itself, which carries the stream and the scores. `onSite` marks an
+// event also held in a venue we cannot name.
+export function eventPlace(url: string, onSite = false) {
+  return {
+    eventAttendanceMode: `https://schema.org/${onSite ? 'Mixed' : 'Online'}EventAttendanceMode`,
+    location: { '@type': 'VirtualLocation', url },
+  };
+}
+
 /**
  * Schéma pour un SportsEvent (match)
  */
@@ -136,18 +149,22 @@ export function SportsEventSchema({
   description,
   startDate,
   endDate,
-  location,
+  previousStartDate,
+  status = 'EventScheduled',
   image,
   url,
+  tournament,
   teams,
 }: {
   name: string;
   description?: string;
   startDate: string;
   endDate?: string;
-  location?: string;
+  previousStartDate?: string;
+  status?: EventStatus;
   image?: string;
   url: string;
+  tournament?: string;
   teams?: Array<{ name: string; logo?: string }>;
 }) {
   const schema = {
@@ -156,15 +173,16 @@ export function SportsEventSchema({
     name,
     description,
     startDate,
-    endDate: endDate || startDate,
-    image: image ? [image] : [],
+    endDate,
+    previousStartDate,
+    eventStatus: `https://schema.org/${status}`,
+    ...eventPlace(url),
+    image: image ? [image] : undefined,
     url,
-    location: location ? { '@type': 'Place', name: location } : undefined,
-    performer: teams?.map((team) => ({
-      '@type': 'SportsTeam',
-      name: team.name,
-      image: team.logo,
-    })),
+    superEvent: tournament ? { '@type': 'SportsEvent', name: tournament } : undefined,
+    performer: teams?.length
+      ? teams.map((team) => ({ '@type': 'SportsTeam', name: team.name, image: team.logo }))
+      : undefined,
   };
 
   return <StructuredData data={schema} />;
@@ -179,9 +197,9 @@ export function TournamentSchema({
   image,
   startDate,
   endDate,
+  status = 'EventScheduled',
+  onSite,
   url,
-  location,
-  prizeMoney,
   teams,
 }: {
   name: string;
@@ -189,22 +207,24 @@ export function TournamentSchema({
   image?: string;
   startDate?: string;
   endDate?: string;
+  status?: EventStatus;
+  onSite?: boolean;
   url: string;
-  location?: string;
-  prizeMoney?: string;
   teams?: number;
 }) {
+  // No `offers`: it is a ticket price, and the prize pool we used to put there
+  // was reported as an invalid price.
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Event',
     name,
     description,
-    image: image ? [image] : [],
+    image: image ? [image] : undefined,
     startDate,
     endDate,
+    eventStatus: `https://schema.org/${status}`,
+    ...eventPlace(url, onSite),
     url,
-    location: location ? { '@type': 'Place', name: location } : undefined,
-    ...(prizeMoney && { offers: { '@type': 'Offer', price: prizeMoney } }),
     ...(teams && { numberOfParticipants: teams }),
   };
 

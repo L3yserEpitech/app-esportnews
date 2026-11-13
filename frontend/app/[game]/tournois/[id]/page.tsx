@@ -130,6 +130,7 @@ export default async function TournamentDetailPage({ params }: TournamentPagePro
         <TournamentJsonLd
           tournament={initialTournament}
           url={`${siteUrl}/${game}/tournois/${canonicalSegment}`}
+          image={proxyImageUrl(initialTournament.banner_url || initialTournament.banner_dark_url) || DEFAULT_OG_IMAGE.url}
         />
       )}
       <TournamentDetailPageClient tournamentId={id} wiki={wiki} initialTournament={initialTournament} />

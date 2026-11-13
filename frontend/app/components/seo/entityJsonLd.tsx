@@ -1,4 +1,4 @@
-import { SportsEventSchema, TournamentSchema, BreadcrumbSchema, StructuredData } from './StructuredData';
+import { SportsEventSchema, TournamentSchema, BreadcrumbSchema, StructuredData, type EventStatus } from './StructuredData';
 import { gameByWiki } from '../../lib/gameRegistry';
 
 // JSON-LD has to be emitted by the server page, never by the client component
@@ -23,14 +23,17 @@ export interface MatchJsonLdInput {
   tournament?: { name?: string | null; region?: string | null } | null;
   begin_at?: string | null;
   end_at?: string | null;
+  original_scheduled_at?: string | null;
+  rescheduled?: boolean | null;
+  status?: string | null;
 }
 
 export interface TournamentJsonLdInput {
   wiki?: string | null;
   name?: string | null;
   league?: { name?: string | null } | null;
-  region?: string | null;
-  prizepool?: string | null;
+  type?: string | null;
+  status?: string | null;
   begin_at?: string | null;
   end_at?: string | null;
   teams?: unknown[] | null;
@@ -53,10 +56,23 @@ function gameName(wiki: string | null | undefined): string | undefined {
   return wiki ? gameByWiki(wiki)?.name : undefined;
 }
 
+function cancelledOrPostponed(status: string | null | undefined): EventStatus | undefined {
+  const s = status?.toLowerCase();
+  if (s === 'canceled' || s === 'cancelled') return 'EventCancelled';
+  if (s === 'postponed') return 'EventPostponed';
+  return undefined;
+}
+
 export function MatchJsonLd({ match, url }: { match: MatchJsonLdInput; url: string }) {
   const home = match.opponents?.[0]?.opponent;
   const away = match.opponents?.[1]?.opponent;
   const name = `${home?.name || 'Match'} vs ${away?.name || 'Match'}`;
+  // Liquipedia has no end time: the backend repeats the start.
+  const ended = match.end_at && match.begin_at && match.end_at > match.begin_at ? match.end_at : undefined;
+  const movedFrom =
+    match.rescheduled && match.original_scheduled_at && match.original_scheduled_at !== match.begin_at
+      ? match.original_scheduled_at
+      : undefined;
 
   return (
     <>
@@ -67,9 +83,11 @@ export function MatchJsonLd({ match, url }: { match: MatchJsonLdInput; url: stri
           name={name}
           description={`${match.videogame?.name || 'Esport'} - ${match.league?.name || match.tournament?.name || ''}`}
           startDate={match.begin_at}
-          endDate={match.end_at || undefined}
+          endDate={ended}
+          previousStartDate={movedFrom}
+          status={cancelledOrPostponed(match.status) ?? (movedFrom ? 'EventRescheduled' : 'EventScheduled')}
           url={url}
-          location={match.tournament?.region || undefined}
+          tournament={match.tournament?.name || undefined}
           image={home?.image_url || undefined}
           teams={[
             ...(home?.name ? [{ name: home.name, logo: home.image_url || undefined }] : []),
@@ -87,7 +105,15 @@ export function MatchJsonLd({ match, url }: { match: MatchJsonLdInput; url: stri
   );
 }
 
-export function TournamentJsonLd({ tournament, url }: { tournament: TournamentJsonLdInput; url: string }) {
+export function TournamentJsonLd({
+  tournament,
+  url,
+  image,
+}: {
+  tournament: TournamentJsonLdInput;
+  url: string;
+  image?: string;
+}) {
   const name = tournament.name || 'Tournoi';
 
   return (
@@ -97,9 +123,10 @@ export function TournamentJsonLd({ tournament, url }: { tournament: TournamentJs
         description={`Tournoi ${name} - ${tournament.league?.name || 'Esport'}`}
         startDate={tournament.begin_at || undefined}
         endDate={tournament.end_at || undefined}
+        status={cancelledOrPostponed(tournament.status)}
+        onSite={/offline/i.test(tournament.type || '')}
+        image={image}
         url={url}
-        location={tournament.region || undefined}
-        prizeMoney={tournament.prizepool || undefined}
         teams={tournament.teams?.length}
       />
       <BreadcrumbSchema
