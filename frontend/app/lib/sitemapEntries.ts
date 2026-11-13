@@ -23,9 +23,11 @@ export function uniqueTournaments<T extends { id: number | string; wiki?: string
 
 // Google ignores lastmod on a site where it proves inaccurate, and a page cannot
 // have been modified in the future: an upcoming date is left out, not clamped.
+// Liquipedia's placeholder for an unknown date is year 0000, which Search
+// Console reports as an invalid date (3 tournaments on 2026-11-11).
 export function pastLastmod(value: string | null | undefined, now: Date = new Date()): string | null {
   if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime()) || date > now) return null;
+  if (Number.isNaN(date.getTime()) || date > now || date.getUTCFullYear() < 2000) return null;
   return date.toISOString();
 }
