@@ -124,7 +124,7 @@ func main() {
 	}))
 
 	// Rate limiting middleware
-	e.Use(mw.RateLimitMiddleware(redisClient))
+	e.Use(mw.RateLimitMiddleware())
 	e.Use(mw.BodyLimit())
 
 	// Health check

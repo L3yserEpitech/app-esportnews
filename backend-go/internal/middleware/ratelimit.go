@@ -1,18 +1,21 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
-
-	"github.com/esportnews/backend/internal/cache"
 )
 
 const (
 	RateLimitPerMinute = 500 // 500 requêtes par minute par IP
+
+	// rateLimitMaxIPs bounds the memory one minute of traffic can take: the IP
+	// comes from X-Forwarded-For, which a client can forge at will. Past it, new
+	// IPs go through uncounted until the next minute.
+	rateLimitMaxIPs = 100_000
 )
 
 // skipRateLimitPaths are paths excluded from rate limiting (high-volume, already cached).
@@ -21,7 +24,33 @@ var skipRateLimitPaths = []string{
 	"/health",
 }
 
-func RateLimitMiddleware(redisCache *cache.RedisCache) echo.MiddlewareFunc {
+// minuteCounter counts requests per IP for the current minute, in this process.
+// It lived in Redis (an INCR per request, a quarter of the commands billed) for
+// no benefit while a single backend instance serves the API: with several, the
+// limit applies per instance.
+type minuteCounter struct {
+	mu     sync.Mutex
+	minute int64
+	counts map[string]int
+}
+
+func (m *minuteCounter) hit(ip string, now time.Time) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if minute := now.Unix() / 60; minute != m.minute || m.counts == nil {
+		m.minute = minute
+		m.counts = make(map[string]int)
+	}
+	count, seen := m.counts[ip]
+	if !seen && len(m.counts) >= rateLimitMaxIPs {
+		return 0
+	}
+	m.counts[ip] = count + 1
+	return count + 1
+}
+
+func RateLimitMiddleware() echo.MiddlewareFunc {
+	counter := &minuteCounter{}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// Skip rate limiting for high-volume paths (e.g. image proxy with browser cache)
@@ -32,26 +61,9 @@ func RateLimitMiddleware(redisCache *cache.RedisCache) echo.MiddlewareFunc {
 				}
 			}
 
-			ip := c.RealIP()
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-
-			// One key per IP and per minute: a single INCR per request. The key is
-			// never reused, so its expiry only needs setting once, on creation.
-			key := cache.RateLimitKey(ip, time.Now())
-			count, err := redisCache.Incr(ctx, key)
-			if err != nil {
-				// If Redis fails, allow request
-				return next(c)
-			}
-			if count == 1 {
-				redisCache.Expire(ctx, key, 2*time.Minute)
-			}
-
-			if count > RateLimitPerMinute {
+			if counter.hit(c.RealIP(), time.Now()) > RateLimitPerMinute {
 				return echo.NewHTTPError(http.StatusTooManyRequests, "Rate limit exceeded")
 			}
-
 			return next(c)
 		}
 	}

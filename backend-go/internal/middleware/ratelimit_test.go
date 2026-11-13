@@ -1,15 +1,13 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
-
-	"github.com/esportnews/backend/internal/cache"
 )
 
 func rateLimitedCall(t *testing.T, h echo.HandlerFunc, path string) int {
@@ -27,35 +25,8 @@ func rateLimitedCall(t *testing.T, h echo.HandlerFunc, path string) int {
 	return rec.Code
 }
 
-func TestRateLimitCostsOneCommandPerRequest(t *testing.T) {
-	mr := miniredis.RunT(t)
-	rc := cache.NewRedisClient("redis://" + mr.Addr())
-	h := RateLimitMiddleware(rc)(func(c echo.Context) error { return c.NoContent(http.StatusOK) })
-
-	rateLimitedCall(t, h, "/api/games")
-	before := mr.CommandCount()
-	for i := 0; i < 20; i++ {
-		if code := rateLimitedCall(t, h, "/api/games"); code != http.StatusOK {
-			t.Fatalf("request %d: %d", i, code)
-		}
-	}
-	if sent := mr.CommandCount() - before; sent != 20 {
-		t.Fatalf("20 requests sent %d Redis commands, want 20", sent)
-	}
-
-	keys := mr.Keys()
-	if len(keys) != 1 || !strings.HasPrefix(keys[0], "ratelimit:203.0.113.7:") {
-		t.Fatalf("keys = %v", keys)
-	}
-	if ttl := mr.TTL(keys[0]); ttl <= 0 {
-		t.Fatalf("the counter has no expiry (ttl %v)", ttl)
-	}
-}
-
 func TestRateLimitRefusesPastTheLimit(t *testing.T) {
-	mr := miniredis.RunT(t)
-	rc := cache.NewRedisClient("redis://" + mr.Addr())
-	h := RateLimitMiddleware(rc)(func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	h := RateLimitMiddleware()(func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 
 	for i := 0; i < RateLimitPerMinute; i++ {
 		if code := rateLimitedCall(t, h, "/api/games"); code != http.StatusOK {
@@ -67,5 +38,40 @@ func TestRateLimitRefusesPastTheLimit(t *testing.T) {
 	}
 	if code := rateLimitedCall(t, h, "/health"); code != http.StatusOK {
 		t.Fatalf("/health is exempt, got %d", code)
+	}
+}
+
+func TestMinuteCounterStartsOverEachMinute(t *testing.T) {
+	c := &minuteCounter{}
+	at := time.Unix(1_800_000_000, 0)
+
+	for i := 1; i <= 3; i++ {
+		if got := c.hit("a", at); got != i {
+			t.Fatalf("hit %d = %d", i, got)
+		}
+	}
+	if got := c.hit("b", at); got != 1 {
+		t.Fatalf("another IP = %d, want 1", got)
+	}
+	if got := c.hit("a", at.Add(time.Minute)); got != 1 {
+		t.Fatalf("next minute = %d, want 1", got)
+	}
+}
+
+func TestMinuteCounterStopsGrowingPastItsCap(t *testing.T) {
+	c := &minuteCounter{}
+	at := time.Unix(1_800_000_000, 0)
+
+	for i := 0; i < rateLimitMaxIPs; i++ {
+		c.hit(fmt.Sprintf("ip-%d", i), at)
+	}
+	if got := c.hit("one-too-many", at); got != 0 {
+		t.Fatalf("IP past the cap counted as %d, want 0 (uncounted)", got)
+	}
+	if len(c.counts) != rateLimitMaxIPs {
+		t.Fatalf("map holds %d IPs, want %d", len(c.counts), rateLimitMaxIPs)
+	}
+	if got := c.hit("ip-0", at); got != 2 {
+		t.Fatalf("known IP past the cap = %d, want 2", got)
 	}
 }
