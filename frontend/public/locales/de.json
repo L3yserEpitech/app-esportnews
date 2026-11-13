@@ -130,7 +130,8 @@
       "best_matches": {
         "title": "Top-Matches des Tages"
       },
-      "h1": "Esport-News und Live-Ergebnisse"
+      "h1": "Esport-News und Live-Ergebnisse",
+      "live_title": "Live-Spiele"
     },
     "login": {
       "content_de_vous_revoir": "Willkommen zurück!",

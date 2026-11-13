@@ -129,7 +129,8 @@
       "best_matches": {
         "title": "Mejores partidos del día"
       },
-      "h1": "Noticias de esports y marcadores en directo"
+      "h1": "Noticias de esports y marcadores en directo",
+      "live_title": "Partidos en directo"
     },
     "login": {
       "content_de_vous_revoir": "¡Nos alegra verte de nuevo!",

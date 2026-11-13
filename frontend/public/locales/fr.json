@@ -129,7 +129,8 @@
       "best_matches": {
         "title": "Meilleurs matchs du jour"
       },
-      "h1": "Actus esport et scores en direct"
+      "h1": "Actus esport et scores en direct",
+      "live_title": "Matchs en direct"
     },
     "login": {
       "content_de_vous_revoir": "Content de vous revoir !",

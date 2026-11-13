@@ -129,7 +129,8 @@
       "best_matches": {
         "title": "Today's best matches"
       },
-      "h1": "Esports news and live scores"
+      "h1": "Esports news and live scores",
+      "live_title": "Live matches"
     },
     "login": {
       "content_de_vous_revoir": "Welcome back!",

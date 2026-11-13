@@ -175,9 +175,14 @@ export default function HomePageClient() {
         <div className="flex gap-8">
           {/* Contenu principal */}
           <div className="flex-1 min-w-0 space-y-8">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-              {t('pages.home.h1')}
-            </h1>
+            {/* The H1 carries the page's keywords for search engines; what visitors
+                see is the section title below, shown only when there are matches. */}
+            <h1 className="sr-only">{t('pages.home.h1')}</h1>
+            {(isLoadingMatches || memoizedBestMatches.length > 0) && (
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+                {t('pages.home.live_title')}
+              </h2>
+            )}
 
             {/* Section Meilleurs matchs du jour */}
             {(isLoadingMatches || memoizedBestMatches.length > 0) && (
