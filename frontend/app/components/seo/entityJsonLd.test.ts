@@ -29,7 +29,8 @@ describe('event JSON-LD', () => {
     expect(node.location).toEqual({ '@type': 'VirtualLocation', url: URL });
     expect(node.eventAttendanceMode).toBe('https://schema.org/OnlineEventAttendanceMode');
     expect(node.eventStatus).toBe('https://schema.org/EventScheduled');
-    expect(node.superEvent).toEqual({ '@type': 'SportsEvent', name: 'PGL Cluj-Napoca 2027' });
+    expect(node).not.toHaveProperty('superEvent');
+    expect(node.description).toContain('PGL Cluj-Napoca 2027');
   });
 
   it('drops an end date that only repeats the start, and an absent image', () => {

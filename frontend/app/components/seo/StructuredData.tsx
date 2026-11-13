@@ -133,7 +133,8 @@ export type EventStatus = 'EventScheduled' | 'EventCancelled' | 'EventPostponed'
 // Google refuses an Event without a location (1 466 items on 2026-11-11), and
 // Liquipedia gives us no venue. What we do know is where the event is followed:
 // the page itself, which carries the stream and the scores. `onSite` marks an
-// event also held in a venue we cannot name.
+// event also held in a venue we cannot name. No nested event (superEvent):
+// Google's test counts it as a second item, itself without date or location.
 export function eventPlace(url: string, onSite = false) {
   return {
     eventAttendanceMode: `https://schema.org/${onSite ? 'Mixed' : 'Online'}EventAttendanceMode`,
@@ -153,7 +154,6 @@ export function SportsEventSchema({
   status = 'EventScheduled',
   image,
   url,
-  tournament,
   teams,
 }: {
   name: string;
@@ -164,7 +164,6 @@ export function SportsEventSchema({
   status?: EventStatus;
   image?: string;
   url: string;
-  tournament?: string;
   teams?: Array<{ name: string; logo?: string }>;
 }) {
   const schema = {
@@ -179,7 +178,6 @@ export function SportsEventSchema({
     ...eventPlace(url),
     image: image ? [image] : undefined,
     url,
-    superEvent: tournament ? { '@type': 'SportsEvent', name: tournament } : undefined,
     performer: teams?.length
       ? teams.map((team) => ({ '@type': 'SportsTeam', name: team.name, image: team.logo }))
       : undefined,

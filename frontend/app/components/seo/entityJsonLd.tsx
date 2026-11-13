@@ -81,13 +81,12 @@ export function MatchJsonLd({ match, url }: { match: MatchJsonLdInput; url: stri
       {match.begin_at && (
         <SportsEventSchema
           name={name}
-          description={`${match.videogame?.name || 'Esport'} - ${match.league?.name || match.tournament?.name || ''}`}
+          description={`${match.videogame?.name || 'Esport'} - ${match.tournament?.name || match.league?.name || ''}`}
           startDate={match.begin_at}
           endDate={ended}
           previousStartDate={movedFrom}
           status={cancelledOrPostponed(match.status) ?? (movedFrom ? 'EventRescheduled' : 'EventScheduled')}
           url={url}
-          tournament={match.tournament?.name || undefined}
           image={home?.image_url || undefined}
           teams={[
             ...(home?.name ? [{ name: home.name, logo: home.image_url || undefined }] : []),
