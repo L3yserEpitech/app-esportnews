@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -118,6 +119,7 @@ type NormalizedTournament struct {
 	EndAt          *string                  `json:"end_at"`
 	Region         *string                  `json:"region,omitempty"`
 	PrizePool      *string                  `json:"prizepool"`
+	Venues         []NormalizedVenue        `json:"venues,omitempty"`
 	HasBracket     bool                     `json:"has_bracket"`
 	Videogame      *NormalizedVideogame     `json:"videogame,omitempty"`
 	League         *NormalizedLeague        `json:"league,omitempty"`
@@ -290,6 +292,42 @@ func extractRegionFromLocations(locations json.RawMessage) *string {
 	return nil
 }
 
+// NormalizedVenue is where an on-site tournament is played, as Liquipedia lists it.
+type NormalizedVenue struct {
+	Name    string `json:"name,omitempty"`
+	City    string `json:"city,omitempty"`
+	Country string `json:"country,omitempty"`
+}
+
+// extractVenues reads Liquipedia's `locations`, an object of numbered keys
+// (venue1, city1, country1, venue2…), one group per stage. A group without a
+// venue or a city says only a country or a region, which is not a place.
+// Unknown values are wiki markup (`<abbr title="To be announced">TBA</abbr>`).
+func extractVenues(locations json.RawMessage) []NormalizedVenue {
+	var raw map[string]interface{}
+	if len(locations) == 0 || json.Unmarshal(locations, &raw) != nil {
+		return nil
+	}
+	field := func(key string) string {
+		v, _ := raw[key].(string)
+		v = strings.TrimSpace(v)
+		if strings.Contains(v, "<") || strings.EqualFold(v, "TBA") || strings.EqualFold(v, "TBD") {
+			return ""
+		}
+		return v
+	}
+	var venues []NormalizedVenue
+	for i := 1; i <= 20; i++ {
+		n := strconv.Itoa(i)
+		v := NormalizedVenue{Name: field("venue" + n), City: field("city" + n), Country: field("country" + n)}
+		if v.Name == "" && v.City == "" {
+			continue
+		}
+		venues = append(venues, v)
+	}
+	return venues
+}
+
 // pageNameToSlug converts a Liquipedia page name to a URL-friendly slug.
 func pageNameToSlug(pageName string) string {
 	slug := strings.ReplaceAll(pageName, " ", "_")
@@ -381,6 +419,7 @@ func NormalizeLiqTournament(t LiqTournament, wiki string) NormalizedTournament {
 		BeginAt:        beginAt,
 		EndAt:          endAt,
 		Region:         region,
+		Venues:         extractVenues(t.Locations),
 		PrizePool:      prizePool,
 		HasBracket:     t.Format != "",
 		Videogame:      vg,
