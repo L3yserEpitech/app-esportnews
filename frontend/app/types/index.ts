@@ -151,6 +151,8 @@ export interface PandaTournament {
   begin_at?: string | null;
   end_at?: string | null;
   region?: string | null;
+  // Where an on-site tournament is played (Liquipedia `locations`), one per stage.
+  venues?: Array<{ name?: string; city?: string; country?: string }> | null;
   prizepool?: string | null;
   has_bracket?: boolean;
   videogame?: PandaVideogame;

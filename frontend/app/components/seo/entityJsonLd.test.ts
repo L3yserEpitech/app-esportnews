@@ -46,12 +46,46 @@ describe('event JSON-LD', () => {
     expect(node.previousStartDate).toBe('2026-11-10T18:30:00Z');
   });
 
-  it('keeps the prize pool out of offers and marks an on-site tournament as mixed', () => {
-    const tournament = { name: 'Major', type: 'Offline', prizepool: '$100,000', begin_at: '2026-11-06T00:00:00Z' };
+  it('keeps the prize pool out of offers and gives an on-site tournament its venues', () => {
+    const tournament = {
+      name: 'Worlds',
+      type: 'Offline',
+      prizepool: '$100,000',
+      begin_at: '2026-10-15T00:00:00Z',
+      venues: [
+        { name: 'Riot Games Arena', city: 'Los Angeles', country: 'us' },
+        { name: 'Barclays Center', city: 'New York City', country: 'us' },
+      ],
+    };
     const node = event(createElement(TournamentJsonLd, { tournament, url: URL, image: 'https://x/y.png' }));
     expect(node).not.toHaveProperty('offers');
-    expect(node.location).toEqual({ '@type': 'VirtualLocation', url: URL });
-    expect(node.eventAttendanceMode).toBe('https://schema.org/MixedEventAttendanceMode');
+    expect(node.eventAttendanceMode).toBe('https://schema.org/OfflineEventAttendanceMode');
+    expect(node.location).toEqual([
+      {
+        '@type': 'Place',
+        name: 'Riot Games Arena',
+        address: { '@type': 'PostalAddress', addressLocality: 'Los Angeles', addressCountry: 'US' },
+      },
+      {
+        '@type': 'Place',
+        name: 'Barclays Center',
+        address: { '@type': 'PostalAddress', addressLocality: 'New York City', addressCountry: 'US' },
+      },
+    ]);
     expect(node.image).toEqual(['https://x/y.png']);
+  });
+
+  // Google reported "location missing" on an on-site event with only a virtual place.
+  it('never declares an on-site event without its venue', () => {
+    const offlineUnknown = { name: 'LAN', type: 'Offline', begin_at: '2026-10-15T00:00:00Z' };
+    const node = event(createElement(TournamentJsonLd, { tournament: offlineUnknown, url: URL }));
+    expect(node.eventAttendanceMode).toBe('https://schema.org/OnlineEventAttendanceMode');
+    expect(node.location).toEqual({ '@type': 'VirtualLocation', url: URL });
+  });
+
+  it('ignores venues of an online tournament', () => {
+    const online = { name: 'Cup', type: 'Online', venues: [{ city: 'Paris', country: 'fr' }] };
+    const node = event(createElement(TournamentJsonLd, { tournament: online, url: URL }));
+    expect(node.location).toEqual({ '@type': 'VirtualLocation', url: URL });
   });
 });

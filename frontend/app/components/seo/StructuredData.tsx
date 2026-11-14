@@ -130,18 +130,41 @@ export function AuthorSchema({
 
 export type EventStatus = 'EventScheduled' | 'EventCancelled' | 'EventPostponed' | 'EventRescheduled';
 
-// Google refuses an Event without a location (1 466 items on 2026-11-11), and
-// Liquipedia gives us no venue. What we do know is where the event is followed:
-// the page itself, which carries the stream and the scores. `onSite` marks an
-// event also held in a venue we cannot name. No nested event (superEvent):
-// Google's test counts it as a second item, itself without date or location.
-// Google's Event result only covers events with a street address: with a
-// virtual location it reads no event at all here, which is what clears the
-// report. The markup stays for other schema.org readers.
-export function eventPlace(url: string, onSite = false) {
+export interface EventVenue {
+  name?: string;
+  city?: string;
+  country?: string;
+}
+
+// Google's Event result requires a physical place with an address and leaves
+// out online-only events. An on-site tournament whose venue Liquipedia knows
+// gets that place (1 466 events had none on 2026-11-11). Otherwise the place is
+// the page itself, where the event is followed: Google then reads no event at
+// all, which is better than an invalid one. Declaring an on-site event without
+// its place made Google report the location missing again (Worlds 2026,
+// 2026-11-13), so "mixed" is never used without a venue. No nested event
+// (superEvent): Google counts it as a second item, without date or location.
+export function eventPlace(url: string, venues: EventVenue[] = []) {
+  const places = venues
+    .filter((v) => v.name || v.city)
+    .map((v) => ({
+      '@type': 'Place',
+      name: v.name || v.city,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: v.city || undefined,
+        addressCountry: v.country ? v.country.toUpperCase() : undefined,
+      },
+    }));
+  if (places.length === 0) {
+    return {
+      eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+      location: { '@type': 'VirtualLocation', url },
+    };
+  }
   return {
-    eventAttendanceMode: `https://schema.org/${onSite ? 'Mixed' : 'Online'}EventAttendanceMode`,
-    location: { '@type': 'VirtualLocation', url },
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    location: places.length === 1 ? places[0] : places,
   };
 }
 
@@ -199,7 +222,7 @@ export function TournamentSchema({
   startDate,
   endDate,
   status = 'EventScheduled',
-  onSite,
+  venues,
   url,
   teams,
 }: {
@@ -209,7 +232,7 @@ export function TournamentSchema({
   startDate?: string;
   endDate?: string;
   status?: EventStatus;
-  onSite?: boolean;
+  venues?: EventVenue[];
   url: string;
   teams?: number;
 }) {
@@ -224,7 +247,7 @@ export function TournamentSchema({
     startDate,
     endDate,
     eventStatus: `https://schema.org/${status}`,
-    ...eventPlace(url, onSite),
+    ...eventPlace(url, venues),
     url,
     ...(teams && { numberOfParticipants: teams }),
   };

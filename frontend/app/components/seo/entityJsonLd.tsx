@@ -1,4 +1,4 @@
-import { SportsEventSchema, TournamentSchema, BreadcrumbSchema, StructuredData, type EventStatus } from './StructuredData';
+import { SportsEventSchema, TournamentSchema, BreadcrumbSchema, StructuredData, type EventStatus, type EventVenue } from './StructuredData';
 import { gameByWiki } from '../../lib/gameRegistry';
 
 // JSON-LD has to be emitted by the server page, never by the client component
@@ -34,6 +34,7 @@ export interface TournamentJsonLdInput {
   league?: { name?: string | null } | null;
   type?: string | null;
   status?: string | null;
+  venues?: EventVenue[] | null;
   begin_at?: string | null;
   end_at?: string | null;
   teams?: unknown[] | null;
@@ -123,7 +124,7 @@ export function TournamentJsonLd({
         startDate={tournament.begin_at || undefined}
         endDate={tournament.end_at || undefined}
         status={cancelledOrPostponed(tournament.status)}
-        onSite={/offline/i.test(tournament.type || '')}
+        venues={/offline/i.test(tournament.type || '') ? tournament.venues || undefined : undefined}
         image={image}
         url={url}
         teams={tournament.teams?.length}
