@@ -15,13 +15,18 @@ interface NewsSectionProps {
   newsList: NewsItem[];
   isLoading?: boolean;
   className?: string;
+  // Set when the list is filtered on a game: the empty state names it and offers to lift the filter.
+  gameName?: string;
+  onShowAllGames?: () => void;
 }
 
 const NewsSection: React.FC<NewsSectionProps> = ({
   featuredNews,
   newsList,
   isLoading = false,
-  className = ''
+  className = '',
+  gameName,
+  onShowAllGames,
 }) => {
   const t = useTranslations();
   const router = useRouter();
@@ -87,12 +92,31 @@ const NewsSection: React.FC<NewsSectionProps> = ({
 
       {!isLoading && !hasNews && (
         <div className="text-center py-12">
-          <div className="text-gray-400 text-lg mb-2">
-            {t('pages.home.news.no_news')}
-          </div>
-          <p className="text-gray-500 text-sm">
-            {t('pages.home.news.no_news_subtitle')}
-          </p>
+          {gameName ? (
+            <>
+              <div className="text-text-muted text-lg mb-4">
+                {t('pages_detail.news.no_news_for_game', { game: gameName })}
+              </div>
+              {onShowAllGames && (
+                <button
+                  type="button"
+                  onClick={onShowAllGames}
+                  className="px-6 py-2 bg-accent hover:bg-accent/80 text-text-inverse rounded-lg font-medium transition-colors"
+                >
+                  {t('pages_detail.news.see_all_games')}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="text-gray-400 text-lg mb-2">
+                {t('pages.home.news.no_news')}
+              </div>
+              <p className="text-gray-500 text-sm">
+                {t('pages.home.news.no_news_subtitle')}
+              </p>
+            </>
+          )}
         </div>
       )}
     </section>

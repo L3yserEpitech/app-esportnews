@@ -49,7 +49,7 @@ function pickBestMatchesOfDay(matches: LiveMatch[]): LiveMatch[] {
 
 export default function HomePageClient() {
   const t = useTranslations();
-  const { games, selectedGame, setSelectedGame, isLoadingGames } = useGame();
+  const { games, selectedGame, setSelectedGame, isLoadingGames, isSelectionRestored, getSelectedGameData } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [bestMatches, setBestMatches] = useState<LiveMatch[]>([]);
   const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(null);
@@ -118,28 +118,33 @@ export default function HomePageClient() {
     loadAds();
   }, [loadAds]);
 
-  // Charger les 7 articles les plus récents depuis l'API (1 vedette + 6 en liste)
-  const loadAllNews = useCallback(async () => {
-    try {
-      setIsLoadingNews(true);
-      const allArticles = await articleService.getAllArticles({ limit: 7 });
+  // Same rule as /news: only an id present in `games` filters, and a saved
+  // selection waits for that list. Without one, /api/games delays nothing.
+  const activeGameData = getSelectedGameData();
+  const activeGameId = activeGameData ? String(activeGameData.id) : undefined;
+  const isWaitingForSelection = !isSelectionRestored || (selectedGame !== null && isLoadingGames);
 
-      if (allArticles.length > 0) {
-        // Article en vedette : le plus récent
-        setFeaturedNews(allArticles[0]);
-        // Les 6 articles suivants (ordre décroissant par date)
-        setNewsList(allArticles.slice(1, 7));
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des articles:', error);
-    } finally {
-      setIsLoadingNews(false);
-    }
-  }, []);
-
+  // 7 most recent articles of the selection: 1 featured + 6 in the grid.
   useEffect(() => {
-    loadAllNews();
-  }, [loadAllNews]);
+    if (isWaitingForSelection) return;
+
+    let stale = false;
+    setIsLoadingNews(true);
+    articleService
+      .getAllArticles({ limit: 7, gameId: activeGameId })
+      .then((articles) => {
+        if (stale) return;
+        setFeaturedNews(articles[0] ?? null);
+        setNewsList(articles.slice(1, 7));
+      })
+      .finally(() => {
+        if (!stale) setIsLoadingNews(false);
+      });
+
+    return () => {
+      stale = true;
+    };
+  }, [isWaitingForSelection, activeGameId]);
 
   // Charger les données selon le jeu sélectionné
   const loadGameData = useCallback((_gameId: string) => {
@@ -215,6 +220,8 @@ export default function HomePageClient() {
               featuredNews={memoizedFeaturedNews}
               newsList={memoizedNewsList}
               isLoading={isLoadingNews}
+              gameName={activeGameData?.full_name}
+              onShowAllGames={() => setSelectedGame(null)}
             />
 
             {/* Section Tournois en cours */}
