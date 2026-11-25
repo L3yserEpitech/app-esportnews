@@ -289,6 +289,17 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to initialize back-office: %v", err)
 	}
+	// Push history and store-notification status of the back-office.
+	expoPushService.SetRecorder(backofficeModule)
+	appleWebhookHandler.SetOnAccepted(backofficeModule.StoreNotificationAccepted("apple"))
+	googleWebhookHandler.SetOnAccepted(backofficeModule.StoreNotificationAccepted("google"))
+	// What the health screen observes outside the back-office.
+	backofficeModule.SetHealthSources(backoffice.HealthSources{
+		Poller:        liquipediaPoller,
+		PollerEnabled: cfg.LiquipediaPollerEnabled,
+		Webhooks:      webhookHandler,
+		ServerErrors:  mw.ServerErrorCount,
+	})
 	backofficeModule.Register(apiGroup)
 	backofficeCtx, backofficeCancel := context.WithCancel(context.Background())
 	backofficeModule.Start(backofficeCtx)
@@ -300,6 +311,7 @@ func main() {
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	if cfg.NotificationSchedulerEnabled {
 		notifScheduler := services.NewNotificationScheduler(gormDB, liquipediaService, expoPushService, logger)
+		notifScheduler.SetMatchAlertSwitch(backofficeModule.MatchLiveAlertEnabled)
 		go notifScheduler.Start(schedulerCtx)
 		logger.Info("Notification scheduler started")
 	} else {

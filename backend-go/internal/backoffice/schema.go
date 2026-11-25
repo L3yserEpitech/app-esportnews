@@ -21,6 +21,7 @@ var schemaStatements = []string{
 	`ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS signup_source text`,
 	`ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS premium_gifted boolean NOT NULL DEFAULT false`,
 	`ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS premium_gift_note text`,
+	`ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS iap_checked_at timestamptz`,
 	`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role) WHERE role <> 'user'`,
 
 	// articles: drafts and scheduled publication. Every existing row is published.
@@ -142,6 +143,11 @@ var schemaStatements = []string{
 		updated_at timestamptz NOT NULL DEFAULT now(),
 		updated_by text NOT NULL DEFAULT ''
 	)`,
+
+	// Push history: the device behind each ticket, to deactivate it when its
+	// receipt says the app is gone; and the lookup of an article's broadcast.
+	`ALTER TABLE bo_push_ticket ADD COLUMN IF NOT EXISTS token text NOT NULL DEFAULT ''`,
+	`CREATE INDEX IF NOT EXISTS idx_bo_push_log_kind_ref ON bo_push_log(kind, ref)`,
 }
 
 func EnsureSchema(db *gorm.DB) error {

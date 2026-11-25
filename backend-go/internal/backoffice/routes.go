@@ -25,6 +25,7 @@ func (m *Module) Register(api *echo.Group) {
 	m.registerAnalyticsRoutes(priv)
 	m.registerMediaRoutes(priv)
 	m.registerAdRoutes(api, priv)
+	m.registerDashboardRoutes(priv)
 	priv.GET("/nav", m.handleNav)
 }
 
@@ -48,6 +49,8 @@ func (m *Module) Start(ctx context.Context) {
 	m.startArticleJobs(ctx)
 	m.startPushJobs(ctx)
 	m.startHealthJobs(ctx)
+	m.startAnalyticsJobs(ctx)
+	m.startAdJobs(ctx)
 	go func() {
 		daily := time.NewTicker(24 * time.Hour)
 		defer daily.Stop()
