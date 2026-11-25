@@ -9,7 +9,8 @@ import (
 )
 
 // Register mounts the back-office under /api/bo. Everything but the login
-// steps needs a team session.
+// steps needs a team session. `api` is the public /api group: the site reads
+// the ad spots from it.
 func (m *Module) Register(api *echo.Group) {
 	pub := api.Group("/bo")
 	priv := api.Group("/bo", m.requireSession)
@@ -17,6 +18,13 @@ func (m *Module) Register(api *echo.Group) {
 	m.registerAuthRoutes(pub, priv)
 	m.registerTeamRoutes(priv)
 	m.registerAuditRoutes(priv)
+	m.registerArticleRoutes(priv)
+	m.registerUserRoutes(priv)
+	m.registerPushRoutes(priv)
+	m.registerHealthRoutes(priv)
+	m.registerAnalyticsRoutes(priv)
+	m.registerMediaRoutes(priv)
+	m.registerAdRoutes(api, priv)
 	priv.GET("/nav", m.handleNav)
 }
 
@@ -37,6 +45,9 @@ func (m *Module) handleNav(c echo.Context) error {
 
 // Start runs the background jobs until ctx ends.
 func (m *Module) Start(ctx context.Context) {
+	m.startArticleJobs(ctx)
+	m.startPushJobs(ctx)
+	m.startHealthJobs(ctx)
 	go func() {
 		daily := time.NewTicker(24 * time.Hour)
 		defer daily.Stop()

@@ -12,6 +12,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Lets several dev servers run from this folder at once (one build folder each).
+  distDir: process.env.BO_DIST_DIR || '.next',
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
