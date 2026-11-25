@@ -158,6 +158,68 @@ func (s *StorageService) Delete(ctx context.Context, url string) error {
 	return nil
 }
 
+type StoredObject struct {
+	Key          string
+	URL          string
+	Size         int64
+	LastModified time.Time
+}
+
+// List returns one page of the objects under prefix and the cursor of the next
+// page ("" on the last one). Key order: the only one S3 offers.
+func (s *StorageService) List(ctx context.Context, prefix, cursor string, limit int32) ([]StoredObject, string, error) {
+	in := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(s.bucket),
+		Prefix:  aws.String(prefix),
+		MaxKeys: aws.Int32(limit),
+	}
+	if cursor != "" {
+		in.ContinuationToken = aws.String(cursor)
+	}
+	out, err := s.client.ListObjectsV2(ctx, in)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list R2 objects: %w", err)
+	}
+	base := strings.TrimSuffix(s.publicURL, "/")
+	objects := make([]StoredObject, 0, len(out.Contents))
+	for _, o := range out.Contents {
+		key := aws.ToString(o.Key)
+		// A "folder" created from a bucket console is an empty object ending in a slash.
+		if key == "" || strings.HasSuffix(key, "/") {
+			continue
+		}
+		objects = append(objects, StoredObject{
+			Key:          key,
+			URL:          base + "/" + key,
+			Size:         aws.ToInt64(o.Size),
+			LastModified: aws.ToTime(o.LastModified),
+		})
+	}
+	next := ""
+	if aws.ToBool(out.IsTruncated) {
+		next = aws.ToString(out.NextContinuationToken)
+	}
+	return objects, next, nil
+}
+
+// KeyFromURL maps a public URL of this bucket back to its object key.
+func (s *StorageService) KeyFromURL(url string) (string, bool) {
+	base := strings.TrimSuffix(s.publicURL, "/") + "/"
+	if s.publicURL == "" || !strings.HasPrefix(url, base) {
+		return "", false
+	}
+	key := url[len(base):]
+	if key == "" || strings.ContainsAny(key, "?#") {
+		return "", false
+	}
+	return key, true
+}
+
+// NewStorageServiceWithClient wraps a ready S3 client: tests point it at a local fake.
+func NewStorageServiceWithClient(client *s3.Client, bucket, publicURL string, logger *logrus.Logger) *StorageService {
+	return &StorageService{client: client, bucket: bucket, publicURL: publicURL, logger: logger}
+}
+
 // GenerateFilename creates a unique filename with timestamp and UUID
 func GenerateFilename(originalName string) string {
 	ext := filepath.Ext(originalName)

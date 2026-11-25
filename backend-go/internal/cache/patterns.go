@@ -15,6 +15,7 @@ const (
 	CacheArticles        = "cache:articles:%s"
 	CacheArticlesSimilar = "cache:articles:similar:%s"
 	CacheAds             = "cache:ads"
+	CacheAdSpots         = "cache:ad-spots" // payload of GET /api/ad-spots, never kept past a spot's date boundary
 	CacheTeams           = "cache:teams:%d"
 	CacheUserFavorites   = "cache:user:favorites:%d"
 
