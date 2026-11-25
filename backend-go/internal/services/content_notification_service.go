@@ -4,6 +4,7 @@ import (
 	"context"
 	"html"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,16 +41,19 @@ func buildContentNotification(article *models.Article) (contentNotification, boo
 		return contentNotification{}, false
 	}
 
-	dataType := "new_article"
-	if article.Category != nil && *article.Category == newsCategory {
-		dataType = "new_news"
-	}
-
 	return contentNotification{
 		title:    title,
 		body:     articleExcerpt(article),
-		dataType: dataType,
+		dataType: ArticlePushType(article.Category),
 	}, true
+}
+
+// ArticlePushType is the data.type the app expects for a link to an article.
+func ArticlePushType(category *string) string {
+	if category != nil && *category == newsCategory {
+		return "new_news"
+	}
+	return "new_article"
 }
 
 // articleExcerpt returns the opening words of an article, preferring the
@@ -186,7 +190,7 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 	}
 
 	// One message per token keeps the Expo ticket<->message mapping 1:1, so the
-	// DeviceNotRegistered cleanup inside SendBatch stays precise.
+	// DeviceNotRegistered cleanup stays precise.
 	messages := make([]ExpoPushMessage, 0, len(tokens))
 	for _, t := range tokens {
 		messages = append(messages, ExpoPushMessage{
@@ -194,7 +198,7 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 			Title:     notif.title,
 			Body:      notif.body,
 			Sound:     "default",
-			ChannelId: "content-updates", // Android-only; iOS ignores it
+			ChannelId: PushChannelContent, // Android-only; iOS ignores it
 			Data: map[string]interface{}{
 				"type": notif.dataType,
 				"slug": slug,
@@ -202,13 +206,10 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 		})
 	}
 
-	invalidTokens, err := s.pushService.SendBatch(ctx, messages)
-	if err != nil {
-		s.logger.Errorf("[ContentNotif] SendBatch failed for article %d: %v", article.ID, err)
-	} else {
-		s.logger.Infof("[ContentNotif] Sent %d notifications for article %d (%s), %d invalid",
-			len(messages), article.ID, notif.dataType, len(invalidTokens))
-	}
+	results := s.pushService.Send(ctx, messages)
+	invalidTokens := InvalidTokens(results)
+	s.logger.Infof("[ContentNotif] Sent %d notifications for article %d (%s), %d invalid",
+		len(results), article.ID, notif.dataType, len(invalidTokens))
 	if len(invalidTokens) > 0 {
 		if derr := db.WithContext(ctx).Model(&models.PushToken{}).
 			Where("token IN ?", invalidTokens).
@@ -216,6 +217,14 @@ func (s *ContentNotificationService) NotifyNewContent(ctx context.Context, artic
 			s.logger.Errorf("[ContentNotif] Failed to deactivate invalid tokens: %v", derr)
 		}
 	}
+	s.pushService.Record(ctx, PushRecord{
+		Kind:     PushKindArticle,
+		Title:    notif.title,
+		Body:     notif.body,
+		Audience: PushAudienceAll,
+		Ref:      strconv.FormatInt(article.ID, 10),
+		Results:  results,
+	})
 
 	s.markNotified(ctx, article)
 }

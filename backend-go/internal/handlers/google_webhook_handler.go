@@ -21,7 +21,12 @@ type GoogleWebhookHandler struct {
 	iapService *services.IAPService
 	logger     *logrus.Logger
 	token      string // shared secret; empty = token check disabled (dev only)
+	onAccepted func()
 }
+
+// SetOnAccepted registers what runs after each notification handled without
+// error. The back-office uses it to tell a silent store from a quiet day.
+func (h *GoogleWebhookHandler) SetOnAccepted(fn func()) { h.onAccepted = fn }
 
 func NewGoogleWebhookHandler(iapService *services.IAPService, logger *logrus.Logger, token string) *GoogleWebhookHandler {
 	return &GoogleWebhookHandler{
@@ -61,6 +66,9 @@ func (h *GoogleWebhookHandler) HandleNotification(c echo.Context) error {
 		h.logger.Errorf("[IAP][GoogleWebhook] Processing failed: %v", err)
 		// Return 200 so Pub/Sub doesn't retry on transient errors.
 		return c.NoContent(http.StatusOK)
+	}
+	if h.onAccepted != nil {
+		h.onAccepted()
 	}
 
 	return c.NoContent(http.StatusOK)

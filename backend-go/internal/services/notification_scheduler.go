@@ -49,6 +49,23 @@ type NotificationScheduler struct {
 	liqService  *LiquipediaService
 	pushService *ExpoPushService
 	logger      *logrus.Logger
+	// nil = always on. Read at every tick: the back-office can flip it.
+	matchAlertsEnabled func(ctx context.Context) bool
+}
+
+// SetMatchAlertSwitch must be called before Start. While the switch is off,
+// a subscription that comes due is still flagged as notified, without a push:
+// turning the switch back on only alerts for matches that start afterwards,
+// never for the ones that began in the meantime.
+func (s *NotificationScheduler) SetMatchAlertSwitch(enabled func(ctx context.Context) bool) {
+	s.matchAlertsEnabled = enabled
+}
+
+// matchPush is the alert of one subscriber, tagged with the match it is about.
+type matchPush struct {
+	ref     string // match2id, the key the history groups by
+	title   string
+	message ExpoPushMessage
 }
 
 // NewNotificationScheduler builds a scheduler. gormDB may be either a
@@ -135,8 +152,9 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	}
 
 	now := time.Now()
+	alertsOn := s.matchAlertsEnabled == nil || s.matchAlertsEnabled(ctx)
 	var (
-		messages     []ExpoPushMessage
+		pushes       []matchPush
 		subsToUpdate []subUpdate
 		waiting      []models.MatchSubscription
 	)
@@ -150,9 +168,9 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 			continue
 		}
 
-		if now.Sub(*sub.BeginAt) <= maxStartNotifLateness {
+		if alertsOn && now.Sub(*sub.BeginAt) <= maxStartNotifLateness {
 			if msg, ok := s.buildStartNotification(ctx, sub, matchLabelFromName(sub.MatchName), sub.Match2ID); ok {
-				messages = append(messages, msg)
+				pushes = append(pushes, matchPush{ref: matchPushRef(sub), title: matchPushTitle(sub.MatchName), message: msg})
 			}
 		}
 		subsToUpdate = append(subsToUpdate, subUpdate{
@@ -165,7 +183,7 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 	}
 
 	if len(waiting) == 0 {
-		s.dispatch(ctx, messages, subsToUpdate)
+		s.dispatch(ctx, pushes, subsToUpdate)
 		return
 	}
 
@@ -208,27 +226,49 @@ func (s *NotificationScheduler) processMatchNotifications(ctx context.Context) {
 
 			fields["notified_start"] = true
 			fields["status"] = "running"
-			if msg, ok := s.buildStartNotification(ctx, sub, matchLabel(match, sub.MatchName), sub.Match2ID); ok {
-				messages = append(messages, msg)
+			if alertsOn {
+				if msg, ok := s.buildStartNotification(ctx, sub, matchLabel(match, sub.MatchName), sub.Match2ID); ok {
+					name := sub.MatchName
+					if len(namedOpponents(match)) >= 2 {
+						name = subscriptionMatchName(match)
+					}
+					pushes = append(pushes, matchPush{ref: matchPushRef(sub), title: matchPushTitle(name), message: msg})
+				}
 			}
 			subsToUpdate = append(subsToUpdate, subUpdate{id: sub.ID, fields: fields})
 		}
 	}
 
-	s.dispatch(ctx, messages, subsToUpdate)
+	s.dispatch(ctx, pushes, subsToUpdate)
+}
+
+func matchPushRef(sub models.MatchSubscription) string {
+	if sub.Match2ID != "" {
+		return sub.Match2ID
+	}
+	return fmt.Sprintf("page:%d", sub.MatchID)
+}
+
+func matchPushTitle(matchName string) string {
+	if name := strings.TrimSpace(matchName); name != "" {
+		return "Match en direct · " + name
+	}
+	return "Match en direct"
 }
 
 // dispatch sends the batch and persists the subscription updates.
-func (s *NotificationScheduler) dispatch(ctx context.Context, messages []ExpoPushMessage, subsToUpdate []subUpdate) {
-	if len(messages) > 0 {
-		invalidTokens, err := s.pushService.SendBatch(ctx, messages)
-		if err != nil {
-			s.logger.Errorf("[NotifScheduler] Failed to send batch: %v", err)
+func (s *NotificationScheduler) dispatch(ctx context.Context, pushes []matchPush, subsToUpdate []subUpdate) {
+	if len(pushes) > 0 {
+		messages := make([]ExpoPushMessage, len(pushes))
+		for i, p := range pushes {
+			messages[i] = p.message
 		}
-		if len(invalidTokens) > 0 {
+		results := s.pushService.Send(ctx, messages)
+		if invalidTokens := InvalidTokens(results); len(invalidTokens) > 0 {
 			s.deactivateTokens(ctx, invalidTokens)
 		}
-		s.logger.Infof("[NotifScheduler] Sent %d notifications", len(messages))
+		s.logger.Infof("[NotifScheduler] Sent %d notifications", len(results))
+		s.recordMatchPushes(ctx, pushes, results)
 	}
 
 	db := s.getDB()
@@ -238,6 +278,31 @@ func (s *NotificationScheduler) dispatch(ctx context.Context, messages []ExpoPus
 			Updates(upd.fields).Error; err != nil {
 			s.logger.Errorf("[NotifScheduler] Failed to update subscription %d: %v", upd.id, err)
 		}
+	}
+}
+
+// recordMatchPushes writes one history entry per match, whatever its number of
+// subscribers. Send returns one result per device, in the order of the messages.
+func (s *NotificationScheduler) recordMatchPushes(ctx context.Context, pushes []matchPush, results []PushResult) {
+	var order []string
+	records := make(map[string]*PushRecord)
+	offset := 0
+	for _, p := range pushes {
+		end := offset + len(p.message.To)
+		if end > len(results) {
+			break
+		}
+		record, ok := records[p.ref]
+		if !ok {
+			record = &PushRecord{Kind: PushKindMatch, Title: p.title, Body: p.message.Body, Audience: PushAudienceMatch, Ref: p.ref}
+			records[p.ref] = record
+			order = append(order, p.ref)
+		}
+		record.Results = append(record.Results, results[offset:end]...)
+		offset = end
+	}
+	for _, ref := range order {
+		s.pushService.Record(ctx, *records[ref])
 	}
 }
 
@@ -288,8 +353,8 @@ func (s *NotificationScheduler) buildStartNotification(ctx context.Context, sub 
 		Title:     "Match en direct",
 		Body:      body,
 		Sound:     "default",
-		Priority:  "high",         // APNs priority 10 (iOS) + FCM high priority (Android)
-		ChannelId: "match-alerts", // Android-only: routes to the HIGH-importance channel for heads-up
+		Priority:  "high",           // APNs priority 10 (iOS) + FCM high priority (Android)
+		ChannelId: PushChannelMatch, // Android-only: routes to the HIGH-importance channel for heads-up
 		Data: map[string]interface{}{
 			"type":         "match_start",
 			"match_id":     sub.MatchID,

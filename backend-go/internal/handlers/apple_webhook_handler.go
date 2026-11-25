@@ -20,7 +20,12 @@ import (
 type AppleWebhookHandler struct {
 	iapService *services.IAPService
 	logger     *logrus.Logger
+	onAccepted func()
 }
+
+// SetOnAccepted registers what runs after each notification handled without
+// error. The back-office uses it to tell a silent store from a quiet day.
+func (h *AppleWebhookHandler) SetOnAccepted(fn func()) { h.onAccepted = fn }
 
 func NewAppleWebhookHandler(iapService *services.IAPService, logger *logrus.Logger) *AppleWebhookHandler {
 	return &AppleWebhookHandler{
@@ -63,6 +68,9 @@ func (h *AppleWebhookHandler) HandleNotification(c echo.Context) error {
 	if err := h.iapService.HandleAppleNotification(c.Request().Context(), req.SignedPayload); err != nil {
 		h.logger.Errorf("[IAP][Webhook] Processing failed: %v", err)
 		return c.NoContent(http.StatusOK)
+	}
+	if h.onAccepted != nil {
+		h.onAccepted()
 	}
 
 	return c.NoContent(http.StatusOK)
