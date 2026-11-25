@@ -1,0 +1,3 @@
+# ads.txt - vendeurs autorises a vendre l espace publicitaire de esportnews.fr
+# Google AdSense, compte ESPORT NEWS
+google.com, pub-4019532498018851, DIRECT, f08c47fec0942fa0

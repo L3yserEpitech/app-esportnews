@@ -6,6 +6,7 @@ import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
 import AdColumn from './components/ads/AdColumn';
 import RunningTournaments from './components/tournaments/RunningTournaments';
+import AdSpot from './components/ads/AdSpot';
 import { useTranslations } from 'next-intl';
 import { Star, Swords } from 'lucide-react';
 import ContentLoader from './components/ui/ContentLoader';
@@ -223,6 +224,8 @@ export default function HomePageClient() {
               gameName={activeGameData?.full_name}
               onShowAllGames={() => setSelectedGame(null)}
             />
+
+            <AdSpot id="mobile-1" />
 
             {/* Section Tournois en cours */}
             <RunningTournaments />

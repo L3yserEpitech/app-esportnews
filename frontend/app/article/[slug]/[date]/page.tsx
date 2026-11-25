@@ -7,6 +7,7 @@ import ArticleCover from '@/app/components/article/ArticleCover';
 import ArticleBody from '@/app/components/article/ArticleBody';
 import ArticleCard from '@/app/components/article/ArticleCard';
 import ArticleSidebar from '../ArticleSidebar';
+import AdSpot from '@/app/components/ads/AdSpot';
 import { ArticleSchema, BreadcrumbSchema } from '@/app/components/seo/StructuredData';
 import { generateBreadcrumbs } from '@/app/lib/breadcrumbHelper';
 import { formatDateSlug } from '@/app/lib/articleUrl';
@@ -338,6 +339,8 @@ export default async function ArticlePage(
                 )}
               </div>
             </article>
+
+            <AdSpot id="article-bottom" className="mt-8 px-4 md:px-0" />
 
             {similarArticles.length > 0 && (
               <div className="mt-12 px-4 md:px-0">

@@ -1,108 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Advertisement } from '../../types';
-import Card from '../ui/Card';
+import type { AdSpotCreative } from '@/app/lib/adSpots';
 
 interface AdBannerProps {
-  ad: Advertisement;
-  position: number;
-  isSubscribed?: boolean;
+  creative: AdSpotCreative;
+  width: number;
+  height: number;
   className?: string;
 }
 
-const AdBanner: React.FC<AdBannerProps> = ({
-  ad,
-  isSubscribed = false,
-  className = ''
-}) => {
-  // Déterminer la visibilité initiale directement
-  const shouldBeVisible = !isSubscribed && !!ad.url && !!ad.redirect_link;
+// A banner sold directly: an image or a video, linked to the partner's page.
+export default function AdBanner({ creative, width, height, className = '' }: AdBannerProps) {
   const [hasError, setHasError] = useState(false);
 
-  // Réinitialiser hasError quand l'URL de la pub change
   useEffect(() => {
     setHasError(false);
-  }, [ad.url, ad.id]);
+  }, [creative.media_url]);
 
-  const handleClick = () => {
-    if (ad.redirect_link) {
-      // Ouvrir dans un nouvel onglet comme spécifié dans CLAUDE.md
-      window.open(ad.redirect_link, '_blank', 'noopener,noreferrer');
-    }
-  };
+  if (hasError) return null;
 
-  const handleImageError = (e: any) => {
-    console.error('[AdBanner] Image load error for ad:', ad.id, 'URL:', ad.url, 'Error:', e);
-    setHasError(true);
-  };
-
-  if (!shouldBeVisible || hasError) {
-    return null;
-  }
+  const title = creative.title || 'Publicité';
 
   return (
-    <Card
-      variant="outlined"
-      padding="none"
-      className={`cursor-pointer transition-all duration-300 group ${className}`}
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      aria-label={`Publicité: ${ad.title}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
+    <a
+      href={creative.redirect_link}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      aria-label={`Publicité : ${title}`}
+      className={`group relative block w-full overflow-hidden rounded-lg border border-border-primary ${className}`}
+      style={{ maxWidth: width, aspectRatio: `${width} / ${height}` }}
     >
-      <div className="relative overflow-hidden rounded-lg">
-        {ad.type === 'video' ? (
-          <video
-            className="w-full h-auto max-h-96 object-cover transition-all duration-300 group-hover:brightness-75"
-            autoPlay
-            muted
-            loop
-            playsInline
-            onError={handleImageError}
-            aria-label={ad.title || 'Publicité vidéo'}
-          >
-            <source src={ad.url || undefined} type="video/mp4" />
-            <div className="flex items-center justify-center h-32 bg-bg-tertiary text-text-secondary">
-              Vidéo non supportée
-            </div>
-          </video>
-        ) : (
-          <div className="relative w-full" style={{ minHeight: '400px' }}>
-            <Image
-              src={ad.url || ''}
-              alt={ad.title || 'Publicité'}
-              fill
-              className="object-cover transition-all duration-300 group-hover:brightness-75"
-              onError={handleImageError}
-              loading="lazy"
-              sizes="300px"
-            />
-          </div>
-        )}
+      {creative.media_type === 'video' ? (
+        <video
+          className="absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:brightness-75"
+          autoPlay
+          muted
+          loop
+          playsInline
+          onError={() => setHasError(true)}
+          aria-label={title}
+        >
+          <source src={creative.media_url} type="video/mp4" />
+        </video>
+      ) : (
+        <Image
+          src={creative.media_url}
+          alt={title}
+          fill
+          className="object-cover transition-all duration-300 group-hover:brightness-75"
+          onError={() => setHasError(true)}
+          loading="lazy"
+          sizes={`${width}px`}
+        />
+      )}
 
-        {/* Overlay avec effet de slide depuis le bas */}
-        <div className="absolute bottom-0 left-0 right-0 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
-          <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
-            <h3 className="text-white text-sm font-semibold mb-1">
-              {ad.title || 'Publicité'}
-            </h3>
-            <span className="text-xs text-accent font-medium">Publicité</span>
-          </div>
+      <div className="absolute bottom-0 left-0 right-0 translate-y-full transform transition-transform duration-300 ease-out group-hover:translate-y-0">
+        <div className="bg-gradient-to-t from-black/90 to-transparent p-4">
+          <p className="mb-1 text-sm font-semibold text-white">{title}</p>
+          <span className="text-xs font-medium text-accent">Publicité</span>
         </div>
-
-        {/* Overlay d'assombrissement général au hover */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
       </div>
-    </Card>
+    </a>
   );
-};
-
-export default AdBanner;
+}
