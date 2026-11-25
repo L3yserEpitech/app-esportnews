@@ -25,6 +25,7 @@
 17. [Historique de migration](#17-historique-de-migration)
 18. [Pages spécifiques (Match / Admin Ads)](#18-pages-spécifiques)
 19. [Conventions de travail](#19-conventions-de-travail)
+23. [Back-office (`admin.esportnews.fr`)](#23-back-office-adminesportnewsfr)
 
 ---
 
@@ -393,7 +394,7 @@ Wrapper autour de l'API Expo Push (`https://exp.host/--/api/v2/push/send`). Mét
 
 ## 6) Backend Go — Handlers & routes HTTP
 
-Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `/api`. Corps de requête limités à 1 Mo (`middleware/bodylimit.go`, 413), sauf `/api/auth/avatar/upload` (11 Mo, ouvert à tout compte gratuit) et `/api/admin/*` (sans limite, `RequireAdmin` refuse avant toute lecture du corps). Les routes admin sont sous le sous-groupe `apiGroup.Group("")` avec middleware `RequireAdmin(authService)`, qui **lit le rôle en base à chaque requête** (`VerifyAdminToken`) : le claim `admin` du token n'est jamais consulté, une rétrogradation s'applique tout de suite (403) et une promotion sans reconnexion. Base injoignable = 503.
+Tous les handlers sont enregistrés dans `cmd/server/main.go` sous le préfixe `/api`. Corps de requête limités à 1 Mo (`middleware/bodylimit.go`, 413), sauf `/api/auth/avatar/upload` (11 Mo, ouvert à tout compte gratuit) et `/api/admin/*` (sans limite, `RequireAdmin` refuse avant toute lecture du corps). Back-office (§23) : `/api/bo/upload/*` sans limite (la session d'équipe est vérifiée avant la lecture du formulaire), `/api/bo/articles*` 8 Mo. Les routes admin sont sous le sous-groupe `apiGroup.Group("")` avec middleware `RequireAdmin(authService)`, qui **lit le rôle en base à chaque requête** (`VerifyAdminToken`) : le claim `admin` du token n'est jamais consulté, une rétrogradation s'applique tout de suite (403) et une promotion sans reconnexion. Base injoignable = 503.
 
 ### Public — Health & utilitaires
 | Méthode | Route | Handler | Description |
@@ -1529,6 +1530,68 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 * **Play Console** exige un **`.aab`** (pas d'APK) en production → profil `production`. L'APK `preview` sert au test device uniquement.
 * Commandes : `eas build --platform <ios|android> --profile production` puis (iOS) `eas submit --platform ios --profile production` ou upload manuel du `.aab` (Android).
 * `npx` est réécrit en `npm` par un hook local → utiliser les binaires directs (`./node_modules/.bin/expo`, etc.) pour les commandes scriptées.
+
+## 23) Back-office (`admin.esportnews.fr`)
+
+> Refonte de novembre 2026, sur la maquette Claude Design « Back-office Esport News ». **Pas encore en prod** : tant que ce n'est pas déployé, l'ancien `/admin` du site (§18.2) reste l'outil de la rédaction et ses routes `/api/admin/*` ne changent pas.
+
+### Où est le code
+* **Application** : `backoffice/` (Next.js 15, pnpm, port 3100 en local), tout en composants client derrière la connexion. Origine à part du site : son jeton de session vit dans le `localStorage` de `admin.esportnews.fr`, hors de portée d'un script injecté sur le site public. `backoffice/README.md` donne la recette locale (Postgres et Redis jetables, jamais la prod) et les conventions.
+* **API** : `backend-go/internal/backoffice`, montée sous `/api/bo`. Un fichier par domaine (`articles*.go`, `users*.go`, `push*.go`, `health*.go`, `analytics*.go`, `dashboard.go`, `media.go`, `ads.go`), `schema.go` appliqué à chaque démarrage (idempotent), `routes.go` pour l'enregistrement et les tâches de fond.
+* Les classes CSS de `backoffice/app/globals.css` sont celles de la maquette : une page se lit comme sa planche.
+
+### Comptes d'équipe et sessions
+* `users.role` : `user`, `reader` (Lecteur), `editor` (Rédacteur), `admin`. `setRole` tient `users.admin` (que lit le site) égal à `role = 'admin'`. Au premier démarrage, tout `admin = true` devient `role = 'admin'`. **Un compte `user` n'ouvre pas le back-office**, quel que soit son mot de passe.
+* Matrice des droits : `rolePerms` dans `core.go`, recopiée à l'écran dans `app/(app)/equipe/page.tsx`. Les deux doivent rester identiques. Le rôle est relu en base à chaque requête.
+* **Session** : jeton opaque de 12 h dans Redis (`bo:session:<sha256>`), sans rapport avec les JWT du site. Fermée au changement de rôle, à la réinitialisation de la double authentification et à celle du mot de passe.
+* **Double authentification** (TOTP, RFC 6238) obligatoire : un membre a 24 h après son entrée dans l'équipe (`users.team_since`), ensuite la connexion elle-même le fait passer par l'enrôlement. Secret chiffré en base (AES-GCM, clé dérivée de `BACKOFFICE_SECRET`, à défaut de `JWT_SECRET` : **changer cette clé invalide tous les secrets TOTP**). Dix codes de secours à usage unique, appareil de confiance 30 jours, un code ne sert qu'une fois par fenêtre.
+* **Actions lourdes** (`requireSudo` : invitation, changement de rôle, suppression de compte, push manuel, export des comptes) : des identifiants donnés depuis moins de 10 minutes, sinon 403 `reauth_required` et l'interface redemande le code puis rejoue l'appel.
+* **Journal d'audit** (`bo_audit_log`, conservé 1 an) : toute écriture passe par `m.audit(...)`. Une nouvelle action s'ajoute aussi dans `backoffice/lib/audit.ts`. La ville du « Depuis » vient de l'en-tête de géolocalisation de l'hébergeur lu par `app/api/geo` : affichage seulement.
+
+### Articles
+* `articles.status` : `draft`, `scheduled`, `published` (défaut, donc tout l'existant). **Toute lecture publique filtre `status = 'published'`** (`article_service.go`) ; une nouvelle requête publique sur `articles` doit le faire aussi.
+* `created_at` reste la date de publication partout sur le site : elle est posée à `now()` quand un brouillon ou un article programmé sort, jamais modifiée ensuite. Le slug est figé dès la première publication.
+* Une tâche publie chaque minute les articles programmés échus (prise atomique, sûre à plusieurs instances) et envoie le push si `notify_on_publish` est vrai.
+* Un rédacteur ne modifie que ses articles (`author_id`, ou à défaut signature égale à son nom). Chaque enregistrement laisse une version (`bo_article_version`, 30 par article). Le corps n'est réécrit que s'il a changé, dans les colonnes que remplit l'éditeur historique (`article_content`, `content`, `content_white`, `content_black`).
+
+### Utilisateurs
+* **Premium offert** (`users.premium_gifted`) : toute écriture de `users.premium` passe par `premiumUnlessGifted` (`services/account_lifecycle.go`), y compris les notifications Apple et Google et Stripe. Une nouvelle écriture de `premium` doit passer par là, sinon la vérification quotidienne retire un Premium offert.
+* **Suppression** : `AuthService.PurgeAccount`, partagée entre le back-office et la suppression depuis le site ou l'app. Elle retire aussi jetons push, abonnements et double authentification, et laisse une ligne sans donnée personnelle dans `bo_deleted_account`.
+* `users.last_seen_at` (au plus une écriture toutes les 10 min, sur `/auth/me`, le refresh et la connexion), `users.signup_source` (`ios`, `android`, `web`, NULL pour les comptes d'avant), `users.iap_checked_at` (dernière réponse d'un store).
+
+### Notifications push
+* Chaque envoi laisse une ligne dans `bo_push_log` (`article` avec `ref` = id de l'article, `match` avec `ref` = match2id, `manual`) et ses tickets Expo dans `bo_push_ticket`. Une tâche relit les accusés toutes les 2 minutes, à partir de 15 minutes après l'envoi (Expo les efface au bout de 24 h), et désactive les appareils signalés `DeviceNotRegistered`.
+* Réglages dans `bo_setting` : `push.notify_new_article_default` (valeur par défaut de la case de l'éditeur) et `push.match_live_alert_enabled`. Coupée, l'alerte « Match en direct » marque quand même l'abonnement comme notifié : la rallumer n'envoie aucun rattrapage.
+* `EXPO_PUSH_BASE_URL` détourne Expo vers une adresse locale : **obligatoire en local**, jamais en prod.
+
+### Publicités
+* `ad_spot` : un emplacement = une clé stable (`sidebar-1..3`, `article-bottom`, `mobile-1`, créés au démarrage). Mode `adsense` (défaut), `custom` (image ou vidéo, lien https, fenêtre de dates) ou `off`.
+* **`GET /api/ad-spots`** (public, sans authentification) est le contrat lu par le site (`frontend/app/lib/adSpots.ts`) : `{spots: {<clé>: {mode, format, adsense_slot, creative}}}`, dates déjà résolues, cache Redis d'une heure borné à la prochaine date et purgé à chaque écriture. L'identifiant éditeur AdSense reste dans le code du site.
+* Tant que le site garde son repli sur `/api/ads`, `sidebar-1..3` sont recopiés toutes les 30 s dans l'ancienne table `ads` : **l'ancien écran `/admin/ads` n'a plus la main sur ces positions**. À retirer (`startAdJobs`, `syncLegacyAdsNow`) quand le site ne lira plus `/api/ads`.
+
+### Santé du système, analytics, tableau de bord
+* `GET /api/bo/health` assemble au plus une fois par minute une carte par service. **Une source sans identifiants répond `unconfigured` avec les variables à définir, jamais un chiffre.** Le proxy n'est sondé que par une connexion TCP : rien n'est envoyé à Liquipedia.
+* Analytics : Vercel Web Analytics si configuré, sinon `page_views` ; Search Console (service account) ; téléchargements App Store (rapports de ventes) et Google Play (rapports mensuels du bucket), rapatriés en tâche de fond dans `bo_store_downloads`. Les quarante derniers articles sont vérifiés chaque jour dans l'index Google (`bo_gsc_inspection`).
+* Piège GORM : un `?` dans une chaîne SQL (expression régulière) est pris pour un paramètre. Passer le motif en argument.
+
+### Variables d'environnement (backend)
+| Variable | Rôle |
+|----------|------|
+| `BACKOFFICE_URL` | Origine du back-office (CORS, liens d'invitation et de mot de passe). Défaut `http://localhost:3100` |
+| `BACKOFFICE_SECRET` | Clé de chiffrement des secrets TOTP. Vide = dérivée de `JWT_SECRET` |
+| `SITE_URL` | Site public, pour les liens et l'inspection d'index. Défaut `https://www.esportnews.fr` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Bouton « Continuer avec Google » (masqué si vide) |
+| `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` | Dernier déploiement et Web Analytics |
+| `GSC_SITE_URL`, `GSC_CREDENTIALS_JSON` | Propriété Search Console (`sc-domain:esportnews.fr`) et clé JSON d'un compte de service ajouté comme utilisateur de la propriété |
+| `RAILWAY_API_TOKEN`, `RAILWAY_SERVICE_ID`, `RAILWAY_ENVIRONMENT_ID`, `RAILWAY_PROJECT_ID` | Carte Railway |
+| `UPSTASH_EMAIL`, `UPSTASH_API_KEY`, `UPSTASH_DATABASE_ID` | Lignes Upstash de la carte Redis |
+| `APPSTORE_CONNECT_KEY_ID`, `APPSTORE_CONNECT_ISSUER_ID`, `APPSTORE_CONNECT_KEY_CONTENT`, `APPSTORE_CONNECT_VENDOR_ID`, `APPSTORE_CONNECT_APP_SKU` | Téléchargements iOS (clé d'équipe App Store Connect avec accès aux ventes, distincte de la clé d'achats intégrés) |
+| `PLAY_REPORTS_BUCKET`, `PLAY_REPORTS_CREDENTIALS_JSON` | Installations Android (bucket `pubsite_prod_rev_…` de la Play Console) |
+
+`RESEND_API_KEY` doit être une clé « Full access » pour la carte Resend (une clé d'envoi seul la laisse « non connectée »). Côté application : `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`.
+
+### Tests
+`TEST_DATABASE_URL=postgres://…/esportnews_test go test -p 1 ./...` (`-p 1` : plusieurs paquets vident les mêmes tables). Les clients externes ne sont testés que contre des faux serveurs locaux : aucun n'a encore été appelé avec de vrais identifiants.
 
 - Demander dans le chat les endpoints des api quand il y'a besoin.
 - Ne jamais mettre de données fictive SAUF si je te le dis.
