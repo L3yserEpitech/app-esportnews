@@ -37,7 +37,7 @@ interface Dashboard {
   gsc_clicks: Kpi;
   downloads: Kpi;
   premium: Kpi;
-  traffic: { series: DayPoint[]; prev_series: DayPoint[]; source: string };
+  traffic: { configured: boolean; missing?: string[]; error?: string; series: DayPoint[]; prev_series: DayPoint[] };
   watch: Alert[];
   articles: { id: number; title: string; author: string; created_at: string; views: number }[];
   articles_total: number;
@@ -92,7 +92,6 @@ export default function DashboardPage() {
   const [days, setDays] = useState(28);
   const { data, error } = useSWR<Dashboard>(`/dashboard?days=${days}`, fetcher, { refreshInterval: 300_000 });
 
-  const visitorsLabel = data?.visitors.source === 'vercel' ? 'Visiteurs uniques · Vercel' : 'Visiteurs uniques · mesure interne';
   const lines: ChartLine[] = data
     ? [
         { label: 'Visiteurs', values: data.traffic.series.map((p) => p.value), color: '#F22E62', width: 2 },
@@ -110,7 +109,7 @@ export default function DashboardPage() {
         {error && <Notice tone="rouge">{errorMessage(error)}</Notice>}
 
         <div className="kpis" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-          <KpiTile label={data ? visitorsLabel : 'Visiteurs uniques'} kpi={data?.visitors} />
+          <KpiTile label="Visiteurs uniques · Vercel" kpi={data?.visitors} />
           <KpiTile label="Clics depuis Google · Search Console" kpi={data?.gsc_clicks} />
           <KpiTile label="Téléchargements de l'app" kpi={data?.downloads} />
           <KpiTile label="Abonnés Premium actifs" kpi={data?.premium} absolute />
@@ -131,7 +130,16 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="carte-c">
-              {data ? (
+              {data && !data.traffic.configured ? (
+                <p className="faible">
+                  {data.traffic.error || (
+                    <>
+                      Vercel Web Analytics n&apos;est pas connecté. Variables à définir sur le backend :{' '}
+                      <span className="mono">{(data.traffic.missing || []).join(' · ')}</span>
+                    </>
+                  )}
+                </p>
+              ) : data ? (
                 <>
                   <LineChart
                     dates={data.traffic.series.map((p) => p.date)}

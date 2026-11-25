@@ -31,7 +31,7 @@ interface SiteRow {
 }
 
 interface SiteData {
-  source: 'vercel' | 'internal';
+  source: 'vercel' | '';
   vercel: SourceState;
   end: string;
   totals: { visitors: number; pageviews: number; prev_visitors: number; prev_pageviews: number };
@@ -163,7 +163,7 @@ export default function AnalyticsPage() {
           value={tab}
           onChange={setTab}
           tabs={[
-            { value: 'site', label: !site.data ? 'Site' : site.data.source === 'internal' ? 'Site · mesure interne' : 'Site · Vercel' },
+            { value: 'site', label: 'Site · Vercel' },
             { value: 'gsc', label: 'Google · Search Console' },
             { value: 'app', label: 'Application mobile' },
           ]}
@@ -354,6 +354,7 @@ function GscTable({ title, head, rows, render, mono }: { title: string; head: st
 
 function SiteTab({ data }: { data?: SiteData }) {
   if (!data) return <Loading />;
+  if (data.source !== 'vercel') return <NotConnected name="Vercel Web Analytics" missing={data.vercel.missing} error={data.vercel.error} />;
   const { totals } = data;
   const perVisitor = totals.visitors > 0 ? totals.pageviews / totals.visitors : null;
   const lines: ChartLine[] = [
@@ -362,14 +363,6 @@ function SiteTab({ data }: { data?: SiteData }) {
   ];
   return (
     <>
-      {data.source === 'internal' && (
-        <div className="info">
-          <Info aria-hidden="true" />
-          {data.vercel.error
-            ? `Vercel Web Analytics n'a pas répondu : ces chiffres viennent de la mesure interne du site.`
-            : `Vercel Web Analytics n'est pas connecté (${(data.vercel.missing || []).join(', ')}) : ces chiffres viennent de la mesure interne du site.`}
-        </div>
-      )}
       <div className="kpis" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
         <Kpi label="Visiteurs uniques" value={num(totals.visitors)}>
           <Variation current={totals.visitors} previous={totals.prev_visitors} />

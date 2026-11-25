@@ -11,18 +11,17 @@ import (
 	"github.com/esportnews/backend/internal/testdb"
 )
 
-// analyticsDBModule needs a real Postgres (TEST_DATABASE_URL): the queries use
-// FILTER, regexp_replace and date_trunc.
+// analyticsDBModule needs a real Postgres (TEST_DATABASE_URL): the queries use FILTER.
 func analyticsDBModule(t *testing.T) *Module {
 	t.Helper()
 	db := testdb.Open(t)
 	require.NoError(t, db.AutoMigrate(
-		&models.User{}, &models.Article{}, &models.PageView{}, &models.PushToken{},
+		&models.User{}, &models.Article{}, &models.PushToken{},
 		&models.MatchSubscription{}, &models.TournamentSubscription{},
 	))
 	require.NoError(t, EnsureSchema(db))
 	reset := func() {
-		for _, table := range []string{"page_views", "bo_store_downloads", "bo_metric_daily"} {
+		for _, table := range []string{"bo_store_downloads", "bo_metric_daily"} {
 			require.NoError(t, db.Exec("TRUNCATE "+table).Error)
 		}
 	}
@@ -31,46 +30,6 @@ func analyticsDBModule(t *testing.T) *Module {
 	m := analyticsModule(t, Config{SiteURL: "https://www.esportnews.fr"})
 	m.db = db
 	return m
-}
-
-func TestInternalSiteCountsVisitorsPagesAndReferrers(t *testing.T) {
-	m := analyticsDBModule(t)
-	const alice, bob = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
-	p := periodEnding(time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC), 7)
-	at := func(day, hour int) time.Time { return time.Date(2026, 11, day, hour, 0, 0, 0, time.UTC) }
-
-	views := []struct {
-		visitor, path, referer string
-		at                     time.Time
-	}{
-		{alice, "/", "https://www.google.com/search?q=esport", at(13, 9)},
-		{alice, "/match", "https://www.esportnews.fr/", at(13, 10)},
-		{bob, "/", "https://t.co/abc?utm=1#x", at(14, 9)},
-		{bob, "/", "", at(18, 23)},
-		{bob, "/news", "https://www.google.com/", at(10, 9)}, // previous period
-		{alice, "/", "", at(19, 0)},                          // after the period
-	}
-	for _, v := range views {
-		require.NoError(t, m.db.Exec("INSERT INTO page_views (visitor_id, path, referer, user_agent, created_at) VALUES (?, ?, ?, '', ?)",
-			v.visitor, v.path, v.referer, v.at).Error)
-	}
-
-	var out siteAnalytics
-	require.NoError(t, m.internalSite(context.Background(), p, &out))
-	require.Equal(t, siteTotals{Visitors: 2, Pageviews: 4, PrevVisitors: 1, PrevPageviews: 1}, out.Totals)
-	require.Len(t, out.Series, 7)
-	require.Equal(t, "2026-11-13", out.Series[1].Date)
-	require.Equal(t, 1.0, out.Series[1].Value, "one visitor on the 13th")
-	require.Equal(t, 2.0, out.Series[1].Other, "two page views on the 13th")
-	require.Equal(t, "/", out.Pages[0].Key)
-	require.Equal(t, 3.0, out.Pages[0].Pageviews)
-
-	// The site's own pages are not a provenance, and « www. » is dropped.
-	hosts := map[string]float64{}
-	for _, r := range out.Referrers {
-		hosts[r.Key] = r.Pageviews
-	}
-	require.Equal(t, map[string]float64{"google.com": 1, "t.co": 1}, hosts)
 }
 
 func TestAppAnalyticsReadsStoredDownloadsOnlyForConnectedStores(t *testing.T) {

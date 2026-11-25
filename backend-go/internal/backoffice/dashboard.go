@@ -84,8 +84,15 @@ func (m *Module) handleDashboard(c echo.Context) error {
 	if err != nil {
 		return m.internal(c, err)
 	}
-	out["visitors"] = dashboardKPI{Configured: true, Source: site.Source, Value: site.Totals.Visitors, Prev: &site.Totals.PrevVisitors, Series: values(site.Series)}
-	out["traffic"] = map[string]interface{}{"series": site.Series, "prev_series": site.PrevSeries, "source": site.Source}
+	visitors := dashboardKPI{Configured: site.Source != "", Source: site.Source, Series: values(site.Series)}
+	if visitors.Configured {
+		visitors.Value, visitors.Prev = site.Totals.Visitors, &site.Totals.PrevVisitors
+	}
+	out["visitors"] = visitors
+	out["traffic"] = map[string]interface{}{
+		"configured": visitors.Configured, "missing": site.Vercel.Missing, "error": site.Vercel.Error,
+		"series": site.Series, "prev_series": site.PrevSeries,
+	}
 
 	clicks := dashboardKPI{Configured: len(m.gscMissing()) == 0, Series: []float64{}}
 	if clicks.Configured {

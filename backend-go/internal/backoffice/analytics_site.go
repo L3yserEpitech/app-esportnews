@@ -41,8 +41,7 @@ type siteTotals struct {
 }
 
 type siteAnalytics struct {
-	// "vercel" when Vercel Web Analytics answered, "internal" when the figures
-	// come from our own page_views table.
+	// "vercel" once Vercel Web Analytics answered, empty otherwise.
 	Source     string      `json:"source"`
 	Vercel     sourceState `json:"vercel"`
 	Days       int         `json:"days"`
@@ -61,31 +60,32 @@ func (m *Module) vercelMissing() []string {
 	return missingEnv("VERCEL_API_TOKEN", m.cfg.VercelToken, "VERCEL_PROJECT_ID", m.cfg.VercelProjectID)
 }
 
-// siteAnalytics prefers Vercel Web Analytics and falls back on the site's own
-// measurement, saying which one it used.
+// siteAnalytics is the site's traffic as Vercel Web Analytics measures it. Not
+// connected, or not answering, it carries no figure: the in-house page_views
+// tracker is being retired (CLIENTS-280) and nothing new reads it.
 func (m *Module) siteAnalytics(ctx context.Context, p period) (*siteAnalytics, error) {
-	out := &siteAnalytics{Days: p.Days, Start: p.Start.Format(isoDay), End: p.End.Format(isoDay)}
+	out := &siteAnalytics{
+		Days: p.Days, Start: p.Start.Format(isoDay), End: p.End.Format(isoDay),
+		Series: []dayPoint{}, PrevSeries: []dayPoint{},
+		Pages: []siteRow{}, Referrers: []siteRow{}, Countries: []siteRow{}, Devices: []siteRow{},
+	}
 	out.Vercel.Missing = m.vercelMissing()
 	out.Vercel.Configured = len(out.Vercel.Missing) == 0
+	if !out.Vercel.Configured {
+		return out, nil
+	}
 
-	if out.Vercel.Configured {
-		var fromVercel siteAnalytics
-		err := m.cached(ctx, fmt.Sprintf("bo:vercel:site:%s:%d", out.End, p.Days), 15*time.Minute, &fromVercel, func() error {
-			return m.vercelSite(ctx, p, &fromVercel)
-		})
-		if err == nil {
-			fromVercel.Source, fromVercel.Vercel = "vercel", out.Vercel
-			fromVercel.Days, fromVercel.Start, fromVercel.End = out.Days, out.Start, out.End
-			return &fromVercel, nil
-		}
+	var fromVercel siteAnalytics
+	err := m.cached(ctx, fmt.Sprintf("bo:vercel:site:%s:%d", out.End, p.Days), 15*time.Minute, &fromVercel, func() error {
+		return m.vercelSite(ctx, p, &fromVercel)
+	})
+	if err != nil {
 		out.Vercel.Error = m.sourceFailure("vercel", err)
+		return out, nil
 	}
-
-	out.Source = "internal"
-	if err := m.internalSite(ctx, p, out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	fromVercel.Source, fromVercel.Vercel = "vercel", out.Vercel
+	fromVercel.Days, fromVercel.Start, fromVercel.End = out.Days, out.Start, out.End
+	return &fromVercel, nil
 }
 
 type vercelRow map[string]interface{}
@@ -208,64 +208,4 @@ func (m *Module) vercelSite(ctx context.Context, p period, out *siteAnalytics) e
 	}
 	out.Devices, err = m.vercelTop(ctx, "deviceType", p)
 	return err
-}
-
-// internalSite reads page_views, the table the site's own tracker fills.
-func (m *Module) internalSite(ctx context.Context, p period, out *siteAnalytics) error {
-	db := m.db.WithContext(ctx)
-	after := func(t time.Time) time.Time { return t.AddDate(0, 0, 1) }
-
-	totals := func(start, end time.Time) (float64, float64, error) {
-		var row struct{ Visitors, Pageviews float64 }
-		err := db.Raw(`SELECT count(DISTINCT visitor_id) AS visitors, count(*) AS pageviews
-			FROM page_views WHERE created_at >= ? AND created_at < ?`, start, after(end)).Scan(&row).Error
-		return row.Visitors, row.Pageviews, err
-	}
-	series := func(start, end time.Time) ([]dayPoint, error) {
-		var rows []struct {
-			Day                 time.Time
-			Visitors, Pageviews float64
-		}
-		err := db.Raw(`SELECT date_trunc('day', created_at AT TIME ZONE 'UTC') AS day,
-				count(DISTINCT visitor_id) AS visitors, count(*) AS pageviews
-			FROM page_views WHERE created_at >= ? AND created_at < ? GROUP BY 1`, start, after(end)).Scan(&rows).Error
-		values := map[string][2]float64{}
-		for _, r := range rows {
-			values[r.Day.Format(isoDay)] = [2]float64{r.Visitors, r.Pageviews}
-		}
-		return fillDays(start, end, values), err
-	}
-
-	var err error
-	if out.Totals.Visitors, out.Totals.Pageviews, err = totals(p.Start, p.End); err != nil {
-		return err
-	}
-	if out.Totals.PrevVisitors, out.Totals.PrevPageviews, err = totals(p.PrevStart, p.PrevEnd); err != nil {
-		return err
-	}
-	if out.Series, err = series(p.Start, p.End); err != nil {
-		return err
-	}
-	if out.PrevSeries, err = series(p.PrevStart, p.PrevEnd); err != nil {
-		return err
-	}
-
-	out.Pages, out.Referrers, out.Countries, out.Devices = []siteRow{}, []siteRow{}, []siteRow{}, []siteRow{}
-	if err = db.Raw(`SELECT path AS key, count(DISTINCT visitor_id) AS visitors, count(*) AS pageviews
-		FROM page_views WHERE created_at >= ? AND created_at < ?
-		GROUP BY path ORDER BY pageviews DESC LIMIT 10`, p.Start, after(p.End)).Scan(&out.Pages).Error; err != nil {
-		return err
-	}
-	siteHost := ""
-	if u, perr := url.Parse(m.cfg.SiteURL); perr == nil {
-		siteHost = strings.TrimPrefix(u.Hostname(), "www.")
-	}
-	// The pattern is bound, not written in the query: its question marks would
-	// be read as placeholders.
-	const refererHost = `^https?://([^/:?#]+)`
-	return db.Raw(`SELECT host AS key, count(DISTINCT visitor_id) AS visitors, count(*) AS pageviews FROM (
-			SELECT visitor_id, regexp_replace(substring(referer from ?), '^www\.', '') AS host
-			FROM page_views WHERE created_at >= ? AND created_at < ? AND referer <> ''
-		) r WHERE host IS NOT NULL AND host <> ? AND host NOT LIKE 'localhost%'
-		GROUP BY host ORDER BY pageviews DESC LIMIT 10`, refererHost, p.Start, after(p.End), siteHost).Scan(&out.Referrers).Error
 }

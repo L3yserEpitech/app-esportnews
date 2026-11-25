@@ -270,6 +270,9 @@ func (m *Module) handleAnalyticsExport(c echo.Context) error {
 		if err != nil {
 			return m.internal(c, err)
 		}
+		if data.Source == "" {
+			return fail(c, http.StatusConflict, "not_configured", "Vercel Web Analytics n'est pas connecté")
+		}
 		rows = append(rows, []string{"type", "cle", "visiteurs", "pages_vues"})
 		for _, pt := range data.Series {
 			rows = append(rows, []string{"jour", pt.Date, ftoa(pt.Value), ftoa(pt.Other)})
