@@ -35,7 +35,18 @@ type Article struct {
 	Credit         *string     `json:"credit"`
 	GameID         *int64      `json:"game_id" gorm:"column:game_id"` // jeu associé (FK games.id), NULL = aucun
 	NotifiedAt     *time.Time  `json:"notified_at,omitempty" gorm:"column:notified_at"`
+	// Back-office workflow. The site only ever reads published rows.
+	Status          string     `json:"status" gorm:"column:status;not null;default:published"`
+	ScheduledAt     *time.Time `json:"scheduled_at,omitempty" gorm:"column:scheduled_at"`
+	NotifyOnPublish bool       `json:"notify_on_publish" gorm:"column:notify_on_publish;not null;default:true"`
+	AuthorID        *int64     `json:"author_id,omitempty" gorm:"column:author_id"`
 }
+
+const (
+	ArticleStatusDraft     = "draft"
+	ArticleStatusScheduled = "scheduled"
+	ArticleStatusPublished = "published"
+)
 
 // TableName specifies the table name for Article
 func (Article) TableName() string {

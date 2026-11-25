@@ -19,6 +19,10 @@ import (
 	"github.com/esportnews/backend/internal/utils"
 )
 
+// The site never reads a draft or a scheduled article: every public query
+// carries this condition. The back-office reads the table itself.
+const publishedOnly = "status = 'published'"
+
 type ArticleService struct {
 	db     *pgxpool.Pool      // For backward compatibility
 	gormDB *database.Database // For GORM queries
@@ -41,7 +45,7 @@ func NewArticleServiceWithGORM(gormDB *database.Database, redisCache *cache.Redi
 	}
 }
 
-// ArticleFilter narrows a listing; its zero value matches every article.
+// ArticleFilter narrows a listing; its zero value matches every published article.
 // Authors holds every spelling of one byline (free text typed in the back-office,
 // see authorMatchSQL) and GameID 0 means any game.
 type ArticleFilter struct {
@@ -52,6 +56,7 @@ type ArticleFilter struct {
 }
 
 func (f ArticleFilter) apply(query *gorm.DB) *gorm.DB {
+	query = query.Where(publishedOnly)
 	if f.Category != "" {
 		query = query.Where("category = ?", f.Category)
 	} else if f.ExcludeNews {
@@ -98,14 +103,14 @@ func (s *ArticleService) GetArticles(ctx context.Context, limit int, offset int,
 		rows, err = s.db.Query(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
 					content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
-			 FROM public.articles WHERE category = $3 ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+			 FROM public.articles WHERE category = $3 AND status = 'published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 			limit, offset, filter.Category,
 		)
 	} else {
 		rows, err = s.db.Query(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
 					content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
-			 FROM public.articles ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+			 FROM public.articles WHERE status = 'published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 			limit, offset,
 		)
 	}
@@ -149,9 +154,9 @@ func (s *ArticleService) CountArticles(ctx context.Context, filter ArticleFilter
 	var err error
 
 	if filter.Category != "" {
-		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE category = $1", filter.Category).Scan(&count)
+		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE category = $1 AND status = 'published'", filter.Category).Scan(&count)
 	} else {
-		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles").Scan(&count)
+		err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM public.articles WHERE status = 'published'").Scan(&count)
 	}
 
 	if err != nil {
@@ -183,6 +188,7 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 		// Query with GORM
 		if err := s.gormDB.WithContext(ctx).
 			Where("slug = ?", slug).
+			Where(publishedOnly).
 			First(&a).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return nil, fmt.Errorf("article not found")
@@ -201,6 +207,7 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 			defer cancel()
 			s.gormDB.WithContext(ctx).Model(&models.Article{}).
 				Where("slug = ?", slug).
+				Where(publishedOnly).
 				UpdateColumn("views", gorm.Expr("views + ?", 1))
 		}()
 	} else {
@@ -208,7 +215,7 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 		err = s.db.QueryRow(ctx,
 			`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
 			        content_black, content_white, "featuredImage", "videoUrl", "videoType", "article_content"
-			 FROM public.articles WHERE slug = $1`,
+			 FROM public.articles WHERE slug = $1 AND status = 'published'`,
 			slug,
 		).Scan(&a.ID, &a.CreatedAt, &a.Slug, &a.Tags, &a.Title, &a.Views, &a.Author, &a.Content,
 			&a.Category, &a.Subtitle, &a.Description, &a.ContentBlack, &a.ContentWhite, &a.FeaturedImage, &a.VideoURL, &a.VideoType, &a.ArticleContent)
@@ -221,7 +228,7 @@ func (s *ArticleService) GetArticleBySlug(ctx context.Context, slug string) (*mo
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
-			s.db.Exec(ctx, "UPDATE public.articles SET views = views + 1 WHERE slug = $1", slug)
+			s.db.Exec(ctx, "UPDATE public.articles SET views = views + 1 WHERE slug = $1 AND status = 'published'", slug)
 		}()
 	}
 
@@ -293,7 +300,8 @@ func (s *ArticleService) SearchArticles(
 		SELECT a.*
 		FROM public.articles a, q
 		WHERE
-			(
+			a.status = 'published'
+			AND (
 				(a.search_vector @@ q.tsq)
 				OR (public.immutable_unaccent(coalesce(a.title, '')) % q.raw)
 				OR (public.immutable_unaccent(coalesce(a.description, '')) % q.raw)
@@ -365,6 +373,7 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 		if err := s.gormDB.WithContext(ctx).
 			Select("tags").
 			Where("slug = ?", slug).
+			Where(publishedOnly).
 			First(&currentArticle).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return nil, fmt.Errorf("article not found")
@@ -376,6 +385,7 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 		var articles []*models.Article
 		if err := s.gormDB.WithContext(ctx).
 			Where("slug != ? AND tags && ?", slug, currentArticle.Tags).
+			Where(publishedOnly).
 			Order("created_at DESC").
 			Limit(limit).
 			Find(&articles).Error; err != nil {
@@ -400,7 +410,7 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 	// Fallback to pgxpool
 	// Get current article tags
 	var tags []string
-	err = s.db.QueryRow(ctx, "SELECT tags FROM public.articles WHERE slug = $1", slug).Scan(&tags)
+	err = s.db.QueryRow(ctx, "SELECT tags FROM public.articles WHERE slug = $1 AND status = 'published'", slug).Scan(&tags)
 	if err != nil {
 		return nil, fmt.Errorf("article not found")
 	}
@@ -410,7 +420,7 @@ func (s *ArticleService) GetSimilarArticles(ctx context.Context, slug string, li
 		`SELECT id, created_at, slug, tags, title, views, author, content, category, subtitle, description,
 		        content_black, content_white, "featuredImage", "videoUrl", "videoType"
 		 FROM public.articles
-		 WHERE slug != $1 AND tags && $2
+		 WHERE slug != $1 AND tags && $2 AND status = 'published'
 		 ORDER BY created_at DESC LIMIT $3`,
 		slug, tags, limit,
 	)
@@ -683,6 +693,22 @@ func (s *ArticleService) GetAllArticles(ctx context.Context) ([]*models.Article,
 	return articles, nil
 }
 
+// InvalidatePublicCaches drops what the site may have cached about these
+// articles. The lists of similar articles go as a whole: an article leaving or
+// joining the site sits in the cached list of others.
+func (s *ArticleService) InvalidatePublicCaches(ctx context.Context, slugs ...string) {
+	if s.cache == nil {
+		return
+	}
+	for _, slug := range slugs {
+		if slug != "" {
+			s.cache.Del(ctx, cache.ArticleKey(slug))
+		}
+	}
+	s.cache.DelPattern(ctx, cache.ArticleSimilarKey("*"))
+	s.cache.DelPattern(ctx, cache.ArticleSearchPattern)
+}
+
 // IncrementViews increments the view count for an article
 func (s *ArticleService) IncrementViews(ctx context.Context, slug string) error {
 	if s.gormDB == nil {
@@ -692,6 +718,7 @@ func (s *ArticleService) IncrementViews(ctx context.Context, slug string) error 
 	if err := s.gormDB.WithContext(ctx).
 		Model(&models.Article{}).
 		Where("slug = ?", slug).
+		Where(publishedOnly).
 		UpdateColumn("views", gorm.Expr("views + ?", 1)).Error; err != nil {
 		return fmt.Errorf("failed to increment views: %w", err)
 	}
