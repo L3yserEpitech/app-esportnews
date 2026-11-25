@@ -30,7 +30,7 @@
 
 ## 1) Vision & contexte produit
 
-* **Pitch** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par bannières publicitaires **gérées en interne** (zéro tracking tiers) et SEO solide sur les contenus éditoriaux.
+* **Pitch** : Plateforme e-sport mettant en avant les matchs **en direct** (multi-jeux) + actualités, avec monétisation par bannières vendues en direct et régie **Google AdSense** (depuis le 2026-11-25), et SEO solide sur les contenus éditoriaux.
 * **Problème utilisateur** : Difficile de trouver rapidement les matchs live pertinents et les actus fiables par jeu.
 * **Différenciation** : Focus **live-only** agrégé, tournois/équipes/matchs structurés (Liquipedia API v3), UX rapide par jeu et calendrier simple.
 * **KPI principaux** : CTR jeux en home, temps sur "Direct", clics pubs, impressions bannières, conversions abonnement (no-ad mobile), pages vues News/Articles, retour visiteurs.
@@ -59,10 +59,10 @@
 `#060B13` (background principal) · `#091626` (fond secondaire) · `#182859` (accent navy) · `#F22E62` (rose primary — calendrier, CTA actifs)
 
 ### Monétisation
-* **Bannières publicitaires gérées en interne** (pas de Google AdSense / Meta Ads). Images/vidéos uploadées dans Cloudflare R2, métadonnées en DB.
-* **Desktop** : 3 emplacements pub dans une colonne droite pleine hauteur (visibles pour tous, abonnés compris).
-* **Mobile** : aucun popup publicitaire pour les abonnés **Premium** ; autorisés pour les utilisateurs gratuits.
-* **Aucun cookie publicitaire tiers, aucun tracking comportemental.**
+* **Deux sources** sur le site : des bannières vendues en direct (images/vidéos dans Cloudflare R2, métadonnées en DB) et, depuis le 2026-11-25, **Google AdSense**. Chaque emplacement montre l'une ou l'autre, au choix du back-office (§13, « Publicités du site »).
+* **Desktop** : 3 emplacements dans une colonne droite (visibles pour tous, abonnés compris). **Article** : un emplacement sous le contenu. **Mobile web** : un emplacement dans la page (accueil, détail match, détail tournoi).
+* **Apps mobiles** : interstitiels AdMob (§21), aucun popup pour les abonnés **Premium**.
+* **Cookies publicitaires** : ceux de Google uniquement, après consentement (message RGPD de Google). Les bannières en direct n'en posent aucun.
 
 ### SEO
 * H1/H2/H3, meta Title/Description, OpenGraph.
@@ -951,6 +951,27 @@ Les images Liquipedia passent par le **proxy backend** (`/api/proxy/image`) pour
 * **Éditeur** : nœud `PUBLISHER` partagé (`components/seo/StructuredData.tsx`) de type `NewsMediaOrganization`, `@id` `${SITE_URL}/#organization`, logo 527×190 (dimensions réelles de `logo_blanc.png`). Réutilisé par `NewsArticle.publisher`, `WebSite.publisher`, `OrganizationSchema` (home) et `Person.worksFor`.
 * **Fil d'Ariane article** : la section dépend de la catégorie — `Actus` → « Actualités » (`/news`), tout le reste → « Articles » (`/articles`). Même logique dans le `BreadcrumbList` JSON-LD.
 
+### Publicités du site : emplacements, AdSense, consentement (2026-11-25)
+* **Compte** : AdSense ESPORT NEWS, `ca-pub-4019532498018851` (compte Google `contact@esportnews.fr`, le même éditeur qu'AdMob). Site `esportnews.fr` ajouté le 2026-11-25, soumis à l'examen de Google : **tant qu'il n'est pas approuvé, aucun bloc n'est servi**.
+* **Emplacements** : registre unique `lib/adSpots.ts` (`AD_SPOTS`), un bloc AdSense par clé, nommé `esportnews-<clé>` dans le compte.
+
+| Clé | Où | Bloc AdSense | Taille AdSense | Boîte d'une créa perso |
+|---|---|---|---|---|
+| `sidebar-1` | colonne droite, desktop | `4410076654` | 300x250 | 300x400 |
+| `sidebar-2` | colonne droite, desktop | `2003405164` | 300x250 | 300x400 |
+| `sidebar-3` | colonne droite, desktop | `1783913314` | 300x250 | 300x400 |
+| `article-bottom` | sous l'article, avant « À voir aussi » | `9690323498` | responsive | 728x90 |
+| `mobile-1` | mobile : accueil, détail match, détail tournoi | `9470831648` | responsive | 320x100 |
+
+* **`<AdSpot id>`** (`components/ads/AdSpot.tsx`) lit `GET /api/ad-spots` (`services/adSpotService.ts`, cache 5 min) et `resolveAdSpot()` décide : `custom` → `AdBanner` (image/vidéo + lien `rel="sponsored"`), `adsense` → `AdSenseUnit`, `off` → rien. Contrat : `{ spots: { <clé>: { mode, format: "LxH", adsense_slot, creative: { media_url, media_type, redirect_link, title } } } }`. Clé absente = AdSense avec le bloc par défaut ; `adsense_slot` vide = bloc par défaut ; `custom` sans créa complète = AdSense. **Le site ne dépend jamais d'une ligne du back-office.**
+* **Tant que `/api/ad-spots` ne répond pas 200** (backend pas encore livré : la prod rend 401), les bannières de la table `ads` gardent leur position dans la colonne (`position N` → `sidebar-N`) et le reste est AdSense. Dès que l'endpoint répond, `/api/ads` n'est plus lu : retirer alors ce repli (`legacyAds`, `advertisementService`, la prop `ads` d'`AdColumn`).
+* **Script AdSense chargé après l'hydratation** (`lib/adsenseLoader.ts`, `AdSenseScript` dans le layout), jamais rendu dans le `<head>` : dès qu'il s'exécute, il insère un `<script>` avant le premier script du document, et React, pendant l'hydratation, l'appariait avec le premier script inline du layout (erreur de mismatch, mesurée 1 fois sur 2). Pas sur `/admin*` ni `/auth*`. Le site est rattaché au compte par la balise `<meta name="google-adsense-account">` (metadata du layout) et `public/ads.txt`, qui ne demandent pas le script dans le HTML. **Pas d'annonces automatiques** : elles s'inséreraient aussi sur les pages sans contenu.
+* **Un bloc ne prend de place qu'une fois rempli** (`AdSenseUnit`, `globals.css`) : fermé (`height: 0`, largeur conservée, AdSense en a besoin pour demander une annonce) tant que `data-ad-status` ne vaut pas `filled`, retiré du flux sur `unfilled` ou script bloqué. Sinon un compte en examen ou une requête sans annonce laisse un trou, et AdSense ne pose pas toujours `unfilled` (mesuré en local). Un bloc rempli à son dernier affichage (`localStorage` `esportnews_ad_filled:<slot>`) réserve sa hauteur d'emblée, pour ne pas décaler la page chez un visiteur qui revient.
+* **Un `<ins>` ne doit jamais être poussé caché ni deux fois** : `AdSpot` ne rend rien avant l'hydratation ni hors de son viewport (colonne sous `lg`, `mobile-1` au-dessus), et un bloc responsive reçoit `width: 100%` (dans le conteneur centré il tombait à 0 px et n'était jamais rempli).
+* **Consentement** : message RGPD de Google (AdSense › Confidentialité et messages, « RGPD - esportnews.fr », publié) : Refuser / Autoriser / Gérer les options, 5 langues, servi par le script AdSense aux visiteurs EEE/UK/Suisse. L'ancien `CookieBanner` (« aucun cookie publicitaire ») est supprimé. `lib/cookieConsent.ts` : `whenConsentSettled()` (API TCF `__tcfapi`) fait attendre la popup app tant que le message est à l'écran, `openConsentSettings()` le rouvre (lien « Gérer mes cookies » du pied de page, boutons de `/legal/cookies`). Couleur des boutons `#C8174A` et non `#F22E62` : le TCF exige un contraste de 5:1, et les deux boutons doivent rester identiques (CNIL).
+* **Pages légales** : politique de confidentialité (§4 et §9), CGU (art. 8) et `/legal/cookies` décrivent AdSense et le consentement. À tenir à jour si une autre régie arrive.
+* **Tester** : Dia et Arc bloquent `adsbygoogle.js` (`ERR_BLOCKED_BY_CONTENT_BLOCKER`), et la prod n'accepte que l'origine `localhost:3000`. Passer par Chrome sans extension (Playwright Python, `channel='chrome'`) et un petit proxy local qui relaie l'API de prod avec les en-têtes CORS. En local et avant approbation, un bloc revient toujours `unfilled`.
+
 ### Sécurité des pages
 * **JSON-LD** : `StructuredData` échappe `<` en `\u003c`. Les noms de tournois, d'équipes et de joueurs viennent d'un wiki éditable par tous, et les tokens sont dans `localStorage` : un `</script>` non échappé vaudrait vol de session. Passer par ce composant pour tout JSON-LD.
 * **Formulaires d'authentification** (`auth/login`, `register`, `forgot-password`) : `method="post"` et bouton désactivé tant que `useHydrated()` est faux. Sans ça, un envoi avant l'hydratation est un GET natif : mot de passe dans l'URL, l'historique, les logs de l'hébergeur et `page_views`.
@@ -991,7 +1012,7 @@ Diagnostic du 2026-10-30 : la home était indexée **vide** (lien-titre réduit 
 Ajoutée le 2026-10-29 ; depuis le 2026-10-30 elle reproduit **à l'identique** la maquette Claude Design « 01 Broadcast » (exports HTML clair/sombre fournis par Kenan) : artboard **1120×620**, panneau gauche 460 px (barres diagonales accent à 14°, « LIVE » en contour, téléphone détouré `public/app-phone.webp` 250×520), colonne droite (badge « EN DIRECT » pulsant, titre Barlow Condensed 800 italique 72 px sur 3 lignes avec la 2ᵉ en accent, texte, 3 arguments, QR 90 px dans une tuile blanche à coin coupé, boutons stores chanfreinés 180×58), bandeau défilant « À LA UNE » de 48 px en bas. Toutes les valeurs (couleurs, tailles, clip-paths) sont celles des exports, dans l'objet `THEMES` (sombre / clair — accent `#FF2E4D` / `#E0213F`, volontairement différent du rose du site). Polices **Barlow + Barlow Condensed** via `next/font/google` (`appPromoFonts.ts`), chargées seulement par la popup et la bannière du haut.
 * **Responsive** : l'artboard est affiché à **80 %** (`BOARD_SCALE`, Kenan trouvait le 1:1 trop grand) et mis à l'échelle en bloc (`transform: scale`) pour tenir dans la fenêtre, jamais refondu. Sous 768 px, feuille compacte en bas de page (même palette, mêmes boutons) qui laisse le contenu lisible. **Ne pas passer le mobile en plein écran** : Google compte les interstitiels d'installation d'app sur mobile comme signal négatif de ranking.
 * **Fréquence** : une fois par visite (`sessionStorage` `esportnews_app_promo_seen`, posé à l'ouverture). Pas de « Ne plus afficher » (retiré à la demande de Kenan : la croix suffit). Pas sur `/admin/*` ni `/auth/*`. Logique pure et testée dans `lib/appPromo.ts`.
-* **Un seul prompt à la fois** : à la première visite elle attend l'acceptation de la bannière cookies — `CookieBanner` émet l'événement `esportnews:cookie-consent` (`lib/cookieConsent.ts`), un `storage` event n'atteignant jamais l'onglet qui écrit.
+* **Un seul prompt à la fois** : elle attend que le message de consentement de Google soit réglé (`whenConsentSettled`, `lib/cookieConsent.ts`) : réponse donnée, déjà donnée, ou aucun message au bout de 4 s (hors EEE, script bloqué).
 * **Textes** : clés `layout.app_promo.*` dans les 5 locales. Le sous-titre « WORLDS 2026 · MVK vs FURIA » de la maquette a été retiré (donnée fictive). Le **bandeau « À LA UNE » défile les 10 derniers articles** (`GET /api/articles?limit=10` au moment de l'ouverture, titres cliquables vers `articleHref()`, le clic ferme la modale ; durée = 9 s par titre) et retombe sur deux lignes génériques (`ticker_alerts`, `ticker_news`) tant que l'API n'a pas répondu.
 * **QR code** : `AppQrCode.tsx` = SVG inline (25×25, niveau L, sans `crispEdges` qui rendait les modules inégaux) généré une fois pour `https://www.esportnews.fr/app` (route `app/app/route.ts` : 302 vers Google Play si l'UA est Android, App Store sinon — un seul lien pour les deux stores). Le poste de dev n'a ni `qrencode` ni `pnpm dlx` autorisé : régénérer avec la lib vendorée `mobile-app/node_modules/qrcode-terminal/vendor/QRCode` (`new QRCode(-1, ECL.L)`, `isDark(r, c)`) et vérifier le décodage avec un script Swift `VNDetectBarcodesRequest`.
 * **Animations** : entrée et sortie symétriques (`promo-in`/`promo-out` + fondu du voile, `slide-up`/`slide-down` pour la feuille mobile), pastille `promo-pulse`, bandeau `promo-ticker` (28 s, contenu dupliqué pour boucler), barres diagonales et « LIVE » en **boucle de 6,7 s** (`promo-bar-loop-1/2/3`, `promo-live-loop`) : révélation en cascade (barres de haut en bas par `clip-path: inset`, qui suit la diagonale puisqu'il s'applique dans le repère tourné ; « LIVE » de gauche à droite, fini à 1,9 s), maintien ~3 s, puis disparition en lecture inverse dans l'ordre inverse (LIVE à 4,4 s, barres à 4,62 / 4,84 / 5,06 s), 0,5 s de vide, et ça repart ; les pourcentages des keyframes sont ces instants divisés par 6,7, à recalculer si on change une durée. Dans `globals.css`. La fermeture passe par un état `closing` qui joue l'animation inverse pendant `CLOSE_DURATION_MS` (250 ms, à garder égal aux durées CSS) avant de démonter ; tout est coupé sous `prefers-reduced-motion`.
@@ -1509,13 +1530,14 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 
 ## 21) Publicités AdMob (Mobile App)
 
-> ⚠️ Distinct des **bannières internes** (site web, table `ads`, `/api/ads`, `AdColumn`/`AdBanner`, gérées au back-office). Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
+> ⚠️ Distinct des **publicités du site web** (bannières en direct et AdSense, §13). Ici = pubs **interstitielles AdMob** dans l'app mobile via `react-native-google-mobile-ads`.
 
 * **Init** : `app/_layout.tsx` (`mobileAds().initialize()` + ATT iOS via `expo-tracking-transparency`).
 * **IDs (publics, embarqués dans le binaire, par plateforme)** — dans `app.config.js` :
-  - App ID iOS : `ca-app-pub-5118678813787741~6090534381`
-  - App ID Android : `ca-app-pub-5118678813787741~6893939034`
-  - Interstitiel : `ca-app-pub-5118678813787741/1903877366`
+  - App ID iOS : `ca-app-pub-4019532498018851~9375398922`
+  - App ID Android : `ca-app-pub-4019532498018851~8443596219`
+  - Interstitiel iOS : `ca-app-pub-4019532498018851/1689083231` ; Android : `ca-app-pub-4019532498018851/4650288493` (un bloc appartient à une seule app)
+  - Même éditeur que l'AdSense du site (§13) ; `frontend/public/app-ads.txt` l'autorise pour les apps, `ads.txt` pour le site.
 * **Dev vs prod** : `getInterstitialAdUnitId()` (dans `contexts/AdContext.tsx` et `hooks/useAdPopup.ts`) → `TestIds.INTERSTITIAL` si `__DEV__` (Expo Go/`expo run`, fill 100 %), sinon `Constants.expoConfig.extra.admobInterstitialId`.
 * **⚠️ Piège prod (env non uploadé à EAS)** : les vrais IDs sont dans le **`.env` racine gitignoré**, chargé par `app.config.js` via `dotenv`. **EAS cloud respecte `.gitignore` → `.env` n'est PAS uploadé** → `process.env.ADMOB_*` undefined au build → ce sont les **fallbacks `|| "..."` de app.config.js qui partent en prod**. ⇒ **Ces fallbacks doivent TOUJOURS valoir les vrais IDs prod.** (Bug initial : fallback iOS = App ID Android → AdMob refusait de servir.)
 * **Déclenchement** : `useAdPopup({ skipIfSubscribed, isSubscribed })` — cooldown 5 min (`adCooldownService`), `requestNonPersonalizedAdsOnly: true`, skip pour abonnés Premium. Écrans index/match/tournoi/article.
