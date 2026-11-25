@@ -10,6 +10,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   'article.unpublished': { label: 'Dépublication', tone: 'ambre' },
   'article.deleted': { label: 'Article supprimé', tone: 'rouge' },
   'article.restored': { label: 'Version restaurée', tone: 'gris' },
+  'article.cache_purged': { label: 'Cache purgé', tone: 'gris' },
   'article.game_assigned': { label: 'Jeu attribué', tone: 'bleu' },
   'article.category_changed': { label: 'Catégorie changée', tone: 'bleu' },
   'user.logout_forced': { label: 'Déconnexion forcée', tone: 'ambre' },

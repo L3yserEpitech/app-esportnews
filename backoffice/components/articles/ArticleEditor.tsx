@@ -118,6 +118,7 @@ export function ArticleEditor({ articleId }: { articleId: number | null }) {
   const bodySaved = useRef('');
 
   const [desired, setDesired] = useState<ArticleStatus>('draft');
+  const [purging, setPurging] = useState(false);
   const [date, setDate] = useState('');
   const [clock, setClock] = useState('');
 
@@ -907,6 +908,59 @@ export function ArticleEditor({ articleId }: { articleId: number | null }) {
                   {snippet || '—'}
                 </span>
               </div>
+              {/* What a link to the article looks like on social networks and in messaging apps. */}
+              <div className="apercu-google" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <span
+                  className="faible"
+                  style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 500, padding: '10px 12px 8px' }}
+                >
+                  Aperçu de partage
+                </span>
+                {form.featuredImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.featuredImage} alt="" style={{ width: '100%', aspectRatio: '1200 / 630', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <span
+                    className="faible"
+                    style={{ aspectRatio: '1200 / 630', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-3)', fontSize: 12 }}
+                  >
+                    Sans couverture, l&apos;image par défaut du site est utilisée
+                  </span>
+                )}
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px 10px' }}>
+                  <span className="faible" style={{ fontSize: 11, textTransform: 'uppercase' }}>
+                    {siteHost}
+                  </span>
+                  <span style={{ fontWeight: 600, lineHeight: 1.3 }}>{seoTitle || '—'}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.4 }}>{snippet || '—'}</span>
+                </span>
+              </div>
+              {published && canEdit && id !== null && (
+                <div className="ligne">
+                  <span>
+                    Cache du site
+                    <span className="sous">À purger si la page publique montre encore une ancienne version.</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-s"
+                    disabled={purging}
+                    onClick={async () => {
+                      setPurging(true);
+                      try {
+                        await api(`/articles/${id}/purge-cache`, { method: 'POST' });
+                        toast.notify("Cache de l'article purgé.");
+                      } catch (e) {
+                        toast.fail(errorMessage(e));
+                      } finally {
+                        setPurging(false);
+                      }
+                    }}
+                  >
+                    Purger
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 

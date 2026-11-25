@@ -554,6 +554,22 @@ func (m *Module) handleArticleDelete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// handleArticlePurgeCache drops what the API keeps in Redis about an article.
+// Every save already does it: this is for the day a page still shows an old
+// version and nobody wants to edit the article to find out why.
+func (m *Module) handleArticlePurgeCache(c echo.Context) error {
+	a, err := m.loadArticle(c)
+	if a == nil {
+		return err
+	}
+	if !canEditArticle(sessionOf(c).User, a) {
+		return fail(c, http.StatusForbidden, "forbidden", "Vous ne pouvez agir que sur vos propres articles")
+	}
+	m.articles.InvalidatePublicCaches(c.Request().Context(), deref(a.Slug))
+	m.audit(c, "article.cache_purged", "article", articleRef(a), articleLabel(a), "")
+	return c.NoContent(http.StatusNoContent)
+}
+
 func statusWord(status string) string {
 	switch status {
 	case statusDraft:

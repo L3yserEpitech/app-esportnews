@@ -27,6 +27,7 @@ func (m *Module) registerArticleRoutes(g *echo.Group) {
 	g.PUT("/articles/:id", m.handleArticleUpdate, write)
 	g.DELETE("/articles/:id", m.handleArticleDelete, write)
 	g.POST("/articles/bulk", m.handleArticleBulk, write)
+	g.POST("/articles/:id/purge-cache", m.handleArticlePurgeCache, write)
 	g.POST("/articles/:id/versions/:versionId/restore", m.handleArticleRestore, write)
 
 	g.POST("/upload/article-cover", m.handleArticleUpload("articles/covers", "couverture d'article"), write)
