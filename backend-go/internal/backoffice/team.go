@@ -37,14 +37,16 @@ type teamMember struct {
 	TeamSince     *time.Time `json:"team_since"`
 	LastLoginAt   *time.Time `json:"last_login_at" gorm:"column:last_bo_login_at"`
 	TOTPEnabledAt *time.Time `json:"totp_enabled_at" gorm:"column:totp_enabled_at"`
+	AuthorSlug    *string    `json:"author_slug" gorm:"column:author_slug"`
 	TOTPDeadline  *time.Time `json:"totp_deadline" gorm:"-"`
 }
 
 func (m *Module) handleTeamList(c echo.Context) error {
 	members := []teamMember{}
 	err := m.db.WithContext(c.Request().Context()).Raw(
-		`SELECT u.id, u.name, u.email, u.avatar, u.role, u.team_since, u.last_bo_login_at, t.enabled_at AS totp_enabled_at
-		 FROM users u LEFT JOIN bo_totp t ON t.user_id = u.id
+		`SELECT u.id, u.name, u.email, u.avatar, u.role, u.team_since, u.last_bo_login_at, t.enabled_at AS totp_enabled_at,
+		        a.slug AS author_slug
+		 FROM users u LEFT JOIN bo_totp t ON t.user_id = u.id LEFT JOIN author a ON a.user_id = u.id
 		 WHERE u.role <> 'user'
 		 ORDER BY CASE u.role WHEN 'admin' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, u.name`).Scan(&members).Error
 	if err != nil {

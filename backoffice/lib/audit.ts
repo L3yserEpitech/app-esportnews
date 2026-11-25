@@ -30,6 +30,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   'team.invited': { label: 'Invitation', tone: 'rose' },
   'team.invitation_accepted': { label: 'Invitation acceptée', tone: 'vert' },
   'team.totp_reset': { label: 'Double auth. réinitialisée', tone: 'ambre' },
+  'team.author_saved': { label: 'Fiche auteur', tone: 'bleu' },
   'settings.changed': { label: 'Réglage', tone: 'gris' },
   'ads.updated': { label: 'Publicité', tone: 'bleu' },
   'media.uploaded': { label: 'Média ajouté', tone: 'gris' },

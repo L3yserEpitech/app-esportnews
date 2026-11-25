@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { Check, Info, Plus, X } from 'lucide-react';
 import { api, errorMessage, fetcher, SITE_URL } from '@/lib/api';
 import { ago, until } from '@/lib/format';
-import { authorPath } from '@/lib/authors';
+import { AuthorsCard } from '@/components/team/AuthorsCard';
 import { ROLE_LABEL, ROLE_TONE, useSession, type Role } from '@/lib/session';
 import { PageHeader } from '@/components/Shell';
 import { Avatar, Chip, ConfirmModal, Empty, Menu, Modal, Skeleton, useToast } from '@/components/ui';
@@ -19,6 +19,7 @@ interface Member {
   last_login_at: string | null;
   totp_enabled_at: string | null;
   totp_deadline: string | null;
+  author_slug: string | null;
 }
 
 const TEAM_ROLES: Role[] = ['admin', 'editor', 'reader'];
@@ -145,7 +146,7 @@ export default function TeamPage() {
                     </tr>
                   ))}
                 {members?.map((m) => {
-                  const author = authorPath(m.name);
+                  const author = m.author_slug ? `/auteurs/${m.author_slug}` : null;
                   const self = m.id === me.user.id;
                   return (
                     <tr key={m.id}>
@@ -241,6 +242,8 @@ export default function TeamPage() {
             Sans double authentification activée, un membre ne peut pas ouvrir le back-office après son premier jour.
           </div>
         </section>
+
+        <AuthorsCard members={members || []} onChange={() => void mutate()} />
 
         <section className="carte">
           <div className="carte-t">

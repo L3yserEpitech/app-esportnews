@@ -16,6 +16,7 @@ const (
 	CacheArticlesSimilar = "cache:articles:similar:%s"
 	CacheAds             = "cache:ads"
 	CacheAdSpots         = "cache:ad-spots" // payload of GET /api/ad-spots, never kept past a spot's date boundary
+	CacheAuthors         = "cache:authors"  // payload of GET /api/authors, dropped at every change of the registry
 	CacheTeams           = "cache:teams:%d"
 	CacheUserFavorites   = "cache:user:favorites:%d"
 

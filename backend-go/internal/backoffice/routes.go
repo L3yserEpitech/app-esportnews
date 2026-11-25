@@ -26,6 +26,7 @@ func (m *Module) Register(api *echo.Group) {
 	m.registerMediaRoutes(priv)
 	m.registerAdRoutes(api, priv)
 	m.registerDashboardRoutes(priv)
+	m.registerAuthorRoutes(api, priv)
 	priv.GET("/nav", m.handleNav)
 }
 
@@ -51,6 +52,9 @@ func (m *Module) Start(ctx context.Context) {
 	m.startHealthJobs(ctx)
 	m.startAnalyticsJobs(ctx)
 	m.startAdJobs(ctx)
+	if err := m.seedAuthors(ctx); err != nil {
+		m.log.WithError(err).Error("[BO] author registry not seeded")
+	}
 	go func() {
 		daily := time.NewTicker(24 * time.Hour)
 		defer daily.Stop()

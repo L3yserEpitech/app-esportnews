@@ -180,9 +180,13 @@ type teamUser struct {
 	Password      string     `json:"-" gorm:"column:password"`
 	TeamSince     *time.Time `json:"team_since" gorm:"column:team_since"`
 	LastBOLoginAt *time.Time `json:"last_login_at" gorm:"column:last_bo_login_at"`
+	AuthorNames   *string    `json:"-" gorm:"column:author_names"`
 }
 
-const teamUserColumns = "id, name, email, avatar, role, password, team_since, last_bo_login_at"
+// author_names: the name and the other spellings of the author page linked to
+// the account, one per line. An article signed with any of them is theirs.
+const teamUserColumns = `id, name, email, avatar, role, password, team_since, last_bo_login_at,
+	(SELECT a.name || E'\n' || a.aliases FROM author a WHERE a.user_id = users.id) AS author_names`
 
 func (m *Module) userByID(ctx context.Context, id int64) (*teamUser, error) {
 	var u teamUser

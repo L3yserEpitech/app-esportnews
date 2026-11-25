@@ -42,7 +42,21 @@ func ownsArticle(u *teamUser, authorID *int64, byline *string) bool {
 		return false
 	}
 	key := bylineKey(*byline)
-	return key != "" && key == bylineKey(u.Name)
+	if key == "" {
+		return false
+	}
+	if key == bylineKey(u.Name) {
+		return true
+	}
+	// Every spelling of the author page linked to the account signs for them.
+	if u.AuthorNames != nil {
+		for _, name := range strings.Split(*u.AuthorNames, "\n") {
+			if bylineKey(name) == key {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func canEdit(u *teamUser, authorID *int64, byline *string) bool {
