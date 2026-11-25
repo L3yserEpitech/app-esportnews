@@ -3,6 +3,8 @@ package handlers
 import (
 	"crypto/subtle"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -35,6 +37,9 @@ type WebhookHandler struct {
 	dirtyTracker *services.DirtyTracker
 	secret       string
 	log          *logrus.Logger
+
+	lastMu       sync.Mutex
+	lastReceived map[string]time.Time // wiki → last accepted webhook, for the health screen
 }
 
 // NewWebhookHandler creates a new webhook handler. A non-empty secret enables
@@ -45,7 +50,19 @@ func NewWebhookHandler(dirtyTracker *services.DirtyTracker, secret string, logge
 		dirtyTracker: dirtyTracker,
 		secret:       secret,
 		log:          logger,
+		lastReceived: make(map[string]time.Time),
 	}
+}
+
+// LastReceived reports when each wiki last sent a webhook that was accepted.
+func (h *WebhookHandler) LastReceived() map[string]time.Time {
+	h.lastMu.Lock()
+	defer h.lastMu.Unlock()
+	out := make(map[string]time.Time, len(h.lastReceived))
+	for wiki, at := range h.lastReceived {
+		out[wiki] = at
+	}
+	return out
 }
 
 // RegisterRoutes registers the webhook endpoint.
@@ -108,6 +125,9 @@ func (h *WebhookHandler) HandleLiquipediaWebhook(c echo.Context) error {
 
 	// Mark dirty — the poller will fetch on its next cycle
 	h.dirtyTracker.MarkDirty(event)
+	h.lastMu.Lock()
+	h.lastReceived[event.Wiki] = time.Now()
+	h.lastMu.Unlock()
 
 	h.log.WithFields(logrus.Fields{
 		"wiki":      event.Wiki,

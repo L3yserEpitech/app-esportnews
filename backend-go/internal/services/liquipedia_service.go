@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -275,6 +276,10 @@ type LiquipediaService struct {
 	minInterval time.Duration
 	rateMu      sync.Mutex
 	lastReq     time.Time
+
+	// Read by the back-office health screen.
+	lastRateLimited atomic.Int64                 // unix nanoseconds of the last 429
+	onStore         atomic.Pointer[func(string)] // told the cache key of every fresh answer stored
 }
 
 // NewLiquipediaService creates the service with budget trackers for all known wikis.
@@ -532,6 +537,7 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 				"body":        string(body),
 			}).Warn("[MAKEREQ] 🚫 Rate limited (429) — recording backoff, falling back to stale")
 			budget.Record429()
+			s.lastRateLimited.Store(time.Now().UnixNano())
 			return s.getStaleOrError(ctx, cacheKey, wiki, "upstream 429 (per-IP throttle, budget NOT exhausted)")
 		}
 
@@ -596,6 +602,9 @@ func (s *LiquipediaService) MakeRequest(ctx context.Context, wiki, endpoint stri
 		text := string(body)
 		_ = s.cache.Set(ctx, cacheKey, text, cacheTTL)
 		s.storeStaleCopy(ctx, cacheKey, text, cacheTTL)
+		if observe := s.onStore.Load(); observe != nil {
+			(*observe)(cacheKey)
+		}
 
 		s.log.WithFields(logrus.Fields{
 			"wiki":             wiki,
@@ -722,6 +731,29 @@ func (s *LiquipediaService) GetBudgetStatus() map[string]interface{} {
 		"total_used":  totalUsed,
 		"total_limit": totalLimit,
 	}
+}
+
+// Configured reports whether an API key is set: without one the poller never starts.
+func (s *LiquipediaService) Configured() bool { return s.apiKey != "" }
+
+// LastRateLimitedAt is when Liquipedia last answered 429 to this process (zero if never).
+func (s *LiquipediaService) LastRateLimitedAt() time.Time {
+	ns := s.lastRateLimited.Load()
+	if ns == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, ns)
+}
+
+// SetStoreObserver registers fn, called with the cache key each time a fresh
+// answer from Liquipedia is stored. It must return at once.
+func (s *LiquipediaService) SetStoreObserver(fn func(cacheKey string)) {
+	s.onStore.Store(&fn)
+}
+
+// BudgetWarnReached is the 80 % rule of the [BUDGET] log line.
+func BudgetWarnReached(used, limit int) bool {
+	return limit > 0 && used*budgetWarnDenominator >= limit*budgetWarnNumerator
 }
 
 // ParseResponse parses a raw Liquipedia API response into the generic wrapper.

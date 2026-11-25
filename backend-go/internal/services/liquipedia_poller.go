@@ -178,19 +178,108 @@ type LiquipediaPoller struct {
 	// Protected by webhooksMu for concurrent access from pollGame goroutines.
 	webhooksEnabled bool
 	webhooksMu      sync.RWMutex
+
+	// What the health screen reads: when each list was last fetched from
+	// Liquipedia, and since when the tickers run.
+	statusMu    sync.Mutex
+	startedAt   time.Time
+	listOf      map[string]pollerList // cache key → wiki and list type
+	refreshedAt map[string]time.Time  // cache key → last fetch
 }
+
+type pollerList struct{ wiki, typ string }
+
+// The six lists of a wiki, as the health screen names them.
+const (
+	ListMatchesRunning      = "matches_running"
+	ListMatchesUpcoming     = "matches_upcoming"
+	ListMatchesPast         = "matches_past"
+	ListTournamentsRunning  = "tournaments_running"
+	ListTournamentsUpcoming = "tournaments_upcoming"
+	ListTournamentsFinished = "tournaments_finished"
+)
 
 // NewLiquipediaPoller creates a poller. Pass dirtyTracker from the WebhookHandler.
 func NewLiquipediaPoller(service *LiquipediaService, dirtyTracker *DirtyTracker, warmer *ImageWarmer, logger *logrus.Logger) *LiquipediaPoller {
-	return &LiquipediaPoller{
+	p := &LiquipediaPoller{
 		service:         service,
 		warmer:          warmer,
 		dirtyTracker:    dirtyTracker,
 		dirtyGate:       newDirtyRefreshGate(),
 		log:             logger,
 		webhooksEnabled: false, // start with polling, enable webhooks when confirmed
+		listOf:          make(map[string]pollerList, 6*len(wikiSortedOrder)),
+		refreshedAt:     make(map[string]time.Time),
 	}
+	for _, wiki := range wikiSortedOrder {
+		p.listOf[cache.LiqMatchesRunningKey(wiki)] = pollerList{wiki, ListMatchesRunning}
+		p.listOf[cache.LiqMatchesUpcomingKey(wiki)] = pollerList{wiki, ListMatchesUpcoming}
+		p.listOf[cache.LiqMatchesPastKey(wiki)] = pollerList{wiki, ListMatchesPast}
+		p.listOf[cache.LiqTournamentsRunningKey(wiki)] = pollerList{wiki, ListTournamentsRunning}
+		p.listOf[cache.LiqTournamentsUpcomingKey(wiki)] = pollerList{wiki, ListTournamentsUpcoming}
+		p.listOf[cache.LiqTournamentsFinishedKey(wiki)] = pollerList{wiki, ListTournamentsFinished}
+	}
+	service.SetStoreObserver(p.noteFetched)
+	return p
 }
+
+// noteFetched records a list that was just fetched from Liquipedia. A refresh
+// that found the key still alive made no call: it does not count.
+func (p *LiquipediaPoller) noteFetched(cacheKey string) {
+	if _, ok := p.listOf[cacheKey]; !ok {
+		return
+	}
+	p.statusMu.Lock()
+	p.refreshedAt[cacheKey] = time.Now()
+	p.statusMu.Unlock()
+}
+
+// noteServed dates a list this process has not fetched itself (a restart
+// found it alive in Redis) from its remaining TTL: one command per list, once.
+func (p *LiquipediaPoller) noteServed(ctx context.Context, cacheKey string, ttl time.Duration) {
+	p.statusMu.Lock()
+	_, known := p.refreshedAt[cacheKey]
+	p.statusMu.Unlock()
+	if known {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	left, err := p.service.GetCache().TTL(ctx, cacheKey)
+	if err != nil || left <= 0 || left > ttl {
+		return
+	}
+	p.statusMu.Lock()
+	if _, known := p.refreshedAt[cacheKey]; !known {
+		p.refreshedAt[cacheKey] = time.Now().Add(left - ttl)
+	}
+	p.statusMu.Unlock()
+}
+
+// ListRefreshTimes reports when each list was last fetched, by wiki then list type.
+func (p *LiquipediaPoller) ListRefreshTimes() map[string]map[string]time.Time {
+	p.statusMu.Lock()
+	defer p.statusMu.Unlock()
+	out := make(map[string]map[string]time.Time, len(wikiSortedOrder))
+	for key, at := range p.refreshedAt {
+		list := p.listOf[key]
+		if out[list.wiki] == nil {
+			out[list.wiki] = make(map[string]time.Time, 6)
+		}
+		out[list.wiki][list.typ] = at
+	}
+	return out
+}
+
+// StartedAt is when the tickers were launched: zero while the poller is off.
+func (p *LiquipediaPoller) StartedAt() time.Time {
+	p.statusMu.Lock()
+	defer p.statusMu.Unlock()
+	return p.startedAt
+}
+
+// WebhooksEnabled reports whether refreshes follow the dirty flags.
+func (p *LiquipediaPoller) WebhooksEnabled() bool { return p.isWebhooksEnabled() }
 
 // warmMatchImages extracts team/league logo URLs from a freshly-fetched match
 // payload and warms them into the shared image cache in the background, so the
@@ -248,6 +337,9 @@ func (p *LiquipediaPoller) Start(ctx context.Context) {
 	}
 
 	p.log.Info("Starting Liquipedia poller for all games")
+	p.statusMu.Lock()
+	p.startedAt = time.Now()
+	p.statusMu.Unlock()
 
 	for acronym, wiki := range models.GameWikiMapping {
 		p.wg.Add(1)
@@ -553,6 +645,7 @@ func (p *LiquipediaPoller) refreshMatchesRunning(ctx context.Context, wiki strin
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLMatchesRunning)
 		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
@@ -578,6 +671,7 @@ func (p *LiquipediaPoller) refreshMatchesUpcoming(ctx context.Context, wiki stri
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLMatchesUpcoming)
 		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
@@ -603,6 +697,7 @@ func (p *LiquipediaPoller) refreshMatchesPast(ctx context.Context, wiki string) 
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "matches_past", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLMatchesPast)
 		go p.warmMatchImages(ctx, data, wiki)
 	}
 }
@@ -637,6 +732,7 @@ func (p *LiquipediaPoller) refreshTournamentsRunning(ctx context.Context, wiki s
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_running", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLTournamentsRunning)
 	}
 }
 
@@ -655,6 +751,7 @@ func (p *LiquipediaPoller) refreshTournamentsUpcoming(ctx context.Context, wiki 
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_upcoming", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLTournamentsUpcoming)
 	}
 }
 
@@ -685,5 +782,6 @@ func (p *LiquipediaPoller) refreshTournamentsFinished(ctx context.Context, wiki 
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished"}).WithError(err).Warn("[REFRESH] Failed")
 	} else {
 		p.log.WithFields(logrus.Fields{"wiki": wiki, "type": "tournaments_finished", "bytes": len(data)}).Info("[REFRESH] Success — data cached")
+		p.noteServed(ctx, cacheKey, TTLTournamentsFinished)
 	}
 }

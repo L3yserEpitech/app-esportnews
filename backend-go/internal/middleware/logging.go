@@ -2,10 +2,16 @@ package middleware
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 )
+
+var serverErrors atomic.Int64
+
+// ServerErrorCount is how many 5xx responses this process has sent since it started.
+func ServerErrorCount() int64 { return serverErrors.Load() }
 
 func LoggingMiddleware(logger *logrus.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -23,6 +29,9 @@ func LoggingMiddleware(logger *logrus.Logger) echo.MiddlewareFunc {
 				} else {
 					status = http.StatusInternalServerError
 				}
+			}
+			if status >= http.StatusInternalServerError {
+				serverErrors.Add(1)
 			}
 
 			entry := logger.WithFields(logrus.Fields{
