@@ -70,6 +70,19 @@ declare global {
   }
 }
 
+// `suite` comes from the URL: it may only lead back into the back-office. The
+// browser resolves it, so `//host`, `/\host` and friends are judged as it would
+// follow them, not as they are spelled.
+function sameOriginPath(raw: string): string {
+  try {
+    const target = new URL(raw, window.location.origin);
+    if (target.origin !== window.location.origin || target.pathname.startsWith('/connexion')) return '/';
+    return target.pathname + target.search + target.hash;
+  } catch {
+    return '/';
+  }
+}
+
 function LoginScreen() {
   const router = useRouter();
   const params = useSearchParams();
@@ -88,8 +101,7 @@ function LoginScreen() {
   const googleSlot = useRef<HTMLDivElement>(null);
 
   const enter = useCallback(() => {
-    // Only same-origin paths: the parameter comes from the URL.
-    router.replace(next.startsWith('/') && !next.startsWith('//') ? next : '/');
+    router.replace(sameOriginPath(next));
   }, [next, router]);
 
   useEffect(() => {
