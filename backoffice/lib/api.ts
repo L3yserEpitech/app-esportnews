@@ -1,34 +1,13 @@
-// Single door to the backend. The session token lives in this origin's
-// localStorage: admin.esportnews.fr shares nothing with the public site, so a
-// script injected there can't read it.
+// Single door to the backend.
+//
+// The session is an httpOnly cookie: no script of this page can read it. Calls
+// go to this origin, where Next proxies /api/bo to the Go backend (see
+// next.config.ts), so the cookie is first-party. Only file uploads go straight
+// to the backend, with a short-lived ticket: the proxy caps request bodies far
+// below a cover video.
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100').replace(/\/$/, '');
+export const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100').replace(/\/$/, '');
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr').replace(/\/$/, '');
-
-const TOKEN_KEY = 'bo_token';
-const DEVICE_KEY = 'bo_device';
-
-function read(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: string | null) {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch {
-    // Private window: the session only lasts for this page.
-  }
-}
-
-export const getToken = () => read(TOKEN_KEY);
-export const setToken = (t: string | null) => write(TOKEN_KEY, t);
-export const getDeviceToken = () => read(DEVICE_KEY);
-export const setDeviceToken = (t: string | null) => write(DEVICE_KEY, t);
 
 export class ApiError extends Error {
   status: number;
@@ -58,24 +37,36 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   raw?: boolean; // return the Response (downloads)
-  anonymous?: boolean; // login steps: no token, no redirect
+  anonymous?: boolean; // login steps: a refusal is an answer, not a lost session
+}
+
+let ticket: { value: string; until: number } | null = null;
+
+// uploadTicket is the pass for the upload routes, reused for a few minutes.
+export async function uploadTicket(): Promise<string> {
+  if (ticket && ticket.until > Date.now()) return ticket.value;
+  const res = await api<{ ticket: string; expires_in: number }>('/upload-ticket', { method: 'POST' });
+  ticket = { value: res.ticket, until: Date.now() + (res.expires_in - 60) * 1000 };
+  return res.ticket;
 }
 
 async function send(path: string, opts: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = { ...(opts.headers || {}) };
-  const token = opts.anonymous ? null : getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (opts.form) {
+    headers.Authorization = `Upload ${await uploadTicket()}`;
+    return fetch(`${BACKEND_URL}/api/bo${path}`, { method: opts.method || 'POST', headers, body: opts.form, signal: opts.signal });
+  }
   let body: BodyInit | undefined;
-  if (opts.form) body = opts.form;
-  else if (opts.body !== undefined) {
+  if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify(opts.body);
   }
-  return fetch(`${API_BASE}/api/bo${path}`, {
+  return fetch(`/api/bo${path}`, {
     method: opts.method || (body ? 'POST' : 'GET'),
     headers,
     body,
     signal: opts.signal,
+    credentials: 'same-origin',
   });
 }
 
@@ -97,7 +88,8 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
   let res: Response;
   try {
     res = await send(path, opts);
-  } catch {
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
     throw new ApiError(0, 'network', 'Serveur injoignable. Vérifiez votre connexion.');
   }
 
@@ -113,7 +105,7 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
       throw new ApiError(403, 'reauth_cancelled', 'Action annulée.');
     }
     if (res.status === 401 || err.code === 'not_team') {
-      setToken(null);
+      ticket = null;
       onSessionLost?.();
     }
     throw err;

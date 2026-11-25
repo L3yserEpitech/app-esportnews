@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import useSWR from 'swr';
-import { api, errorMessage, fetcher, setDeviceToken } from '@/lib/api';
+import { api, errorMessage, fetcher } from '@/lib/api';
 import { dayTime, dayYear } from '@/lib/format';
 import { ROLE_LABEL, ROLE_TONE, useSession } from '@/lib/session';
 import { PageHeader } from '@/components/Shell';
@@ -38,7 +38,6 @@ export default function AccountPage() {
   const forget = async () => {
     try {
       await api('/account/devices', { method: 'DELETE' });
-      setDeviceToken(null);
       await reloadDevices();
       toast.notify('Appareils de confiance oubliés.');
     } catch (e) {
@@ -155,7 +154,6 @@ export default function AccountPage() {
             }}
             onDone={() => {
               setSetup(false);
-              setDeviceToken(null);
               refresh();
               void reloadDevices();
             }}

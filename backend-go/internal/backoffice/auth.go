@@ -65,6 +65,7 @@ func (m *Module) registerAuthRoutes(pub, priv *echo.Group) {
 	priv.GET("/auth/me", m.handleMe)
 	priv.POST("/auth/logout", m.handleLogout)
 	priv.POST("/auth/reauth", m.handleReauth)
+	priv.POST("/upload-ticket", m.handleUploadTicket)
 	priv.POST("/account/totp/start", m.handleEnrollStartSession)
 	priv.POST("/account/totp/confirm", m.handleEnrollConfirmSession)
 	priv.POST("/account/backup-codes", m.handleRegenerateBackupCodes, m.requireSudo)
@@ -81,9 +82,8 @@ func (m *Module) handleAuthConfig(c echo.Context) error {
 }
 
 type loginInput struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	DeviceToken string `json:"device_token"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 const invalidLogin = "Adresse e-mail ou mot de passe incorrect"
@@ -119,7 +119,7 @@ func (m *Module) handleLogin(c echo.Context) error {
 		return fail(c, http.StatusForbidden, "not_team", "Ce compte n'ouvre pas le back-office : il est réservé à l'équipe.")
 	}
 	m.cache.Del(ctx, failKey)
-	return m.afterIdentity(c, user, in.DeviceToken)
+	return m.afterIdentity(c, user, cookieValue(c, deviceCookie))
 }
 
 func (m *Module) countLoginFail(ctx context.Context, key string) int64 {
@@ -134,8 +134,7 @@ func (m *Module) countLoginFail(ctx context.Context, key string) int64 {
 }
 
 type googleInput struct {
-	Credential  string `json:"credential"`
-	DeviceToken string `json:"device_token"`
+	Credential string `json:"credential"`
 }
 
 func (m *Module) handleGoogleLogin(c echo.Context) error {
@@ -163,7 +162,7 @@ func (m *Module) handleGoogleLogin(c echo.Context) error {
 	if err != nil {
 		return fail(c, http.StatusServiceUnavailable, "store_unavailable", "Base de données indisponible")
 	}
-	return m.afterIdentity(c, user, in.DeviceToken)
+	return m.afterIdentity(c, user, cookieValue(c, deviceCookie))
 }
 
 // afterIdentity decides what a proven identity still owes: a code, an
@@ -207,11 +206,11 @@ func (m *Module) respondSession(c echo.Context, user *teamUser, ci clientInfo, d
 		ActorID: user.ID, ActorName: user.Name, Action: "auth.login",
 		TargetType: "account", TargetLabel: "son compte", Client: ci,
 	})
-	out := map[string]interface{}{"step": "done", "token": token, "expires_at": s.ExpiresAt}
+	m.setCookie(c, sessionCookie, token, sessionTTL)
 	if deviceToken != "" {
-		out["device_token"] = deviceToken
+		m.setCookie(c, deviceCookie, deviceToken, trustedDeviceTTL)
 	}
-	return c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, map[string]interface{}{"step": "done", "expires_at": s.ExpiresAt, "trusted": deviceToken != ""})
 }
 
 func (m *Module) newChallenge(ctx context.Context, userID int64, stage string, ci clientInfo) (string, error) {
@@ -402,6 +401,7 @@ func (m *Module) handleForgetTrustedDevices(c echo.Context) error {
 	if err := m.db.WithContext(c.Request().Context()).Exec("DELETE FROM bo_trusted_device WHERE user_id = ?", s.User.ID).Error; err != nil {
 		return m.internal(c, err)
 	}
+	m.setCookie(c, deviceCookie, "", 0)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -528,9 +528,9 @@ func (m *Module) handleEnrollConfirmChallenge(c echo.Context) error {
 	if err != nil {
 		return fail(c, http.StatusServiceUnavailable, "store_unavailable", "Service de session indisponible")
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"step": "done", "token": token, "expires_at": s.ExpiresAt, "backup_codes": codes,
-	})
+	m.setCookie(c, sessionCookie, token, sessionTTL)
+	m.setCookie(c, deviceCookie, "", 0)
+	return c.JSON(http.StatusOK, map[string]interface{}{"step": "done", "expires_at": s.ExpiresAt, "backup_codes": codes})
 }
 
 func (m *Module) handleEnrollStartSession(c echo.Context) error {
@@ -568,6 +568,8 @@ func (m *Module) handleEnrollConfirmSession(c echo.Context) error {
 		return fail(c, http.StatusUnauthorized, "invalid_code", "Code incorrect")
 	}
 	m.audit(c, "auth.totp_enabled", "account", "", "son compte", "")
+	// A new authenticator voids the devices the old one vouched for.
+	m.setCookie(c, deviceCookie, "", 0)
 	return c.JSON(http.StatusOK, map[string]interface{}{"backup_codes": codes})
 }
 
@@ -617,6 +619,7 @@ func (m *Module) handleMe(c echo.Context) error {
 
 func (m *Module) handleLogout(c echo.Context) error {
 	m.closeSession(c.Request().Context(), sessionOf(c))
+	m.setCookie(c, sessionCookie, "", 0)
 	return c.NoContent(http.StatusNoContent)
 }
 

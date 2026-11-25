@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  // The browser only ever talks to this origin: the session cookie is then
+  // first-party and httpOnly, wherever the Go backend is hosted.
+  async rewrites() {
+    const backend = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100').replace(/\/$/, '');
+    return [{ source: '/api/bo/:path*', destination: `${backend}/api/bo/:path*` }];
+  },
 };
 
 export default nextConfig;

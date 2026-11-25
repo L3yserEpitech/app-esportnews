@@ -144,12 +144,25 @@ func bearer(c echo.Context) string {
 // RequireAdmin: a demotion applies at once.
 func (m *Module) requireSession(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := bearer(c)
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
+		defer cancel()
+
+		if s, ok := m.uploadSession(ctx, c); ok {
+			c.Set(ctxSession, s)
+			return next(c)
+		}
+
+		// The browser sends the cookie; a Bearer token is what tests and scripts use.
+		token := cookieValue(c, sessionCookie)
+		if token != "" && !m.sameOrigin(c) {
+			return fail(c, http.StatusForbidden, "bad_origin", "Requête refusée")
+		}
+		if token == "" {
+			token = bearer(c)
+		}
 		if token == "" {
 			return fail(c, http.StatusUnauthorized, "unauthenticated", "Connexion requise")
 		}
-		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
-		defer cancel()
 
 		hash := hashToken(token)
 		raw, err := m.cache.GetClient().Get(ctx, sessionKey(hash)).Result()

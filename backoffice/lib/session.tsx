@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { api, configureApi, errorMessage, fetcher, getToken, setToken, ApiError } from './api';
+import { api, configureApi, errorMessage, fetcher, ApiError } from './api';
 import { CodeInput, Modal } from '@/components/ui';
 
 export type Role = 'user' | 'reader' | 'editor' | 'admin';
@@ -67,12 +67,39 @@ export function useSession(): SessionValue {
   return ctx;
 }
 
+// The session itself is an httpOnly cookie this code never sees. The tab only
+// remembers that it was signed in, to word the return to the login screen.
+const SIGNED_IN = 'bo_signed_in';
+
+function wasSignedIn(): boolean {
+  try {
+    return window.sessionStorage.getItem(SIGNED_IN) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberSignedIn() {
+  try {
+    window.sessionStorage.setItem(SIGNED_IN, '1');
+  } catch {
+    // Private window: the wording falls back on « connexion requise ».
+  }
+}
+
+function forgetSignedIn() {
+  try {
+    window.sessionStorage.removeItem(SIGNED_IN);
+  } catch {
+    // Nothing to forget.
+  }
+}
+
 // Guards every screen behind the login and owns the « confirm it's you » dialog
 // that heavy actions trigger.
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [reauthOpen, setReauthOpen] = useState(false);
   const pending = useRef<((ok: boolean) => void) | null>(null);
 
@@ -85,23 +112,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const present = Boolean(getToken());
-    setHasToken(present);
-    if (!present) toLogin(false);
-  }, [toLogin]);
-
-  useEffect(() => {
     configureApi({
       reauth: () =>
         new Promise<boolean>((resolve) => {
           pending.current = resolve;
           setReauthOpen(true);
         }),
-      sessionLost: () => toLogin(true),
+      // « Session expirée » only makes sense to someone who had one in this tab.
+      sessionLost: () => toLogin(wasSignedIn()),
     });
   }, [toLogin]);
 
-  const { data: me, mutate } = useSWR<Me>(hasToken ? '/auth/me' : null, fetcher, {
+  const { data: me, mutate } = useSWR<Me>('/auth/me', fetcher, {
     revalidateOnFocus: true,
     shouldRetryOnError: (err) => !(err instanceof ApiError && (err.status === 401 || err.status === 403)),
   });
@@ -111,6 +133,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     pending.current?.(ok);
     pending.current = null;
   };
+
+  useEffect(() => {
+    if (me) rememberSignedIn();
+  }, [me]);
 
   const value = useMemo<SessionValue | null>(() => {
     if (!me) return null;
@@ -124,7 +150,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         } catch {
           // The token is dropped either way.
         }
-        setToken(null);
+        forgetSignedIn();
         router.replace('/connexion');
       },
     };

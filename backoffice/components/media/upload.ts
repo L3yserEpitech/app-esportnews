@@ -1,4 +1,4 @@
-import { API_BASE, ApiError, getToken } from '@/lib/api';
+import { BACKEND_URL, ApiError, uploadTicket } from '@/lib/api';
 
 // Mirrors utils.MaxFileSize and utils.AllowedFileTypes of the backend, to
 // refuse a file before sending it.
@@ -29,12 +29,13 @@ export function refusal(file: File, kinds: string[]): string {
 }
 
 // fetch() can't report upload progress: this one goes through XMLHttpRequest.
-export function uploadWithProgress<T>(path: string, form: FormData, onProgress: (ratio: number) => void): Promise<T> {
+// Files go straight to the backend with an upload ticket (see lib/api.ts).
+export async function uploadWithProgress<T>(path: string, form: FormData, onProgress: (ratio: number) => void): Promise<T> {
+  const ticket = await uploadTicket();
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${API_BASE}/api/bo${path}`);
-    const token = getToken();
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.open('POST', `${BACKEND_URL}/api/bo${path}`);
+    xhr.setRequestHeader('Authorization', `Upload ${ticket}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };

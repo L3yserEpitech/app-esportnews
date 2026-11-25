@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } fr
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Clock, KeyRound, Lock, ShieldCheck, UserCheck } from 'lucide-react';
-import { api, errorMessage, getDeviceToken, getToken, setDeviceToken, setToken } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
 import { AuthLayout, AuthTitle, BackupCodes, TotpSetup, type AsideItem } from '@/components/auth';
 import { CodeInput } from '@/components/ui';
 
@@ -17,8 +17,6 @@ type Step =
 
 interface LoginResult {
   step: 'done' | 'totp' | 'enroll';
-  token?: string;
-  device_token?: string;
   challenge?: string;
   email?: string;
   backup_codes?: string[];
@@ -104,8 +102,12 @@ function LoginScreen() {
     router.replace(sameOriginPath(next));
   }, [next, router]);
 
+  // Already signed in (the cookie says so, not this page): straight in.
   useEffect(() => {
-    if (getToken() && !params.get('expiree')) enter();
+    if (params.get('expiree')) return;
+    api('/auth/me', { anonymous: true })
+      .then(() => enter())
+      .catch(() => undefined);
   }, [enter, params]);
 
   useEffect(() => {
@@ -126,9 +128,7 @@ function LoginScreen() {
     (res: LoginResult) => {
       setError('');
       setCode('');
-      if (res.step === 'done' && res.token) {
-        setToken(res.token);
-        if (res.device_token) setDeviceToken(res.device_token);
+      if (res.step === 'done') {
         if (res.backup_codes) setStep({ name: 'codes', codes: res.backup_codes });
         else enter();
       } else if (res.step === 'totp' && res.challenge) {
@@ -165,7 +165,7 @@ function LoginScreen() {
             api<LoginResult>('/auth/google', {
               anonymous: true,
               headers: headers(),
-              body: { credential: res.credential, device_token: getDeviceToken() || '' },
+              body: { credential: res.credential },
             }),
           ),
       });
@@ -197,7 +197,7 @@ function LoginScreen() {
       api<LoginResult>('/auth/login', {
         anonymous: true,
         headers: headers(),
-        body: { email, password, device_token: getDeviceToken() || '' },
+        body: { email, password },
       }),
     );
   };
