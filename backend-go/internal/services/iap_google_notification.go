@@ -99,7 +99,7 @@ func (s *IAPService) HandleGoogleNotification(ctx context.Context, body []byte) 
 	}
 
 	updates := map[string]interface{}{
-		"premium":            result.IsValid,
+		"premium":            premiumUnlessGifted(result.IsValid),
 		"iap_transaction_id": sub.PurchaseToken,
 	}
 	if result.ProductID != "" {
@@ -146,7 +146,7 @@ func (s *IAPService) setGoogleUserPremium(ctx context.Context, purchaseToken str
 	res := s.db.WithContext(ctx).
 		Model(&models.User{}).
 		Where("iap_transaction_id = ?", purchaseToken).
-		Update("premium", premium)
+		Update("premium", premiumUnlessGifted(premium))
 	if res.Error != nil {
 		return fmt.Errorf("flip premium for purchaseToken: %w", res.Error)
 	}

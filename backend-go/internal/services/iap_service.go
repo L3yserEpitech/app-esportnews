@@ -364,9 +364,10 @@ func (s *IAPService) UpdateUserIAPStatus(ctx context.Context, userID int64, resu
 	premium := result.IsValid
 
 	updates := map[string]interface{}{
-		"premium":            premium,
+		"premium":            premiumUnlessGifted(premium),
 		"iap_platform":       result.Platform,
 		"iap_transaction_id": result.TransactionID,
+		"iap_checked_at":     time.Now(),
 	}
 	if result.ProductID != "" {
 		updates["iap_product_id"] = result.ProductID

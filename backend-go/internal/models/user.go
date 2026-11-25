@@ -43,6 +43,9 @@ type User struct {
 	IAPTransactionID         *string    `json:"iap_transaction_id,omitempty" gorm:"column:iap_transaction_id;index"`
 	IAPOriginalTransactionID *string    `json:"iap_original_transaction_id,omitempty" gorm:"column:iap_original_transaction_id;index"`
 	IAPExpiresAt             *time.Time `json:"iap_expires_at,omitempty" gorm:"column:iap_expires_at"`
+	// IAPCheckedAt is when a store last answered about this purchase. The
+	// back-office shows it; the clients have no use for it.
+	IAPCheckedAt *time.Time `json:"-" gorm:"column:iap_checked_at"`
 }
 
 // TableName specifies the table name for User

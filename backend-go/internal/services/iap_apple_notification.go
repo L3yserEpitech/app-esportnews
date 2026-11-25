@@ -187,7 +187,7 @@ func (s *IAPService) HandleAppleNotification(ctx context.Context, signedPayload 
 	newPremium, touchExpiry := decideStatusFromNotification(payload.NotificationType, revoked)
 
 	updates := map[string]interface{}{
-		"premium": newPremium,
+		"premium": premiumUnlessGifted(newPremium),
 	}
 	if touchExpiry && !expiresAt.IsZero() {
 		updates["iap_expires_at"] = expiresAt

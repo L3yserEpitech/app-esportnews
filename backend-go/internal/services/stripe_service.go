@@ -94,14 +94,23 @@ func (s *StripeService) GetCustomerPortalURL(ctx context.Context, stripeCustomer
 	return portalSess.URL, nil
 }
 
-// UpdateUserSubscriptionStatus updates user subscription fields
+// UpdateUserSubscriptionStatus updates user subscription fields. A `premium`
+// verdict among them never takes Premium away from a gifted account.
 func (s *StripeService) UpdateUserSubscriptionStatus(ctx context.Context, userID int64, updates map[string]interface{}) error {
+	if premium, ok := updates["premium"].(bool); ok {
+		guarded := make(map[string]interface{}, len(updates))
+		for field, value := range updates {
+			guarded[field] = value
+		}
+		guarded["premium"] = premiumUnlessGifted(premium)
+		updates = guarded
+	}
 	return s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
 // SetUserPremium marks user as premium
 func (s *StripeService) SetUserPremium(ctx context.Context, userID int64, premium bool) error {
-	return s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Update("premium", premium).Error
+	return s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Update("premium", premiumUnlessGifted(premium)).Error
 }
 
 // GetUserByStripeCustomerID retrieves user by stripe_customer_id

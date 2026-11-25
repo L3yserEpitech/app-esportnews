@@ -84,6 +84,8 @@ type AuthService struct {
 	// LookupUser is GetUser, swapped by tests so the session paths run
 	// without Postgres.
 	LookupUser func(ctx context.Context, userID int64) (*models.User, error)
+
+	lastSeen seenThrottle
 }
 
 // issuedPair is what a consumed refresh token can be replayed into.
@@ -833,13 +835,9 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID int64, password 
 			return fmt.Errorf("incorrect password")
 		}
 
-		// Delete user (hard delete)
-		if err := s.gormDB.WithContext(ctx).Unscoped().Delete(&models.User{}, userID).Error; err != nil {
+		if err := s.PurgeAccount(ctx, userID, DeletedBySelf, ""); err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
-
-		s.revokeAllSessionsOrLog(ctx, userID)
-
 		return nil
 	}
 

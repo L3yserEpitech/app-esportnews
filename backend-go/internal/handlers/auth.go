@@ -64,6 +64,8 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	h.authService.RecordSignup(user.ID, signupSource(c.Request()))
+
 	// Generate tokens after successful signup (same as login)
 	response, err := h.authService.LoginAfterSignup(ctx, user)
 	if err != nil {
@@ -71,6 +73,23 @@ func (h *AuthHandler) Signup(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, response)
+}
+
+// signupSource reads where an account is created from what the clients send
+// unasked: a browser sets Origin on this POST, the app's HTTP stack (okhttp on
+// Android, CFNetwork on iOS) never does. Empty when neither shows.
+func signupSource(r *http.Request) string {
+	if r.Header.Get("Origin") != "" {
+		return "web"
+	}
+	ua := strings.ToLower(r.UserAgent())
+	switch {
+	case strings.Contains(ua, "okhttp"):
+		return "android"
+	case strings.Contains(ua, "cfnetwork"):
+		return "ios"
+	}
+	return ""
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {
@@ -92,6 +111,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
+	h.authService.TouchLastSeen(response.User.ID)
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -112,6 +132,7 @@ func (h *AuthHandler) GetMe(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Service temporarily unavailable").SetInternal(err)
 	}
+	h.authService.TouchLastSeen(userID)
 
 	return c.JSON(http.StatusOK, user)
 }
@@ -337,6 +358,7 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 		// revoked, which user) reaches the access log through Internal.
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid refresh token").SetInternal(err)
 	}
+	h.authService.TouchLastSeen(resp.User.ID)
 
 	return c.JSON(http.StatusOK, resp)
 }
