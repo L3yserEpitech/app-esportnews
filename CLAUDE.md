@@ -1536,14 +1536,14 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 > Refonte de novembre 2026, sur la maquette Claude Design « Back-office Esport News ». **Pas encore en prod** : tant que ce n'est pas déployé, l'ancien `/admin` du site (§18.2) reste l'outil de la rédaction et ses routes `/api/admin/*` ne changent pas.
 
 ### Où est le code
-* **Application** : `backoffice/` (Next.js 15, pnpm, port 3100 en local), tout en composants client derrière la connexion. Origine à part du site : son jeton de session vit dans le `localStorage` de `admin.esportnews.fr`, hors de portée d'un script injecté sur le site public. `backoffice/README.md` donne la recette locale (Postgres et Redis jetables, jamais la prod) et les conventions.
+* **Application** : `backoffice/` (Next.js 15, pnpm, port 3100 en local), tout en composants client derrière la connexion. Origine à part du site. **Le navigateur ne parle qu'à cette origine** : `next.config.ts` relaie `/api/bo/*` vers le backend (`NEXT_PUBLIC_API_URL`), ce qui rend le cookie de session de première partie où que soit hébergée l'API. `backoffice/README.md` donne la recette locale (Postgres et Redis jetables, jamais la prod) et les conventions.
 * **API** : `backend-go/internal/backoffice`, montée sous `/api/bo`. Un fichier par domaine (`articles*.go`, `users*.go`, `push*.go`, `health*.go`, `analytics*.go`, `dashboard.go`, `media.go`, `ads.go`), `schema.go` appliqué à chaque démarrage (idempotent), `routes.go` pour l'enregistrement et les tâches de fond.
 * Les classes CSS de `backoffice/app/globals.css` sont celles de la maquette : une page se lit comme sa planche.
 
 ### Comptes d'équipe et sessions
 * `users.role` : `user`, `reader` (Lecteur), `editor` (Rédacteur), `admin`. `setRole` tient `users.admin` (que lit le site) égal à `role = 'admin'`. Au premier démarrage, tout `admin = true` devient `role = 'admin'`. **Un compte `user` n'ouvre pas le back-office**, quel que soit son mot de passe.
 * Matrice des droits : `rolePerms` dans `core.go`, recopiée à l'écran dans `app/(app)/equipe/page.tsx`. Les deux doivent rester identiques. Le rôle est relu en base à chaque requête.
-* **Session** : jeton opaque de 12 h dans Redis (`bo:session:<sha256>`), sans rapport avec les JWT du site. Fermée au changement de rôle, à la réinitialisation de la double authentification et à celle du mot de passe.
+* **Session** : jeton opaque de 12 h dans Redis (`bo:session:<sha256>`), sans rapport avec les JWT du site, porté par un **cookie httpOnly** `bo_session` (`SameSite=Strict`, chemin `/api/bo`, `Secure` dès que `BACKOFFICE_URL` est en https) : aucun script de la page ne le lit, rien n'est dans `localStorage`. Une écriture portée par le cookie doit avoir pour `Origin` celle de `BACKOFFICE_URL` (`sameOrigin`, `cookies.go`) : `SameSite` n'arrête pas un script injecté sur `www.esportnews.fr`, même site que `admin.`. Un `Authorization: Bearer` reste accepté pour les tests et les scripts. **Envois de fichiers** : directement vers le backend avec un laissez-passer de 10 minutes (`POST /api/bo/upload-ticket`, en-tête `Authorization: Upload …`) qui n'ouvre que `/api/bo/upload/*`, car le relais plafonne la taille des corps ; c'est le seul appel qui a besoin du CORS. Fermée au changement de rôle, à la réinitialisation de la double authentification et à celle du mot de passe.
 * **Double authentification** (TOTP, RFC 6238) obligatoire : un membre a 24 h après son entrée dans l'équipe (`users.team_since`), ensuite la connexion elle-même le fait passer par l'enrôlement. Secret chiffré en base (AES-GCM, clé dérivée de `BACKOFFICE_SECRET`, à défaut de `JWT_SECRET` : **changer cette clé invalide tous les secrets TOTP**). Dix codes de secours à usage unique, appareil de confiance 30 jours, un code ne sert qu'une fois par fenêtre.
 * **Actions lourdes** (`requireSudo` : invitation, changement de rôle, suppression de compte, push manuel, export des comptes) : des identifiants donnés depuis moins de 10 minutes, sinon 403 `reauth_required` et l'interface redemande le code puis rejoue l'appel.
 * **Journal d'audit** (`bo_audit_log`, conservé 1 an) : toute écriture passe par `m.audit(...)`. Une nouvelle action s'ajoute aussi dans `backoffice/lib/audit.ts`. La ville du « Depuis » vient de l'en-tête de géolocalisation de l'hébergeur lu par `app/api/geo` : affichage seulement.
@@ -1552,7 +1552,10 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 * `articles.status` : `draft`, `scheduled`, `published` (défaut, donc tout l'existant). **Toute lecture publique filtre `status = 'published'`** (`article_service.go`) ; une nouvelle requête publique sur `articles` doit le faire aussi.
 * `created_at` reste la date de publication partout sur le site : elle est posée à `now()` quand un brouillon ou un article programmé sort, jamais modifiée ensuite. Le slug est figé dès la première publication.
 * Une tâche publie chaque minute les articles programmés échus (prise atomique, sûre à plusieurs instances) et envoie le push si `notify_on_publish` est vrai.
-* Un rédacteur ne modifie que ses articles (`author_id`, ou à défaut signature égale à son nom). Chaque enregistrement laisse une version (`bo_article_version`, 30 par article). Le corps n'est réécrit que s'il a changé, dans les colonnes que remplit l'éditeur historique (`article_content`, `content`, `content_white`, `content_black`).
+* Un rédacteur ne modifie que ses articles (`author_id`, ou à défaut signature égale à son nom ou à une graphie de sa fiche auteur). `POST /api/bo/articles/:id/purge-cache` vide le cache Redis d'un article. Chaque enregistrement laisse une version (`bo_article_version`, 30 par article). Le corps n'est réécrit que s'il a changé, dans les colonnes que remplit l'éditeur historique (`article_content`, `content`, `content_white`, `content_black`).
+
+### Auteurs
+* Table `author` (adresse de la page `/auteurs/<slug>`, nom affiché, autres signatures, compte d'équipe), reprise une fois de l'ancienne liste codée en dur et gérée dans l'écran Équipe. `GET /api/authors` (public, sans le compte) est fait pour que le site abandonne `frontend/app/lib/authors.ts` : **tant que le site n'a pas basculé, une fiche créée ici n'a pas encore de page**, il faut aussi l'ajouter à ce fichier.
 
 ### Utilisateurs
 * **Premium offert** (`users.premium_gifted`) : toute écriture de `users.premium` passe par `premiumUnlessGifted` (`services/account_lifecycle.go`), y compris les notifications Apple et Google et Stripe. Une nouvelle écriture de `premium` doit passer par là, sinon la vérification quotidienne retire un Premium offert.
@@ -1571,7 +1574,7 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 
 ### Santé du système, analytics, tableau de bord
 * `GET /api/bo/health` assemble au plus une fois par minute une carte par service. **Une source sans identifiants répond `unconfigured` avec les variables à définir, jamais un chiffre.** Le proxy n'est sondé que par une connexion TCP : rien n'est envoyé à Liquipedia.
-* Analytics : Vercel Web Analytics si configuré, sinon `page_views` ; Search Console (service account) ; téléchargements App Store (rapports de ventes) et Google Play (rapports mensuels du bucket), rapatriés en tâche de fond dans `bo_store_downloads`. Les quarante derniers articles sont vérifiés chaque jour dans l'index Google (`bo_gsc_inspection`).
+* Analytics : Vercel Web Analytics, et rien d'autre pour le trafic du site (le suivi maison `page_views` doit être supprimé, CLIENTS-280 : ne rien bâtir dessus) ; Search Console (service account) ; téléchargements App Store (rapports de ventes) et Google Play (rapports mensuels du bucket), rapatriés en tâche de fond dans `bo_store_downloads`. Les quarante derniers articles sont vérifiés chaque jour dans l'index Google (`bo_gsc_inspection`).
 * Piège GORM : un `?` dans une chaîne SQL (expression régulière) est pris pour un paramètre. Passer le motif en argument.
 
 ### Variables d'environnement (backend)
@@ -1588,7 +1591,7 @@ Tournois de référence pour valider à la main (payloads réels déjà sondés)
 | `APPSTORE_CONNECT_KEY_ID`, `APPSTORE_CONNECT_ISSUER_ID`, `APPSTORE_CONNECT_KEY_CONTENT`, `APPSTORE_CONNECT_VENDOR_ID`, `APPSTORE_CONNECT_APP_SKU` | Téléchargements iOS (clé d'équipe App Store Connect avec accès aux ventes, distincte de la clé d'achats intégrés) |
 | `PLAY_REPORTS_BUCKET`, `PLAY_REPORTS_CREDENTIALS_JSON` | Installations Android (bucket `pubsite_prod_rev_…` de la Play Console) |
 
-`RESEND_API_KEY` doit être une clé « Full access » pour la carte Resend (une clé d'envoi seul la laisse « non connectée »). Côté application : `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`.
+`RESEND_API_KEY` doit être une clé « Full access » pour la carte Resend (une clé d'envoi seul la laisse « non connectée »). Côté application : `NEXT_PUBLIC_API_URL` (cible du relais `/api/bo` et des envois de fichiers, lue au build) et `NEXT_PUBLIC_SITE_URL`.
 
 ### Tests
 `TEST_DATABASE_URL=postgres://…/esportnews_test go test -p 1 ./...` (`-p 1` : plusieurs paquets vident les mêmes tables). Les clients externes ne sont testés que contre des faux serveurs locaux : aucun n'a encore été appelé avec de vrais identifiants.

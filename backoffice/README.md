@@ -50,6 +50,6 @@ Deux serveurs de dev dans ce dossier : donner à chacun `PORT` et `BO_DIST_DIR` 
 
 - `app/globals.css` reprend les classes de la maquette (`.carte`, `.tbl`, `.kpis`, `.chip`, `.btn`, `.filtre`, `.tabs`, `.dl`, `.liste`…). Une page se lit comme sa planche : mêmes classes, mêmes libellés.
 - `components/ui.tsx` : `Chip`, `Dot`, `Avatar`, `Toggle`, `Modal`, `ConfirmModal`, `Menu`, `FilterMenu`, `Tabs`, `Pager`, `CodeInput`, `Skeleton`, `Empty`, `Notice`, `useToast`. `components/Shell.tsx` : `PageHeader`.
-- `lib/api.ts` : `api(path, { method, body, form })` (préfixe `/api/bo` ajouté), `fetcher` pour SWR, `download()` pour un export, `errorMessage(e)`. Un 403 `reauth_required` ouvre tout seul la demande de code puis rejoue l'appel ; ignorer l'erreur `reauth_cancelled`.
+- `lib/api.ts` : `api(path, { method, body, form })` (préfixe `/api/bo` ajouté), `fetcher` pour SWR, `download()` pour un export, `errorMessage(e)`. Les appels vont à l'origine de l'application, que `next.config.ts` relaie vers le backend : la session est un cookie httpOnly que le code ne voit jamais. Seuls les envois de fichiers (`form`) partent directement vers le backend, avec un laissez-passer demandé tout seul. Un 403 `reauth_required` ouvre tout seul la demande de code puis rejoue l'appel ; ignorer l'erreur `reauth_cancelled`.
 - `lib/session.tsx` : `useSession()` → `me`, `can('users.manage')`. `lib/format.ts` : nombres, dates et durées en français.
 - Pas de donnée d'exemple dans le code : un écran sans donnée affiche un état vide ou « non connecté ».
