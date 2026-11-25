@@ -442,6 +442,26 @@ body {
   }
 }
 
+/* Ad placements (components/ads). An AdSense unit keeps its width while it
+   waits (AdSense needs one to request an ad) but takes no room until it is
+   filled; one that got no ad, or whose script was blocked, leaves the flow, and
+   so does its margin. A column left without any placement (all turned off in
+   the back-office) does not keep its 300px. */
+.ad-spot:has(> .ad-slot[data-collapsed]) {
+  height: 0;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+.ad-spot:has(> .ad-slot[data-unfilled]),
+.ad-spot:empty {
+  display: none;
+}
+
+.ad-column:not(:has(.ad-spot, .ad-skeleton)) {
+  display: none;
+}
+
 /* Cookie Banner Animation */
 @keyframes slide-up {
   from {

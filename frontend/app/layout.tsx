@@ -8,10 +8,11 @@ import { CHUNK_RETRY_SCRIPT } from "./lib/chunkRetry";
 import { Analytics } from "@vercel/analytics/next"
 import { getLanguagePreference } from "@/lib/preferences";
 import { PageViewTracker } from "./components/PageViewTracker";
-import CookieBanner from "./components/common/CookieBanner";
 import ProxyImageRetry from "./components/common/ProxyImageRetry";
 import { DEFAULT_OG_IMAGE } from "./lib/seoHelpers";
 import { APP_BANNER_CLOSED_KEY } from "./lib/appPromo";
+import { ADSENSE_CLIENT } from "./lib/adSpots";
+import AdSenseScript from "./components/ads/AdSenseScript";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.esportnews.fr";
 
@@ -49,6 +50,9 @@ export const metadata: Metadata = {
   },
   // Google only shows large image thumbnails (Discover, Top Stories) and
   // full-length snippets when the page opts in explicitly.
+  // Ties the site to the AdSense account, with public/ads.txt. The script itself
+  // is added after hydration (components/ads/AdSenseScript).
+  other: { "google-adsense-account": ADSENSE_CLIENT },
   robots: {
     index: true,
     follow: true,
@@ -125,8 +129,8 @@ export default function RootLayout({
               {children}
               <Analytics />
             </ClientLayout>
-            <CookieBanner />
             <ProxyImageRetry />
+            <AdSenseScript />
           </GameProvider>
         </AuthProvider>
       </body>

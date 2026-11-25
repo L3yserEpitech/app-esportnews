@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ConsentSettingsLink from '@/app/components/common/ConsentSettingsLink';
 
 export default function CookiesContent() {
   const [currentDate, setCurrentDate] = useState('');
@@ -8,11 +9,6 @@ export default function CookiesContent() {
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('fr-FR'));
   }, []);
-
-  const handleOpenCookiePreferences = () => {
-    // TODO: Implémenter l'ouverture de la CMP (Consent Management Platform)
-    console.log('Ouvrir le panneau de gestion des cookies');
-  };
 
   return (
     <div className="min-h-screen bg-[#060B13] pt-20">
@@ -96,9 +92,9 @@ export default function CookiesContent() {
                         <td className="py-3 px-4 text-gray-400">Session</td>
                       </tr>
                       <tr>
-                        <td className="py-3 px-4 font-mono text-xs text-gray-400">cmp_consent</td>
-                        <td className="py-3 px-4">Mémorisation de vos choix en matière de cookies</td>
-                        <td className="py-3 px-4 text-gray-400">12 mois</td>
+                        <td className="py-3 px-4 font-mono text-xs text-gray-400">FCCDCF, FCNEC</td>
+                        <td className="py-3 px-4">Mémorisation de vos choix en matière de cookies (message de consentement Google)</td>
+                        <td className="py-3 px-4 text-gray-400">13 mois</td>
                       </tr>
                       <tr>
                         <td className="py-3 px-4 font-mono text-xs text-gray-400">csrf_token</td>
@@ -182,42 +178,75 @@ export default function CookiesContent() {
                   Nous affichons des bannières publicitaires sur notre site pour financer le contenu gratuit que nous proposons.
                 </p>
 
-                <div className="bg-green-500/10 border-l-4 border-green-400 p-4">
+                <div className="bg-[#182859]/10 border-l-4 border-[#F22E62] p-4">
                   <p className="text-sm">
-                    <strong className="text-white">✅ Bonne nouvelle :</strong> Nous gérons nos publicités en interne sans utiliser de régies publicitaires externes. <strong className="text-green-400">Aucun cookie publicitaire tiers n'est déposé sur votre appareil.</strong>
+                    Deux types de publicités sont affichés : des <strong className="text-white">bannières vendues directement à nos partenaires</strong> (simples images ou vidéos, sans cookie ni suivi) et des <strong className="text-white">annonces diffusées par la régie Google AdSense</strong>.
                   </p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    Les bannières publicitaires affichées sont des images statiques fournies directement par nos partenaires commerciaux. Aucun suivi comportemental ou ciblage publicitaire n'est effectué.
+                  <p className="text-sm mt-2">
+                    Les cookies publicitaires de Google et de ses partenaires ne sont déposés qu'<strong className="text-white">avec votre consentement</strong>, demandé à votre première visite. Si vous refusez, aucun cookie publicitaire n'est déposé : les annonces ne sont pas personnalisées et peuvent ne pas s'afficher.
                   </p>
                 </div>
 
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-[#182859]">
+                      <tr className="text-left">
+                        <th className="py-3 px-4 text-white font-semibold">Nom du cookie</th>
+                        <th className="py-3 px-4 text-white font-semibold">Finalité</th>
+                        <th className="py-3 px-4 text-white font-semibold">Tiers</th>
+                        <th className="py-3 px-4 text-white font-semibold">Durée</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#182859]/30">
+                      <tr>
+                        <td className="py-3 px-4 font-mono text-xs text-gray-400">__gads, __gpi</td>
+                        <td className="py-3 px-4">Diffusion et mesure des annonces, limitation du nombre d'affichages d'une même annonce</td>
+                        <td className="py-3 px-4 text-gray-400">Google AdSense</td>
+                        <td className="py-3 px-4 text-gray-400">13 mois</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 px-4 font-mono text-xs text-gray-400">__eoi</td>
+                        <td className="py-3 px-4">Sécurité et lutte contre la fraude publicitaire</td>
+                        <td className="py-3 px-4 text-gray-400">Google AdSense</td>
+                        <td className="py-3 px-4 text-gray-400">6 mois</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 px-4 font-mono text-xs text-gray-400">IDE</td>
+                        <td className="py-3 px-4">Personnalisation des annonces (domaine doubleclick.net)</td>
+                        <td className="py-3 px-4 text-gray-400">Google</td>
+                        <td className="py-3 px-4 text-gray-400">13 mois</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-xs text-gray-400">
+                  La liste complète des partenaires publicitaires de Google est consultable depuis le message de consentement (« Gérer les options »). Pour en savoir plus : <a href="https://policies.google.com/technologies/partner-sites?hl=fr" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">Comment Google utilise les données des sites partenaires</a>.
+                </p>
+
                 <div className="bg-[#182859]/20 rounded p-4">
                   <p className="text-sm mb-3">
-                    <strong className="text-white">Mode de fonctionnement selon votre appareil :</strong>
+                    <strong className="text-white">Où s'affichent les publicités :</strong>
                   </p>
 
                   <div className="space-y-3">
                     <div className="bg-[#060B13] rounded p-3">
-                      <p className="text-sm font-semibold text-white mb-2">🖥️ Desktop (ordinateur)</p>
+                      <p className="text-sm font-semibold text-white mb-2">🖥️ Site web</p>
                       <ul className="text-sm space-y-1 ml-4 text-gray-300">
-                        <li>• Bannières publicitaires dans la colonne de droite</li>
+                        <li>• Colonne de droite sur ordinateur (3 emplacements)</li>
+                        <li>• Bannières intégrées aux pages : fin d'article, accueil, matchs et tournois sur mobile</li>
                         <li>• Visibles pour <strong>tous les utilisateurs</strong> (y compris abonnés Premium)</li>
-                        <li>• 3 emplacements fixes, non intrusifs</li>
                       </ul>
                     </div>
 
                     <div className="bg-[#060B13] rounded p-3">
-                      <p className="text-sm font-semibold text-white mb-2">📱 Mobile (smartphone/tablette)</p>
+                      <p className="text-sm font-semibold text-white mb-2">📱 Applications mobiles (iOS et Android)</p>
                       <ul className="text-sm space-y-1 ml-4 text-gray-300">
                         <li>• <strong className="text-[#F22E62]">Abonnés Premium :</strong> aucun popup publicitaire</li>
-                        <li>• Utilisateurs gratuits : popups publicitaires occasionnels</li>
+                        <li>• Utilisateurs gratuits : popups publicitaires occasionnels (Google AdMob)</li>
                       </ul>
                     </div>
                   </div>
-
-                  <p className="text-xs text-gray-400 mt-3 italic">
-                    ℹ️ Aucun tracking publicitaire, aucun cookie tiers, peu importe votre statut d'abonnement.
-                  </p>
                 </div>
               </div>
             </div>
@@ -300,7 +329,7 @@ export default function CookiesContent() {
                 <li className="flex gap-3">
                   <span className="text-[#F22E62] font-bold">•</span>
                   <div>
-                    <strong className="text-white">Financer le contenu gratuit :</strong> affichage de bannières publicitaires (uniquement pour les non-abonnés, sans tracking tiers)
+                    <strong className="text-white">Financer le contenu gratuit :</strong> affichage de bannières de partenaires et d'annonces Google AdSense
                   </div>
                 </li>
               </ul>
@@ -308,7 +337,7 @@ export default function CookiesContent() {
           </section>
 
           {/* Section 4 - Gestion des préférences */}
-          <section>
+          <section id="gerer" className="scroll-mt-28">
             <h2 className="text-2xl font-semibold text-white mb-4">
               4. Comment gérer vos préférences de cookies ?
             </h2>
@@ -322,14 +351,11 @@ export default function CookiesContent() {
                 <p className="mb-4 text-sm">
                   Vous pouvez à tout moment accepter, refuser ou personnaliser vos préférences de cookies en cliquant sur le bouton ci-dessous :
                 </p>
-                <button
-                  className="bg-[#F22E62] hover:bg-[#F22E62]/90 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-                  onClick={handleOpenCookiePreferences}
-                >
+                <ConsentSettingsLink className="cursor-pointer bg-[#F22E62] hover:bg-[#F22E62]/90 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
                   Gérer mes préférences de cookies
-                </button>
+                </ConsentSettingsLink>
                 <p className="text-xs text-gray-400 mt-3">
-                  Ce panneau vous permet de choisir précisément quels types de cookies vous acceptez.
+                  Ce panneau rouvre le message de consentement et vous permet de choisir précisément ce que vous acceptez. Il n'est proposé que là où la réglementation l'exige (Espace économique européen, Royaume-Uni, Suisse) ; ailleurs, ou si un bloqueur de publicité est actif, utilisez les réglages de votre navigateur ci-dessous.
                 </p>
               </div>
 
@@ -570,12 +596,9 @@ export default function CookiesContent() {
                 year: 'numeric'
               })}
             </p>
-            <button
-              className="bg-[#182859] hover:bg-[#182859]/80 text-white px-6 py-2 rounded-lg transition-colors text-sm"
-              onClick={handleOpenCookiePreferences}
-            >
+            <ConsentSettingsLink className="cursor-pointer bg-[#182859] hover:bg-[#182859]/80 text-white px-6 py-2 rounded-lg transition-colors text-sm">
               Gérer mes préférences
-            </button>
+            </ConsentSettingsLink>
           </div>
         </div>
       </div>

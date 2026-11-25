@@ -8,6 +8,7 @@ import { LiveMatch, Advertisement } from '../../types';
 import { matchService } from '../../services/matchService';
 import { teamService } from '../../services/teamService';
 import { advertisementService } from '../../services/advertisementService';
+import AdSpot from '../../components/ads/AdSpot';
 import AdColumn from '../../components/ads/AdColumn';
 import ContentLoader from '../../components/ui/ContentLoader';
 import { prewarmFromData } from '../../lib/imageProxy';
@@ -155,7 +156,11 @@ export default function MatchDetailPageClient({ matchId, wiki, initialMatch }: M
 
       <main className="container mx-auto px-4 pt-8 md:pt-10 pb-16">
         <div className="flex gap-8">
-          <div className="flex-1 min-w-0 space-y-10">{bodyIds.map(renderSection)}</div>
+          <div className="flex-1 min-w-0 space-y-10">
+            {bodyIds.slice(0, 1).map(renderSection)}
+            <AdSpot id="mobile-1" />
+            {bodyIds.slice(1).map(renderSection)}
+          </div>
           <AdColumn ads={memoizedAds} isSubscribed={isSubscribed} isLoading={isLoadingAds} />
         </div>
       </main>

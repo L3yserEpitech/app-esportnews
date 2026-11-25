@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useToast } from '@/app/contexts/ToastContext';
@@ -8,6 +8,7 @@ import { PandaTournament, PandaMatch, NewsItem, Advertisement } from '@/app/type
 import { tournamentService } from '@/app/services/tournamentService';
 import { matchService } from '@/app/services/matchService';
 import { advertisementService } from '@/app/services/advertisementService';
+import AdSpot from '@/app/components/ads/AdSpot';
 import { articleService } from '@/app/services/articleService';
 import { Trophy } from 'lucide-react';
 import AdColumn from '@/app/components/ads/AdColumn';
@@ -189,9 +190,14 @@ export default function TournamentDetailPageClient({ tournamentId, wiki, initial
       <main className="container mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 space-y-10">
-            {bodySections.map((id) => {
+            {bodySections.map((id, index) => {
               const Section = SECTION_COMPONENTS[id];
-              return <Section key={id} {...sectionProps} />;
+              return (
+                <Fragment key={id}>
+                  <Section {...sectionProps} />
+                  {index === 0 && <AdSpot id="mobile-1" />}
+                </Fragment>
+              );
             })}
           </div>
 

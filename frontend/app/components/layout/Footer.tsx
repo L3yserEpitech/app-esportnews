@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl';
 import DynamicLogo from '../common/DynamicLogo';
 import LiquipediaBadge from '../common/LiquipediaBadge';
 import StoreBadges from '../common/StoreBadges';
+import ConsentSettingsLink from '../common/ConsentSettingsLink';
 import { GAMES } from '../../lib/gameRegistry';
 
 export default function Footer() {
@@ -173,6 +174,11 @@ export default function Footer() {
                   <Link href="/legal/cookies" style={{ color: 'var(--color-text-secondary)' }} className="hover:text-[#F22E62] transition-colors duration-200">
                     {t('layout.footer.cookies')}
                   </Link>
+                </li>
+                <li>
+                  <ConsentSettingsLink style={{ color: 'var(--color-text-secondary)' }} className="cursor-pointer text-left hover:text-[#F22E62] transition-colors duration-200">
+                    {t('layout.footer.gerer_cookies')}
+                  </ConsentSettingsLink>
                 </li>
               </ul>
             </div>

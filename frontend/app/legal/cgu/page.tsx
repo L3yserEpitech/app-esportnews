@@ -258,24 +258,22 @@ export default function CGUPage() {
             </h2>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-2">8.1 Publicités internes</h3>
-                <p>ESPORT NEWS affiche des bannières publicitaires gérées en interne (sans régies publicitaires tierces type Google AdSense ou Meta Ads).</p>
+                <h3 className="text-lg font-semibold text-white mb-2">8.1 Origine des publicités</h3>
+                <p>ESPORT NEWS affiche deux types de publicités : des bannières vendues directement à ses partenaires commerciaux, et des annonces diffusées par la régie Google AdSense.</p>
               </div>
 
               <div>
                 <h3 className="text-lg font-semibold text-white mb-2">8.2 Affichage des publicités</h3>
                 <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><strong className="text-white">Version desktop :</strong> Colonne publicitaire visible pour tous les utilisateurs (y compris abonnés Premium)</li>
-                  <li><strong className="text-white">Version mobile :</strong> Popups publicitaires désactivés pour les abonnés Premium uniquement</li>
+                  <li><strong className="text-white">Site web :</strong> Colonne publicitaire sur ordinateur et bannières intégrées aux pages, visibles pour tous les utilisateurs (y compris abonnés Premium)</li>
+                  <li><strong className="text-white">Applications mobiles :</strong> Popups publicitaires désactivés pour les abonnés Premium uniquement</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-white mb-2">8.3 Aucun tracking publicitaire</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">8.3 Cookies publicitaires et consentement</h3>
                 <p className="text-sm text-gray-400">
-                  ✅ Aucun cookie publicitaire tiers<br />
-                  ✅ Aucun tracking comportemental<br />
-                  ✅ Affichage simple d'images/vidéos fournies par des partenaires commerciaux
+                  Les bannières de nos partenaires sont de simples images ou vidéos, sans cookie ni suivi. Les annonces Google AdSense peuvent utiliser des cookies publicitaires, déposés uniquement avec votre consentement, que vous pouvez modifier à tout moment avec le lien « Gérer mes cookies » en bas de chaque page. Détails dans la <a href="/legal/cookies" className="text-[#F22E62] hover:underline">politique de gestion des cookies</a>.
                 </p>
               </div>
 

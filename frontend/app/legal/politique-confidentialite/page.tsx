@@ -87,7 +87,7 @@ export default function PolitiqueConfidentialitePage() {
 
               <div className="pt-4 border-t border-[#182859]/30">
                 <p className="text-sm text-gray-400">
-                  <strong className="text-white">Important :</strong> Nous ne collectons AUCUNE donnée de navigation comportementale à des fins publicitaires. Notre système de comptage de vues d'articles est purement statistique et ne permet pas de tracer les utilisateurs.
+                  <strong className="text-white">Important :</strong> Notre système de comptage de vues d'articles est purement statistique et ne permet pas de tracer les utilisateurs. Les données de navigation utilisées pour la publicité sont collectées par Google, et seulement avec votre consentement (voir la section 9).
                 </p>
               </div>
             </div>
@@ -178,9 +178,19 @@ export default function PolitiqueConfidentialitePage() {
                 </ul>
               </div>
 
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Régie publicitaire :</h3>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li><strong className="text-white">Google AdSense (Google Ireland Limited) :</strong> diffuse une partie des publicités du site. Avec votre consentement, Google et ses partenaires publicitaires déposent des cookies et utilisent des données de navigation (pages vues, adresse IP, identifiants de cookie) pour diffuser et mesurer les annonces, et pour les personnaliser.</li>
+                </ul>
+                <p className="text-sm text-gray-400 mt-2">
+                  Aucune donnée de votre compte (e-mail, nom, âge, abonnement) n'est transmise à Google. Pour en savoir plus : <a href="https://policies.google.com/technologies/partner-sites?hl=fr" target="_blank" rel="noopener noreferrer" className="text-[#F22E62] hover:underline">Comment Google utilise les données des sites partenaires</a>.
+                </p>
+              </div>
+
               <div className="pt-4 border-t border-[#182859]/30">
                 <p className="text-sm text-gray-400">
-                  <strong className="text-white">Important :</strong> Nous ne vendons ni ne louons vos données personnelles à des tiers. Nous n'utilisons AUCUNE régie publicitaire externe (Google AdSense, Meta Ads, etc.).
+                  <strong className="text-white">Important :</strong> Nous ne vendons ni ne louons vos données personnelles à des tiers.
                 </p>
               </div>
             </div>
@@ -353,7 +363,7 @@ export default function PolitiqueConfidentialitePage() {
               9. Cookies et technologies similaires
             </h2>
             <div className="bg-[#091626] border border-[#182859]/30 rounded-lg p-6 space-y-3">
-              <p>ESPORT NEWS utilise uniquement des <strong className="text-white">cookies techniques strictement nécessaires</strong> au fonctionnement du site :</p>
+              <p>ESPORT NEWS utilise des <strong className="text-white">cookies techniques strictement nécessaires</strong> au fonctionnement du site :</p>
 
               <ul className="list-disc list-inside ml-2 space-y-2 mt-3">
                 <li>
@@ -364,11 +374,19 @@ export default function PolitiqueConfidentialitePage() {
                 </li>
               </ul>
 
-              <p className="text-sm text-gray-400 mt-4">
-                ✅ <strong className="text-white">Aucun cookie publicitaire tiers</strong> (Google AdSense, Meta Pixel, etc.)<br />
-                ✅ <strong className="text-white">Aucun tracking comportemental</strong><br />
-                ✅ <strong className="text-white">Pas de consentement requis</strong> (cookies techniques uniquement)
-              </p>
+              <p className="mt-4">Le site diffuse aussi des publicités via <strong className="text-white">Google AdSense</strong>. Les cookies publicitaires de Google et de ses partenaires ne sont déposés qu'<strong className="text-white">avec votre consentement</strong>, demandé à votre première visite :</p>
+
+              <ul className="list-disc list-inside ml-2 space-y-2 mt-3">
+                <li>
+                  <strong className="text-white">Si vous acceptez :</strong> les annonces peuvent être personnalisées à partir de votre navigation
+                </li>
+                <li>
+                  <strong className="text-white">Si vous refusez :</strong> aucun cookie publicitaire n'est déposé, les annonces ne sont pas personnalisées et peuvent ne pas s'afficher
+                </li>
+                <li>
+                  <strong className="text-white">À tout moment :</strong> vous pouvez modifier votre choix avec le lien « Gérer mes cookies » en bas de chaque page
+                </li>
+              </ul>
 
               <p className="mt-4">
                 Pour plus d'informations : <a href="/legal/cookies" className="text-[#F22E62] hover:underline">Politique de gestion des cookies</a>
