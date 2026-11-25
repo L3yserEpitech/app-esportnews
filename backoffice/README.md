@@ -17,10 +17,20 @@ PORT=4100 ENV=development \
   DATABASE_URL='postgres://postgres:postgres@127.0.0.1:5440/esportnews_bo?sslmode=disable' \
   REDIS_URL='redis://127.0.0.1:6390' JWT_SECRET=dev-secret-backoffice \
   LIQUIPEDIA_POLLER_ENABLED=false NOTIFICATION_SCHEDULER_ENABLED=false \
+  EXPO_PUSH_BASE_URL=http://127.0.0.1:4193 \
   BACKOFFICE_URL=http://localhost:3100 go run ./cmd/server
 
 cd backoffice
 NEXT_PUBLIC_API_URL=http://localhost:4100 pnpm dev      # http://localhost:3100
+```
+
+`EXPO_PUSH_BASE_URL` détourne les appels à Expo vers une adresse locale : sans lui, publier un article avec la notification cochée ou envoyer un push manuel partirait vers le vrai service. Il n'est lu qu'au démarrage et n'a rien à faire en prod.
+
+Tests Go : ceux qui ont besoin de Postgres sont sautés sans `TEST_DATABASE_URL` (base locale dont le nom contient `test`), et vident les mêmes tables, d'où `-p 1` :
+
+```bash
+TEST_DATABASE_URL='postgres://postgres:postgres@127.0.0.1:5440/esportnews_test?sslmode=disable' \
+  go test -p 1 ./internal/...
 ```
 
 Un compte d'équipe se crée en donnant un rôle à un compte existant :

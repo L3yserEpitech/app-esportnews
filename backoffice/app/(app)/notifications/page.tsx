@@ -196,7 +196,7 @@ export default function NotificationsPage() {
                         <Chip tone={KIND_CHIP[e.kind]?.tone || 'gris'}>{KIND_CHIP[e.kind]?.label || e.kind}</Chip>
                       </td>
                       {/* The title gives way first: every other column must stay readable. */}
-                      <td className="court" style={{ maxWidth: 260 }} title={e.title}>
+                      <td className="court" style={{ maxWidth: 0, width: '100%', minWidth: 160 }} title={e.title}>
                         {e.title}
                       </td>
                       <td className="faible">{e.audience}</td>

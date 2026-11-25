@@ -194,10 +194,17 @@ function UserList({
                   const self = u.id === me.user.id;
                   return (
                     <tr key={u.id}>
-                      <td>
+                      {/* The address gives way first, so every column stays in view. */}
+                      <td style={{ width: '100%', maxWidth: 0, minWidth: 220 }}>
                         <span className="qui">
                           <Avatar name={u.name || u.email} team={u.role !== 'user'} />
-                          <Link href={`/utilisateurs/${u.id}`}>{u.email}</Link>
+                          <Link
+                            href={`/utilisateurs/${u.id}`}
+                            title={u.email}
+                            style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          >
+                            {u.email}
+                          </Link>
                           {self && <span className="faible">· vous</span>}
                         </span>
                       </td>

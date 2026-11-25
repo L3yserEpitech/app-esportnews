@@ -1564,7 +1564,10 @@ textarea::placeholder {
 
 .tbl .titre {
   white-space: normal;
-  max-width: 430px;
+  /* Takes what the other columns leave: the table fits its card, the title is cut. */
+  width: 100%;
+  max-width: 0;
+  min-width: 240px;
 }
 
 .tbl .titre a {
