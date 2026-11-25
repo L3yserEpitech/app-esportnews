@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useIsDarkTheme } from '@/app/hooks/useIsDarkTheme';
 import { APP_PROMO_SEEN_KEY, APP_STORE_URL, PLAY_STORE_URL, shouldShowAppPromo } from '@/app/lib/appPromo';
-import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from '@/app/lib/cookieConsent';
+import { whenConsentSettled } from '@/app/lib/cookieConsent';
 import AppQrCode from './AppQrCode';
 import { barlow, CONDENSED } from './appPromoFonts';
 import { AppleIcon, PlayIcon } from './storeIcons';
@@ -162,17 +162,13 @@ export default function AppPromoModal() {
     try {
       const show = shouldShowAppPromo(pathname, sessionStorage.getItem(APP_PROMO_SEEN_KEY));
       if (!show) return;
-      if (localStorage.getItem(COOKIE_CONSENT_KEY)) {
-        schedule();
-        return () => clearTimeout(timer);
-      }
     } catch {
       return;
     }
-    // First visit: the cookie banner is up, one prompt at a time.
-    window.addEventListener(COOKIE_CONSENT_EVENT, schedule, { once: true });
+    // One prompt at a time: the consent message goes first when it is shown.
+    const cancel = whenConsentSettled(schedule);
     return () => {
-      window.removeEventListener(COOKIE_CONSENT_EVENT, schedule);
+      cancel();
       clearTimeout(timer);
     };
   }, [pathname]);
