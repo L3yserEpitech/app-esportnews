@@ -21,6 +21,23 @@ func NewEmailService(resendAPIKey string, emailFrom string) *EmailService {
 	}
 }
 
+// Send delivers an arbitrary HTML e-mail (back-office invitations and links).
+func (e *EmailService) Send(ctx context.Context, to, subject, html string) error {
+	sent, err := e.client.Emails.Send(&resend.SendEmailRequest{
+		From:    e.emailFrom,
+		To:      []string{to},
+		Subject: subject,
+		Html:    html,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	if sent.Id == "" {
+		return fmt.Errorf("email sent but no ID returned")
+	}
+	return nil
+}
+
 // SendSubscriptionConfirmation sends a subscription confirmation email
 func (e *EmailService) SendSubscriptionConfirmation(ctx context.Context, userEmail, username string, nextBillingDate time.Time) error {
 	subject := "Bienvenue dans esportnews Premium"

@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 
+	"github.com/esportnews/backend/internal/backoffice"
 	"github.com/esportnews/backend/internal/cache"
 	"github.com/esportnews/backend/internal/config"
 	"github.com/esportnews/backend/internal/handlers"
@@ -84,6 +85,9 @@ func main() {
 	if cfg.FrontendURL != "" {
 		corsOrigins = append(corsOrigins, cfg.FrontendURL)
 	}
+	if cfg.BackofficeURL != "" {
+		corsOrigins = append(corsOrigins, strings.TrimRight(cfg.BackofficeURL, "/"))
+	}
 	// Add CORS_ORIGINS from env if specified
 	if cfg.CORSOrigins != "" {
 		// Parse comma-separated list
@@ -117,10 +121,10 @@ func main() {
 			}
 			return allowed, nil
 		},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-BO-City"},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, echo.OPTIONS},
-		AllowCredentials: true,                      // Requis pour credentials: 'include' côté frontend
-		ExposeHeaders:    []string{"X-Total-Count"}, // Expose custom headers for pagination
+		AllowCredentials: true,                                                     // Requis pour credentials: 'include' côté frontend
+		ExposeHeaders:    []string{"X-Total-Count", echo.HeaderContentDisposition}, // Expose custom headers for pagination
 	}))
 
 	// Rate limiting middleware
@@ -237,6 +241,58 @@ func main() {
 	analyticsHandler.RegisterAdminRoutes(adminGroup) // Protected analytics endpoints
 	gameHandler.RegisterAdminRoutes(adminGroup)
 
+	// Back-office (admin.esportnews.fr): its own sessions, under /api/bo.
+	if err := backoffice.EnsureSchema(gormDB.DB); err != nil {
+		logger.Fatalf("Failed to prepare back-office schema: %v", err)
+	}
+	backofficeModule, err := backoffice.New(backoffice.Deps{
+		DB:         gormDB.DB,
+		Cache:      redisClient,
+		Auth:       authService,
+		Articles:   articleService,
+		Storage:    storageService,
+		Email:      emailService,
+		Push:       expoPushService,
+		Notifier:   contentNotifier,
+		Liquipedia: liquipediaService,
+		Logger:     logger,
+		Config: backoffice.Config{
+			Env:                  cfg.Env,
+			Secret:               cfg.BackofficeSecret,
+			BackofficeURL:        cfg.BackofficeURL,
+			SiteURL:              cfg.SiteURL,
+			GoogleClientID:       cfg.GoogleOAuthClientID,
+			VercelToken:          cfg.VercelToken,
+			VercelProjectID:      cfg.VercelProjectID,
+			VercelTeamID:         cfg.VercelTeamID,
+			GSCSiteURL:           cfg.GSCSiteURL,
+			GSCCredentialsJSON:   cfg.GSCCredentialsJSON,
+			RailwayToken:         cfg.RailwayToken,
+			RailwayProjectID:     cfg.RailwayProjectID,
+			RailwayServiceID:     cfg.RailwayServiceID,
+			RailwayEnvironmentID: cfg.RailwayEnvironmentID,
+			UpstashEmail:         cfg.UpstashEmail,
+			UpstashAPIKey:        cfg.UpstashAPIKey,
+			UpstashDatabaseID:    cfg.UpstashDatabaseID,
+			ResendAPIKey:         cfg.ResendAPIKey,
+			AppStoreKeyID:        cfg.AppStoreKeyID,
+			AppStoreIssuerID:     cfg.AppStoreIssuerID,
+			AppStoreKeyContent:   cfg.AppStoreKeyContent,
+			AppStoreVendorID:     cfg.AppStoreVendorID,
+			AppStoreAppSKU:       cfg.AppStoreAppSKU,
+			PlayReportsBucket:    cfg.PlayReportsBucket,
+			PlayCredentialsJSON:  cfg.PlayCredentialsJSON,
+			PlayPackage:          cfg.GoogleIAPPackage,
+			LiquipediaProxyURL:   cfg.LiquipediaHTTPProxy,
+		},
+	})
+	if err != nil {
+		logger.Fatalf("Failed to initialize back-office: %v", err)
+	}
+	backofficeModule.Register(apiGroup)
+	backofficeCtx, backofficeCancel := context.WithCancel(context.Background())
+	backofficeModule.Start(backofficeCtx)
+
 	// Notification scheduler — disabled on preview/staging environments that
 	// share the prod database, to avoid two backends racing on match_subscriptions
 	// and dispatching duplicate push notifications.
@@ -287,6 +343,7 @@ func main() {
 	// Stop schedulers
 	schedulerCancel()
 	iapSchedulerCancel()
+	backofficeCancel()
 
 	// Stop Liquipedia poller gracefully
 	pollerCancel()

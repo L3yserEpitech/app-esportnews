@@ -78,6 +78,33 @@ type Config struct {
 	R2PublicURL       string
 	MaxUploadSize     int64
 	UploadTimeout     time.Duration
+
+	// Back-office (admin.esportnews.fr). Every external source is optional: a
+	// card whose credentials are missing says so instead of showing a number.
+	BackofficeURL        string
+	BackofficeSecret     string
+	SiteURL              string
+	GoogleOAuthClientID  string
+	VercelToken          string
+	VercelProjectID      string
+	VercelTeamID         string
+	GSCSiteURL           string
+	GSCCredentialsJSON   string
+	RailwayToken         string
+	RailwayProjectID     string
+	RailwayServiceID     string
+	RailwayEnvironmentID string
+	UpstashEmail         string
+	UpstashAPIKey        string
+	UpstashDatabaseID    string
+	AppStoreKeyID        string
+	AppStoreIssuerID     string
+	AppStoreKeyContent   string
+	AppStoreVendorID     string
+	AppStoreAppSKU       string
+	PlayReportsBucket    string
+	PlayCredentialsJSON  string
+	LiquipediaHTTPProxy  string
 }
 
 func LoadConfig() *Config {
@@ -130,6 +157,31 @@ func LoadConfig() *Config {
 		R2Endpoint:        getEnv("CLOUDFLARE_R2_ENDPOINT", ""),
 		R2PublicURL:       getEnv("CLOUDFLARE_R2_PUBLIC_URL", ""),
 		MaxUploadSize:     getEnvInt64("MAX_UPLOAD_SIZE", 524288000), // 500MB default
+
+		BackofficeURL:        getEnv("BACKOFFICE_URL", "http://localhost:3100"),
+		BackofficeSecret:     getEnv("BACKOFFICE_SECRET", ""),
+		SiteURL:              getEnv("SITE_URL", "https://www.esportnews.fr"),
+		GoogleOAuthClientID:  getEnv("GOOGLE_OAUTH_CLIENT_ID", ""),
+		VercelToken:          getEnv("VERCEL_API_TOKEN", ""),
+		VercelProjectID:      getEnv("VERCEL_PROJECT_ID", ""),
+		VercelTeamID:         getEnv("VERCEL_TEAM_ID", ""),
+		GSCSiteURL:           getEnv("GSC_SITE_URL", ""),
+		GSCCredentialsJSON:   getEnv("GSC_CREDENTIALS_JSON", ""),
+		RailwayToken:         getEnv("RAILWAY_API_TOKEN", ""),
+		RailwayProjectID:     getEnv("RAILWAY_PROJECT_ID", ""),
+		RailwayServiceID:     getEnv("RAILWAY_SERVICE_ID", ""),
+		RailwayEnvironmentID: getEnv("RAILWAY_ENVIRONMENT_ID", ""),
+		UpstashEmail:         getEnv("UPSTASH_EMAIL", ""),
+		UpstashAPIKey:        getEnv("UPSTASH_API_KEY", ""),
+		UpstashDatabaseID:    getEnv("UPSTASH_DATABASE_ID", ""),
+		AppStoreKeyID:        getEnv("APPSTORE_CONNECT_KEY_ID", ""),
+		AppStoreIssuerID:     getEnv("APPSTORE_CONNECT_ISSUER_ID", ""),
+		AppStoreKeyContent:   getEnv("APPSTORE_CONNECT_KEY_CONTENT", ""),
+		AppStoreVendorID:     getEnv("APPSTORE_CONNECT_VENDOR_ID", ""),
+		AppStoreAppSKU:       getEnv("APPSTORE_CONNECT_APP_SKU", ""),
+		PlayReportsBucket:    getEnv("PLAY_REPORTS_BUCKET", ""),
+		PlayCredentialsJSON:  getEnv("PLAY_REPORTS_CREDENTIALS_JSON", ""),
+		LiquipediaHTTPProxy:  getEnv("LIQUIPEDIA_HTTP_PROXY", ""),
 	}
 
 	cfg.JWTExpiration = 7 * 24 * time.Hour
