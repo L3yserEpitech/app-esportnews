@@ -1,0 +1,48 @@
+import type { Tone } from '@/components/ui';
+
+// How each action recorded by the backend reads in the journal. An action
+// missing here still shows, under its raw key.
+export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
+  'article.published': { label: 'Publication', tone: 'vert' },
+  'article.scheduled': { label: 'Programmation', tone: 'bleu' },
+  'article.created': { label: 'Brouillon', tone: 'gris' },
+  'article.updated': { label: 'Modification', tone: 'gris' },
+  'article.unpublished': { label: 'Dépublication', tone: 'ambre' },
+  'article.deleted': { label: 'Article supprimé', tone: 'rouge' },
+  'article.restored': { label: 'Version restaurée', tone: 'gris' },
+  'article.game_assigned': { label: 'Jeu attribué', tone: 'bleu' },
+  'article.category_changed': { label: 'Catégorie changée', tone: 'bleu' },
+  'user.logout_forced': { label: 'Déconnexion forcée', tone: 'ambre' },
+  'user.role_changed': { label: 'Rôle changé', tone: 'rose' },
+  'user.premium_gifted': { label: 'Premium offert', tone: 'gris' },
+  'user.premium_gift_removed': { label: 'Premium retiré', tone: 'gris' },
+  'user.deleted': { label: 'Compte supprimé', tone: 'rouge' },
+  'user.exported': { label: 'Export de données', tone: 'gris' },
+  'users.exported': { label: 'Export des comptes', tone: 'gris' },
+  'push.manual': { label: 'Push manuel', tone: 'ambre' },
+  'auth.login': { label: 'Connexion', tone: 'gris' },
+  'auth.login_refused': { label: 'Connexion refusée', tone: 'gris' },
+  'auth.totp_enabled': { label: 'Double auth. activée', tone: 'vert' },
+  'auth.backup_code_used': { label: 'Code de secours', tone: 'ambre' },
+  'auth.backup_codes_regenerated': { label: 'Codes de secours', tone: 'gris' },
+  'auth.password_changed': { label: 'Mot de passe changé', tone: 'gris' },
+  'team.invited': { label: 'Invitation', tone: 'rose' },
+  'team.invitation_accepted': { label: 'Invitation acceptée', tone: 'vert' },
+  'team.totp_reset': { label: 'Double auth. réinitialisée', tone: 'ambre' },
+  'settings.changed': { label: 'Réglage', tone: 'gris' },
+  'ads.updated': { label: 'Publicité', tone: 'bleu' },
+  'media.uploaded': { label: 'Média ajouté', tone: 'gris' },
+  'media.deleted': { label: 'Média supprimé', tone: 'rouge' },
+  'audit.exported': { label: 'Export du journal', tone: 'gris' },
+};
+
+export const AUDIT_GROUPS: { value: string; label: string }[] = [
+  { value: 'article', label: 'Articles' },
+  { value: 'user', label: 'Utilisateurs' },
+  { value: 'push', label: 'Notifications' },
+  { value: 'auth', label: 'Connexions' },
+  { value: 'team', label: 'Équipe' },
+  { value: 'ads', label: 'Publicités' },
+  { value: 'media', label: 'Médias' },
+  { value: 'settings', label: 'Réglages' },
+];

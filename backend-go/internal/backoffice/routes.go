@@ -2,6 +2,7 @@ package backoffice
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -16,6 +17,22 @@ func (m *Module) Register(api *echo.Group) {
 	m.registerAuthRoutes(pub, priv)
 	m.registerTeamRoutes(priv)
 	m.registerAuditRoutes(priv)
+	priv.GET("/nav", m.handleNav)
+}
+
+// handleNav feeds the counters of the sidebar. A counter the member's role
+// can't see stays null.
+func (m *Module) handleNav(c echo.Context) error {
+	ctx := c.Request().Context()
+	var articles int64
+	if err := m.db.WithContext(ctx).Raw("SELECT count(*) FROM articles").Scan(&articles).Error; err != nil {
+		return m.internal(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"articles":      articles,
+		"health_alerts": m.navHealthAlerts(c),
+		"push_alerts":   m.navPushAlerts(c),
+	})
 }
 
 // Start runs the background jobs until ctx ends.
