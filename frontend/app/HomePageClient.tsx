@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import GameSelector from './components/games/GameSelector';
 import LiveMatchesCarousel from './components/matches/LiveMatchesCarousel';
 import NewsSection from './components/news/NewsSection';
@@ -48,17 +48,24 @@ function pickBestMatchesOfDay(matches: LiveMatch[]): LiveMatch[] {
 
 
 
-export default function HomePageClient() {
+interface HomePageClientProps {
+  // Articles lus côté serveur (sans filtre de jeu) : présents dans le HTML initial.
+  initialArticles?: NewsItem[];
+}
+
+export default function HomePageClient({ initialArticles }: HomePageClientProps) {
   const t = useTranslations();
   const { games, selectedGame, setSelectedGame, isLoadingGames, isSelectionRestored, getSelectedGameData } = useGame();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [bestMatches, setBestMatches] = useState<LiveMatch[]>([]);
-  const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(null);
-  const [newsList, setNewsList] = useState<NewsItem[]>([]);
+  const [featuredNews, setFeaturedNews] = useState<NewsItem | null>(initialArticles?.[0] ?? null);
+  const [newsList, setNewsList] = useState<NewsItem[]>(initialArticles?.slice(1, 7) ?? []);
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
-  const [isLoadingNews, setIsLoadingNews] = useState(true);
+  const [isLoadingNews, setIsLoadingNews] = useState(!initialArticles?.length);
+  // Les articles du serveur valent tant que l'on reste sans filtre de jeu.
+  const leftInitialRef = useRef(false);
 
   // Charger les meilleurs matchs du jour (top tier de la date courante)
   const loadBestMatches = useCallback(async () => {
@@ -128,6 +135,8 @@ export default function HomePageClient() {
   // 7 most recent articles of the selection: 1 featured + 6 in the grid.
   useEffect(() => {
     if (isWaitingForSelection) return;
+    if (!activeGameId && initialArticles?.length && !leftInitialRef.current) return;
+    leftInitialRef.current = true;
 
     let stale = false;
     setIsLoadingNews(true);
@@ -145,7 +154,7 @@ export default function HomePageClient() {
     return () => {
       stale = true;
     };
-  }, [isWaitingForSelection, activeGameId]);
+  }, [isWaitingForSelection, activeGameId, initialArticles]);
 
   // Charger les données selon le jeu sélectionné
   const loadGameData = useCallback((_gameId: string) => {

@@ -5,6 +5,7 @@ import {
 } from './components/seo/StructuredData';
 import { DEFAULT_OG_IMAGE } from './lib/seoHelpers';
 import { SITE_NAME } from './lib/seoTitles';
+import { fetchArticlesServer } from './lib/serverArticles';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.esportnews.fr';
 
@@ -24,12 +25,14 @@ export const metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  // 7 derniers articles : 1 à la une + 6 dans la grille (comme côté navigateur).
+  const latest = await fetchArticlesServer({ limit: 7 });
   return (
     <>
       <WebSiteSchema url={SITE_URL} />
       <OrganizationSchema />
-      <HomePageClient />
+      <HomePageClient initialArticles={latest?.articles} />
     </>
   );
 }
