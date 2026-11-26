@@ -10,6 +10,7 @@ import MobileGameSelector from '../games/MobileGameSelector';
 import SettingsModal from './SettingsModal';
 import DynamicLogo from '../common/DynamicLogo';
 import { Game } from '../../types';
+import frMessages from '@/public/locales/fr.json';
 
 interface NavbarProps {
   games?: Game[];
@@ -40,11 +41,11 @@ const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navLinks = [
-    { href: '/', label: mounted ? t('layout.navbar.accueil') : '' },
-    { href: '/news', label: mounted ? t('layout.navbar.actualites') : '' },
-    { href: '/match', label: mounted ? t('layout.navbar.matchs') : '' },
-    { href: '/tournois', label: mounted ? t('layout.navbar.tournois') : '' },
-    { href: '/articles', label: mounted ? t('layout.navbar.articles') : '' },
+    { href: '/', label: mounted ? t('layout.navbar.accueil') : frMessages.layout.navbar.accueil },
+    { href: '/news', label: mounted ? t('layout.navbar.actualites') : frMessages.layout.navbar.actualites },
+    { href: '/match', label: mounted ? t('layout.navbar.matchs') : frMessages.layout.navbar.matchs },
+    { href: '/tournois', label: mounted ? t('layout.navbar.tournois') : frMessages.layout.navbar.tournois },
+    { href: '/articles', label: mounted ? t('layout.navbar.articles') : frMessages.layout.navbar.articles },
   ];
 
   // Détection du scroll pour changer le background de la navbar
