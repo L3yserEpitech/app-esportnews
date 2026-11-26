@@ -22,14 +22,22 @@ import {
 const ARTICLES_PER_PAGE = 9;
 const NEWS_CATEGORY = 'Actus';
 
-export default function NewsPage() {
+interface NewsInitialData {
+  featured: NewsItem | null;
+  articles: NewsItem[];
+  total: number;
+  page: number;
+}
+
+// initialData : première page lue côté serveur (sans filtre de jeu), présente dans le HTML initial.
+export default function NewsPage({ initialData }: { initialData?: NewsInitialData }) {
   const t = useTranslations();
   const { games, selectedGame, setSelectedGame, isSelectionRestored, isLoadingGames, getSelectedGameData } = useGame();
-  const [articles, setArticles] = useState<NewsItem[]>([]);
-  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
-  const [totalArticles, setTotalArticles] = useState(0);
+  const [articles, setArticles] = useState<NewsItem[]>(initialData?.articles ?? []);
+  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(initialData?.featured ?? null);
+  const [totalArticles, setTotalArticles] = useState(initialData?.total ?? 0);
   const [ads, setAds] = useState<Advertisement[]>([]);
-  const [isLoadingArticles, setIsLoadingArticles] = useState(true);
+  const [isLoadingArticles, setIsLoadingArticles] = useState(!initialData);
   const [loadFailed, setLoadFailed] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
@@ -45,7 +53,7 @@ export default function NewsPage() {
   // A page number and a total only mean something for the game they were read
   // under: the selection also changes from the navbar on mobile or from another tab.
   // Adjusted during render because an effect would first load the new game at the old page.
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialData?.page ?? 1);
   const [pageGame, setPageGame] = useState(activeGameId);
   if (pageGame !== activeGameId) {
     setPageGame(activeGameId);
@@ -57,9 +65,14 @@ export default function NewsPage() {
   // list of games can validate it. Without a saved game, /api/games delays nothing.
   const isWaitingForSelection = !isSelectionRestored || (selectedGame !== null && isLoadingGames);
 
+  const leftInitialRef = useRef(false);
+
   // Featured = most recent article of the selection; the grid starts right after it.
   useEffect(() => {
     if (isWaitingForSelection) return;
+    // Sans filtre de jeu, la page lue par le serveur fait foi tant qu'on n'en est pas sorti.
+    if (initialData && !activeGameId && currentPage === initialData.page && !leftInitialRef.current) return;
+    leftInitialRef.current = true;
 
     let stale = false;
     setIsLoadingArticles(true);
@@ -91,7 +104,7 @@ export default function NewsPage() {
     return () => {
       stale = true;
     };
-  }, [isWaitingForSelection, activeGameId, currentPage, retryCount]);
+  }, [isWaitingForSelection, activeGameId, currentPage, retryCount, initialData]);
 
   // Load ads
   const loadAds = useCallback(async () => {
@@ -295,6 +308,36 @@ export default function NewsPage() {
                   Suivant →
                 </button>
               </div>
+            )}
+
+            {/* Liens numérotés /news?page=N : sans filtre de jeu, ils donnent aux robots un chemin
+                vers les articles plus anciens ; un clic simple reste dans la page. */}
+            {!isLoadingArticles && !activeGameData && totalPages > 1 && (
+              <nav aria-label="Pages d'actualités" className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((n) => n === 1 || n === totalPages || Math.abs(n - currentPage) <= 2)
+                  .map((n, i, all) => (
+                    <span key={n} className="flex items-center gap-2">
+                      {i > 0 && n - all[i - 1] > 1 && <span className="text-text-muted">…</span>}
+                      <a
+                        href={n === 1 ? '/news' : `/news?page=${n}`}
+                        aria-current={n === currentPage ? 'page' : undefined}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                          e.preventDefault();
+                          goToPage(n);
+                        }}
+                        className={`min-w-9 px-3 py-1.5 text-center rounded-lg text-sm font-medium border transition-colors ${
+                          n === currentPage
+                            ? 'bg-accent text-text-inverse border-accent'
+                            : 'bg-bg-secondary text-text-primary border-border-primary hover:bg-bg-tertiary'
+                        }`}
+                      >
+                        {n}
+                      </a>
+                    </span>
+                  ))}
+              </nav>
             )}
           </div>
 

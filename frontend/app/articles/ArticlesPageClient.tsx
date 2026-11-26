@@ -29,13 +29,21 @@ const AVAILABLE_CATEGORIES = [
   'Interview'
 ];
 
-export default function ArticlesPageClient() {
+interface ArticlesInitialData {
+  featured: NewsItem | null;
+  articles: NewsItem[];
+  total: number;
+}
+
+export default function ArticlesPageClient({ initialData }: { initialData?: ArticlesInitialData }) {
   const t = useTranslations();
-  const [articles, setArticles] = useState<NewsItem[]>([]);
-  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(null);
-  const [totalArticles, setTotalArticles] = useState(0);
+  const [articles, setArticles] = useState<NewsItem[]>(initialData?.articles ?? []);
+  const [featuredArticle, setFeaturedArticle] = useState<NewsItem | null>(initialData?.featured ?? null);
+  const [totalArticles, setTotalArticles] = useState(initialData?.total ?? 0);
   const [ads, setAds] = useState<Advertisement[]>([]);
-  const [isLoadingArticles, setIsLoadingArticles] = useState(true);
+  const [isLoadingArticles, setIsLoadingArticles] = useState(!initialData);
+  // Page 1 sans catégorie : le serveur a déjà fourni les articles.
+  const leftInitialRef = useRef(false);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [isSubscribed] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -46,6 +54,7 @@ export default function ArticlesPageClient() {
 
   // Load featured article (most recent, excluding Actus)
   const loadFeaturedArticle = useCallback(async () => {
+    if (initialData) return;
     try {
       const fetchedArticles = await articleService.getAllArticles({
         limit: 1,
@@ -58,10 +67,12 @@ export default function ArticlesPageClient() {
     } catch (error) {
       console.error('Erreur lors du chargement de l\'article featured:', error);
     }
-  }, []);
+  }, [initialData]);
 
   // Load paginated articles
   const loadArticles = useCallback(async () => {
+    if (initialData && currentPage === 1 && !selectedCategory && !leftInitialRef.current) return;
+    leftInitialRef.current = true;
     try {
       setIsLoadingArticles(true);
       const offset = 1 + (currentPage - 1) * ARTICLES_PER_PAGE; // Skip featured article
@@ -83,7 +94,7 @@ export default function ArticlesPageClient() {
     } finally {
       setIsLoadingArticles(false);
     }
-  }, [currentPage, selectedCategory]);
+  }, [currentPage, selectedCategory, initialData]);
 
   // Load ads
   const loadAds = useCallback(async () => {
